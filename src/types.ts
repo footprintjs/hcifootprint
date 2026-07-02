@@ -320,3 +320,80 @@ export interface PendingInfo {
   affordanceId: string;
   firedAt: number;
 }
+
+// ---------------------------------------------------------------------------
+// Skill frames — on-demand disclosure (serve skills; expand tools on commit)
+// ---------------------------------------------------------------------------
+
+export type StepStatus = 'done' | 'ready' | 'blocked' | 'off-node';
+
+/** B depends on A when A's declared writes overlap B's guard keys — DERIVED, never authored. */
+export interface DependencyEdge {
+  affordanceId: string;
+  viaKeys: string[];
+}
+
+export interface SkillPlanStep {
+  affordanceId: string;
+  description: string;
+  /**
+   * 'done' = committed while the current frame was open; 'blocked' = guard
+   * fails (see blockedOn); 'ready' = fireable here and now; 'off-node' =
+   * guard passes but the step lives on another page (navigate first).
+   */
+  status: StepStatus;
+  dependsOn: DependencyEdge[];
+  onNodes: string[];
+  blockedOn?: FilterCondition[];
+}
+
+/** The derived intra-skill dependency DAG with live status. */
+export interface SkillPlan {
+  skillId: string;
+  description: string;
+  steps: SkillPlanStep[];
+}
+
+export type FrameStatus = 'open' | 'completed' | 'cancelled' | 'demoted';
+
+/** One committed pass at a skill. 'demoted' = the skill's precondition broke mid-flow. */
+export interface SkillFrame {
+  skillId: string;
+  status: FrameStatus;
+  principal: Principal;
+  openedAt: number;
+  openedAtVersion: number;
+  /** Steps committed while this frame was open. */
+  firedSteps: string[];
+  closedAtVersion?: number;
+}
+
+export type CommitSkillResult =
+  | { ok: true; frame: SkillFrame; plan: SkillPlan; version: number }
+  | { ok: false; reason: 'UNKNOWN_SKILL'; known: string[] }
+  | { ok: false; reason: 'STALE_CURSOR'; version: number }
+  | { ok: false; reason: 'PRECONDITION_FAILED'; evidence: FilterCondition[] }
+  | { ok: false; reason: 'FRAME_ALREADY_OPEN'; skillId: string };
+
+// ---------------------------------------------------------------------------
+// Context brief — the traverse-path delta served to the LLM each chat turn
+// ---------------------------------------------------------------------------
+
+export interface ContextBriefOptions {
+  /** Only include transitions created at or after this cursor version (the "since your last turn" cursor). */
+  sinceVersion?: number;
+  /** Cap on rendered transitions (default 20); older ones collapse into an omitted count. */
+  maxTransitions?: number;
+}
+
+/**
+ * Token-lean, prompt-ready session context. `text` is built from AUTHORED
+ * strings and structural facts only — state values and payloads never enter
+ * it (the two-string-class invariant extends to history).
+ */
+export interface ContextBrief {
+  node: string;
+  version: number;
+  frame: SkillFrame | null;
+  text: string;
+}

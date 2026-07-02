@@ -74,6 +74,11 @@ export class SkillGraphBuilder {
   }
 
   affordance(id: string, def: AffordanceDef): this {
+    if (id === 'leave-skill') {
+      throw new SkillGraphValidationError(
+        `affordance id 'leave-skill' is reserved — it is the synthetic escape tool served while a skill frame is open.`,
+      );
+    }
     if (this.#affordances.has(id)) throw new SkillGraphValidationError(`duplicate affordance id '${id}'.`);
     if (!def.description || !def.description.trim()) {
       throw new SkillGraphValidationError(

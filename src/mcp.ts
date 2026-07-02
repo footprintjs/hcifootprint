@@ -22,6 +22,19 @@ const NO_PARAMS = { type: 'object', properties: {}, additionalProperties: false 
 /** Appended (authored-class constant) so MCP-only planners see the step-up marker. */
 const HIGH_EFFECT_SUFFIX = ' [high-effect: requires explicit confirmation]';
 
+/**
+ * Synthetic escape tool served whenever a skill frame is open — the acting
+ * agent must always be able to collapse back to skill-level planning. The
+ * description is an authored-class constant (two-string-class safe).
+ */
+export function leaveSkillTool(spec: SkillGraphSpec, skillId: string): MCPToolDescription {
+  return {
+    name: sanitizeMCPName(`${spec.id}.leave-skill`),
+    description: `Leave the current skill (${skillId}) without completing it and return to skill-level planning.`,
+    inputSchema: structuredClone(NO_PARAMS),
+  } as MCPToolDescription;
+}
+
 export function edgesToMCPTools(
   spec: SkillGraphSpec,
   edges: AvailableEdge[],

@@ -24,7 +24,9 @@ describe('available() — the guard-filtered action space', () => {
 
   it('a multi-page affordance is offered on its second page too', () => {
     const s = shop().createSession({ node: 'cart', state: initialState });
-    expect(s.available().edges.map((e) => e.affordanceId)).toEqual(['login']);
+    const ids = s.available().edges.map((e) => e.affordanceId);
+    expect(ids).toContain('login');
+    expect(ids).not.toContain('add-to-cart'); // catalog-only
     expect(s.fire('login', { source: 'user' })).toMatchObject({ ok: true, settlement: 'awaiting-state' });
   });
 

@@ -62,6 +62,18 @@ export function shop(): SkillGraph {
       effect: { writes: ['orderId'] },
       highEffect: true,
     })
+    .affordance('open-help', {
+      on: 'cart',
+      description: 'Open the help panel',
+      binding: { kind: 'element', locator: { role: 'button', name: 'Help' }, actuation: 'click' },
+    })
+    .affordance('go-home', {
+      on: 'cart',
+      description: 'Go back to the catalog',
+      binding: { kind: 'element', locator: { role: 'link', name: 'Home' }, actuation: 'click' },
+      effect: { navigatesTo: 'catalog' },
+      role: 'back',
+    })
     .skill('purchase', {
       description: 'Buy the items currently in the cart',
       steps: ['add-to-cart', 'go-to-cart', 'proceed-to-checkout', 'place-order'],

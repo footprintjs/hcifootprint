@@ -83,6 +83,43 @@ Transition  = cause × payload × outcome             (each occurrence)
 - **schema** — the payload contract (Zod, JSON Schema, or any `.safeParse` validator), so a planner can fill forms without reading the DOM.
 - **cause** — `fired(affordance, principal)` or `stimulus(kind)`. System-initiated motion (session expiry, server push) is a first-class recorded transition with `principal: 'system'`.
 
+## On-demand disclosure: skills first, tools on commit
+
+The token win is two-level. The planner sees one line per skill; only after it commits does the tool level open — and only that skill's currently-fireable steps:
+
+```ts
+session.availableSkills();          // one line per skill: description + feasibility
+session.commitSkill('purchase');    // opens a skill frame (rejects if the precondition fails)
+session.toMCPTools();               // NOW serves only the frame's fireable steps
+                                    // + escape tools: authored cancel/back roles + a synthetic leave-skill
+session.skillPlan('purchase');      // the DERIVED dependency DAG with live status:
+                                    //   add-to-cart: ready · go-to-cart: blocked on cartCount · …
+session.leaveSkill();               // collapse back to skill-level planning
+```
+
+Step dependencies are **computed, never authored**: step B depends on step A whenever A's declared `effect.writes` overlap B's guard keys — the guard×effect atoms already encode the ordering, so the plan can't drift from the graph. If the world breaks the skill mid-flow (the user logs out in another tab), the frame is **demoted** automatically: disclosure re-collapses to skill level and the agent replans. A step guard failing never demotes — that's just "do the earlier step first."
+
+## The context brief: what happened while the LLM wasn't looking
+
+Chat turns interleave with real clicks. Each turn, inject the delta instead of re-explaining the world:
+
+```ts
+const brief = session.contextBrief({ sinceVersion: lastTurnVersion });
+```
+
+```
+You are on: cart.
+Open skill: purchase — Buy the items currently in the cart (1/4 steps done).
+Since version 7 (now 12):
+  • agent fired add-to-cart — Add a product to the cart
+  • user fired go-to-cart — Open the shopping cart (catalog → cart)
+  • system push changed: notifications
+Pending: none.
+Available now: proceed-to-checkout, go-home, leave-skill.
+```
+
+The text is built from authored strings and structural facts only — state **values** and payloads never enter it (key *names* do), so the prompt-injection firewall extends to history, not just tools. Honesty flags ride along: `[awaiting app state]`, `[navigation claimed, unconfirmed]`, `[rolled-back]`, demotion notes, unverified sync hops.
+
 ## Honesty rules (load-bearing)
 
 - **Provenance is accountability for cooperating agents, not a security boundary.** An agent driving the browser like a human is indistinguishable from one at the DOM. Route agents through `fire(edgeId, { source: 'agent' })`; enforce high-effect actions server-side.
@@ -96,7 +133,7 @@ Transition  = cause × payload × outcome             (each occurrence)
 - Route-tree derivation (Next.js / React Router) so the page skeleton is generated, not authored.
 - CI `verifyBindings()` — walk every authored edge headlessly and fail the build when a binding no longer resolves.
 - Parameterized affordance instances (`instanceKey`) for lists and collections.
-- Task frames: suspend/abort/resume semantics for skills interrupted mid-flow.
+- Frame suspend/resume across navigation (v0 frames are commit / leave / auto-demote; suspending a frame while the user wanders and re-validating on return is next).
 - Fire-time provenance anchoring: guard-read provenance is currently recorded at settlement, so with several transitions pending at once, a causal slice can attribute a guard read to a writer that landed between fire and settle. Fire-time evidence on the record is always correct; prefer it when they disagree.
 
 ## Development

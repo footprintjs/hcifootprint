@@ -30,7 +30,7 @@
 export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './builder.js';
 export type { SkillGraph } from './builder.js';
 export { Session } from './session.js';
-export { edgesToMCPTools } from './mcp.js';
+export { edgesToMCPTools, leaveSkillTool } from './mcp.js';
 export type {
   Actuation,
   Affordance,
@@ -41,11 +41,16 @@ export type {
   Binding,
   CanonicalRole,
   Cause,
+  CommitSkillResult,
+  ContextBrief,
+  ContextBriefOptions,
+  DependencyEdge,
   Effect,
   ElementLocator,
   Explanation,
   FireOptions,
   FireResult,
+  FrameStatus,
   Page,
   PageDef,
   PendingInfo,
@@ -54,7 +59,11 @@ export type {
   Settlement,
   Skill,
   SkillDef,
+  SkillFrame,
   SkillGraphSpec,
+  SkillPlan,
+  SkillPlanStep,
+  StepStatus,
   StimulusKind,
   SyncResult,
   TransitionRecord,
