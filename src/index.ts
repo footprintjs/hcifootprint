@@ -1,0 +1,63 @@
+/**
+ * hcifootprint — turn a web app's interaction surface into a typed,
+ * traversable skill graph an LLM can plan over.
+ *
+ * The frontend sibling of footprintjs (backend flowcharts) and agentfootprint
+ * (self-explaining agents): one self-explaining trace substrate underneath.
+ *
+ * ```ts
+ * import { skillGraph } from 'hcifootprint';
+ *
+ * const app = skillGraph('shop')
+ *   .page('catalog', { route: '/products' })
+ *   .affordance('add-to-cart', {
+ *     on: 'catalog',
+ *     description: 'Add a product to the cart',
+ *     binding: { kind: 'element', locator: { role: 'button', name: 'Add to cart' } },
+ *     guard: { authenticated: { eq: true } },
+ *     effect: { writes: ['cart'] },
+ *   })
+ *   .build();
+ *
+ * const session = app.createSession({ node: 'catalog', state: { authenticated: false } });
+ * session.available();                       // → guard-passing edges = the LLM's action space
+ * session.fire('add-to-cart', { source: 'agent' });
+ * session.sync('cart');                      // reconcile external navigation, first-class
+ * session.why('cart');                       // footprint backward slice over the session
+ * session.toMCPTools();                      // per-edge MCP descriptors for the current slice
+ * ```
+ */
+export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './builder.js';
+export type { SkillGraph } from './builder.js';
+export { Session } from './session.js';
+export { edgesToMCPTools } from './mcp.js';
+export type {
+  Actuation,
+  Affordance,
+  AffordanceDef,
+  AvailableEdge,
+  AvailableSkill,
+  AvailableSlice,
+  Binding,
+  CanonicalRole,
+  Cause,
+  Effect,
+  ElementLocator,
+  Explanation,
+  FireOptions,
+  FireResult,
+  Page,
+  PageDef,
+  PendingInfo,
+  Principal,
+  SessionOptions,
+  Settlement,
+  Skill,
+  SkillDef,
+  SkillGraphSpec,
+  StimulusKind,
+  SyncResult,
+  TransitionRecord,
+  UpdateOptions,
+  UpdateResult,
+} from './types.js';
