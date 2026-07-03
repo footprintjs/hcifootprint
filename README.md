@@ -1,81 +1,34 @@
 # HCIFootprint
 
-Turn a web app's interaction surface into a typed, traversable skill graph an LLM can plan over.
+**Turn your web app into a tool an LLM can drive — MCP-shaped, no backend, and without exposing your state or handlers up front.**
+
+You describe your app the way you already picture it — pages, tabs, modals, and the actions inside them. HCIFootprint serves that to an LLM as a fixed set of tools and gives the model a map with a *you-are-here* pin, so it navigates and acts through your app's own functions instead of re-reading a 100k-token DOM at every step.
 
 > npm package: `hcifootprint` (npm names are lowercase); prose name: **HCIFootprint**.
 
-> **Status: experimental v0.** The headless core (graph builder + traversal driver + trace integration) works and is fully tested. The browser layer (DOM binding resolver, router/store taps, Web Worker host) is not built yet.
+> **Status: experimental v0.** The headless core — author the graph, drive it, serve it as tools, trace every step — works and is fully tested (192 tests). The browser adapter that auto-wires a live DOM (a React hook + DOM sensor/actuation) is on the roadmap; today you connect it with a few lines, as the [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) does.
 
-## The idea
+## Why
 
-An LLM driving a web app today re-reads a 10k–100k-token DOM at every step and picks from a flat list of tools that knows nothing about where the user is. HCIFootprint gives the model a map with a you-are-here pin instead:
+An LLM driving a web app today re-reads a 10k–100k-token DOM every step and picks from a flat tool list that has no idea where the user is or what is possible right now. That is slow, expensive, and error-prone. HCIFootprint changes the shape of the problem:
 
-- You describe your app once as **pages**, **affordances** (things that can be done, with guards saying when), and **skills** (multi-step tasks).
-- A **session** tracks where the user or agent currently is and serves `available()` — only the handful of actions whose guards pass right now, each with evidence explaining why.
-- `fire()` applies an action with **provenance** (who did it: user, agent, system) and opt-in optimistic concurrency: pass `expectedVersion` from `available()` and an agent planning on a stale view is rejected and replans instead of misfiring. Guards are re-checked at fire time either way.
-- `sync()` reconciles the cursor when the world moves without an offered action (back button, deep link, server redirect) — recorded honestly, never patched over in silence.
+- **The model gets a map, not a DOM dump.** It sees the handful of actions that are actually available at the current position — each with a one-line description and evidence for why it is offered.
+- **The tool list never changes.** Actions are served as fixed, MCP-shaped tools (one per task), so the prompt cache stays warm across the whole conversation and it works with any MCP host — no dynamic-tool support required.
+- **It acts through your app, as the signed-in user.** Firing an action runs your own handler. No new backend, no new permissions — the agent inherits exactly what the user can already do.
+- **It is honest about what it can't see.** Anything the runtime derives rather than observes is flagged; every refused action returns a typed reason and is logged, so the agent replans instead of hallucinating.
+- **Untrusted content can never become instructions.** Page text and user content ride a strict data channel, never the planner's instruction channel — a firewall against prompt injection.
 
-Every **settled** transition lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit log (pending and rejected ones live only in the interaction log — their effects never touched state), so footprint's whole post-hoc toolchain — `causalChain`, `sliceForKey`, `arrayProvenance` — answers "why is the app in this state?" about a UI session with zero new query code.
+Under the hood every action lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit log, so you can ask *"why is the app in this state?"* and get a causal answer about a UI session with zero extra code.
 
-HCIFootprint is the third sibling of the footprintjs ecosystem: **footprintjs** explains backend logic, **agentfootprint** explains agents, **HCIFootprint** explains the human-computer interaction surface — one trace substrate underneath.
+HCIFootprint is the third sibling of the footprintjs ecosystem: **footprintjs** explains backend logic, **agentfootprint** explains agents, **HCIFootprint** turns the human-computer interaction surface into something an agent can drive — one trace substrate underneath.
 
-## Quick start
+## See it
 
-```ts
-import { skillGraph } from 'hcifootprint';
+The [**dress-shop demo**](https://github.com/footprintjs/hcifootprint-demo) is a real storefront (catalog, filters, cart, checkout) with a shopping assistant docked beside it. Both drive the *same* live session: you shop by clicking, or you ask the assistant *"find me a red dress under $150 and buy it"* and watch the store navigate itself and pause for your approval before placing the order — all through the app's own handlers, zero backend changes.
 
-const app = skillGraph('shop')
-  .page('catalog', { route: '/products' })
-  .page('cart', { route: '/cart' })
-  .affordance('add-to-cart', {
-    on: 'catalog',
-    description: 'Add a product to the cart',
-    binding: { kind: 'element', locator: { role: 'button', name: 'Add to cart' } },
-    guard: { authenticated: { eq: true } },       // offered only when this passes
-    effect: { writes: ['cart', 'cartCount'] },    // a CLAIM, verified at settlement
-    schema: { type: 'object', properties: { productId: { type: 'string' } }, required: ['productId'] },
-  })
-  .affordance('go-to-cart', {
-    on: 'catalog',
-    description: 'Open the shopping cart',
-    binding: { kind: 'element', locator: { role: 'link', name: 'Cart' } },
-    guard: { cartCount: { gt: 0 } },
-    effect: { navigatesTo: 'cart' },
-  })
-  .skill('purchase', {
-    description: 'Buy the items currently in the cart',
-    steps: ['add-to-cart', 'go-to-cart'],
-    precondition: { authenticated: { eq: true } },
-  })
-  .build();
+## Quick start — three steps
 
-const session = app.createSession({
-  node: 'catalog',
-  state: { authenticated: true, cartCount: 0 },
-});
-
-// The LLM's action space: only guard-passing edges, with evidence.
-const { version, edges } = session.available();
-
-// An agent fires an action; the app applies it and reports the real delta.
-session.fire('add-to-cart', { source: 'agent', expectedVersion: version, payload: { productId: 'p1' } });
-session.updateState({ cart: [{ id: 'p1' }], cartCount: 1 });
-
-// The user pressed the back button — reconcile, first-class.
-session.sync('catalog', { stimulus: 'navigation' });
-
-// Explanations, powered by footprintjs.
-session.why('cart');        // backward slice: which transitions produced this value
-session.explain('go-to-cart'); // per-condition guard evidence
-session.toMCPTools();       // one MCP tool descriptor per currently-available edge
-```
-
-## The navigation graph — describe your app the way you think about it
-
-`appMap()` is the recommended authoring surface (D18). You write the
-container tree you already hold in your head — pages, areas, tabs, modals —
-and a tool needs only one sentence to exist. That sentence has two readers:
-it labels the action for you, and it IS the tool description the LLM sees.
+**1. Describe the app** as the tree you already picture — pages, the containers inside them, and the actions inside those. Each action needs one sentence; that sentence is both your label and the tool description the LLM reads.
 
 ```ts
 import { appMap } from 'hcifootprint';
@@ -83,12 +36,9 @@ import { appMap } from 'hcifootprint';
 const map = appMap('shop', {
   pages: {
     catalog: {
-      route: '/catalog',
-      areas: {
-        'filter-rail': { tools: { 'set-color': { does: 'Filter dresses by color' } } },
-      },
       tools: {
-        'add-to-cart': { does: 'Add the selected dress to the cart', when: { authenticated: { eq: true } } },
+        'search': { does: 'Search dresses by name or color' },
+        'add-to-cart': { does: 'Add the open dress to the cart', when: { authenticated: { eq: true } } },
       },
     },
     checkout: {
@@ -101,12 +51,39 @@ const map = appMap('shop', {
     purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
   },
 });
-
-const session = map.createSession();
 ```
 
-You do not hand over state or handlers up front. Components register what
-they have **when they render**, and only what they choose to:
+**2. Connect it** to your running app — no need to hand over state or handlers up front. Components register what they have *when they render*: your store updates flow in, your existing functions bind by reference, and the router owns the page.
+
+```ts
+const session = map.createSession();
+
+// in the component that renders the catalog:
+const handle = session.mount('catalog', {
+  handlers: { 'search': (input) => shop.search(input.query) },  // your own function
+});
+// …and session.updateState(delta) on store changes, session.sync(page) on navigation.
+```
+
+**3. Serve it to the LLM** as a fixed set of MCP-shaped tools. The tool list never changes; what is doable *right now* arrives inside each tool result.
+
+```ts
+import { skillsAsTools } from 'hcifootprint';
+
+const port = skillsAsTools(session);
+port.tools();                          // static tool array — one per skill + whats_here / do_action
+port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, ... }
+```
+
+That's the whole loop: **author → connect → serve.** The agent plans over skills, sees only the actions available at the current position, and acts through your own handlers — with the human able to approve high-effect steps.
+
+## The navigation graph — in depth
+
+`appMap()` (shown in the Quick start) is the recommended authoring surface. It
+takes the full container tree — pages with **areas** (things shown together),
+**tabs** (one shown at a time), and **modals** (overlays) — and a tool needs
+only one `does` sentence to exist; binding, guard, handler, and payload schema
+can all arrive later, at mount:
 
 ```ts
 // in the component that renders the filter rail:
@@ -137,7 +114,7 @@ upgrade.
 The v1 `skillGraph()` builder keeps working forever — it is the one-level
 version of the same graph.
 
-## Serving the agent: skills as fixed tools (Mode B)
+## Serving the agent: skills as fixed tools (Mode B) — in depth
 
 The tool array an LLM sees never changes: one tool per skill plus
 `whats_here` and `do_action`. What is fireable right now arrives inside each
@@ -145,8 +122,6 @@ tool RESULT (`readySteps`), and the model acts by calling the same skill tool
 again with `{ step }`:
 
 ```ts
-import { skillsAsTools } from 'hcifootprint';
-
 const port = skillsAsTools(session);
 port.tools();                          // static — identical bytes every turn
 port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, ... }
@@ -157,6 +132,12 @@ Because the tool set is fixed, the prompt cache stays warm for the whole
 conversation, and the library works as a plain MCP server with ANY host — no
 dynamic-tool support required. High-effect steps stop at `needs-confirm` and
 are never auto-crossed.
+
+**Actions can hand data back.** When a step's handler returns something (search
+results, a looked-up record), that value rides the tool result — sanitized, on
+the data channel — so the agent can read the ids it needs for the next step
+(pick a `dressId` from the search results, then open it) instead of guessing.
+Read it with `session.producedFor(transitionId)`.
 
 ## The atom
 
