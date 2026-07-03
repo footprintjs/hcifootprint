@@ -225,6 +225,13 @@ export interface SessionOptions {
   commitValues?: 'full' | 'delta';
   /** Dev-warning sink (StrictMode re-registrations, handler errors). Default console.warn. */
   onWarn?: (message: string) => void;
+  /**
+   * Capture each handler's RETURN value onto its transition (sanitized+capped)
+   * as the "act → get data back" channel — TransitionRecord.produced. Default
+   * true. Set false to opt a session out entirely (handlers whose returns are
+   * internal and should never reach the agent).
+   */
+  captureProduced?: boolean;
 }
 
 /**
@@ -268,6 +275,15 @@ export interface TransitionRecord {
    * honestly which conditions were taken on faith (D18 rung-killer fix).
    */
   guardUnevaluated?: string[];
+  /**
+   * Data the fired handler RETURNED (search results, a looked-up record) —
+   * sanitized + capped. This is the "act → get data back" channel: an action
+   * that produces something the agent needs to pick from (a list of ids to
+   * open next) hands it back here. It rides the DATA channel, so untrusted
+   * content (user-generated names) is safe — it is never planner instructions.
+   * Populated once the handler resolves (await the settlement to read it).
+   */
+  produced?: unknown;
   /** Cursor version when the transition was created. */
   cursorVersion: number;
 }

@@ -113,6 +113,8 @@ export class Session {
   #structureVersion = 0;
   /** Whether updateState() reports are expected (see SessionOptions.stateTap). */
   readonly #stateTap: boolean;
+  /** Whether handler return values are captured onto records (act → data back). */
+  readonly #captureProduced: boolean;
   /** Fingerprint of the served structure at the last coalesced flush. */
   #structureFingerprint = '';
   #structureFlushScheduled = false;
@@ -152,6 +154,7 @@ export class Session {
     this.#spec = spec;
     this.#node = opts.node;
     this.#stateTap = opts.stateTap ?? opts.state !== undefined;
+    this.#captureProduced = opts.captureProduced ?? true;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
     this.#heap = new SharedMemory(undefined, initial);
@@ -561,7 +564,13 @@ export class Session {
           this.#invokingRecordId = null;
         }
       })
-      .then(() => {
+      .then((returnValue) => {
+        // Act → get data back: whatever the handler returned (search results, a
+        // looked-up record) rides the DATA channel on the record — sanitized +
+        // capped so untrusted content can never become planner instructions.
+        if (this.#captureProduced && returnValue !== undefined && returnValue !== null) {
+          record.produced = sanitizeProduced(returnValue);
+        }
         const entry = this.#pending.find((p) => p.record.id === record.id);
         if (!entry) return;
         if (entry.settleOnCompletion) {
@@ -867,6 +876,18 @@ export class Session {
   /** runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup). */
   readsByStep(): ReadonlyMap<string, string[]> {
     return this.#readsByStep;
+  }
+
+  /**
+   * Data the given transition's handler RETURNED (search results, a looked-up
+   * record) — a fresh snapshot, safe to serialize into a tool result. Available
+   * once the handler has resolved, so read it AFTER awaiting the settlement.
+   * Returns undefined when the handler returned nothing (or capture is off).
+   */
+  producedFor(transitionId: string): unknown {
+    const record = this.#transitions.find((t) => t.id === transitionId);
+    if (record?.produced === undefined) return undefined;
+    return sanitizeProduced(record.produced); // fresh copy — consumer mutation must not touch the record
   }
 
   // -------------------------------------------------------------------------
@@ -1264,6 +1285,30 @@ export class Session {
     }
     ctx.commit();
   }
+}
+
+/**
+ * Bounded, firewall-safe copy of a handler's return value for the DATA channel.
+ * Caps depth/breadth/string length (search results can be large), drops
+ * functions, and tolerates cycles via the depth cap — so a handler return can
+ * never blow up a tool result or smuggle live references into the record.
+ */
+function sanitizeProduced(value: unknown, depth = 0): unknown {
+  if (typeof value === 'function') return undefined;
+  if (typeof value === 'string') return value.length > 200 ? `${value.slice(0, 200)}…` : value;
+  if (value === null || typeof value !== 'object') return value; // number, boolean, undefined
+  if (depth >= 4) return null; // deep enough — and a cycle backstop
+  if (Array.isArray(value)) {
+    return value.slice(0, 30).map((item) => sanitizeProduced(item, depth + 1));
+  }
+  const out: Record<string, unknown> = {};
+  let count = 0;
+  for (const [key, child] of Object.entries(value)) {
+    if (count++ >= 40) break;
+    const clean = sanitizeProduced(child, depth + 1);
+    if (clean !== undefined) out[key] = clean;
+  }
+  return out;
 }
 
 function validatePayload(schema: unknown, payload: unknown): { ok: true } | { ok: false; issues: string } {

@@ -319,6 +319,10 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
         ok: true,
         did: id,
         settlement: fired.settlement,
+        // The transition id lets a caller fetch producedFor() AFTER awaiting the
+        // handler — the "act → data back" channel (the tool result is built
+        // synchronously here, before an async handler has produced anything).
+        transitionId: fired.transition.id,
         // Copy: fired.transition is the LIVE record — a consumer mutating its
         // result must never rewrite the trace.
         ...(fired.transition.guardUnevaluated ? { guardUnevaluated: [...fired.transition.guardUnevaluated] } : {}),
