@@ -19,31 +19,9 @@ import type {
   SkillGraphSpec,
 } from '../atom/types.js';
 import { Session } from '../traverse/session.js';
+import { SkillGraphValidationError, validateGuardShape } from './guards.js';
 
-const FILTER_OPERATORS = new Set(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn']);
-
-/** Mirrors footprint evaluator's DENIED_KEYS — guards on these silently never match at runtime. */
-const DENIED_GUARD_KEYS = new Set([
-  '__proto__',
-  'constructor',
-  'prototype',
-  'toString',
-  'valueOf',
-  'hasOwnProperty',
-  'isPrototypeOf',
-  'propertyIsEnumerable',
-  '__defineGetter__',
-  '__defineSetter__',
-  '__lookupGetter__',
-  '__lookupSetter__',
-]);
-
-export class SkillGraphValidationError extends Error {
-  constructor(message: string) {
-    super(`hcifootprint: ${message}`);
-    this.name = 'SkillGraphValidationError';
-  }
-}
+export { SkillGraphValidationError } from './guards.js';
 
 export interface SkillGraph {
   spec: SkillGraphSpec;
@@ -199,34 +177,9 @@ export class SkillGraphBuilder {
     };
   }
 
-  /** Catch shape mistakes at build time — the evaluator fails them silently at runtime. */
+  /** Catch shape mistakes at build time — shared spine with appMap() (guards.ts). */
   #validateGuardShape(owner: string, guard: Record<string, unknown>): void {
-    for (const [key, ops] of Object.entries(guard)) {
-      if (DENIED_GUARD_KEYS.has(key)) {
-        throw new SkillGraphValidationError(
-          `${owner} key '${key}' is on footprint's denied list — it would silently never match at runtime.`,
-        );
-      }
-      if (!ops || typeof ops !== 'object' || Array.isArray(ops)) {
-        throw new SkillGraphValidationError(
-          `${owner} key '${key}' must map to an operator object like { eq: value } ` +
-            `(operators: ${[...FILTER_OPERATORS].join(', ')}).`,
-        );
-      }
-      if (Object.keys(ops).length === 0) {
-        throw new SkillGraphValidationError(
-          `${owner} key '${key}' has an empty operator object {} — the evaluator would silently ignore it ` +
-            `(or never match if it is the only key). Give it an operator like { eq: value } or remove the key.`,
-        );
-      }
-      for (const op of Object.keys(ops)) {
-        if (!FILTER_OPERATORS.has(op)) {
-          throw new SkillGraphValidationError(
-            `${owner} key '${key}' uses unknown operator '${op}' (valid: ${[...FILTER_OPERATORS].join(', ')}).`,
-          );
-        }
-      }
-    }
+    validateGuardShape(owner, guard);
   }
 }
 

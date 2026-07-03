@@ -106,7 +106,9 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
       .affordance('save-name', { on: 'a', description: 'Save name', binding, effect: { writes: ['name'] } })
       .affordance('save-email', { on: 'a', description: 'Save email', binding, effect: { writes: ['email'] } })
       .build();
-    const s = g.createSession({ node: 'a' });
+    // stateTap: this session HAS a reporting tap (it just starts empty) — the
+    // pending/attribution machinery below is exactly the with-tap contract.
+    const s = g.createSession({ node: 'a', stateTap: true });
     const a = s.fire('save-name', { source: 'agent' }) as { transition: { id: string } };
     const b = s.fire('save-email', { source: 'agent' }) as { transition: { id: string } };
 
@@ -129,7 +131,7 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
       .affordance('save-name', { on: 'a', description: 'Save name', binding, effect: { writes: ['name'] } })
       .affordance('save-email', { on: 'a', description: 'Save email', binding, effect: { writes: ['email'] } })
       .build();
-    const s = g.createSession({ node: 'a' });
+    const s = g.createSession({ node: 'a', stateTap: true });
     s.fire('save-name', { source: 'agent' });
     s.fire('save-email', { source: 'agent' });
     const first = okUpdate(s.updateState({ email: 'a@b.c' })); // arrives out of order

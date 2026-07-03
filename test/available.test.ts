@@ -61,18 +61,27 @@ describe('available() — the guard-filtered action space', () => {
     expect(s.explain('place-order').offeredOnThisNode).toBe(false);
   });
 
-  it('a guard on a key ABSENT from state fails honestly with undefined evidence', () => {
+  it('a guard on a key ABSENT from state is served WITH guardUnevaluated — never silently hidden (D18)', () => {
     const g = skillGraph('g')
       .page('a')
       .affordance('x', { on: 'a', description: 'd', binding, guard: { missingKey: { eq: true } } })
       .build();
     const s = g.createSession({ node: 'a', state: {} });
-    expect(s.available().edges).toEqual([]);
-    expect(s.explain('x').evidence[0]).toMatchObject({
-      key: 'missingKey',
-      actualSummary: 'undefined',
-      result: false,
+    // The session's state view has never contained missingKey: the condition is
+    // UNEVALUABLE, not false. The edge is offered, honestly marked, and the app
+    // remains the enforcer — one authored graph works at every ladder rung.
+    const edges = s.available().edges;
+    expect(edges).toHaveLength(1);
+    expect(edges[0].guardUnevaluated).toEqual(['missingKey']);
+    expect(s.explain('x')).toMatchObject({
+      guardPassed: true,
+      available: true,
+      guardUnevaluated: ['missingKey'],
     });
+    // Once the key IS reported, real evaluation takes over and can hide it.
+    s.updateState({ missingKey: false }, { stimulus: 'push' });
+    expect(s.available().edges).toEqual([]);
+    expect(s.explain('x').guardUnevaluated).toBeUndefined();
   });
 
   it('redacted keys show [REDACTED] in evidence, never the raw value', () => {

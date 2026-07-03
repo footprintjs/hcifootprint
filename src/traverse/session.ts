@@ -73,6 +73,13 @@ interface PendingTransition {
    * claim on its own record — another fire's report must never steal it.
    */
   handlerInFlight?: boolean;
+  /**
+   * Tapless-session mode (stateTap false): nothing will ever call
+   * updateState(), so the handler's successful completion settles this record
+   * with an empty delta and effectVerified 'unobservable' — instead of the v1
+   * behavior of pending-forever (the D18 rung-killer fix).
+   */
+  settleOnCompletion?: boolean;
 }
 
 /** registerTools() input: one group per component/section, existing handlers by reference. */
@@ -100,6 +107,15 @@ export class Session {
   readonly #spec: SkillGraphSpec;
   #node: string;
   #version = 0;
+  /** Committed state deltas only (settle / stimulus / inference). */
+  #stateVersion = 0;
+  /** Served-structure changes only (frames + coalesced registration/presence swaps). */
+  #structureVersion = 0;
+  /** Whether updateState() reports are expected (see SessionOptions.stateTap). */
+  readonly #stateTap: boolean;
+  /** Fingerprint of the served structure at the last coalesced flush. */
+  #structureFingerprint = '';
+  #structureFlushScheduled = false;
   readonly #heap: SharedMemory;
   readonly #log: EventLog;
   readonly #counter: ExecutionCounter;
@@ -135,6 +151,7 @@ export class Session {
     }
     this.#spec = spec;
     this.#node = opts.node;
+    this.#stateTap = opts.stateTap ?? opts.state !== undefined;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
     this.#heap = new SharedMemory(undefined, initial);
@@ -158,8 +175,53 @@ export class Session {
     return this.#node;
   }
 
+  /** The compiled graph's id (namespaces MCP tool names). */
+  get graphId(): string {
+    return this.spec.id;
+  }
+
+  /** The one CAS/sinceVersion cursor: total order over ALL world motion. */
   get version(): number {
     return this.#version;
+  }
+
+  /**
+   * D18 version split — `version` stays the single total-order cursor; these
+   * two say WHAT moved. A scrolling list must never staleness-fail a plan the
+   * way a closing modal must; consumers watching for re-render/replan can
+   * subscribe to the axis they care about.
+   */
+  get stateVersion(): number {
+    return this.#stateVersion;
+  }
+
+  get structureVersion(): number {
+    return this.#structureVersion;
+  }
+
+  /** The compiled spec every lookup goes through — NavSession overlays mount-declared tools here. */
+  protected get spec(): SkillGraphSpec {
+    return this.#spec;
+  }
+
+  /** The live-binding registry (protected seam for NavSession's per-instance handlers). */
+  protected get registry(): ToolRegistry {
+    return this.#registry;
+  }
+
+  /** The session's dev-warning sink (protected seam for subclass layers). */
+  protected warn(message: string): void {
+    this.#warn(message);
+  }
+
+  /**
+   * Re-baseline the coalesced structure fingerprint. A subclass whose
+   * structureFingerprint() override reads its OWN fields must call this once
+   * at the end of its constructor (the base constructor cannot: a virtual
+   * call there would touch subclass fields before they initialize).
+   */
+  protected resetStructureBaseline(): void {
+    this.#structureFingerprint = this.structureFingerprint();
   }
 
   /** Detached snapshot of the projected state (live state is immutable-after-swap; never hand out references). */
@@ -174,9 +236,9 @@ export class Session {
   available(): AvailableSlice {
     const flagMaterialized = this.#registry.hasAny();
     const edges: AvailableEdge[] = [];
-    for (const aff of Object.values(this.#spec.affordances)) {
+    for (const aff of Object.values(this.spec.affordances)) {
       if (!aff.on.includes(this.#node)) continue;
-      const { matched, conditions } = this.#evalGuard(aff.guard);
+      const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
       if (!matched) continue;
       edges.push({
         affordanceId: aff.id,
@@ -184,9 +246,11 @@ export class Session {
         role: aff.role,
         ...(flagMaterialized ? { materialized: this.#registry.isRegistered(aff.id) } : {}),
         evidence: conditions,
+        ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
         schema: aff.schema,
         highEffect: aff.highEffect,
         binding: aff.binding,
+        ...(aff.descriptionSource === 'registration' ? { descriptionSource: 'registration' as const } : {}),
       });
     }
     return { version: this.#version, node: this.#node, edges };
@@ -206,12 +270,12 @@ export class Session {
    * effects, and schemas come from the declared graph only.
    */
   registerTools(opts: RegisterToolsOptions): RegisteredTools {
-    const unknown = Object.keys(opts.tools).filter((id) => !this.#spec.affordances[id]);
+    const unknown = Object.keys(opts.tools).filter((id) => !this.spec.affordances[id]);
     if (unknown.length > 0) {
       throw new Error(
         `hcifootprint: registerTools group '${opts.group}' includes undeclared affordance(s) ` +
           `${unknown.map((u) => `'${u}'`).join(', ')} — declare them in the skill graph first ` +
-          `(known: ${Object.keys(this.#spec.affordances).join(', ')}).`,
+          `(known: ${Object.keys(this.spec.affordances).join(', ')}).`,
       );
     }
     const triggers: Record<string, (payload?: unknown) => FireResult> = {};
@@ -220,24 +284,27 @@ export class Session {
       triggers[affordanceId] = (payload?: unknown) =>
         this.fire(affordanceId, { source: 'user', payload });
     }
+    this.noteStructureChange();
     return { triggers, unregister: () => this.unregisterGroup(opts.group) };
   }
 
   /** Remove every live binding currently owned by `group` (component unmount). */
   unregisterGroup(group: string): string[] {
-    return this.#registry.unregisterGroup(group);
+    const removed = this.#registry.unregisterGroup(group);
+    if (removed.length > 0) this.noteStructureChange();
+    return removed;
   }
 
   /** Why an affordance is (or is not) available right now — per-condition evidence. */
   explain(affordanceId: string): Explanation {
-    const aff = this.#spec.affordances[affordanceId];
+    const aff = this.spec.affordances[affordanceId];
     if (!aff) {
       throw new Error(
-        `hcifootprint: unknown affordance '${affordanceId}'. Known: ${Object.keys(this.#spec.affordances).join(', ')}.`,
+        `hcifootprint: unknown affordance '${affordanceId}'. Known: ${Object.keys(this.spec.affordances).join(', ')}.`,
       );
     }
     const offeredOnThisNode = aff.on.includes(this.#node);
-    const { matched, conditions } = this.#evalGuard(aff.guard);
+    const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
     return {
       affordanceId,
       node: this.#node,
@@ -245,15 +312,16 @@ export class Session {
       guardPassed: matched,
       available: offeredOnThisNode && matched,
       evidence: conditions,
+      ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
     };
   }
 
   /** Skill-level disclosure for the planning LLM (descriptions + feasibility, no tool detail). */
   availableSkills(): { version: number; node: string; skills: AvailableSkill[] } {
     const skills: AvailableSkill[] = [];
-    for (const skill of Object.values(this.#spec.skills)) {
+    for (const skill of Object.values(this.spec.skills)) {
       const pre = this.#evalGuard(skill.precondition);
-      const entry = this.#spec.affordances[skill.steps[0]];
+      const entry = this.spec.affordances[skill.steps[0]];
       const entryGuard = this.#evalGuard(entry.guard);
       skills.push({
         id: skill.id,
@@ -261,6 +329,7 @@ export class Session {
         steps: [...skill.steps],
         preconditionPassed: pre.matched,
         evidence: pre.conditions,
+        ...(pre.unevaluable.length > 0 ? { preconditionUnevaluable: pre.unevaluable } : {}),
         entryAvailable: entry.on.includes(this.#node) && entryGuard.matched,
       });
     }
@@ -280,9 +349,9 @@ export class Session {
     skillId: string,
     opts?: { source?: Principal; expectedVersion?: number },
   ): CommitSkillResult {
-    const skill = this.#spec.skills[skillId];
+    const skill = this.spec.skills[skillId];
     if (!skill) {
-      return { ok: false, reason: 'UNKNOWN_SKILL', known: Object.keys(this.#spec.skills) };
+      return { ok: false, reason: 'UNKNOWN_SKILL', known: Object.keys(this.spec.skills) };
     }
     if (opts?.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
       return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
@@ -304,6 +373,7 @@ export class Session {
       inferredSteps: [],
     };
     this.#version++; // the served action space just changed
+    this.#structureVersion++;
     return { ok: true, frame: this.#frameCopy()!, plan: this.skillPlan(skillId), version: this.#version };
   }
 
@@ -314,7 +384,7 @@ export class Session {
    */
   leaveSkill(opts?: { reason?: 'completed' | 'cancelled' }): SkillFrame | null {
     if (!this.#frame) return null;
-    const skill = this.#spec.skills[this.#frame.skillId];
+    const skill = this.spec.skills[this.#frame.skillId];
     // Completion counts observed AND inferred steps; inferredSteps on the
     // returned frame says which of them were guesses.
     const allDone = skill.steps.every(
@@ -326,6 +396,7 @@ export class Session {
     const closed = this.#frameCopy(this.#frame);
     this.#frame = null;
     this.#version++; // back to skill-level disclosure
+    this.#structureVersion++;
     return closed;
   }
 
@@ -346,25 +417,25 @@ export class Session {
    * encode the ordering, so it cannot drift from the graph.
    */
   skillPlan(skillId: string): SkillPlan {
-    const skill = this.#spec.skills[skillId];
+    const skill = this.spec.skills[skillId];
     if (!skill) {
       throw new Error(
-        `hcifootprint: unknown skill '${skillId}'. Known: ${Object.keys(this.#spec.skills).join(', ')}.`,
+        `hcifootprint: unknown skill '${skillId}'. Known: ${Object.keys(this.spec.skills).join(', ')}.`,
       );
     }
     const steps: SkillPlanStep[] = skill.steps.map((stepId) => {
-      const aff = this.#spec.affordances[stepId];
+      const aff = this.spec.affordances[stepId];
       const guardKeys = Object.keys(aff.guard ?? {});
       const dependsOn = skill.steps
         .filter((otherId) => otherId !== stepId)
         .map((otherId) => {
-          const other = this.#spec.affordances[otherId];
+          const other = this.spec.affordances[otherId];
           const viaKeys = (other.effect?.writes ?? []).filter((key) => guardKeys.includes(key));
           return { affordanceId: otherId, viaKeys };
         })
         .filter((dep) => dep.viaKeys.length > 0);
 
-      const { matched, conditions } = this.#evalGuard(aff.guard);
+      const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
       const frameForSkill = this.#frame?.skillId === skillId ? this.#frame : null;
       const status = frameForSkill?.firedSteps.includes(stepId)
         ? 'done'
@@ -382,6 +453,7 @@ export class Session {
         dependsOn,
         onNodes: [...aff.on],
         ...(status === 'blocked' ? { blockedOn: conditions.filter((c) => !c.result) } : {}),
+        ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
       } as SkillPlanStep;
     });
     return { skillId, description: skill.description, steps };
@@ -393,30 +465,30 @@ export class Session {
 
   /** Returned transition records are LIVE views — settlement updates them in place. */
   fire(affordanceId: string, opts: FireOptions): FireResult {
-    const aff = this.#spec.affordances[affordanceId];
+    const aff = this.spec.affordances[affordanceId];
     if (!aff) {
       const available = this.available().edges.map((e) => e.affordanceId);
-      this.#recordRejection(affordanceId, 'UNKNOWN_AFFORDANCE', opts.source, undefined, available);
+      this.recordRejection(affordanceId, 'UNKNOWN_AFFORDANCE', opts.source, undefined, available);
       return { ok: false, reason: 'UNKNOWN_AFFORDANCE', available };
     }
     if (opts.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
-      this.#recordRejection(affordanceId, 'STALE_CURSOR', opts.source);
+      this.recordRejection(affordanceId, 'STALE_CURSOR', opts.source);
       return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
     }
     if (!aff.on.includes(this.#node)) {
-      this.#recordRejection(affordanceId, 'NOT_ON_NODE', opts.source);
+      this.recordRejection(affordanceId, 'NOT_ON_NODE', opts.source);
       return { ok: false, reason: 'NOT_ON_NODE', node: this.#node };
     }
     // Guards are re-evaluated at fire time — plan-time guards are advisory.
-    const { matched, conditions } = this.#evalGuard(aff.guard);
+    const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
     if (!matched) {
-      this.#recordRejection(affordanceId, 'GUARD_FAILED', opts.source, conditions);
+      this.recordRejection(affordanceId, 'GUARD_FAILED', opts.source, conditions);
       return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
     }
     if (aff.schema !== undefined) {
       const validation = validatePayload(aff.schema, opts.payload);
       if (!validation.ok) {
-        this.#recordRejection(affordanceId, 'PAYLOAD_INVALID', opts.source);
+        this.recordRejection(affordanceId, 'PAYLOAD_INVALID', opts.source);
         return { ok: false, reason: 'PAYLOAD_INVALID', issues: validation.issues };
       }
     }
@@ -428,6 +500,9 @@ export class Session {
       payload: opts.payload,
       outcome: 'pending',
       evidence: conditions,
+      // Unevaluated conditions are taken on faith (the app is the enforcer at
+      // L0/L1) — the record says so instead of pretending the guard passed.
+      ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
       fromNode: this.#node,
       cursorVersion: this.#version,
     };
@@ -435,11 +510,25 @@ export class Session {
     this.#version++; // firing changes the world the next plan must see
 
     const declaredWrites = aff.effect?.writes ?? [];
-    if (declaredWrites.length > 0) {
+    if (declaredWrites.length > 0 && this.#stateTap) {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
       this.#invokeHandler(record, affordanceId, opts);
       return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state' };
+    }
+    if (declaredWrites.length > 0) {
+      // No state tap: nothing will ever report a delta. A registered handler
+      // settles this record on ITS completion; with nothing to execute, settle
+      // now. Either way effectVerified is honestly 'unobservable'.
+      const willExecute = opts.invoke !== false && this.handlerFor(affordanceId, opts) !== undefined;
+      if (willExecute) {
+        this.#pending.push({ record, affordance: aff, settleOnCompletion: true });
+        this.#invokeHandler(record, affordanceId, opts);
+        return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state' };
+      }
+      this.#settle(record, aff, {}, { forceUnobservable: true });
+      this.#invokeHandler(record, affordanceId, opts);
+      return { ok: true, transition: record, version: this.#version, settlement: 'settled' };
     }
     this.#settle(record, aff, {});
     this.#invokeHandler(record, affordanceId, opts);
@@ -459,7 +548,7 @@ export class Session {
    */
   #invokeHandler(record: TransitionRecord, affordanceId: string, opts: FireOptions): void {
     if (opts.invoke === false) return; // record-only (the DOM sensor's mode)
-    const handler = this.#registry.handlerFor(affordanceId);
+    const handler = this.handlerFor(affordanceId, opts);
     if (!handler) return;
     const pendingEntry = this.#pending.find((p) => p.record.id === record.id);
     if (pendingEntry) pendingEntry.handlerInFlight = true;
@@ -474,7 +563,14 @@ export class Session {
       })
       .then(() => {
         const entry = this.#pending.find((p) => p.record.id === record.id);
-        if (entry) entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
+        if (!entry) return;
+        if (entry.settleOnCompletion) {
+          // Tapless session: the handler finishing IS the settlement signal.
+          this.#pending.splice(this.#pending.indexOf(entry), 1);
+          this.#settle(entry.record, entry.affordance, {}, { forceUnobservable: true });
+          return;
+        }
+        entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
       })
       .catch((error) => {
         const index = this.#pending.findIndex((p) => p.record.id === record.id);
@@ -483,11 +579,13 @@ export class Session {
           this.#pending.splice(index, 1);
           record.outcome = 'rejected';
           this.#version++;
-        } else if (record.outcome === 'committed') {
-          // Immediate-settle (no declared writes) committed BEFORE the handler
-          // ran and the handler failed: the commit was a claim about an action
-          // that never happened. Roll it back and, if the settle moved the
-          // cursor on the navigation CLAIM, walk the cursor back honestly.
+        } else if (record.outcome === 'committed' && record.effectVerified === 'unobservable') {
+          // Immediate/tapless settle committed BEFORE the handler ran and the
+          // handler failed: the commit was a claim about an action that never
+          // happened. Roll it back and, if the settle moved the cursor on the
+          // navigation CLAIM, walk the cursor back honestly. A commit backed by
+          // REAL evidence (a state report settled it, effectVerified true) is
+          // stronger than the handler's failure — that one stands.
           record.outcome = 'rolled-back';
           this.#version++;
           if (record.toNodeClaimed && record.toNode === this.#node && record.fromNode !== this.#node) {
@@ -563,22 +661,42 @@ export class Session {
         this.#pending.splice(index, 1);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
-      // Every pending is handler-in-flight: fall through to inference/stimulus.
+      // Every pending is handler-in-flight. If the delta covers exactly ONE
+      // in-flight pending's declared writes, it is that handler's own report
+      // (arriving from its async portion, past the #invokingRecordId window) —
+      // settle THAT record precisely instead of stranding it forever.
+      const deltaKeys = Object.keys(delta);
+      const own = this.#pending.filter((p) => {
+        const writes = p.affordance.effect?.writes ?? [];
+        return writes.length > 0 && writes.every((key) => deltaKeys.includes(key));
+      });
+      if (own.length === 1) {
+        const pending = own[0];
+        this.#settle(pending.record, pending.affordance, delta);
+        this.#pending.splice(this.#pending.indexOf(pending), 1);
+        return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+      }
+      // Ambiguous or non-matching: fall through to stimulus (never inference —
+      // guessing while fires are in flight fabricates duplicates).
     }
 
-    // Tier-2 effect-signature inference (only with NO hints and NO pendings):
-    // if the delta covers exactly ONE registered affordance's declared writes —
-    // offered on this page, guard passing — attribute the AFFORDANCE with
-    // principal 'unknown' and an explicit inferred flag. A guess, marked as one.
-    if (!explicitStimulus) {
+    // Tier-2 effect-signature inference — only with NO hints and NO pendings.
+    // The no-pendings condition is load-bearing: with an async handler still in
+    // flight, ITS own report would otherwise match its affordance's signature
+    // and fabricate a duplicate inferred transition while the real pending
+    // starves. In-flight world = wait for the pending machinery; guessing is
+    // for quiet moments only.
+    if (!explicitStimulus && this.#pending.length === 0) {
       const inferred = this.#inferAffordanceForDelta(Object.keys(delta));
       if (inferred) {
+        const guardEval = this.#evalGuard(inferred.guard);
         const record: TransitionRecord = {
           id: buildRuntimeStageId(inferred.id, this.#counter.value++),
           cause: { kind: 'fired', affordanceId: inferred.id, principal: 'unknown', inferred: true },
           timestamp: Date.now(),
           outcome: 'pending',
-          evidence: this.#evalGuard(inferred.guard).conditions,
+          evidence: guardEval.conditions,
+          ...(guardEval.unevaluable.length > 0 ? { guardUnevaluated: guardEval.unevaluable } : {}),
           fromNode: this.#node,
           cursorVersion: this.#version,
         };
@@ -588,11 +706,12 @@ export class Session {
         record.effectVerified = true; // writes ⊆ delta by construction of the match
         this.#transitions.push(record);
         this.#version++;
+        this.#stateVersion++;
         // A guessed completion never advances firedSteps, but it must be VISIBLE
         // to the plan — 'inferred-done' — or the agent blind-refires the step.
         if (
           this.#frame &&
-          this.#spec.skills[this.#frame.skillId].steps.includes(inferred.id) &&
+          this.spec.skills[this.#frame.skillId].steps.includes(inferred.id) &&
           !this.#frame.firedSteps.includes(inferred.id) &&
           !this.#frame.inferredSteps.includes(inferred.id)
         ) {
@@ -619,13 +738,14 @@ export class Session {
     record.effectVerified = 'unobservable';
     this.#transitions.push(record);
     this.#version++;
+    if (Object.keys(delta).length > 0) this.#stateVersion++;
     this.#checkFrameAfterWorldChange();
     return { ok: true, attributed: false, transition: record, version: this.#version };
   }
 
   /** Exactly-one match rule: ambiguity refuses to guess (falls through to stimulus). */
   #inferAffordanceForDelta(deltaKeys: string[]): Affordance | null {
-    const candidates = Object.values(this.#spec.affordances).filter((aff) => {
+    const candidates = Object.values(this.spec.affordances).filter((aff) => {
       if (!this.#registry.isRegistered(aff.id)) return false;
       if (!aff.on.includes(this.#node)) return false;
       const writes = aff.effect?.writes ?? [];
@@ -687,7 +807,7 @@ export class Session {
     if (observedNode === this.#node) {
       return { changed: false, node: this.#node, version: this.#version };
     }
-    const offGraph = !this.#spec.pages[observedNode];
+    const offGraph = !this.spec.pages[observedNode];
     const record: TransitionRecord = {
       id: buildRuntimeStageId(`sync:${observedNode}`, this.#counter.value++),
       cause: {
@@ -732,7 +852,9 @@ export class Session {
   transitions(): readonly TransitionRecord[] {
     return this.#transitions.map((t) => ({
       ...t,
-      evidence: t.evidence ? [...t.evidence] : undefined,
+      cause: { ...t.cause },
+      evidence: t.evidence ? t.evidence.map((condition) => ({ ...condition })) : undefined,
+      ...(t.guardUnevaluated ? { guardUnevaluated: [...t.guardUnevaluated] } : {}),
     }));
   }
 
@@ -783,7 +905,8 @@ export class Session {
     return () => this.#gapListeners.delete(listener);
   }
 
-  #recordRejection(
+  /** Every refused fire becomes a gap-ledger row (protected: NavSession adds tree rejections). */
+  protected recordRejection(
     affordanceId: string,
     rejectionReason: NonNullable<GapRecord['rejectionReason']>,
     principal: Principal,
@@ -796,7 +919,7 @@ export class Session {
       node: this.#node,
       version: this.#version,
       availableActions: precomputedActions ?? this.available().edges.map((e) => e.affordanceId),
-      availableSkills: Object.keys(this.#spec.skills),
+      availableSkills: Object.keys(this.spec.skills),
       affordanceId,
       rejectionReason,
       principal,
@@ -810,7 +933,7 @@ export class Session {
   #gapContext(): { availableActions: string[]; availableSkills: string[] } {
     return {
       availableActions: this.available().edges.map((e) => e.affordanceId),
-      availableSkills: Object.keys(this.#spec.skills),
+      availableSkills: Object.keys(this.spec.skills),
     };
   }
 
@@ -834,8 +957,8 @@ export class Session {
    */
   toMCPTools(opts?: { lossySchemas?: boolean }): MCPToolDescription[] {
     const served = this.#servedEdges();
-    const tools = edgesToMCPTools(this.#spec, served.edges, opts);
-    if (served.escape) tools.push(leaveSkillTool(this.#spec, this.#frame!.skillId));
+    const tools = edgesToMCPTools(this.spec, served.edges, opts);
+    if (served.escape) tools.push(leaveSkillTool(this.spec, this.#frame!.skillId));
     return tools;
   }
 
@@ -859,9 +982,9 @@ export class Session {
         .map((b) => [b.runtimeStageId, Object.keys({ ...(b.overwrite ?? {}), ...(b.updates ?? {}) })]),
     );
 
-    const lines: string[] = [`You are on: ${this.#node}.`];
+    const lines: string[] = [`You are on: ${this.#nodeLabel(this.#node)}.`];
     if (this.#frame) {
-      const skill = this.#spec.skills[this.#frame.skillId];
+      const skill = this.spec.skills[this.#frame.skillId];
       lines.push(
         `Open skill: ${this.#frame.skillId} — ${skill.description} ` +
           `(${this.#frame.firedSteps.length}/${skill.steps.length} steps done).`,
@@ -903,29 +1026,123 @@ export class Session {
     return (this.#heap.getState() ?? {}) as Record<string, unknown>;
   }
 
-  #evalGuard(guard: WhereFilter | undefined): { matched: boolean; conditions: FilterCondition[] } {
-    if (!guard) return { matched: true, conditions: [] };
-    const state = this.#stateView();
-    return evaluateFilter(
-      (key) => state[key],
-      (key) => this.#redacted.has(key),
-      guard,
-    );
+  /**
+   * Resolve the live handler for a fire. Protected seam: NavSession keys
+   * repeats-container handlers by instance ('cancel-order[o-123]').
+   */
+  protected handlerFor(affordanceId: string, _opts: FireOptions): ToolHandler | undefined {
+    return this.#registry.handlerFor(affordanceId);
   }
 
-  #settle(record: TransitionRecord, aff: Affordance, delta: Record<string, unknown>): void {
+  /**
+   * D18: registration/presence flips ARE world motion — but coalesced. Raw
+   * registry edits apply immediately; the trace row + version bump flush once
+   * per microtask, and a leave+enter of the same shape within one window
+   * cancels to nothing (StrictMode double-mounts and HMR never pollute the
+   * trace). This also fixes the verified v1 gap: registerTools never bumped
+   * the version, so a plan made before a mount/unmount passed CAS after it.
+   */
+  protected noteStructureChange(): void {
+    if (this.#structureFlushScheduled) return;
+    this.#structureFlushScheduled = true;
+    queueMicrotask(() => {
+      this.#structureFlushScheduled = false;
+      const now = this.structureFingerprint();
+      if (now === this.#structureFingerprint) return; // net-zero churn: no row, no bump
+      this.#structureFingerprint = now;
+      const record: TransitionRecord = {
+        id: buildRuntimeStageId('stimulus:structure-swap', this.#counter.value++),
+        cause: { kind: 'stimulus', stimulus: 'structure-swap', principal: 'system' },
+        timestamp: Date.now(),
+        outcome: 'committed',
+        effectVerified: 'unobservable',
+        fromNode: this.#node,
+        toNode: this.#node,
+        cursorVersion: this.#version,
+      };
+      // Empty commit — footprint's deliberate-cursor-stop idiom.
+      this.#commitDelta('stimulus:structure-swap', record.id, [], {});
+      this.#transitions.push(record);
+      this.#version++;
+      this.#structureVersion++;
+      this.#checkFrameAfterWorldChange();
+    });
+  }
+
+  /**
+   * What "the served structure" looks like right now — compared at flush time
+   * against the last flushed value. NavSession extends this with the presence
+   * set and visibility signals.
+   */
+  protected structureFingerprint(): string {
+    return this.#registry
+      .registrations()
+      .map((r) => r.affordanceId)
+      .sort()
+      .join('|');
+  }
+
+  /**
+   * Guard evaluation with the D18 honesty split: conditions over keys the
+   * state view has never contained are UNEVALUABLE, not false. Evaluable
+   * conditions decide matched; unevaluable keys are returned as a marker so
+   * edges are served-with-honesty instead of silently hidden — the rung-killer
+   * fix that lets one authored graph work at every rung of the ladder.
+   */
+  #evalGuard(guard: WhereFilter | undefined): {
+    matched: boolean;
+    conditions: FilterCondition[];
+    unevaluable: string[];
+  } {
+    if (!guard) return { matched: true, conditions: [], unevaluable: [] };
+    const state = this.#stateView();
+    const unevaluable = Object.keys(guard).filter((key) => !(key in state));
+    if (unevaluable.length === 0) {
+      const { matched, conditions } = evaluateFilter(
+        (key) => state[key],
+        (key) => this.#redacted.has(key),
+        guard,
+      );
+      return { matched, conditions, unevaluable };
+    }
+    const evaluable = Object.fromEntries(
+      Object.entries(guard).filter(([key]) => key in state),
+    ) as WhereFilter;
+    // evaluateFilter deliberately never matches {} — an all-unevaluable guard
+    // must not fall into that anti-vacuous-truth rule, so short-circuit.
+    if (Object.keys(evaluable).length === 0) return { matched: true, conditions: [], unevaluable };
+    const { matched, conditions } = evaluateFilter(
+      (key) => state[key],
+      (key) => this.#redacted.has(key),
+      evaluable,
+    );
+    return { matched, conditions, unevaluable };
+  }
+
+  #settle(
+    record: TransitionRecord,
+    aff: Affordance,
+    delta: Record<string, unknown>,
+    settleOpts?: { forceUnobservable?: boolean },
+  ): void {
     // Read provenance = the guard keys this transition's availability rested on.
     this.#commitDelta(aff.id, record.id, Object.keys(aff.guard ?? {}), delta);
 
     const deltaKeys = Object.keys(delta);
     const declared = aff.effect?.writes;
-    record.effectVerified =
-      declared && declared.length > 0 ? declared.every((key) => deltaKeys.includes(key)) : 'unobservable';
+    record.effectVerified = settleOpts?.forceUnobservable
+      ? 'unobservable' // tapless settlement: no report will ever exist to check against
+      : declared && declared.length > 0
+        ? declared.every((key) => deltaKeys.includes(key))
+        : 'unobservable';
     if (aff.effect?.navigatesTo) {
       // Declared target = expectation, flagged as a CLAIM; sync() records reality.
-      this.#node = aff.effect.navigatesTo;
       record.toNode = aff.effect.navigatesTo;
       record.toNodeClaimed = true;
+      // The claim moves the LIVE cursor only if nothing else moved it since
+      // this transition fired — a weaker claim must never clobber a newer
+      // sync() observation that interleaved while the fire was pending.
+      if (this.#node === record.fromNode) this.#node = aff.effect.navigatesTo;
     } else {
       // A non-navigating affordance never moves the record's cursor — even if
       // an interleaved sync() moved the session's.
@@ -933,10 +1150,11 @@ export class Session {
     }
     record.outcome = 'committed';
     this.#version++;
+    if (deltaKeys.length > 0) this.#stateVersion++; // empty settles are cursor stops, not state motion
 
     if (
       this.#frame &&
-      this.#spec.skills[this.#frame.skillId].steps.includes(aff.id) &&
+      this.spec.skills[this.#frame.skillId].steps.includes(aff.id) &&
       !this.#frame.firedSteps.includes(aff.id)
     ) {
       this.#frame.firedSteps.push(aff.id);
@@ -948,7 +1166,7 @@ export class Session {
   #servedEdges(): { edges: AvailableEdge[]; escape: boolean } {
     const edges = this.available().edges;
     if (!this.#frame) return { edges, escape: false };
-    const steps = this.#spec.skills[this.#frame.skillId].steps;
+    const steps = this.spec.skills[this.#frame.skillId].steps;
     return {
       edges: edges.filter(
         (e) => steps.includes(e.affordanceId) || e.role === 'cancel' || e.role === 'back',
@@ -965,7 +1183,7 @@ export class Session {
    */
   #checkFrameAfterWorldChange(): void {
     if (!this.#frame) return;
-    const skill = this.#spec.skills[this.#frame.skillId];
+    const skill = this.spec.skills[this.#frame.skillId];
     if (!skill.precondition) return;
     if (this.#evalGuard(skill.precondition).matched) return;
     this.#frame.status = 'demoted';
@@ -973,6 +1191,7 @@ export class Session {
     this.#frames.push(this.#frame);
     this.#frame = null;
     this.#version++;
+    this.#structureVersion++;
   }
 
   #frameCopy(frame: SkillFrame | null = this.#frame): SkillFrame | null {
@@ -981,11 +1200,24 @@ export class Session {
       : null;
   }
 
+  /**
+   * The brief's TEXT channel only carries authored strings. A page id is
+   * authored; an OFF-GRAPH observed node name is runtime router text (an
+   * attacker-influencable URL segment) — it renders as a constant label here
+   * and stays available verbatim only in structured data fields.
+   */
+  #nodeLabel(name: string): string {
+    return Object.hasOwn(this.spec.pages, name) ? name : '(an unmapped location, off the authored graph)';
+  }
+
   /** One authored-strings-only line per transition for contextBrief(). */
   #briefLine(t: TransitionRecord, changedKeysById: Map<string, string[]>): string {
     if (t.cause.kind === 'fired') {
-      const aff = this.#spec.affordances[t.cause.affordanceId ?? ''];
-      const moved = t.toNode && t.toNode !== t.fromNode ? ` (${t.fromNode} → ${t.toNode})` : '';
+      const aff = this.spec.affordances[t.cause.affordanceId ?? ''];
+      const moved =
+        t.toNode && t.toNode !== t.fromNode
+          ? ` (${this.#nodeLabel(t.fromNode)} → ${this.#nodeLabel(t.toNode)})`
+          : '';
       const flags: string[] = [];
       if (t.cause.inferred) flags.push('inferred, not observed');
       if (aff?.highEffect) flags.push('high-effect');
@@ -999,9 +1231,17 @@ export class Session {
       return `${t.cause.principal} fired ${t.cause.affordanceId} — ${aff?.description ?? ''}${moved}${suffix}`;
     }
     if (t.toNode && t.toNode !== t.fromNode) {
-      return `${t.cause.principal} ${t.cause.stimulus}: cursor moved ${t.fromNode} → ${t.toNode} (unverified edge)`;
+      return `${t.cause.principal} ${t.cause.stimulus}: cursor moved ${this.#nodeLabel(t.fromNode)} → ${this.#nodeLabel(t.toNode)} (unverified edge)`;
     }
-    const keys = changedKeysById.get(t.id) ?? [];
+    if (t.cause.stimulus === 'structure-swap') {
+      return 'the served tool surface changed (something mounted, unmounted, or changed visibility)';
+    }
+    // Key NAMES are the designed disclosure (values never enter text) — but a
+    // tap could relay hostile keys, so they are hardened before rendering.
+    const keys = (changedKeysById.get(t.id) ?? []).map(
+      // eslint-disable-next-line no-control-regex
+      (key) => key.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60),
+    );
     return `${t.cause.principal} ${t.cause.stimulus} changed: ${keys.length > 0 ? keys.join(', ') : '(nothing)'}`;
   }
 

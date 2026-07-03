@@ -161,13 +161,34 @@ export interface Affordance {
   id: string;
   on: string[];
   description: string;
-  binding: Binding;
+  /**
+   * Optional since D18: a spine tool may exist with only its description
+   * (plannable/tour-able) and gain a binding or handler at mount time.
+   * The v1 fluent builder still requires it at authoring.
+   */
+  binding?: Binding;
   guard?: WhereFilter;
   effect?: Effect;
   schema?: unknown;
   highEffect: boolean;
   role: CanonicalRole;
+  /**
+   * Where the planner-facing description came from. Both classes are
+   * developer-AUTHORED source-code literals (the firewall holds either way);
+   * the marker keeps the origin auditable. Default 'declared'.
+   */
+  descriptionSource?: 'declared' | 'registration';
 }
+
+/**
+ * How much evidence backs "this node is active" for a served edge (D18).
+ * 'synced'     — the router confirmed this page (page-level tools).
+ * 'assumed'    — declared subtree of the routed page, nothing registered there.
+ * 'registered' — a live mount handle exists on the node.
+ * 'shown'      — an explicit visibility signal says it is visible.
+ * 'hidden'     — an explicit visibility signal says it is NOT visible.
+ */
+export type ActivationLevel = 'synced' | 'assumed' | 'registered' | 'shown' | 'hidden';
 
 export interface Skill extends SkillDef {
   id: string;
@@ -190,6 +211,14 @@ export interface SessionOptions {
   node: string;
   /** Initial projected state (the lean snapshot guards read — not the whole app). */
   state?: Record<string, unknown>;
+  /**
+   * Whether this session receives updateState() reports (a router/store tap).
+   * Default: true when `state` was provided, false otherwise. Without a tap,
+   * declared-writes fires settle on handler completion (or immediately when
+   * nothing executes) with effectVerified 'unobservable' — instead of staying
+   * pending forever (the D18 rung-killer fix).
+   */
+  stateTap?: boolean;
   /** Keys stored as 'REDACTED' in the commit log while live state keeps raw values. */
   redactedKeys?: string[];
   /** Commit-log value encoding (footprintjs dial). Default 'delta'. */
@@ -232,6 +261,13 @@ export interface TransitionRecord {
    * Backward slices must treat the hop as inferred, not authorized.
    */
   unverifiedEdge?: boolean;
+  /**
+   * Guard keys that could NOT be evaluated at fire time because the session's
+   * state view never contained them (L0/L1 — no state tap for those keys).
+   * The fire proceeded — the app remains the enforcer — but the record says
+   * honestly which conditions were taken on faith (D18 rung-killer fix).
+   */
+  guardUnevaluated?: string[];
   /** Cursor version when the transition was created. */
   cursorVersion: number;
 }
@@ -249,9 +285,34 @@ export interface AvailableEdge {
   materialized?: boolean;
   /** Per-condition guard evidence (key/op/threshold/actual) — why it is passable. */
   evidence: FilterCondition[];
+  /**
+   * Guard keys absent from the session's state view — the edge is served
+   * anyway, WITH this marker, instead of being silently hidden (D18 fix).
+   */
+  guardUnevaluated?: string[];
   schema?: unknown;
   highEffect: boolean;
-  binding: Binding;
+  binding?: Binding;
+  /** See Affordance.descriptionSource. */
+  descriptionSource?: 'declared' | 'registration';
+  // --- D18 tree stamps (NavSession only) ---------------------------------
+  /** Owning node path in the navigation tree (e.g. 'catalog.filter-rail'). */
+  node?: string;
+  /** Evidence level behind "this node is active" (see ActivationLevel). */
+  activation?: ActivationLevel;
+  /**
+   * 'unknown' when several exclusive-tab siblings are mounted and no
+   * visibility wire exists — a flagged union, never a guessed winner.
+   */
+  presence?: 'unknown';
+  /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
+  instances?: string[];
+  /**
+   * Where `instances` came from: 'selector' = the declared existence source
+   * (complete), 'mounted-window' = only what is mounted right now (partial —
+   * stated, not silently presented as complete).
+   */
+  enumeration?: 'selector' | 'mounted-window';
 }
 
 export interface AvailableSlice {
@@ -266,6 +327,8 @@ export interface AvailableSkill {
   steps: string[];
   preconditionPassed: boolean;
   evidence: FilterCondition[];
+  /** Precondition keys absent from the state view — feasibility unknown, said so. */
+  preconditionUnevaluable?: string[];
   /** Whether the skill's first step is available right now (on-node + guard). */
   entryAvailable: boolean;
 }
@@ -277,6 +340,8 @@ export interface Explanation {
   guardPassed: boolean;
   available: boolean;
   evidence: FilterCondition[];
+  /** Guard keys that could not be evaluated (absent from the state view). */
+  guardUnevaluated?: string[];
 }
 
 export interface FireOptions {
@@ -288,6 +353,8 @@ export interface FireOptions {
    */
   expectedVersion?: number;
   payload?: unknown;
+  /** Instance key for a tool on a repeats container (e.g. an order-card id). */
+  instance?: string;
   /**
    * Invoke the registered handler (default true when one exists). The DOM
    * sensor passes false: the browser already runs the app's own onClick, so
@@ -302,7 +369,16 @@ export type FireResult =
   | { ok: false; reason: 'STALE_CURSOR'; version: number }
   | { ok: false; reason: 'NOT_ON_NODE'; node: string }
   | { ok: false; reason: 'GUARD_FAILED'; evidence: FilterCondition[] }
-  | { ok: false; reason: 'PAYLOAD_INVALID'; issues: string };
+  | { ok: false; reason: 'PAYLOAD_INVALID'; issues: string }
+  // --- D18 tree rejections (NavSession) — all typed, all gap-ledger rows ---
+  /** A shown blocking modal masks this tool's node. Close the modal first. */
+  | { ok: false; reason: 'BLOCKED_BY_OVERLAY'; overlay: string }
+  /** The tool's node carries an explicit not-visible signal (hidden tab, closed modal). */
+  | { ok: false; reason: 'NODE_NOT_VISIBLE'; node: string }
+  /** RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link). */
+  | { ok: false; reason: 'STILL_MOUNTING'; node: string }
+  | { ok: false; reason: 'INSTANCE_REQUIRED'; instances: string[] }
+  | { ok: false; reason: 'INSTANCE_UNKNOWN'; instances: string[] };
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -346,7 +422,13 @@ export interface PendingInfo {
 // Gap ledger — unmet demand (what was asked for that nothing could serve)
 // ---------------------------------------------------------------------------
 
-export type GapReason = 'no-skill-matched' | 'guard-blocked' | 'needs-backend-data' | 'other';
+export type GapReason =
+  | 'no-skill-matched'
+  | 'guard-blocked'
+  | 'needs-backend-data'
+  /** Sensor-health drift: e.g. a registration outside the router-confirmed page persisted past the grace window. */
+  | 'sensor-drift'
+  | 'other';
 
 /**
  * One row of unmet demand. Two kinds:
@@ -379,7 +461,17 @@ export interface GapRecord {
   // fire-rejected rows:
   /** The id the caller ASKED for — kept even when unknown (that is the signal). */
   affordanceId?: string;
-  rejectionReason?: 'UNKNOWN_AFFORDANCE' | 'STALE_CURSOR' | 'NOT_ON_NODE' | 'GUARD_FAILED' | 'PAYLOAD_INVALID';
+  rejectionReason?:
+    | 'UNKNOWN_AFFORDANCE'
+    | 'STALE_CURSOR'
+    | 'NOT_ON_NODE'
+    | 'GUARD_FAILED'
+    | 'PAYLOAD_INVALID'
+    | 'BLOCKED_BY_OVERLAY'
+    | 'NODE_NOT_VISIBLE'
+    | 'STILL_MOUNTING'
+    | 'INSTANCE_REQUIRED'
+    | 'INSTANCE_UNKNOWN';
   principal?: Principal;
   evidence?: FilterCondition[];
   // reported rows:
@@ -421,6 +513,8 @@ export interface SkillPlanStep {
   dependsOn: DependencyEdge[];
   onNodes: string[];
   blockedOn?: FilterCondition[];
+  /** Guard keys absent from the state view — the step shows 'ready', taken on faith. */
+  guardUnevaluated?: string[];
 }
 
 /** The derived intra-skill dependency DAG with live status. */
