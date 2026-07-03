@@ -45,8 +45,10 @@ import type {
   Explanation,
   FireOptions,
   FireResult,
+  GapRecord,
   PendingInfo,
   Principal,
+  ReportGapOptions,
   SessionOptions,
   SkillFrame,
   SkillGraphSpec,
@@ -121,6 +123,9 @@ export class Session {
   readonly #frames: SkillFrame[] = [];
   readonly #registry: ToolRegistry;
   readonly #warn: (message: string) => void;
+  /** Unmet demand: rejected fires + explicitly reported unserved asks. */
+  readonly #gaps: GapRecord[] = [];
+  readonly #gapListeners = new Set<(gap: GapRecord) => void>();
 
   constructor(spec: SkillGraphSpec, opts: SessionOptions) {
     if (!spec.pages[opts.node]) {
@@ -390,26 +395,28 @@ export class Session {
   fire(affordanceId: string, opts: FireOptions): FireResult {
     const aff = this.#spec.affordances[affordanceId];
     if (!aff) {
-      return {
-        ok: false,
-        reason: 'UNKNOWN_AFFORDANCE',
-        available: this.available().edges.map((e) => e.affordanceId),
-      };
+      const available = this.available().edges.map((e) => e.affordanceId);
+      this.#recordRejection(affordanceId, 'UNKNOWN_AFFORDANCE', opts.source, undefined, available);
+      return { ok: false, reason: 'UNKNOWN_AFFORDANCE', available };
     }
     if (opts.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
+      this.#recordRejection(affordanceId, 'STALE_CURSOR', opts.source);
       return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
     }
     if (!aff.on.includes(this.#node)) {
+      this.#recordRejection(affordanceId, 'NOT_ON_NODE', opts.source);
       return { ok: false, reason: 'NOT_ON_NODE', node: this.#node };
     }
     // Guards are re-evaluated at fire time — plan-time guards are advisory.
     const { matched, conditions } = this.#evalGuard(aff.guard);
     if (!matched) {
+      this.#recordRejection(affordanceId, 'GUARD_FAILED', opts.source, conditions);
       return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
     }
     if (aff.schema !== undefined) {
       const validation = validatePayload(aff.schema, opts.payload);
       if (!validation.ok) {
+        this.#recordRejection(affordanceId, 'PAYLOAD_INVALID', opts.source);
         return { ok: false, reason: 'PAYLOAD_INVALID', issues: validation.issues };
       }
     }
@@ -738,6 +745,85 @@ export class Session {
   /** runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup). */
   readsByStep(): ReadonlyMap<string, string[]> {
     return this.#readsByStep;
+  }
+
+  // -------------------------------------------------------------------------
+  // Gap ledger — unmet demand, the input to "which skill should we build next"
+  // -------------------------------------------------------------------------
+
+  /**
+   * Report an ask that no available action or skill could serve (typically
+   * called by the agent's report_gap tool before it apologizes). The row is
+   * token-lean by design: the ask plus NAME lists, never descriptions.
+   */
+  reportGap(opts: ReportGapOptions): GapRecord {
+    const row: GapRecord = {
+      kind: 'reported',
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      ...this.#gapContext(),
+      request: opts.request.slice(0, 500),
+      reason: opts.reason ?? 'other',
+      ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+      ...(opts.principal !== undefined ? { principal: opts.principal } : {}),
+    };
+    this.#pushGap(row);
+    return structuredClone(row);
+  }
+
+  /** The unmet-demand ledger (DEEP copies) — export it to your analytics/triage pipeline. */
+  gaps(): GapRecord[] {
+    return this.#gaps.map((g) => structuredClone(g));
+  }
+
+  /** Live export hook: fires once per new gap row. Returns an unsubscribe. */
+  onGap(listener: (gap: GapRecord) => void): () => void {
+    this.#gapListeners.add(listener);
+    return () => this.#gapListeners.delete(listener);
+  }
+
+  #recordRejection(
+    affordanceId: string,
+    rejectionReason: NonNullable<GapRecord['rejectionReason']>,
+    principal: Principal,
+    evidence?: FilterCondition[],
+    precomputedActions?: string[],
+  ): void {
+    this.#pushGap({
+      kind: 'fire-rejected',
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      availableActions: precomputedActions ?? this.available().edges.map((e) => e.affordanceId),
+      availableSkills: Object.keys(this.#spec.skills),
+      affordanceId,
+      rejectionReason,
+      principal,
+      // Copy the CONDITION OBJECTS too — the same objects ride FireResult.evidence,
+      // and a caller annotating those must not rewrite the ledger.
+      ...(evidence !== undefined ? { evidence: evidence.map((c) => ({ ...c })) } : {}),
+    });
+  }
+
+  /** Names only — token-lean and injection-safe context for triage. */
+  #gapContext(): { availableActions: string[]; availableSkills: string[] } {
+    return {
+      availableActions: this.available().edges.map((e) => e.affordanceId),
+      availableSkills: Object.keys(this.#spec.skills),
+    };
+  }
+
+  #pushGap(row: GapRecord): void {
+    this.#gaps.push(row);
+    for (const listener of this.#gapListeners) {
+      try {
+        listener(structuredClone(row)); // deep copy: exporter mutation must never touch the ledger
+      } catch (error) {
+        // Consumer export code must never break the session (recorder rule).
+        this.#warn(`hcifootprint: onGap listener threw: ${String(error)}`);
+      }
+    }
   }
 
   /**

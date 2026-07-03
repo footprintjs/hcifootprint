@@ -343,6 +343,61 @@ export interface PendingInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Gap ledger — unmet demand (what was asked for that nothing could serve)
+// ---------------------------------------------------------------------------
+
+export type GapReason = 'no-skill-matched' | 'guard-blocked' | 'needs-backend-data' | 'other';
+
+/**
+ * One row of unmet demand. Two kinds:
+ * - 'fire-rejected' — an attempted action the session refused (unknown id,
+ *   failed guard, wrong page, stale plan, bad payload). Recorded automatically.
+ * - 'reported'      — an ask no available action or skill could serve,
+ *   reported explicitly (typically by the agent's report_gap tool).
+ *
+ * Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
+ * never descriptions or transcripts — so a consumer's batch triage LLM can
+ * cluster thousands of them cheaply to discover which skills/tools to build
+ * next. `request` is runtime data (user text): export it as data, never feed
+ * it to a planner as instructions.
+ *
+ * Triage notes: rows with rejectionReason 'STALE_CURSOR' are usually
+ * optimistic-concurrency retries that SUCCEEDED on replan — filter or
+ * down-weight them; they are cursor-protocol events, not missing capability.
+ * `availableActions` lists full capability at that position (not narrowed by
+ * any open skill frame). The ledger grows unbounded for the session's life —
+ * export via onGap and drain, like the transition log.
+ */
+export interface GapRecord {
+  kind: 'fire-rejected' | 'reported';
+  timestamp: number;
+  node: string;
+  version: number;
+  /** Names only — what existed at that moment (token-lean, injection-safe). */
+  availableActions: string[];
+  availableSkills: string[];
+  // fire-rejected rows:
+  /** The id the caller ASKED for — kept even when unknown (that is the signal). */
+  affordanceId?: string;
+  rejectionReason?: 'UNKNOWN_AFFORDANCE' | 'STALE_CURSOR' | 'NOT_ON_NODE' | 'GUARD_FAILED' | 'PAYLOAD_INVALID';
+  principal?: Principal;
+  evidence?: FilterCondition[];
+  // reported rows:
+  /** The user's ask (runtime data; length-capped). */
+  request?: string;
+  reason?: GapReason;
+  note?: string;
+}
+
+export interface ReportGapOptions {
+  /** The ask that could not be served (length-capped to stay token-lean). */
+  request: string;
+  reason?: GapReason;
+  note?: string;
+  principal?: Principal;
+}
+
+// ---------------------------------------------------------------------------
 // Skill frames — on-demand disclosure (serve skills; expand tools on commit)
 // ---------------------------------------------------------------------------
 
