@@ -31,10 +31,37 @@ export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './grap
 export type { SkillGraph } from './graph/builder.js';
 export { Session } from './traverse/session.js';
 export type { RegisteredTools, RegisterToolsOptions } from './traverse/session.js';
+// D18 — the navigation graph: appMap() authoring, NavSession runtime, presence sensor
+export { appMap } from './tree/appmap.js';
+export type {
+  AppMap,
+  AppMapDef,
+  MapNode,
+  ModalDef,
+  NodeDef,
+  NodeKind,
+  PageNodeDef,
+  SkillDef2,
+  ToolDef,
+} from './tree/types.js';
+export { NavSession } from './traverse/nav-session.js';
+export type { MountHandle, MountOptions, MountToolDef, NavSessionOptions } from './traverse/nav-session.js';
+export { PresenceIndex } from './presence/presence.js';
+export type { PresenceHandle } from './presence/presence.js';
 export { ToolRegistry } from './registry/registry.js';
 export type { Registration, ToolHandler } from './registry/registry.js';
 export { edgesToMCPTools, leaveSkillTool } from './serve/mcp.js';
+// D18 serving modes — Mode B: skills as fixed tools, disclosure in results
+export { skillsAsTools } from './serve/modes.js';
 export type {
+  DoActionArgs,
+  ServeResult,
+  SkillCallArgs,
+  SkillToolsOptions,
+  SkillToolsPort,
+} from './serve/modes.js';
+export type {
+  ActivationLevel,
   Actuation,
   Affordance,
   AffordanceDef,
