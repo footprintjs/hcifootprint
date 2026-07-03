@@ -70,6 +70,94 @@ session.explain('go-to-cart'); // per-condition guard evidence
 session.toMCPTools();       // one MCP tool descriptor per currently-available edge
 ```
 
+## The navigation graph — describe your app the way you think about it
+
+`appMap()` is the recommended authoring surface (D18). You write the
+container tree you already hold in your head — pages, areas, tabs, modals —
+and a tool needs only one sentence to exist. That sentence has two readers:
+it labels the action for you, and it IS the tool description the LLM sees.
+
+```ts
+import { appMap } from 'hcifootprint';
+
+const map = appMap('shop', {
+  pages: {
+    catalog: {
+      route: '/catalog',
+      areas: {
+        'filter-rail': { tools: { 'set-color': { does: 'Filter dresses by color' } } },
+      },
+      tools: {
+        'add-to-cart': { does: 'Add the selected dress to the cart', when: { authenticated: { eq: true } } },
+      },
+    },
+    checkout: {
+      modals: {
+        'confirm-order': { tools: { 'place-order': { does: 'Place the order', confirm: true } } },
+      },
+    },
+  },
+  skills: {
+    purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
+  },
+});
+
+const session = map.createSession();
+```
+
+You do not hand over state or handlers up front. Components register what
+they have **when they render**, and only what they choose to:
+
+```ts
+// in the component that renders the filter rail:
+const handle = session.mount('catalog.filter-rail', {
+  handlers: { 'set-color': (input) => setColor(input.color) },  // your own function, by reference
+  tools: { 'clear-color': { does: 'Remove the color filter', handler: clearColor } }, // or declare on the spot
+});
+// on unmount:
+handle.release();
+```
+
+Three words carry meaning; everything else is just structure. A `modals`
+entry masks the rest of the page while it is shown, and closing it restores
+everything — no state machine. A `tabs` group shows at most one child at a
+time. `repeats: true` marks a template (order cards, product tiles) that
+serves ONE tool with an instance key instead of one tool per card.
+
+Everything the runtime cannot see, it says so instead of guessing. Edges
+carry markers like `activation: 'assumed'`, `presence: 'unknown'`, and
+`guardUnevaluated` (a guard over state you never reported is served WITH the
+marker, not silently hidden). Refused fires return typed reasons —
+`BLOCKED_BY_OVERLAY`, `NODE_NOT_VISIBLE`, `STILL_MOUNTING` (retriable) — and
+every refusal lands in the gap ledger. When several kept-mounted tabs are
+visible at once and no signal says which, the session serves all of them
+flagged rather than guessing a winner; `session.show(path)` is the one-line
+upgrade.
+
+The v1 `skillGraph()` builder keeps working forever — it is the one-level
+version of the same graph.
+
+## Serving the agent: skills as fixed tools (Mode B)
+
+The tool array an LLM sees never changes: one tool per skill plus
+`whats_here` and `do_action`. What is fireable right now arrives inside each
+tool RESULT (`readySteps`), and the model acts by calling the same skill tool
+again with `{ step }`:
+
+```ts
+import { skillsAsTools } from 'hcifootprint';
+
+const port = skillsAsTools(session);
+port.tools();                          // static — identical bytes every turn
+port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, ... }
+port.call('shop.skill.purchase', { step: 'catalog.add-to-cart', input: { productId: 'p1' } });
+```
+
+Because the tool set is fixed, the prompt cache stays warm for the whole
+conversation, and the library works as a plain MCP server with ANY host — no
+dynamic-tool support required. High-effect steps stop at `needs-confirm` and
+are never auto-crossed.
+
 ## The atom
 
 ```
@@ -130,9 +218,10 @@ The text is built from authored strings and structural facts only — state **va
 ## Roadmap
 
 - Browser adapter: MutationObserver binding resolver, router/store taps, Web Worker graph host with a measured main-thread budget.
+- React adapter (`useMount`) + DOM actuation adapter (the L0b rung: native-setter + real events, option discovery from rendered elements).
 - Route-tree derivation (Next.js / React Router) so the page skeleton is generated, not authored.
 - CI `verifyBindings()` — walk every authored edge headlessly and fail the build when a binding no longer resolves.
-- Parameterized affordance instances (`instanceKey`) for lists and collections.
+- Cross-origin boundary nodes (payment iframes, OAuth popups) — journeys that leave the observable window (D20).
 - Frame suspend/resume across navigation (v0 frames are commit / leave / auto-demote; suspending a frame while the user wanders and re-validating on return is next).
 - Fire-time provenance anchoring: guard-read provenance is currently recorded at settlement, so with several transitions pending at once, a causal slice can attribute a guard read to a writer that landed between fire and settle. Fire-time evidence on the record is always correct; prefer it when they disagree.
 
