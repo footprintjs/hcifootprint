@@ -154,6 +154,21 @@ describe('disclosure — toMCPTools() while a frame is open', () => {
   });
 });
 
+describe('inferred completions surface in the plan', () => {
+  it("a user's untracked click inside a frame shows 'inferred-done', never a silent re-fire invitation", () => {
+    const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
+    s.registerTools({ group: 'g', tools: { 'add-to-cart': () => 1 } });
+    s.commitSkill('purchase');
+    // The user clicks the app's own untouched button; only the tap reports:
+    okUpdate(s.updateState({ cart: [{ id: 'p1' }], cartCount: 1 }));
+    const frame = s.skillFrame()!;
+    expect(frame.firedSteps).toEqual([]); // never advanced on a guess
+    expect(frame.inferredSteps).toEqual(['add-to-cart']);
+    const step = s.skillPlan('purchase').steps.find((st) => st.affordanceId === 'add-to-cart')!;
+    expect(step.status).toBe('inferred-done');
+  });
+});
+
 describe('demotion — the world invalidates the committed skill', () => {
   it('a stimulus that breaks the precondition demotes the frame and re-collapses disclosure', () => {
     const s = shop().createSession({

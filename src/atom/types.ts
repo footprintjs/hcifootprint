@@ -48,6 +48,12 @@ export interface Cause {
   affordanceId?: string;
   /** Set when kind === 'stimulus'. */
   stimulus?: StimulusKind;
+  /**
+   * True when the attribution was GUESSED by effect-signature inference (an
+   * unattributed delta matched exactly one registered affordance's declared
+   * writes) rather than observed. Honesty marker — never laundered as fact.
+   */
+  inferred?: boolean;
 }
 
 /**
@@ -188,6 +194,8 @@ export interface SessionOptions {
   redactedKeys?: string[];
   /** Commit-log value encoding (footprintjs dial). Default 'delta'. */
   commitValues?: 'full' | 'delta';
+  /** Dev-warning sink (StrictMode re-registrations, handler errors). Default console.warn. */
+  onWarn?: (message: string) => void;
 }
 
 /**
@@ -232,6 +240,13 @@ export interface AvailableEdge {
   affordanceId: string;
   description: string;
   role: CanonicalRole;
+  /**
+   * Present only when the session has live registrations: true = a handler is
+   * mounted right now (fireable-with-execution), false = declared here but
+   * nothing registered it (plannable; firing records but nothing executes —
+   * on the current page this doubles as live binding-drift telemetry).
+   */
+  materialized?: boolean;
   /** Per-condition guard evidence (key/op/threshold/actual) — why it is passable. */
   evidence: FilterCondition[];
   schema?: unknown;
@@ -273,6 +288,12 @@ export interface FireOptions {
    */
   expectedVersion?: number;
   payload?: unknown;
+  /**
+   * Invoke the registered handler (default true when one exists). The DOM
+   * sensor passes false: the browser already runs the app's own onClick, so
+   * the sensor's fire() is record-only.
+   */
+  invoke?: boolean;
 }
 
 export type FireResult =
@@ -325,7 +346,7 @@ export interface PendingInfo {
 // Skill frames — on-demand disclosure (serve skills; expand tools on commit)
 // ---------------------------------------------------------------------------
 
-export type StepStatus = 'done' | 'ready' | 'blocked' | 'off-node';
+export type StepStatus = 'done' | 'inferred-done' | 'ready' | 'blocked' | 'off-node';
 
 /** B depends on A when A's declared writes overlap B's guard keys — DERIVED, never authored. */
 export interface DependencyEdge {
@@ -363,8 +384,14 @@ export interface SkillFrame {
   principal: Principal;
   openedAt: number;
   openedAtVersion: number;
-  /** Steps committed while this frame was open. */
+  /** Steps committed while this frame was open (observed fires). */
   firedSteps: string[];
+  /**
+   * Steps attributed by effect-signature INFERENCE while this frame was open
+   * — guesses, kept separate from observed fires. skillPlan shows them as
+   * 'inferred-done' so an agent re-executes only as a visible choice.
+   */
+  inferredSteps: string[];
   closedAtVersion?: number;
 }
 

@@ -20,7 +20,8 @@
     "build": "rm -rf dist && tsc",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "demo:chat": "tsx examples/dress-shop/chatbot.ts"
   },
   "keywords": [
     "llm",
@@ -39,7 +40,9 @@
     "footprintjs": "file:../footPrint"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@types/node": "^20.0.0",
+    "tsx": "^4.22.5",
     "typescript": "^5.5.0",
     "vitest": "^4.0.0",
     "zod": "^4.0.0"

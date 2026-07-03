@@ -27,10 +27,13 @@
  * session.toMCPTools();                      // per-edge MCP descriptors for the current slice
  * ```
  */
-export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './builder.js';
-export type { SkillGraph } from './builder.js';
-export { Session } from './session.js';
-export { edgesToMCPTools, leaveSkillTool } from './mcp.js';
+export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './graph/builder.js';
+export type { SkillGraph } from './graph/builder.js';
+export { Session } from './traverse/session.js';
+export type { RegisteredTools, RegisterToolsOptions } from './traverse/session.js';
+export { ToolRegistry } from './registry/registry.js';
+export type { Registration, ToolHandler } from './registry/registry.js';
+export { edgesToMCPTools, leaveSkillTool } from './serve/mcp.js';
 export type {
   Actuation,
   Affordance,
@@ -69,4 +72,4 @@ export type {
   TransitionRecord,
   UpdateOptions,
   UpdateResult,
-} from './types.js';
+} from './atom/types.js';

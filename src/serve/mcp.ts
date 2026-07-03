@@ -15,7 +15,7 @@
 import { detectSchema } from 'footprintjs';
 import type { MCPToolDescription } from 'footprintjs';
 import { normalizeSchema } from 'footprintjs/advanced';
-import type { AvailableEdge, SkillGraphSpec } from './types.js';
+import type { AvailableEdge, SkillGraphSpec } from '../atom/types.js';
 
 const NO_PARAMS = { type: 'object', properties: {}, additionalProperties: false };
 

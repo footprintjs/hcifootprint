@@ -57,12 +57,41 @@ import type {
   TransitionRecord,
   UpdateOptions,
   UpdateResult,
-} from './types.js';
-import { edgesToMCPTools, leaveSkillTool } from './mcp.js';
+} from '../atom/types.js';
+import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
+import { ToolRegistry } from '../registry/registry.js';
+import type { ToolHandler } from '../registry/registry.js';
 
 interface PendingTransition {
   record: TransitionRecord;
   affordance: Affordance;
+  /**
+   * True while this fire's registered handler is still executing (or has
+   * failed). Bare-FIFO attribution skips such entries: the handler has first
+   * claim on its own record — another fire's report must never steal it.
+   */
+  handlerInFlight?: boolean;
+}
+
+/** registerTools() input: one group per component/section, existing handlers by reference. */
+export interface RegisterToolsOptions {
+  group: string;
+  tools: Record<string, ToolHandler>;
+}
+
+/** registerTools() output: optional exact-provenance triggers + the group's cleanup. */
+export interface RegisteredTools {
+  /**
+   * Wrapped manual triggers (same signature as the app's handlers): calling
+   * one records the action as source 'user' AND invokes the handler — the
+   * opt-in precision tier. Wire a trigger IN PLACE OF the handler at the call
+   * site (the trigger invokes it for you); keeping both wired executes the
+   * handler twice. If you cannot replace the call site, rely on the zero-touch
+   * tiers instead (DOM sensor / effect-signature inference).
+   */
+  triggers: Record<string, (payload?: unknown) => FireResult>;
+  /** Unregister everything this call registered (call on unmount). */
+  unregister: () => void;
 }
 
 export class Session {
@@ -81,8 +110,17 @@ export class Session {
   readonly #recorder: ScopeRecorder;
   /** The one open skill frame (v0: one at a time). */
   #frame: SkillFrame | null = null;
+  /**
+   * Record id whose handler is executing its SYNCHRONOUS portion right now.
+   * updateState() called from inside that portion attributes directly to this
+   * record (like transitionId targeting) — the fix for the burst-fire race
+   * where another handler's report would FIFO-steal an earlier record.
+   */
+  #invokingRecordId: string | null = null;
   /** Closed frames (completed / cancelled / demoted), oldest first. */
   readonly #frames: SkillFrame[] = [];
+  readonly #registry: ToolRegistry;
+  readonly #warn: (message: string) => void;
 
   constructor(spec: SkillGraphSpec, opts: SessionOptions) {
     if (!spec.pages[opts.node]) {
@@ -98,6 +136,8 @@ export class Session {
     this.#counter = createExecutionCounter();
     this.#redacted = new Set(opts.redactedKeys ?? []);
     this.#commitValues = opts.commitValues ?? 'delta';
+    this.#warn = opts.onWarn ?? ((message) => console.warn(message));
+    this.#registry = new ToolRegistry(this.#warn);
     this.#recorder = {
       id: 'hcifootprint-session',
       onRead: (event) => {
@@ -127,6 +167,7 @@ export class Session {
   // -------------------------------------------------------------------------
 
   available(): AvailableSlice {
+    const flagMaterialized = this.#registry.hasAny();
     const edges: AvailableEdge[] = [];
     for (const aff of Object.values(this.#spec.affordances)) {
       if (!aff.on.includes(this.#node)) continue;
@@ -136,6 +177,7 @@ export class Session {
         affordanceId: aff.id,
         description: aff.description,
         role: aff.role,
+        ...(flagMaterialized ? { materialized: this.#registry.isRegistered(aff.id) } : {}),
         evidence: conditions,
         schema: aff.schema,
         highEffect: aff.highEffect,
@@ -143,6 +185,42 @@ export class Session {
       });
     }
     return { version: this.#version, node: this.#node, edges };
+  }
+
+  // -------------------------------------------------------------------------
+  // registerTools — the live-binding wire (declare statically, bind dynamically)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Register the app's EXISTING handlers (by reference) as the live bindings
+   * for declared affordances — purely additive to the app's code. One group
+   * per component/section; call the returned unregister (or
+   * unregisterGroup(group)) on unmount, and the tools lazily disappear.
+   *
+   * Registration carries no planner-facing strings: descriptions, guards,
+   * effects, and schemas come from the declared graph only.
+   */
+  registerTools(opts: RegisterToolsOptions): RegisteredTools {
+    const unknown = Object.keys(opts.tools).filter((id) => !this.#spec.affordances[id]);
+    if (unknown.length > 0) {
+      throw new Error(
+        `hcifootprint: registerTools group '${opts.group}' includes undeclared affordance(s) ` +
+          `${unknown.map((u) => `'${u}'`).join(', ')} — declare them in the skill graph first ` +
+          `(known: ${Object.keys(this.#spec.affordances).join(', ')}).`,
+      );
+    }
+    const triggers: Record<string, (payload?: unknown) => FireResult> = {};
+    for (const [affordanceId, handler] of Object.entries(opts.tools)) {
+      this.#registry.register(opts.group, affordanceId, handler);
+      triggers[affordanceId] = (payload?: unknown) =>
+        this.fire(affordanceId, { source: 'user', payload });
+    }
+    return { triggers, unregister: () => this.unregisterGroup(opts.group) };
+  }
+
+  /** Remove every live binding currently owned by `group` (component unmount). */
+  unregisterGroup(group: string): string[] {
+    return this.#registry.unregisterGroup(group);
   }
 
   /** Why an affordance is (or is not) available right now — per-condition evidence. */
@@ -218,6 +296,7 @@ export class Session {
       openedAt: Date.now(),
       openedAtVersion: this.#version,
       firedSteps: [],
+      inferredSteps: [],
     };
     this.#version++; // the served action space just changed
     return { ok: true, frame: this.#frameCopy()!, plan: this.skillPlan(skillId), version: this.#version };
@@ -231,7 +310,11 @@ export class Session {
   leaveSkill(opts?: { reason?: 'completed' | 'cancelled' }): SkillFrame | null {
     if (!this.#frame) return null;
     const skill = this.#spec.skills[this.#frame.skillId];
-    const allDone = skill.steps.every((step) => this.#frame!.firedSteps.includes(step));
+    // Completion counts observed AND inferred steps; inferredSteps on the
+    // returned frame says which of them were guesses.
+    const allDone = skill.steps.every(
+      (step) => this.#frame!.firedSteps.includes(step) || this.#frame!.inferredSteps.includes(step),
+    );
     this.#frame.status = opts?.reason ?? (allDone ? 'completed' : 'cancelled');
     this.#frame.closedAtVersion = this.#version;
     this.#frames.push(this.#frame);
@@ -277,15 +360,16 @@ export class Session {
         .filter((dep) => dep.viaKeys.length > 0);
 
       const { matched, conditions } = this.#evalGuard(aff.guard);
-      const done =
-        this.#frame?.skillId === skillId && this.#frame.firedSteps.includes(stepId);
-      const status = done
+      const frameForSkill = this.#frame?.skillId === skillId ? this.#frame : null;
+      const status = frameForSkill?.firedSteps.includes(stepId)
         ? 'done'
-        : !matched
-          ? 'blocked'
-          : aff.on.includes(this.#node)
-            ? 'ready'
-            : 'off-node';
+        : frameForSkill?.inferredSteps.includes(stepId)
+          ? 'inferred-done'
+          : !matched
+            ? 'blocked'
+            : aff.on.includes(this.#node)
+              ? 'ready'
+              : 'off-node';
       return {
         affordanceId: stepId,
         description: aff.description,
@@ -347,10 +431,64 @@ export class Session {
     if (declaredWrites.length > 0) {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
+      this.#invokeHandler(record, affordanceId, opts);
       return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state' };
     }
     this.#settle(record, aff, {});
+    this.#invokeHandler(record, affordanceId, opts);
     return { ok: true, transition: record, version: this.#version, settlement: 'settled' };
+  }
+
+  /**
+   * D13: fire() executes when a live binding exists. Fire-and-forget — the
+   * app's state tap reports the real delta as usual; a throwing handler
+   * auto-rejects its still-pending transition (or rolls back an
+   * already-committed immediate settle) instead of leaving a lie in the log.
+   *
+   * Attribution safety: while the handler's synchronous portion runs,
+   * updateState() attributes to THIS record directly; while the handler is in
+   * flight (or failed), bare-FIFO skips this record so a neighbor's report
+   * can never steal it.
+   */
+  #invokeHandler(record: TransitionRecord, affordanceId: string, opts: FireOptions): void {
+    if (opts.invoke === false) return; // record-only (the DOM sensor's mode)
+    const handler = this.#registry.handlerFor(affordanceId);
+    if (!handler) return;
+    const pendingEntry = this.#pending.find((p) => p.record.id === record.id);
+    if (pendingEntry) pendingEntry.handlerInFlight = true;
+    void Promise.resolve()
+      .then(() => {
+        this.#invokingRecordId = record.id;
+        try {
+          return handler(opts.payload);
+        } finally {
+          this.#invokingRecordId = null;
+        }
+      })
+      .then(() => {
+        const entry = this.#pending.find((p) => p.record.id === record.id);
+        if (entry) entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
+      })
+      .catch((error) => {
+        const index = this.#pending.findIndex((p) => p.record.id === record.id);
+        if (index >= 0) {
+          // Effect never landed: reject the pending so later deltas are not mis-attributed.
+          this.#pending.splice(index, 1);
+          record.outcome = 'rejected';
+          this.#version++;
+        } else if (record.outcome === 'committed') {
+          // Immediate-settle (no declared writes) committed BEFORE the handler
+          // ran and the handler failed: the commit was a claim about an action
+          // that never happened. Roll it back and, if the settle moved the
+          // cursor on the navigation CLAIM, walk the cursor back honestly.
+          record.outcome = 'rolled-back';
+          this.#version++;
+          if (record.toNodeClaimed && record.toNode === this.#node && record.fromNode !== this.#node) {
+            this.sync(record.fromNode, { stimulus: 'navigation', principal: 'system' });
+          }
+        }
+        this.#warn(`hcifootprint: handler for '${affordanceId}' threw: ${String(error)}`);
+      });
   }
 
   // -------------------------------------------------------------------------
@@ -396,11 +534,66 @@ export class Session {
     }
 
     const explicitStimulus = opts?.stimulus !== undefined || opts?.principal !== undefined;
+
+    // A handler reporting synchronously from inside its own invocation settles
+    // its OWN record — precise attribution, immune to the burst-fire race.
+    if (!explicitStimulus && this.#invokingRecordId !== null) {
+      const index = this.#pending.findIndex((p) => p.record.id === this.#invokingRecordId);
+      if (index >= 0) {
+        const [pending] = this.#pending.splice(index, 1);
+        this.#settle(pending.record, pending.affordance, delta);
+        return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+      }
+    }
+
     if (!explicitStimulus && this.#pending.length > 0) {
-      const pending = this.#pending[0];
-      this.#settle(pending.record, pending.affordance, delta);
-      this.#pending.shift();
-      return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+      // Bare FIFO skips records whose handler is still in flight — the handler
+      // has first claim on its own record (see #invokeHandler).
+      const index = this.#pending.findIndex((p) => !p.handlerInFlight);
+      if (index >= 0) {
+        const pending = this.#pending[index];
+        this.#settle(pending.record, pending.affordance, delta);
+        this.#pending.splice(index, 1);
+        return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+      }
+      // Every pending is handler-in-flight: fall through to inference/stimulus.
+    }
+
+    // Tier-2 effect-signature inference (only with NO hints and NO pendings):
+    // if the delta covers exactly ONE registered affordance's declared writes —
+    // offered on this page, guard passing — attribute the AFFORDANCE with
+    // principal 'unknown' and an explicit inferred flag. A guess, marked as one.
+    if (!explicitStimulus) {
+      const inferred = this.#inferAffordanceForDelta(Object.keys(delta));
+      if (inferred) {
+        const record: TransitionRecord = {
+          id: buildRuntimeStageId(inferred.id, this.#counter.value++),
+          cause: { kind: 'fired', affordanceId: inferred.id, principal: 'unknown', inferred: true },
+          timestamp: Date.now(),
+          outcome: 'pending',
+          evidence: this.#evalGuard(inferred.guard).conditions,
+          fromNode: this.#node,
+          cursorVersion: this.#version,
+        };
+        this.#commitDelta(inferred.id, record.id, Object.keys(inferred.guard ?? {}), delta);
+        record.outcome = 'committed';
+        record.toNode = this.#node; // inference never moves the cursor — that would be guessing twice
+        record.effectVerified = true; // writes ⊆ delta by construction of the match
+        this.#transitions.push(record);
+        this.#version++;
+        // A guessed completion never advances firedSteps, but it must be VISIBLE
+        // to the plan — 'inferred-done' — or the agent blind-refires the step.
+        if (
+          this.#frame &&
+          this.#spec.skills[this.#frame.skillId].steps.includes(inferred.id) &&
+          !this.#frame.firedSteps.includes(inferred.id) &&
+          !this.#frame.inferredSteps.includes(inferred.id)
+        ) {
+          this.#frame.inferredSteps.push(inferred.id);
+        }
+        this.#checkFrameAfterWorldChange();
+        return { ok: true, attributed: false, transition: record, version: this.#version };
+      }
     }
 
     const stimulus = opts?.stimulus ?? 'unknown';
@@ -421,6 +614,19 @@ export class Session {
     this.#version++;
     this.#checkFrameAfterWorldChange();
     return { ok: true, attributed: false, transition: record, version: this.#version };
+  }
+
+  /** Exactly-one match rule: ambiguity refuses to guess (falls through to stimulus). */
+  #inferAffordanceForDelta(deltaKeys: string[]): Affordance | null {
+    const candidates = Object.values(this.#spec.affordances).filter((aff) => {
+      if (!this.#registry.isRegistered(aff.id)) return false;
+      if (!aff.on.includes(this.#node)) return false;
+      const writes = aff.effect?.writes ?? [];
+      if (writes.length === 0) return false;
+      if (!writes.every((key) => deltaKeys.includes(key))) return false;
+      return this.#evalGuard(aff.guard).matched;
+    });
+    return candidates.length === 1 ? candidates[0] : null;
   }
 
   /** Fired transitions still awaiting their state report (oldest first). */
@@ -684,7 +890,9 @@ export class Session {
   }
 
   #frameCopy(frame: SkillFrame | null = this.#frame): SkillFrame | null {
-    return frame ? { ...frame, firedSteps: [...frame.firedSteps] } : null;
+    return frame
+      ? { ...frame, firedSteps: [...frame.firedSteps], inferredSteps: [...frame.inferredSteps] }
+      : null;
   }
 
   /** One authored-strings-only line per transition for contextBrief(). */
@@ -693,6 +901,7 @@ export class Session {
       const aff = this.#spec.affordances[t.cause.affordanceId ?? ''];
       const moved = t.toNode && t.toNode !== t.fromNode ? ` (${t.fromNode} → ${t.toNode})` : '';
       const flags: string[] = [];
+      if (t.cause.inferred) flags.push('inferred, not observed');
       if (aff?.highEffect) flags.push('high-effect');
       if (t.toNodeClaimed) flags.push('navigation claimed, unconfirmed');
       if (t.outcome === 'pending') flags.push('awaiting app state');

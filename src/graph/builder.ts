@@ -17,8 +17,8 @@ import type {
   Skill,
   SkillDef,
   SkillGraphSpec,
-} from './types.js';
-import { Session } from './session.js';
+} from '../atom/types.js';
+import { Session } from '../traverse/session.js';
 
 const FILTER_OPERATORS = new Set(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn']);
 
