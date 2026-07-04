@@ -49,7 +49,7 @@ sequenceDiagram
   actor U as User
   participant A as Agent (LLM)
   participant T as MCP tools<br/>skillsAsTools
-  participant S as InteractionSession<br/>+ navigation graph
+  participant S as InteractionSession<br/>and navigation graph
   participant App as Your app<br/>handlers · store · router
 
   U->>A: find a red dress under $150 and buy it
@@ -58,7 +58,7 @@ sequenceDiagram
   A->>T: whats_here
   T->>S: available + availableSkills
   Note over S: the navigation graph serves only what is fireable AT THE CURSOR
-  S-->>T: on catalog; skills find-dress, purchase
+  S-->>T: on catalog — skills find-dress and purchase
   T-->>A: position + actions + skills (data, not new tools)
 
   A->>T: open skill find-dress
