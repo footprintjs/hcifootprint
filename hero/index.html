@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HC·A·I Footprint</title>
+<style>
+  :root{
+    --bg:#0e0b12; --ink:#f4eef6; --muted:#a79db0; --wine:#e05a7d; --wine-d:#8e2b4e;
+    --gold:#e6b23a; --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  @media (prefers-color-scheme: light){ :root{ --bg:#faf6f1; --ink:#241d1b; --muted:#8a7d75; } }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:
+     radial-gradient(120% 90% at 15% -10%, rgba(224,90,125,.16), transparent 55%),
+     radial-gradient(120% 90% at 100% 0%, rgba(230,178,58,.12), transparent 55%),
+     var(--bg);
+     color:var(--ink);font-family:var(--sans);min-height:100%;
+     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:40px;overflow:hidden}
+
+  .kicker{font:600 12px/1 var(--sans);letter-spacing:.34em;color:var(--gold);text-transform:uppercase;opacity:0;animation:rise .7s .1s forwards}
+
+  /* the animated word: H C · A · I */
+  .word{display:flex;align-items:center;font-family:var(--serif);font-weight:600;
+        font-size:clamp(64px,16vw,180px);line-height:1;letter-spacing:.02em}
+  .word span{display:inline-block;opacity:0;transform:translateY(18px);animation:rise .55s forwards}
+  .word .h{animation-delay:.15s}
+  .word .c{animation-delay:.30s}
+  .word .i{animation-delay:.45s}
+  /* the A slides into the gap between C and I */
+  .word .a{color:var(--wine);position:relative;
+     max-width:0;opacity:0;transform:translateY(-6px) scale(.4);
+     animation:insertA .9s 1.25s cubic-bezier(.2,.9,.3,1.35) forwards}
+  .word .a::after{content:"";position:absolute;left:50%;top:8%;height:84%;width:3px;transform:translateX(-50%);
+     background:linear-gradient(var(--wine),transparent);opacity:0;animation:spark .5s 1.2s ease-out}
+  .word .foot{font-family:var(--sans);font-weight:800;font-size:.32em;color:var(--muted);
+     align-self:flex-end;margin:0 6px 12px;transform:translateY(0)}
+
+  @keyframes rise{to{opacity:1;transform:none}}
+  @keyframes insertA{
+    0%{max-width:0;opacity:0;transform:translateY(-40px) scale(.3) rotate(-12deg)}
+    55%{max-width:1.1em;opacity:1;transform:translateY(2px) scale(1.14) rotate(0)}
+    100%{max-width:1.1em;opacity:1;transform:none}
+  }
+  @keyframes spark{0%{opacity:.9}100%{opacity:0;transform:translateX(-50%) scaleY(1.6)}}
+
+  .defs{height:1.6em;position:relative;width:min(560px,90vw);text-align:center}
+  .def{position:absolute;inset:0;font:500 clamp(15px,2.6vw,20px)/1.6 var(--sans);color:var(--muted)}
+  .def b{color:var(--ink);font-weight:600}
+  .def.old{opacity:0;animation:showThenHide 2.1s .55s forwards}
+  .def.new{opacity:0;animation:rise .7s 2.05s forwards}
+  @keyframes showThenHide{0%{opacity:0;transform:translateY(8px)}18%,72%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-8px)}}
+
+  .tag{font:400 clamp(14px,2.4vw,18px)/1.5 var(--sans);color:var(--muted);max-width:52ch;text-align:center;opacity:0;animation:rise .8s 2.5s forwards}
+  .tag b{color:var(--ink);font-weight:600}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;opacity:0;animation:rise .8s 2.8s forwards}
+  .btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font:600 15px var(--sans);
+       padding:12px 22px;border-radius:999px;transition:.18s}
+  .btn.solid{background:var(--wine);color:#fff}
+  .btn.solid:hover{background:var(--wine-d);transform:translateY(-1px)}
+  .btn.ghost{border:1.5px solid var(--wine);color:var(--wine)}
+  .btn.ghost:hover{background:rgba(224,90,125,.1)}
+  .replay{position:fixed;bottom:18px;right:18px;background:none;border:1px solid var(--muted);color:var(--muted);
+     border-radius:999px;padding:7px 14px;font:600 12px var(--sans);cursor:pointer;opacity:.6}
+  .replay:hover{opacity:1}
+</style>
+</head>
+<body>
+  <div class="kicker">Human · Computer · Agent Interaction</div>
+
+  <div class="word" id="word">
+    <span class="h">H</span>
+    <span class="c">C</span>
+    <span class="a">A</span>
+    <span class="i">I</span>
+    <span class="foot">Footprint</span>
+  </div>
+
+  <div class="defs">
+    <div class="def old">Human–Computer Interaction — the field we've designed for decades.</div>
+    <div class="def new">Human, Computer &amp; <b>Agent</b> Interaction — the surface both people <em>and</em> agents act on.</div>
+  </div>
+
+  <p class="tag">Turn your web app into an <b>agentic app</b> — one an AI can navigate and act on, on behalf of your user, through the frontend a human already can. No new backend. No new attack surface.</p>
+
+  <div class="cta">
+    <a class="btn solid" href="https://github.com/footprintjs/hcifootprint">Read the README →</a>
+    <a class="btn ghost" href="https://github.com/footprintjs/hcifootprint-demo">See the live demo</a>
+  </div>
+
+  <button class="replay" onclick="replay()">↻ replay</button>
+<script>
+  // Restart the CSS animations by cloning the animated nodes.
+  function replay(){
+    ['kicker','word','defs','tag','cta'].forEach(function(sel){
+      var n = document.querySelector('.'+sel) || document.getElementById(sel);
+      if(!n) return; var c = n.cloneNode(true); n.parentNode.replaceChild(c, n);
+    });
+  }
+</script>
+</body>
+</html>
