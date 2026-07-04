@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>HC·A·I Footprint</title>
+<title>H·A·C·I Footprint</title>
 <style>
   :root{
     --bg:#0e0b12; --ink:#f4eef6; --muted:#a79db0; --wine:#e05a7d; --wine-d:#8e2b4e;
@@ -22,14 +22,14 @@
 
   .kicker{font:600 12px/1 var(--sans);letter-spacing:.34em;color:var(--gold);text-transform:uppercase;opacity:0;animation:rise .7s .1s forwards}
 
-  /* the animated word: H C · A · I */
+  /* the animated word: H · A · C I  (the agent joins the human's side) */
   .word{display:flex;align-items:center;font-family:var(--serif);font-weight:600;
         font-size:clamp(64px,16vw,180px);line-height:1;letter-spacing:.02em}
   .word span{display:inline-block;opacity:0;transform:translateY(18px);animation:rise .55s forwards}
   .word .h{animation-delay:.15s}
   .word .c{animation-delay:.30s}
   .word .i{animation-delay:.45s}
-  /* the A slides into the gap between C and I */
+  /* the A slides into the gap right after H — onto the Human's team */
   .word .a{color:var(--wine);position:relative;
      max-width:0;opacity:0;transform:translateY(-6px) scale(.4);
      animation:insertA .9s 1.25s cubic-bezier(.2,.9,.3,1.35) forwards}
@@ -68,19 +68,19 @@
 </style>
 </head>
 <body>
-  <div class="kicker">Human · Computer · Agent Interaction</div>
+  <div class="kicker">Human &amp; Agent · Computer Interaction</div>
 
   <div class="word" id="word">
     <span class="h">H</span>
-    <span class="c">C</span>
     <span class="a">A</span>
+    <span class="c">C</span>
     <span class="i">I</span>
     <span class="foot">Footprint</span>
   </div>
 
   <div class="defs">
     <div class="def old">Human–Computer Interaction — the field we've designed for decades.</div>
-    <div class="def new">Human, Computer &amp; <b>Agent</b> Interaction — the surface both people <em>and</em> agents act on.</div>
+    <div class="def new">Human <b>&amp; Agent</b>, Computer Interaction — a person and an AI, working the app as a <em>team</em>.</div>
   </div>
 
   <p class="tag">Turn your web app into an <b>agentic app</b> — one an AI can navigate and act on, on behalf of your user, through the frontend a human already can. No new backend. No new attack surface.</p>

@@ -1,17 +1,17 @@
-<!-- Hero: the classic term HCI, with an A slid in — Human · Computer · Agent Interaction. -->
-<h1 align="center">HC·A·I&nbsp;Footprint</h1>
-<p align="center"><b>Human · Computer · Agent Interaction</b></p>
+<!-- Hero: the classic term HCI, with an A slid in next to the Human — the agent joins the human's team. -->
+<h1 align="center">H·A·C·I&nbsp;Footprint</h1>
+<p align="center"><b>Human &amp; Agent · Computer Interaction</b></p>
 <p align="center"><i>The easiest way to turn your web app into an agentic app — one an AI can navigate and act on, on behalf of your user.</i></p>
 
-> An animated version of the hero (HCI → HC·**A**·I) lives in [`hero/index.html`](hero/index.html) — open it in a browser.
+> An animated version of the hero (HCI → H·**A**·CI) lives in [`hero/index.html`](hero/index.html) — open it in a browser.
 
-> npm package: `hcifootprint` (the letters already spell it — we just added the **A** for **Agent**). Prose name: **HCAI Footprint**.
+> npm package: `hcifootprint` (the "hci" is still in there — we slid an **A** for **Agent** in next to the Human). Prose name: **HACI Footprint**.
 
 ---
 
 ## What it is
 
-For decades we've designed the interaction between a **human** and a **computer** — that's HCI. Now a third party joins: an **agent** acting for the human. HCAI Footprint is the layer for that.
+For decades we've designed the interaction between a **human** and a **computer** — that's HCI. Now the human isn't alone: an **agent** joins their side, acting for them. Human **and** agent, working the computer as a team — that's **HACI**, and this is the layer for it.
 
 The key idea, and the reason it's safe to adopt: **you are not opening your backend to an agent — you are letting it drive the frontend a human already can.**
 
@@ -19,7 +19,7 @@ The key idea, and the reason it's safe to adopt: **you are not opening your back
 - **The app is already the boundary.** Your UI decides what can be done; the agent can't do anything a user couldn't.
 - **It skips the learning curve a first-time visitor pays.** A returning customer carries a mental model of your app — where things are, what leads where. A fresh agent normally rebuilds that every visit by re-reading a 100k-token DOM. You describe the app once as a small **skill graph**, and the agent gets that map for free — with a *you-are-here* pin.
 
-Both the human and the agent drive the **same live session** — that's the "Human · Computer · Agent" in the name, and it's exactly what the [demo](https://github.com/footprintjs/hcifootprint-demo) shows.
+Both the human and the agent drive the **same live session** — that's the "Human **and** Agent" in the name, a team on one side of the screen, and it's exactly what the [demo](https://github.com/footprintjs/hcifootprint-demo) shows.
 
 ## Quick start — three steps
 
@@ -75,7 +75,7 @@ port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, 
 
 You don't have to build the whole agentic experience up front. Ship a thin skill graph, then let real demand tell you what to build next.
 
-Your UI is the boundary of what an agent *can* do. When a user asks for something the UI **can't** serve, HCAI Footprint doesn't just fail — it records a **gap**: a token-lean, structured row (the ask, the position, what *was* available) wired to your telemetry. Cluster those rows and you have a **demand-driven backlog** for your agentic app.
+Your UI is the boundary of what an agent *can* do. When a user asks for something the UI **can't** serve, HACI Footprint doesn't just fail — it records a **gap**: a token-lean, structured row (the ask, the position, what *was* available) wired to your telemetry. Cluster those rows and you have a **demand-driven backlog** for your agentic app.
 
 A concrete one: two customers check out at the same moment; a race lets one order through and the other fails. The loser asks the assistant *"why did mine fail?"* — and **that reason is in your backend logs, not the UI.** The agent can't answer, so it files a gap. Now you know precisely what to build for the next release: a small UI report, or a backend tool the agent can call to read the failure reason. **You grow the app by locating the missing data, not by guessing at features.**
 
@@ -86,7 +86,7 @@ session.onGap((row) => { … });  // or stream rows live
 
 ## ROI: bounded token cost
 
-Naively, "give the LLM your app" means dumping every action into the prompt — and the bill grows with your app. HCAI Footprint doesn't do that:
+Naively, "give the LLM your app" means dumping every action into the prompt — and the bill grows with your app. HACI Footprint doesn't do that:
 
 - The skill graph **loads only what the current position needs** — not the whole app.
 - **Mode B keeps the tool list fixed** (one tool per skill); what's fireable right now travels in tool *results*, not by rewriting the tool array. So the **prompt cache stays warm** across the whole conversation, and it works with **any MCP host** — no dynamic-tool support required.
