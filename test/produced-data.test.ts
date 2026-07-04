@@ -5,7 +5,7 @@
  * what lets an agent SEE the ids it must pick from for a follow-up step.
  */
 import { describe, expect, it } from 'vitest';
-import { appMap, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
 import type { Binding } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
@@ -98,13 +98,13 @@ describe('produced data — handler return surfaced on the record', () => {
   });
 
   it('Mode B result carries transitionId so the caller can attach produced data', async () => {
-    const map = appMap('shop', {
+    const map = buildNavigationGraph('shop', {
       pages: { catalog: { tools: { search: { does: 'Search dresses', writes: ['resultCount'] } } } },
       skills: { browse: { does: 'Browse the catalog', steps: ['search'] } },
     });
     const session = map.createSession({ node: 'catalog', state: { resultCount: 0 } });
     const found = [{ id: 'd6', name: 'Scarlet Cocktail Dress' }];
-    session.mount('catalog', {
+    session.registerToolGroup('catalog', {
       handlers: {
         search: () => {
           session.updateState({ resultCount: 1 });

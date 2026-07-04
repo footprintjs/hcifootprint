@@ -1,8 +1,8 @@
 /**
- * NavSession — the D18 composition layer: core Session (driver, frames,
- * gap ledger, trace) × the authored tree (appMap) × the presence sensor
- * (PresenceIndex). Each ingredient stays independently testable; THIS file is
- * where their meanings meet:
+ * InteractionSession — the composition layer: core Session (driver, frames,
+ * gap ledger, trace) × the authored tree (buildNavigationGraph) × the presence
+ * sensor (PresenceIndex). Each ingredient stays independently testable; THIS
+ * file is where their meanings meet:
  *
  *   router sync owns the page level, always
  *   → authored semantics own meaning (modal overlay, tab exclusivity, repeats)
@@ -33,16 +33,18 @@ import type {
   SkillGraphSpec,
   StimulusKind,
   SyncResult,
+  ToolGroup,
+  ToolHandle,
 } from '../atom/types.js';
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
 import { SkillGraphValidationError, composeGuards, validateGuardShape } from '../graph/guards.js';
 import { PresenceIndex } from '../presence/presence.js';
-import type { AppMap, MapNode, ToolDef } from '../tree/types.js';
+import type { NavigationGraph, MapNode, ToolDef } from '../tree/types.js';
 import { Session } from './session.js';
 import type { ToolHandler } from '../registry/registry.js';
 
-export interface NavSessionOptions extends Omit<SessionOptions, 'node'> {
+export interface InteractionSessionOptions extends Omit<SessionOptions, 'node'> {
   /** Starting page id. Default: the first declared page. */
   node?: string;
   /**
@@ -55,26 +57,31 @@ export interface NavSessionOptions extends Omit<SessionOptions, 'node'> {
 }
 
 /** A tool declared at mount time. `does` is a registration-site source-code literal — still authored. */
-export interface MountToolDef extends ToolDef {
+export interface RegisteredToolDef extends ToolDef {
   handler?: ToolHandler;
 }
 
-export interface MountOptions {
+export interface RegisterToolGroupOptions {
   /** Bind the app's EXISTING handlers (by reference) to tools declared on this node. */
   handlers?: Record<string, ToolHandler>;
   /** Declare new leaf tools here-and-now (the register-with-just-a-description path). */
-  tools?: Record<string, MountToolDef>;
-  /** Instance key when mounting one card of a repeats container ('o-123'). */
+  tools?: Record<string, RegisteredToolDef>;
+  /** Instance key when registering one card of a repeats container ('o-123'). */
   instance?: string;
   /** Initial visibility signal (same wire as setVisible). */
   visible?: boolean;
+  /** Initial disabled state per tool (leaf name → enabled). Flip later via handle.setEnabled. */
+  enabled?: Record<string, boolean>;
 }
 
-export interface MountHandle {
-  readonly node: string;
+/**
+ * The handle returned by registerToolGroup — the group's IDENTITY (see
+ * ToolGroup). Hold it and call `unregister()` on unmount; `setEnabled(id, …)`
+ * greys a tool out.
+ */
+export interface ToolGroupHandle extends ToolGroup {
+  /** Instance key, when this group registered one card of a repeats container. */
   readonly instance?: string;
-  /** Idempotent. Releases presence, handlers, and mount-declared tools together. */
-  release(): void;
 }
 
 type NodeGate =
@@ -82,8 +89,8 @@ type NodeGate =
   | { served: false; reason: 'BLOCKED_BY_OVERLAY'; overlay: string }
   | { served: false; reason: 'NODE_NOT_VISIBLE'; node: string };
 
-export class NavSession extends Session {
-  readonly #map: AppMap;
+export class InteractionSession<Paths extends string = string> extends Session {
+  readonly #map: NavigationGraph;
   readonly #presence = new PresenceIndex();
   /** Deepest node evidenced by sync()/fire(). Registration NEVER writes this. */
   #focusPath: string;
@@ -101,9 +108,8 @@ export class NavSession extends Session {
   readonly #overlaySeen = new Map<string, number>();
   readonly #warnedOnce = new Set<string>();
   readonly #graceMs: number;
-  #mountSeq = 0;
 
-  constructor(map: AppMap, opts?: NavSessionOptions) {
+  constructor(map: NavigationGraph, opts?: InteractionSessionOptions) {
     const node = opts?.node ?? Object.keys(map.spec.pages)[0];
     super(map.spec, { ...(opts ?? {}), node });
     this.#map = map;
@@ -138,7 +144,13 @@ export class NavSession extends Session {
   // mount — one handle per rendered thing (presence + handlers + declarations)
   // -------------------------------------------------------------------------
 
-  mount(path: string, opts?: MountOptions): MountHandle {
+  /**
+   * Register a component's handlers/tools ON a node when it renders. You never
+   * name a group — this RETURNS a ToolGroupHandle that is the identity (with a
+   * generated `id`). Hold it in a ref; call `handle.unregister()` on unmount.
+   * `handle.setEnabled(toolId, false)` greys one tool out (a disabled button).
+   */
+  registerToolGroup(path: Paths, opts?: RegisterToolGroupOptions): ToolGroupHandle {
     const node = this.#map.nodes[path];
     if (!node) {
       throw new Error(
@@ -152,7 +164,7 @@ export class NavSession extends Session {
     }
 
     const owner = Symbol(path);
-    const group = `mount:${path}#${++this.#mountSeq}`;
+    const group = this.nextGroupId(`mount:${path}`);
     const declaredHere: string[] = [];
 
     // 1. Mount-declared leaf tools go into the overlay FIRST so handler
@@ -165,7 +177,8 @@ export class NavSession extends Session {
     // 2. Bind existing app handlers (by reference) to declared tools.
     for (const [name, handler] of Object.entries(opts?.handlers ?? {})) {
       const qualifiedId = this.#resolveToolOnNode(path, name);
-      this.registry.register(group, this.#registryKey(qualifiedId, opts?.instance), handler);
+      const enabled = opts?.enabled?.[name] ?? opts?.enabled?.[qualifiedId] ?? true;
+      this.registry.register(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled);
     }
 
     // 3. Presence + optional initial visibility signal.
@@ -180,28 +193,59 @@ export class NavSession extends Session {
     this.noteStructureChange();
 
     let released = false;
-    return {
-      node: path,
-      instance: opts?.instance,
-      release: () => {
-        if (released) return;
-        released = true;
-        presenceHandle.release();
-        this.unregisterGroup(group);
-        let removedAny = false;
-        for (const qualifiedId of declaredHere) {
-          const stack = this.#dynamic.get(qualifiedId);
-          if (!stack) continue;
-          const remaining = stack.filter((entry) => entry.owner !== owner);
-          if (remaining.length !== stack.length) {
-            if (remaining.length === 0) this.#dynamic.delete(qualifiedId);
-            else this.#dynamic.set(qualifiedId, remaining);
-            removedAny = true;
-          }
+    const unregister = (): void => {
+      if (released) return;
+      released = true;
+      presenceHandle.release();
+      this.unregisterGroup(group);
+      let removedAny = false;
+      for (const qualifiedId of declaredHere) {
+        const stack = this.#dynamic.get(qualifiedId);
+        if (!stack) continue;
+        const remaining = stack.filter((entry) => entry.owner !== owner);
+        if (remaining.length !== stack.length) {
+          if (remaining.length === 0) this.#dynamic.delete(qualifiedId);
+          else this.#dynamic.set(qualifiedId, remaining);
+          removedAny = true;
         }
-        if (removedAny) this.#mergedSpec = null;
-        this.noteStructureChange();
+      }
+      if (removedAny) this.#mergedSpec = null;
+      this.noteStructureChange();
+    };
+    return {
+      id: group,
+      node: path,
+      ...(opts?.instance !== undefined ? { instance: opts.instance } : {}),
+      // Map a leaf/qualified toolId to its registry key (instance-aware).
+      setEnabled: (toolId: string, enabled: boolean) => {
+        const qualifiedId = this.#resolveToolOnNode(path, toolId);
+        this.setToolEnabled(this.#registryKey(qualifiedId, opts?.instance), enabled);
       },
+      unregister,
+    };
+  }
+
+  /**
+   * Register ONE tool on a node (convenience over registerToolGroup). `def`
+   * either binds an existing declared tool (`{ handler }`) or declares a new
+   * leaf here (`{ does, handler }`). Returns a single-tool handle.
+   */
+  registerTool(path: Paths, toolId: string, def: RegisteredToolDef & { handler: ToolHandler }): ToolHandle {
+    // 'declared' covers BOTH node-scoped tools ('path.toolId') and root/
+    // multi-attach tools (bare 'toolId' offered on this page) — bind the handler
+    // to the existing tool; only declare a NEW leaf when neither exists.
+    const declared =
+      this.spec.affordances[`${path}.${toolId}`] !== undefined ||
+      this.spec.affordances[toolId] !== undefined;
+    const group = declared
+      ? this.registerToolGroup(path, { handlers: { [toolId]: def.handler } })
+      : this.registerToolGroup(path, { tools: { [toolId]: def } });
+    return {
+      id: group.id,
+      ...(group.node !== undefined ? { node: group.node } : {}),
+      toolId,
+      setEnabled: (enabled: boolean) => group.setEnabled(toolId, enabled),
+      unregister: () => group.unregister(),
     };
   }
 
@@ -209,7 +253,7 @@ export class NavSession extends Session {
     path: string,
     node: MapNode,
     name: string,
-    toolDef: MountToolDef,
+    toolDef: RegisteredToolDef,
     owner: symbol,
     group: string,
     instance: string | undefined,
@@ -226,7 +270,7 @@ export class NavSession extends Session {
     if (super.spec.affordances[qualifiedId]) {
       // Declared-wins precedence: the central declaration is the audited one.
       this.warn(
-        `hcifootprint: mount('${path}') re-declares '${qualifiedId}' — the appMap declaration wins; ` +
+        `hcifootprint: mount('${path}') re-declares '${qualifiedId}' — the declared tool wins; ` +
           `only the handler was bound.`,
       );
       if (toolDef.handler) this.registry.register(group, this.#registryKey(qualifiedId, instance), toolDef.handler);
@@ -315,14 +359,14 @@ export class NavSession extends Session {
   // visibility wire — the one signal registration cannot infer
   // -------------------------------------------------------------------------
 
-  setVisible(path: string, visible: boolean): void {
+  setVisible(path: Paths, visible: boolean): void {
     this.#requireNode(path);
     this.#presence.setVisible(path, visible);
     this.noteStructureChange();
   }
 
   /** Show a node; for a tab this also hides its tab siblings (at most one shown). */
-  show(path: string): void {
+  show(path: Paths): void {
     const node = this.#requireNode(path);
     if (node.kind === 'tab' && node.parent) {
       for (const siblingPath of this.#map.nodes[node.parent].children) {
@@ -592,6 +636,19 @@ export class NavSession extends Session {
     return super.handlerFor(affordanceId, opts);
   }
 
+  /**
+   * Instance-aware disabled gate: a per-row button registered disabled under
+   * 'id[instance]' must block, matching how handlerFor resolves it. Falls back
+   * to the base (non-instance) registration.
+   */
+  protected override isToolDisabled(affordanceId: string, opts: FireOptions): boolean {
+    if (opts.instance !== undefined) {
+      const keyed = this.registry.isEnabled(this.#registryKey(affordanceId, opts.instance));
+      if (keyed !== undefined) return keyed === false;
+    }
+    return this.registry.isEnabled(affordanceId) === false;
+  }
+
   override sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult {
     const result = super.sync(observedNode, opts);
     if (result.changed) {
@@ -692,10 +749,14 @@ export class NavSession extends Session {
   protected override structureFingerprint(): string {
     // Instance-keyed handler registrations ('id[key]') are EXCLUDED: a
     // scrolling virtualized list must never bump the cursor or write rows.
+    // Enabled state IS included — a setEnabled flip changes the served surface.
     const handlers = this.registry
       .registrations()
-      .map((registration) => registration.affordanceId)
-      .filter((id) => !id.includes('['))
+      // Enabled instance-keyed registrations ('id[key]') are excluded (scroll
+      // churn is not world motion) — but a DISABLED instance tool IS kept, so a
+      // per-row setEnabled(false) flip changes the fingerprint and flushes.
+      .filter((registration) => !registration.affordanceId.includes('[') || !registration.enabled)
+      .map((registration) => registration.affordanceId + (registration.enabled ? '' : ':off'))
       .sort()
       .join('|');
     return `${handlers}::${this.#presence.fingerprint()}::dyn=${[...this.#dynamic.keys()].sort().join('|')}`;

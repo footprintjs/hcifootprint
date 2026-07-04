@@ -3,14 +3,14 @@
  * five-lens panel, pinned. Each block names the defect it kills.
  */
 import { describe, expect, it } from 'vitest';
-import { appMap, skillGraph, skillsAsTools } from '../src/index.js';
-import type { AppMap, Binding } from '../src/index.js';
+import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
+import type { NavigationGraph, Binding } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-function checkoutMap(): AppMap {
-  return appMap('shop', {
+function checkoutMap(): NavigationGraph {
+  return buildNavigationGraph('shop', {
     pages: {
       checkout: {
         modals: {
@@ -33,11 +33,11 @@ function checkoutMap(): AppMap {
 describe('ghost visibility — a signal must not outlive its mount', () => {
   it('released modal that was mounted visible:true stops masking', () => {
     const session = checkoutMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    const modal = session.mount('checkout.confirm-order', { visible: true });
+    const modal = session.registerToolGroup('checkout.confirm-order', { visible: true });
     expect(session.available().edges.map((e) => e.affordanceId)).toEqual([
       'checkout.confirm-order.place-order',
     ]);
-    modal.release();
+    modal.unregister();
     expect(session.available().edges.map((e) => e.affordanceId)).toContain('checkout.edit-cart');
   });
 });
@@ -45,8 +45,8 @@ describe('ghost visibility — a signal must not outlive its mount', () => {
 describe('sibling shown modals — never a mutual deadlock', () => {
   it('each shown modal serves its OWN tools; only the page outside is masked', () => {
     const session = checkoutMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.confirm-order');
-    session.mount('checkout.size-help');
+    session.registerToolGroup('checkout.confirm-order');
+    session.registerToolGroup('checkout.size-help');
     const ids = session.available().edges.map((e) => e.affordanceId).sort();
     expect(ids).toEqual(['checkout.confirm-order.place-order', 'checkout.size-help.close-help']);
     expect(session.fire('checkout.edit-cart', { source: 'agent' })).toMatchObject({
@@ -60,8 +60,8 @@ describe('sibling shown modals — never a mutual deadlock', () => {
 describe('overlay ancestor gating — a modal in a hidden tab is not shown', () => {
   it('kept-mounted modal inside a hidden tab masks nothing', () => {
     const session = checkoutMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.shipping');
-    session.mount('checkout.shipping.address-help'); // mounted modal inside the tab
+    session.registerToolGroup('checkout.shipping');
+    session.registerToolGroup('checkout.shipping.address-help'); // mounted modal inside the tab
     session.show('checkout.payment'); // …and now the tab is hidden
     const ids = session.available().edges.map((e) => e.affordanceId);
     expect(ids).toContain('checkout.edit-cart'); // page NOT masked by the hidden tab's modal
@@ -73,7 +73,7 @@ describe('overlay ancestor gating — a modal in a hidden tab is not shown', () 
 describe('tab prior — a mounted-but-hidden sibling must not orphan the others', () => {
   it('tab A mounted+hidden, tab B unmounted: B is the plausibly-shown one', () => {
     const session = checkoutMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.shipping', { visible: false });
+    session.registerToolGroup('checkout.shipping', { visible: false });
     const ids = session.available().edges.map((e) => e.affordanceId);
     expect(ids).not.toContain('checkout.shipping.save-address'); // explicitly hidden
     expect(ids).toContain('checkout.payment.save-card'); // served (assumed), not NODE_NOT_VISIBLE
@@ -82,28 +82,28 @@ describe('tab prior — a mounted-but-hidden sibling must not orphan the others'
 
 describe('mount-declared tool stack — duplicates never steal each other', () => {
   it('releasing the newest duplicate reveals the older declaration; releasing both removes it', () => {
-    const map = appMap('list', {
+    const map = buildNavigationGraph('list', {
       pages: { inbox: { areas: { toolbar: {} } } },
     });
     const session = map.createSession({ onWarn: () => undefined });
-    const first = session.mount('inbox.toolbar', {
+    const first = session.registerToolGroup('inbox.toolbar', {
       tools: { refresh: { does: 'Refresh the inbox', handler: () => undefined } },
     });
-    const second = session.mount('inbox.toolbar', {
+    const second = session.registerToolGroup('inbox.toolbar', {
       tools: { refresh: { does: 'Refresh the inbox (v2)', handler: () => undefined } },
     });
     const serving = () => session.available().edges.find((e) => e.affordanceId === 'inbox.toolbar.refresh');
     expect(serving()!.description).toBe('Refresh the inbox (v2)'); // newest serves
-    second.release();
+    second.unregister();
     expect(serving()!.description).toBe('Refresh the inbox'); // survivor serves — NOT deleted
-    first.release();
+    first.unregister();
     expect(serving()).toBeUndefined();
   });
 });
 
 describe('instances — the render cap must never cap fireability', () => {
   it('instance #55 of 60 is fireable although the edge renders only 50 keys', () => {
-    const map = appMap('orders', {
+    const map = buildNavigationGraph('orders', {
       pages: {
         list: {
           areas: {
@@ -216,10 +216,10 @@ describe('version split — classification', () => {
 describe('compile hardening', () => {
   it('prototype-key attacks die loudly or compile as real keys', () => {
     expect(() =>
-      appMap('x', { pages: { a: { tools: { t: { does: 'd', goTo: 'toString' } } } } }),
+      buildNavigationGraph('x', { pages: { a: { tools: { t: { does: 'd', goTo: 'toString' } } } } }),
     ).toThrow(/goTo unknown page/);
     expect(() =>
-      appMap('x', {
+      buildNavigationGraph('x', {
         pages: { a: { tools: { t: { does: 'd' } } } },
         skills: { s: { does: 'd', steps: ['toString'] } },
       }),
@@ -227,17 +227,17 @@ describe('compile hardening', () => {
     // a page literally named __proto__ (JSON-loaded defs — a literal would eat
     // it in the author's own code) compiles as a KEY, not a prototype swap
     const jsonDef = JSON.parse('{"pages": {"__proto__": {"tools": {"t": {"does": "d"}}}}}') as never;
-    const map = appMap('x', jsonDef);
+    const map = buildNavigationGraph('x', jsonDef);
     expect(map.nodes['__proto__'].kind).toBe('page');
     expect(map.spec.affordances['__proto__.t'].description).toBe('d');
   });
 
   it('in/notIn guards require arrays; skill ids obey segment rules', () => {
     expect(() =>
-      appMap('x', { pages: { a: { tools: { t: { does: 'd', when: { tier: { in: 'gold' } } } } } } }),
+      buildNavigationGraph('x', { pages: { a: { tools: { t: { does: 'd', when: { tier: { in: 'gold' } } } } } } }),
     ).toThrow(/needs an ARRAY/);
     expect(() =>
-      appMap('x', {
+      buildNavigationGraph('x', {
         pages: { a: { tools: { t: { does: 'd' } } } },
         skills: { 'bad|name': { does: 'd', steps: ['t'] } },
       }),
@@ -253,7 +253,7 @@ describe('compile hardening', () => {
 
 describe('Mode B — the panel’s serve-layer findings', () => {
   function repeatsPort() {
-    const map = appMap('orders', {
+    const map = buildNavigationGraph('orders', {
       pages: {
         list: {
           areas: {
@@ -291,7 +291,7 @@ describe('Mode B — the panel’s serve-layer findings', () => {
   });
 
   it('switching to a BLOCKED skill keeps the current frame open', () => {
-    const map = appMap('shop', {
+    const map = buildNavigationGraph('shop', {
       pages: { home: { tools: { browse: { does: 'Browse' }, buy: { does: 'Buy' } } } },
       skills: {
         looking: { does: 'Look around', steps: ['browse'] },
@@ -307,7 +307,7 @@ describe('Mode B — the panel’s serve-layer findings', () => {
   });
 
   it('a rejected fire keeps judgment "rejected" — the frame view never masks it', () => {
-    const map = appMap('shop', {
+    const map = buildNavigationGraph('shop', {
       pages: { home: { tools: { pay: { does: 'Pay', when: { vip: { eq: true } } } } } },
       skills: { paying: { does: 'Pay flow', steps: ['pay'] } },
     });

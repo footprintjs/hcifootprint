@@ -1,13 +1,13 @@
 /**
- * D18 — appMap(): one object literal in, a validated frozen tree + flat
+ * D18 — buildNavigationGraph(): one object literal in, a validated frozen tree + flat
  * projection out. The enforcement spine mirrors skillGraph(): every
  * referential/shape mistake dies loudly at authoring time.
  */
 import { describe, expect, it } from 'vitest';
-import { appMap, Session } from '../src/index.js';
-import type { AppMapDef } from '../src/index.js';
+import { buildNavigationGraph, Session } from '../src/index.js';
+import type { NavigationGraphDef } from '../src/index.js';
 
-const DEF: AppMapDef = {
+const DEF: NavigationGraphDef = {
   pages: {
     catalog: {
       route: '/catalog',
@@ -58,9 +58,9 @@ const DEF: AppMapDef = {
   },
 };
 
-describe('appMap — compile', () => {
+describe('buildNavigationGraph — compile', () => {
   it('builds the tree index: paths, kinds, overlay/repeats flags, children', () => {
-    const map = appMap('shop', DEF);
+    const map = buildNavigationGraph('shop', DEF);
     expect(map.nodes['catalog'].kind).toBe('page');
     expect(map.nodes['catalog.filter-rail'].kind).toBe('area');
     expect(map.nodes['checkout.shipping'].kind).toBe('tab');
@@ -77,7 +77,7 @@ describe('appMap — compile', () => {
   });
 
   it('the flat projection is a real SkillGraphSpec — a PLAIN Session runs on it', () => {
-    const map = appMap('shop', DEF);
+    const map = buildNavigationGraph('shop', DEF);
     const session = new Session(map.spec, { node: 'catalog', state: { authenticated: true } });
     const ids = session.available().edges.map((edge) => edge.affordanceId).sort();
     expect(ids).toEqual([
@@ -89,7 +89,7 @@ describe('appMap — compile', () => {
   });
 
   it('container when AND-composes into descendant tool guards (root → leaf)', () => {
-    const map = appMap('shop', DEF);
+    const map = buildNavigationGraph('shop', DEF);
     // place-order inherits checkout's authenticated guard even though it declared none.
     expect(map.spec.affordances['checkout.confirm-order.place-order'].guard).toEqual({
       authenticated: { eq: true },
@@ -98,7 +98,7 @@ describe('appMap — compile', () => {
 
   it('narrowing conflicts die loudly (same key+op, different values)', () => {
     expect(() =>
-      appMap('x', {
+      buildNavigationGraph('x', {
         pages: {
           p: {
             when: { tier: { eq: 'gold' } },
@@ -110,14 +110,14 @@ describe('appMap — compile', () => {
   });
 
   it('skills resolve steps by unambiguous suffix; ambiguity and misses die loudly', () => {
-    const map = appMap('shop', DEF);
+    const map = buildNavigationGraph('shop', DEF);
     expect(map.spec.skills['purchase'].steps).toEqual([
       'catalog.add-to-cart',
       'catalog.go-checkout',
       'checkout.confirm-order.place-order',
     ]);
     expect(() =>
-      appMap('x', {
+      buildNavigationGraph('x', {
         pages: {
           a: { tools: { save: { does: 'd' } } },
           b: { tools: { save: { does: 'd' } } },
@@ -126,7 +126,7 @@ describe('appMap — compile', () => {
       }),
     ).toThrow(/ambiguous/);
     expect(() =>
-      appMap('x', {
+      buildNavigationGraph('x', {
         pages: { a: { tools: { t: { does: 'd' } } } },
         skills: { s: { does: 'd', steps: ['ghost'] } },
       }),
@@ -134,23 +134,23 @@ describe('appMap — compile', () => {
   });
 
   it('rejects reserved characters in names, unknown goTo, empty when, reserved leave-skill', () => {
-    expect(() => appMap('x', { pages: { 'a.b': {} } })).toThrow(/reserved character/);
+    expect(() => buildNavigationGraph('x', { pages: { 'a.b': {} } })).toThrow(/reserved character/);
     expect(() =>
-      appMap('x', { pages: { a: { tools: { t: { does: 'd', goTo: 'ghost' } } } } }),
+      buildNavigationGraph('x', { pages: { a: { tools: { t: { does: 'd', goTo: 'ghost' } } } } }),
     ).toThrow(/goTo unknown page/);
     expect(() =>
-      appMap('x', { pages: { a: { tools: { t: { does: 'd', when: {} } } } } }),
+      buildNavigationGraph('x', { pages: { a: { tools: { t: { does: 'd', when: {} } } } } }),
     ).toThrow(/empty when/);
     expect(() =>
-      appMap('x', { pages: { a: { tools: { 'leave-skill': { does: 'd' } } } } }),
+      buildNavigationGraph('x', { pages: { a: { tools: { 'leave-skill': { does: 'd' } } } } }),
     ).toThrow(/reserved/);
     expect(() =>
-      appMap('x', { pages: { a: { areas: { b: {} }, tools: { b: { does: 'd' } } } } }),
+      buildNavigationGraph('x', { pages: { a: { areas: { b: {} }, tools: { b: { does: 'd' } } } } }),
     ).toThrow(/both a container and a tool/);
   });
 
   it('a tool needs only `does` to exist in the spine — the gradient floor', () => {
-    const map = appMap('tiny', { pages: { home: { tools: { hello: { does: 'Say hello' } } } } });
+    const map = buildNavigationGraph('tiny', { pages: { home: { tools: { hello: { does: 'Say hello' } } } } });
     const affordance = map.spec.affordances['home.hello'];
     expect(affordance.binding).toBeUndefined();
     expect(affordance.descriptionSource).toBe('declared');
@@ -158,7 +158,7 @@ describe('appMap — compile', () => {
   });
 
   it('the compiled map is frozen — post-compile mutation cannot change what sessions offer', () => {
-    const map = appMap('shop', DEF);
+    const map = buildNavigationGraph('shop', DEF);
     expect(Object.isFrozen(map.spec.affordances['catalog.add-to-cart'])).toBe(true);
     expect(Object.isFrozen(map.nodes['catalog'])).toBe(true);
     expect(() => {

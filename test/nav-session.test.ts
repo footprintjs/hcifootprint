@@ -1,16 +1,16 @@
 /**
- * NavSession — the D18 composition layer, tested at its meaning boundaries:
+ * InteractionSession — the D18 composition layer, tested at its meaning boundaries:
  * mount handles, overlay masking + auto-resume, the tab exclusivity prior,
  * evidence-based focus, dormancy, structure-swap world motion, instances.
  */
 import { describe, expect, it } from 'vitest';
-import { appMap } from '../src/index.js';
-import type { AppMap, FireResult } from '../src/index.js';
+import { buildNavigationGraph } from '../src/index.js';
+import type { NavigationGraph, FireResult } from '../src/index.js';
 
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-function shopMap(): AppMap {
-  return appMap('shop', {
+function shopMap(): NavigationGraph {
+  return buildNavigationGraph('shop', {
     pages: {
       catalog: {
         areas: {
@@ -49,7 +49,7 @@ describe('mount — handles, handlers, mount-declared tools', () => {
   it('binds existing handlers by reference; fire executes them', async () => {
     const session = shopMap().createSession({ onWarn: () => undefined });
     let color: string | undefined;
-    const handle = session.mount('catalog.filter-rail', {
+    const handle = session.registerToolGroup('catalog.filter-rail', {
       handlers: { 'set-color': (payload) => { color = (payload as { color: string }).color; } },
     });
     const fired = session.fire('catalog.filter-rail.set-color', {
@@ -59,31 +59,31 @@ describe('mount — handles, handlers, mount-declared tools', () => {
     expect(fired.ok).toBe(true);
     await tick();
     expect(color).toBe('red');
-    handle.release();
+    handle.unregister();
   });
 
   it('mount-declared tools appear with descriptionSource registration and vanish on release', () => {
     const session = shopMap().createSession({ onWarn: () => undefined });
-    const handle = session.mount('catalog.filter-rail', {
+    const handle = session.registerToolGroup('catalog.filter-rail', {
       tools: { 'clear-color': { does: 'Remove the color filter', handler: () => undefined } },
     });
     const edge = session.available().edges.find((e) => e.affordanceId === 'catalog.filter-rail.clear-color');
     expect(edge).toBeDefined();
     expect(edge!.descriptionSource).toBe('registration');
-    handle.release();
+    handle.unregister();
     expect(served(session)).not.toContain('catalog.filter-rail.clear-color');
   });
 
-  it('declared-wins: mount-declaring an appMap tool binds only the handler, with a warning', () => {
+  it('declared-wins: mount-declaring a declared tool binds only the handler, with a warning', () => {
     const warnings: string[] = [];
     const session = shopMap().createSession({ onWarn: (message) => warnings.push(message) });
-    session.mount('catalog.filter-rail', {
+    session.registerToolGroup('catalog.filter-rail', {
       tools: { 'set-color': { does: 'ATTACKER TEXT', handler: () => undefined } },
     });
     const edge = session.available().edges.find((e) => e.affordanceId === 'catalog.filter-rail.set-color')!;
     expect(edge.description).toBe('Filter dresses by color'); // the declaration wins
     expect(edge.materialized).toBe(true); // …but the handler bound
-    expect(warnings.some((w) => w.includes('appMap declaration wins'))).toBe(true);
+    expect(warnings.some((w) => w.includes('the declared tool wins'))).toBe(true);
   });
 });
 
@@ -96,14 +96,14 @@ describe('modal overlay — masking and auto-resume', () => {
       'checkout.shipping.save-address',
     ]); // modal closed: never assumed
 
-    const modal = session.mount('checkout.confirm-order');
+    const modal = session.registerToolGroup('checkout.confirm-order');
     expect(served(session)).toEqual(['checkout.confirm-order.place-order']);
     const blocked = session.fire('checkout.edit-cart', { source: 'agent' });
     expect(blocked).toMatchObject({ ok: false, reason: 'BLOCKED_BY_OVERLAY', overlay: 'checkout.confirm-order' });
     // the refusal is a gap-ledger row, typed
     expect(session.gaps().at(-1)).toMatchObject({ rejectionReason: 'BLOCKED_BY_OVERLAY' });
 
-    modal.release();
+    modal.unregister();
     expect(served(session)).toContain('checkout.edit-cart'); // auto-resume, no history machinery
   });
 
@@ -115,7 +115,7 @@ describe('modal overlay — masking and auto-resume', () => {
 
   it('an explicitly hidden modal (kept mounted for animation) does not mask', () => {
     const session = shopMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.confirm-order', { visible: false }); // the one-line wire
+    session.registerToolGroup('checkout.confirm-order', { visible: false }); // the one-line wire
     expect(served(session)).toContain('checkout.edit-cart');
   });
 });
@@ -131,7 +131,7 @@ describe('tabs — the exclusivity prior, unions over guessed winners', () => {
 
   it('one tab mounted: the sibling is really not there — NODE_NOT_VISIBLE', () => {
     const session = shopMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.shipping');
+    session.registerToolGroup('checkout.shipping');
     expect(served(session)).toContain('checkout.shipping.save-address');
     expect(served(session)).not.toContain('checkout.payment.save-card');
     const fired = session.fire('checkout.payment.save-card', { source: 'agent' });
@@ -141,8 +141,8 @@ describe('tabs — the exclusivity prior, unions over guessed winners', () => {
   it('both tabs mounted, no wire: flagged union + ONE dev warning naming show()', () => {
     const warnings: string[] = [];
     const session = shopMap().createSession({ node: 'checkout', onWarn: (m) => warnings.push(m) });
-    session.mount('checkout.shipping');
-    session.mount('checkout.payment');
+    session.registerToolGroup('checkout.shipping');
+    session.registerToolGroup('checkout.payment');
     const edges = session.available().edges;
     expect(edges.find((e) => e.affordanceId === 'checkout.shipping.save-address')!.presence).toBe('unknown');
     expect(edges.find((e) => e.affordanceId === 'checkout.payment.save-card')!.presence).toBe('unknown');
@@ -152,8 +152,8 @@ describe('tabs — the exclusivity prior, unions over guessed winners', () => {
 
   it('show() implements at-most-one-shown: the sibling flips hidden', () => {
     const session = shopMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.shipping');
-    session.mount('checkout.payment');
+    session.registerToolGroup('checkout.shipping');
+    session.registerToolGroup('checkout.payment');
     session.show('checkout.shipping');
     const edges = session.available().edges;
     expect(edges.find((e) => e.affordanceId === 'checkout.shipping.save-address')!.activation).toBe('shown');
@@ -168,17 +168,17 @@ describe('tabs — the exclusivity prior, unions over guessed winners', () => {
 describe('STILL_MOUNTING — retriable, never a fake GUARD_FAILED', () => {
   it('mounts in use + assumed node + execution intent + no handler → retriable rejection', () => {
     const session = shopMap().createSession({ onWarn: () => undefined });
-    session.mount('catalog'); // the page shell registered — presence is IN USE
+    session.registerToolGroup('catalog'); // the page shell registered — presence is IN USE
     const fired = session.fire('catalog.filter-rail.set-color', { source: 'agent', payload: { color: 'red' } });
     expect(fired).toMatchObject({ ok: false, reason: 'STILL_MOUNTING', node: 'catalog.filter-rail' });
     // …the rail mounts a beat later, and the same call succeeds:
-    session.mount('catalog.filter-rail', { handlers: { 'set-color': () => undefined } });
+    session.registerToolGroup('catalog.filter-rail', { handlers: { 'set-color': () => undefined } });
     expect(session.fire('catalog.filter-rail.set-color', { source: 'agent', payload: { color: 'red' } }).ok).toBe(true);
   });
 
   it('record-only fires (invoke:false, the DOM sensor) are never blocked by mounting', () => {
     const session = shopMap().createSession({ onWarn: () => undefined });
-    session.mount('catalog');
+    session.registerToolGroup('catalog');
     const fired = session.fire('catalog.filter-rail.set-color', {
       source: 'user',
       payload: { color: 'red' },
@@ -199,9 +199,9 @@ describe('focus — sync/fire evidence only, ancestor fallback', () => {
     session.fire('checkout.shipping.save-address', { source: 'user' });
     expect(session.focus).toBe('checkout.shipping');
 
-    const modal = session.mount('checkout.confirm-order');
+    const modal = session.registerToolGroup('checkout.confirm-order');
     expect(session.focus).toBe('checkout'); // nearest active ancestor — never the modal (no fire evidence)
-    modal.release();
+    modal.unregister();
     expect(session.focus).toBe('checkout.shipping'); // auto-resume for free
 
     session.sync('catalog');
@@ -210,7 +210,7 @@ describe('focus — sync/fire evidence only, ancestor fallback', () => {
 
   it('bare registration NEVER moves focus', () => {
     const session = shopMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.payment');
+    session.registerToolGroup('checkout.payment');
     expect(session.focus).toBe('checkout');
   });
 });
@@ -223,7 +223,7 @@ describe('dormancy + drift telemetry', () => {
       dormantGraceMs: 0,
       onWarn: (m) => warnings.push(m),
     });
-    session.mount('catalog.filter-rail', { handlers: { 'set-color': () => undefined } });
+    session.registerToolGroup('catalog.filter-rail', { handlers: { 'set-color': () => undefined } });
     expect(served(session)).not.toContain('catalog.filter-rail.set-color'); // held, not offered
     session.available(); // lazy drift check runs here (grace 0)
     expect(warnings.some((w) => w.includes('dormant'))).toBe(true);
@@ -238,7 +238,7 @@ describe('structure-swap — presence flips are world motion; instance churn is 
   it('mount/unmount bumps version + structureVersion with one coalesced row', async () => {
     const session = shopMap().createSession({ onWarn: () => undefined });
     const version = session.version;
-    session.mount('catalog.filter-rail');
+    session.registerToolGroup('catalog.filter-rail');
     await tick();
     expect(session.version).toBe(version + 1);
     expect(session.structureVersion).toBe(1);
@@ -248,9 +248,9 @@ describe('structure-swap — presence flips are world motion; instance churn is 
   it('instance mounts bump NOTHING global — a scrolling list cannot staleness-fail a plan', async () => {
     const session = shopMap().createSession({ node: 'orders', onWarn: () => undefined });
     const version = session.version;
-    const card = session.mount('orders.order-card', { instance: 'o-1' });
-    session.mount('orders.order-card', { instance: 'o-2' });
-    card.release();
+    const card = session.registerToolGroup('orders.order-card', { instance: 'o-1' });
+    session.registerToolGroup('orders.order-card', { instance: 'o-2' });
+    card.unregister();
     await tick();
     expect(session.version).toBe(version);
     expect(session.transitions()).toHaveLength(0);
@@ -277,7 +277,7 @@ describe('repeats — one parameterized tool, instance keys as data', () => {
   });
 
   it('without a selector, the mounted window serves — marked as partial knowledge', () => {
-    const map = appMap('list', {
+    const map = buildNavigationGraph('list', {
       pages: {
         inbox: {
           areas: {
@@ -287,7 +287,7 @@ describe('repeats — one parameterized tool, instance keys as data', () => {
       },
     });
     const session = map.createSession({ onWarn: () => undefined });
-    session.mount('inbox.row', { instance: 'm-1' });
+    session.registerToolGroup('inbox.row', { instance: 'm-1' });
     const edge = session.available().edges[0];
     expect(edge.instances).toEqual(['m-1']);
     expect(edge.enumeration).toBe('mounted-window');
@@ -296,7 +296,7 @@ describe('repeats — one parameterized tool, instance keys as data', () => {
   it('per-instance handlers: the card mounts its own closure; fire routes by instance key', async () => {
     const session = shopMap().createSession({ node: 'orders', state: { orderIds: ['o-1', 'o-2'] } });
     const cancelled: string[] = [];
-    session.mount('orders.order-card', {
+    session.registerToolGroup('orders.order-card', {
       instance: 'o-1',
       handlers: { 'cancel-order': () => { cancelled.push('o-1'); } },
     });
@@ -309,7 +309,7 @@ describe('repeats — one parameterized tool, instance keys as data', () => {
 describe('contextBrief — focus and frontier lines', () => {
   it('renders focus and the mounted frontier under the current page', () => {
     const session = shopMap().createSession({ node: 'checkout', onWarn: () => undefined });
-    session.mount('checkout.shipping');
+    session.registerToolGroup('checkout.shipping');
     session.fire('checkout.shipping.save-address', { source: 'user' });
     const brief = session.contextBrief();
     expect(brief.text).toContain('Focus: checkout.shipping.');

@@ -20,7 +20,7 @@ Longevity rules (from the footprint execution-model adjudication): fresh context
 
 ## nav-session.ts — the D18 composition layer
 
-`NavSession extends Session` and is where the independent layers meet: the
+`InteractionSession extends Session` and is where the independent layers meet: the
 authored tree (`tree/`) × the presence sensor (`presence/`) × this driver.
 The fused priority stack: **router sync owns the page level → authored
 semantics own meaning (modal overlay, tab prior, repeats) → mount handles own

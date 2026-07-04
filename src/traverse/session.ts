@@ -49,6 +49,8 @@ import type {
   PendingInfo,
   Principal,
   ReportGapOptions,
+  SessionEventName,
+  SessionEvents,
   SessionOptions,
   SkillFrame,
   SkillGraphSpec,
@@ -56,6 +58,7 @@ import type {
   SkillPlanStep,
   StimulusKind,
   SyncResult,
+  ToolGroup,
   TransitionRecord,
   UpdateOptions,
   UpdateResult,
@@ -143,7 +146,10 @@ export class Session {
   readonly #warn: (message: string) => void;
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
-  readonly #gapListeners = new Set<(gap: GapRecord) => void>();
+  /** Passive observer listeners, by event name (the recorder category, session grain). */
+  readonly #listeners = new Map<SessionEventName, Set<(payload: unknown) => void>>();
+  /** Monotonic counter for generated tool-group ids (never caller-supplied). */
+  #groupSeq = 0;
 
   constructor(spec: SkillGraphSpec, opts: SessionOptions) {
     if (!spec.pages[opts.node]) {
@@ -217,6 +223,92 @@ export class Session {
     this.#warn(message);
   }
 
+  // -------------------------------------------------------------------------
+  // Events — a PASSIVE observer surface (recorder category, session grain).
+  // Listeners never change what the session does; a throwing listener is
+  // isolated (caught + warned), never aborting the session.
+  // -------------------------------------------------------------------------
+
+  /** Subscribe to a session event. Returns an unsubscribe function. */
+  on<N extends SessionEventName>(event: N, listener: (payload: SessionEvents[N]) => void): () => void {
+    const set = this.#listeners.get(event) ?? new Set<(payload: unknown) => void>();
+    set.add(listener as (payload: unknown) => void);
+    this.#listeners.set(event, set);
+    return () => {
+      this.#listeners.get(event)?.delete(listener as (payload: unknown) => void);
+    };
+  }
+
+  #emit<N extends SessionEventName>(event: N, payload: SessionEvents[N]): void {
+    const set = this.#listeners.get(event);
+    if (!set) return;
+    for (const listener of set) {
+      try {
+        listener(payload);
+      } catch (error) {
+        // Observer rule (inherited from footprintjs recorders): a listener
+        // error never aborts the session.
+        this.#warn(`hcifootprint: '${event}' listener threw: ${String(error)}`);
+      }
+    }
+  }
+
+  /**
+   * Copy a live record so a 'transition' listener (or a transitions() caller)
+   * can never mutate the log — INCLUDING the object-valued data channels
+   * (payload, produced), which are cloned defensively (fall back to the ref if
+   * a payload is not structured-cloneable).
+   */
+  #copyRecord(t: TransitionRecord): TransitionRecord {
+    return {
+      ...t,
+      cause: { ...t.cause },
+      evidence: t.evidence ? t.evidence.map((c) => ({ ...c })) : undefined,
+      ...(t.guardUnevaluated ? { guardUnevaluated: [...t.guardUnevaluated] } : {}),
+      ...(t.payload !== undefined ? { payload: cloneSafe(t.payload) } : {}),
+      ...(t.produced !== undefined ? { produced: cloneSafe(t.produced) } : {}),
+    };
+  }
+
+  #emitTransition(record: TransitionRecord): void {
+    this.#emit('transition', this.#copyRecord(record));
+  }
+
+  /** Increment the state axis and notify observers. (`+= 1` so global bump-replaces skip this.) */
+  #bumpState(): void {
+    this.#stateVersion += 1;
+    this.#emit('state', { version: this.#version, stateVersion: this.#stateVersion });
+  }
+
+  /** Increment the structure axis and notify observers. */
+  #bumpStructure(): void {
+    this.#structureVersion += 1;
+    this.#emit('structure', { version: this.#version, structureVersion: this.#structureVersion });
+  }
+
+  /** Generate an opaque group identity (never caller-supplied — see ToolGroup). */
+  protected nextGroupId(prefix = 'group'): string {
+    return `${prefix}#${(this.#groupSeq += 1)}`;
+  }
+
+  /**
+   * Flip a registered tool between clickable and greyed-out (used by the
+   * ToolGroup handle). A real change is world motion — it bumps the structure
+   * axis so a stale plan is caught and the surface re-serves.
+   */
+  protected setToolEnabled(affordanceId: string, enabled: boolean): void {
+    if (this.#registry.setEnabled(affordanceId, enabled)) this.noteStructureChange();
+  }
+
+  /**
+   * Whether firing this tool should be refused as TOOL_DISABLED. Protected seam
+   * so InteractionSession can consult the INSTANCE-keyed registration first —
+   * a per-row disabled button ('id[instance]') must block, not just the base id.
+   */
+  protected isToolDisabled(affordanceId: string, _opts: FireOptions): boolean {
+    return this.#registry.isEnabled(affordanceId) === false;
+  }
+
   /**
    * Re-baseline the coalesced structure fingerprint. A subclass whose
    * structureFingerprint() override reads its OWN fields must call this once
@@ -248,6 +340,9 @@ export class Session {
         description: aff.description,
         role: aff.role,
         ...(flagMaterialized ? { materialized: this.#registry.isRegistered(aff.id) } : {}),
+        // A registered-but-disabled tool is served WITH the marker (a greyed
+        // button the agent can see), never silently hidden.
+        ...(this.#registry.isEnabled(aff.id) === false ? { enabled: false } : {}),
         evidence: conditions,
         ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
         schema: aff.schema,
@@ -264,13 +359,30 @@ export class Session {
   // -------------------------------------------------------------------------
 
   /**
-   * Register the app's EXISTING handlers (by reference) as the live bindings
-   * for declared affordances — purely additive to the app's code. One group
-   * per component/section; call the returned unregister (or
-   * unregisterGroup(group)) on unmount, and the tools lazily disappear.
-   *
-   * Registration carries no planner-facing strings: descriptions, guards,
-   * effects, and schemas come from the declared graph only.
+   * Build a ToolGroup handle for a generated group id. Protected: the PUBLIC
+   * registration entry points (registerToolGroup / registerTool) live on
+   * InteractionSession (the tree API — they take a node path). The flat/legacy
+   * graph registers via {@link registerTools}. `setEnabled` may be overridden
+   * for instance-aware key mapping.
+   */
+  protected makeToolGroup(
+    group: string,
+    node?: string,
+    setEnabled?: (toolId: string, enabled: boolean) => void,
+  ): ToolGroup {
+    return {
+      id: group,
+      ...(node !== undefined ? { node } : {}),
+      setEnabled: setEnabled ?? ((toolId: string, enabled: boolean) => this.setToolEnabled(toolId, enabled)),
+      unregister: () => this.unregisterGroup(group),
+    };
+  }
+
+  /**
+   * Register handlers on the FLAT graph (skillGraph — no node tree). Takes a
+   * caller `group` string; the tree API (InteractionSession.registerToolGroup)
+   * is preferred where you have a node path — it returns a handle so you never
+   * invent a group name.
    */
   registerTools(opts: RegisterToolsOptions): RegisteredTools {
     const unknown = Object.keys(opts.tools).filter((id) => !this.spec.affordances[id]);
@@ -376,7 +488,7 @@ export class Session {
       inferredSteps: [],
     };
     this.#version++; // the served action space just changed
-    this.#structureVersion++;
+    this.#bumpStructure();
     return { ok: true, frame: this.#frameCopy()!, plan: this.skillPlan(skillId), version: this.#version };
   }
 
@@ -399,7 +511,7 @@ export class Session {
     const closed = this.#frameCopy(this.#frame);
     this.#frame = null;
     this.#version++; // back to skill-level disclosure
-    this.#structureVersion++;
+    this.#bumpStructure();
     return closed;
   }
 
@@ -495,6 +607,14 @@ export class Session {
         return { ok: false, reason: 'PAYLOAD_INVALID', issues: validation.issues };
       }
     }
+    // A greyed-out button: registered but not clickable. Only blocks EXECUTION
+    // fires (agent/user) — the record-only DOM sensor (invoke:false) still logs
+    // whatever actually happened. Retriable: the app may enable it next tick.
+    // Instance-aware via the protected seam (a disabled repeats-row button).
+    if (opts.invoke !== false && this.isToolDisabled(affordanceId, opts)) {
+      this.recordRejection(affordanceId, 'TOOL_DISABLED', opts.source);
+      return { ok: false, reason: 'TOOL_DISABLED', affordanceId };
+    }
 
     const record: TransitionRecord = {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
@@ -509,7 +629,7 @@ export class Session {
       fromNode: this.#node,
       cursorVersion: this.#version,
     };
-    this.#transitions.push(record);
+    this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 
     const declaredWrites = aff.effect?.writes ?? [];
@@ -588,6 +708,7 @@ export class Session {
           this.#pending.splice(index, 1);
           record.outcome = 'rejected';
           this.#version++;
+          this.#emitTransition(record); // observers see the settled (rejected) occurrence
         } else if (record.outcome === 'committed' && record.effectVerified === 'unobservable') {
           // Immediate/tapless settle committed BEFORE the handler ran and the
           // handler failed: the commit was a claim about an action that never
@@ -597,6 +718,7 @@ export class Session {
           // stronger than the handler's failure — that one stands.
           record.outcome = 'rolled-back';
           this.#version++;
+          this.#emitTransition(record); // observers see the rolled-back occurrence
           if (record.toNodeClaimed && record.toNode === this.#node && record.fromNode !== this.#node) {
             this.sync(record.fromNode, { stimulus: 'navigation', principal: 'system' });
           }
@@ -713,9 +835,9 @@ export class Session {
         record.outcome = 'committed';
         record.toNode = this.#node; // inference never moves the cursor — that would be guessing twice
         record.effectVerified = true; // writes ⊆ delta by construction of the match
-        this.#transitions.push(record);
+        this.#transitions.push(record); this.#emitTransition(record);
         this.#version++;
-        this.#stateVersion++;
+        this.#bumpState();
         // A guessed completion never advances firedSteps, but it must be VISIBLE
         // to the plan — 'inferred-done' — or the agent blind-refires the step.
         if (
@@ -745,9 +867,9 @@ export class Session {
     record.outcome = 'committed';
     record.toNode = this.#node;
     record.effectVerified = 'unobservable';
-    this.#transitions.push(record);
+    this.#transitions.push(record); this.#emitTransition(record);
     this.#version++;
-    if (Object.keys(delta).length > 0) this.#stateVersion++;
+    if (Object.keys(delta).length > 0) this.#bumpState();
     this.#checkFrameAfterWorldChange();
     return { ok: true, attributed: false, transition: record, version: this.#version };
   }
@@ -790,12 +912,14 @@ export class Session {
       const [pending] = this.#pending.splice(index, 1);
       pending.record.outcome = opts?.outcome ?? 'rejected';
       this.#version++;
+      this.#emitTransition(pending.record);
       return pending.record;
     }
     const settled = this.#transitions.find((t) => t.id === transitionId && t.outcome === 'committed');
     if (settled) {
       settled.outcome = opts?.outcome ?? 'rolled-back';
       this.#version++;
+      this.#emitTransition(settled);
       return settled;
     }
     throw new Error(
@@ -835,7 +959,7 @@ export class Session {
     // Empty commit — footprint's own idiom: empty commits are deliberate cursor stops.
     this.#commitDelta(`sync:${observedNode}`, record.id, [], {});
     this.#node = observedNode;
-    this.#transitions.push(record);
+    this.#transitions.push(record); this.#emitTransition(record);
     this.#version++;
     this.#checkFrameAfterWorldChange();
     return offGraph
@@ -859,12 +983,7 @@ export class Session {
    * live records are the ones returned by fire()/updateState()/reject().
    */
   transitions(): readonly TransitionRecord[] {
-    return this.#transitions.map((t) => ({
-      ...t,
-      cause: { ...t.cause },
-      evidence: t.evidence ? t.evidence.map((condition) => ({ ...condition })) : undefined,
-      ...(t.guardUnevaluated ? { guardUnevaluated: [...t.guardUnevaluated] } : {}),
-    }));
+    return this.#transitions.map((t) => this.#copyRecord(t));
   }
 
   /** "Why does this state key hold its value?" — footprint backward slice, formatted. */
@@ -920,10 +1039,9 @@ export class Session {
     return this.#gaps.map((g) => structuredClone(g));
   }
 
-  /** Live export hook: fires once per new gap row. Returns an unsubscribe. */
+  /** Live export hook: fires once per new gap row. Sugar for `on('gap', …)`. */
   onGap(listener: (gap: GapRecord) => void): () => void {
-    this.#gapListeners.add(listener);
-    return () => this.#gapListeners.delete(listener);
+    return this.on('gap', listener);
   }
 
   /** Every refused fire becomes a gap-ledger row (protected: NavSession adds tree rejections). */
@@ -960,12 +1078,16 @@ export class Session {
 
   #pushGap(row: GapRecord): void {
     this.#gaps.push(row);
-    for (const listener of this.#gapListeners) {
+    // Per-listener deep copy: exporter mutation must never touch the ledger,
+    // nor another listener's view. Routes through the 'gap' observer channel.
+    const set = this.#listeners.get('gap');
+    if (!set) return;
+    for (const listener of set) {
       try {
-        listener(structuredClone(row)); // deep copy: exporter mutation must never touch the ledger
+        listener(structuredClone(row));
       } catch (error) {
         // Consumer export code must never break the session (recorder rule).
-        this.#warn(`hcifootprint: onGap listener threw: ${String(error)}`);
+        this.#warn(`hcifootprint: gap listener threw: ${String(error)}`);
       }
     }
   }
@@ -1083,9 +1205,9 @@ export class Session {
       };
       // Empty commit — footprint's deliberate-cursor-stop idiom.
       this.#commitDelta('stimulus:structure-swap', record.id, [], {});
-      this.#transitions.push(record);
+      this.#transitions.push(record); this.#emitTransition(record);
       this.#version++;
-      this.#structureVersion++;
+      this.#bumpStructure();
       this.#checkFrameAfterWorldChange();
     });
   }
@@ -1096,9 +1218,11 @@ export class Session {
    * set and visibility signals.
    */
   protected structureFingerprint(): string {
+    // Include enabled state so a setEnabled() flip is world motion (the served
+    // surface changed), just like a mount/unmount.
     return this.#registry
       .registrations()
-      .map((r) => r.affordanceId)
+      .map((r) => r.affordanceId + (r.enabled ? '' : ':off'))
       .sort()
       .join('|');
   }
@@ -1171,7 +1295,7 @@ export class Session {
     }
     record.outcome = 'committed';
     this.#version++;
-    if (deltaKeys.length > 0) this.#stateVersion++; // empty settles are cursor stops, not state motion
+    if (deltaKeys.length > 0) this.#bumpState(); // empty settles are cursor stops, not state motion
 
     if (
       this.#frame &&
@@ -1180,6 +1304,7 @@ export class Session {
     ) {
       this.#frame.firedSteps.push(aff.id);
     }
+    this.#emitTransition(record); // now committed — observers see the settled record
     this.#checkFrameAfterWorldChange();
   }
 
@@ -1212,7 +1337,7 @@ export class Session {
     this.#frames.push(this.#frame);
     this.#frame = null;
     this.#version++;
-    this.#structureVersion++;
+    this.#bumpStructure();
   }
 
   #frameCopy(frame: SkillFrame | null = this.#frame): SkillFrame | null {
@@ -1309,6 +1434,15 @@ function sanitizeProduced(value: unknown, depth = 0): unknown {
     if (clean !== undefined) out[key] = clean;
   }
   return out;
+}
+
+/** Detach a value defensively — structuredClone, or the ref if it can't be cloned. */
+function cloneSafe<T>(value: T): T {
+  try {
+    return structuredClone(value);
+  } catch {
+    return value; // non-cloneable payload (function/DOM node): best-effort, keep the ref
+  }
 }
 
 function validatePayload(schema: unknown, payload: unknown): { ok: true } | { ok: false; issues: string } {

@@ -31,11 +31,12 @@ export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './grap
 export type { SkillGraph } from './graph/builder.js';
 export { Session } from './traverse/session.js';
 export type { RegisteredTools, RegisterToolsOptions } from './traverse/session.js';
-// D18 — the navigation graph: appMap() authoring, NavSession runtime, presence sensor
-export { appMap } from './tree/appmap.js';
+// The navigation graph: buildNavigationGraph() authoring, InteractionSession runtime
+export { buildNavigationGraph } from './tree/appmap.js';
 export type {
-  AppMap,
-  AppMapDef,
+  NavigationGraph,
+  NavigationGraphDef,
+  NodePathsOf,
   MapNode,
   ModalDef,
   NodeDef,
@@ -44,8 +45,15 @@ export type {
   SkillDef2,
   ToolDef,
 } from './tree/types.js';
-export { NavSession } from './traverse/nav-session.js';
-export type { MountHandle, MountOptions, MountToolDef, NavSessionOptions } from './traverse/nav-session.js';
+export { InteractionSession } from './traverse/nav-session.js';
+export type {
+  RegisterToolGroupOptions,
+  ToolGroupHandle,
+  RegisteredToolDef,
+  InteractionSessionOptions,
+} from './traverse/nav-session.js';
+// Registration + event handle types
+export type { SessionEventName, SessionEvents, ToolGroup, ToolHandle } from './atom/types.js';
 export { PresenceIndex } from './presence/presence.js';
 export type { PresenceHandle } from './presence/presence.js';
 export { ToolRegistry } from './registry/registry.js';

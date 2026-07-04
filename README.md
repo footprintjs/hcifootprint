@@ -11,15 +11,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-192%20passing-f5b301?style=flat" alt="192 tests passing">
+  <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
+  <img src="https://img.shields.io/badge/tests-208%20passing-f5b301?style=flat" alt="208 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/serving-MCP--shaped-f5b301?style=flat" alt="MCP-shaped tools">
-  <img src="https://img.shields.io/badge/status-experimental%20v0-eab308?style=flat" alt="experimental v0">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
 </p>
 
 <p align="center"><i>The easiest way to turn your web app into an agentic app — one an AI can navigate and act on, on behalf of your user.</i></p>
 
+> **Beta — pre-1.0.** The API is being finalized in the open and **can change without deprecation aliases until `1.0`**, which is the target stable release. Not yet published to npm. Pin a commit if you build on it now.
+>
 > The hero above is an animated SVG (HCI → H·**A**·CI). A standalone version lives in [`hero/index.html`](hero/index.html).
 >
 > npm package: `hcifootprint` (the "hci" is still in there — we slid an **A** for **Agent** in next to the Human). Prose name: **HACI Footprint**.
@@ -43,9 +45,9 @@ Both the human and the agent drive the **same live session** — that's the "Hum
 **1. Describe the app** as the tree you already picture — pages, the containers inside them, and the actions inside those. Each action needs one sentence; that sentence is both your label and the tool description the LLM reads.
 
 ```ts
-import { appMap } from 'hcifootprint';
+import { buildNavigationGraph } from 'hcifootprint';
 
-const map = appMap('shop', {
+const graph = buildNavigationGraph('shop', {
   pages: {
     catalog: {
       tools: {
@@ -65,16 +67,24 @@ const map = appMap('shop', {
 });
 ```
 
-**2. Connect it** to your running app — no need to hand over state or handlers up front. Components register what they have *when they render*: your store updates flow in, your existing functions bind by reference, the router owns the page.
+**2. Connect it** to your running app — no need to hand over state or handlers up front. Components register what they have *when they render*: registration hands back a handle (you never invent a group name), your existing functions bind by reference, the router owns the page.
 
 ```ts
-const session = map.createSession();
+const session = graph.createSession();
 
-const handle = session.mount('catalog', {
+// in the component that renders the catalog:
+const group = session.registerToolGroup('catalog', {
   handlers: { 'search': (input) => shop.search(input.query) },  // your own function
 });
+group.setEnabled('search', false);  // grey a button out; group.unregister() on unmount
 // …session.updateState(delta) on store changes, session.sync(page) on navigation.
+
+// React to changes without polling (a passive observer — never business logic):
+session.on('structure', () => rerenderToolPanel());
+session.on('gap', (row) => telemetry.send(row));
 ```
+
+Node paths are **typed**: `registerToolGroup('catalog.filtr-rail')` is a compile error, not a silent no-op.
 
 **3. Serve it to the LLM** as a fixed set of MCP-shaped tools. The tool list never changes; what is doable *right now* arrives inside each tool result.
 

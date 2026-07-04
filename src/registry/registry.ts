@@ -25,6 +25,12 @@ export interface Registration {
   group: string;
   handler: ToolHandler;
   registeredAt: number;
+  /**
+   * False when the control is on screen but not currently clickable (a greyed
+   * button). The tool is still SERVED to the agent — with an honesty marker —
+   * but firing it is refused as TOOL_DISABLED. Default true.
+   */
+  enabled: boolean;
 }
 
 export class ToolRegistry {
@@ -35,7 +41,7 @@ export class ToolRegistry {
     this.#warn = warn ?? ((message) => console.warn(message));
   }
 
-  register(group: string, affordanceId: string, handler: ToolHandler): void {
+  register(group: string, affordanceId: string, handler: ToolHandler, enabled = true): void {
     const existing = this.#byAffordance.get(affordanceId);
     if (existing) {
       this.#warn(
@@ -44,7 +50,24 @@ export class ToolRegistry {
           `components claiming the same action.`,
       );
     }
-    this.#byAffordance.set(affordanceId, { affordanceId, group, handler, registeredAt: Date.now() });
+    this.#byAffordance.set(affordanceId, { affordanceId, group, handler, registeredAt: Date.now(), enabled });
+  }
+
+  /**
+   * Flip a registered tool between clickable and greyed-out. Returns true if
+   * the state actually changed (so the caller can bump the version / emit only
+   * on a real change). No-op + false if the id isn't registered.
+   */
+  setEnabled(affordanceId: string, enabled: boolean): boolean {
+    const reg = this.#byAffordance.get(affordanceId);
+    if (!reg || reg.enabled === enabled) return false;
+    reg.enabled = enabled;
+    return true;
+  }
+
+  /** Whether a registered tool is currently clickable. Undefined if not registered. */
+  isEnabled(affordanceId: string): boolean | undefined {
+    return this.#byAffordance.get(affordanceId)?.enabled;
   }
 
   /** Remove every registration currently owned by `group`. Returns the removed ids. */

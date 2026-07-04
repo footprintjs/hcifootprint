@@ -5,11 +5,11 @@
  * same skill tool with {step}.
  */
 import { describe, expect, it } from 'vitest';
-import { appMap, skillsAsTools } from '../src/index.js';
-import type { AppMap } from '../src/index.js';
+import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import type { NavigationGraph } from '../src/index.js';
 
-function shopMap(): AppMap {
-  return appMap('shop', {
+function shopMap(): NavigationGraph {
+  return buildNavigationGraph('shop', {
     pages: {
       catalog: {
         tools: {

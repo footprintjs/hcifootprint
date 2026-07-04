@@ -19,10 +19,10 @@
  */
 import type { WhereFilter } from 'footprintjs';
 import type { Binding, CanonicalRole, SkillGraphSpec } from '../atom/types.js';
-import type { NavSession, NavSessionOptions } from '../traverse/nav-session.js';
+import type { InteractionSession, InteractionSessionOptions } from '../traverse/nav-session.js';
 
 // ---------------------------------------------------------------------------
-// Authoring (what appMap() accepts)
+// Authoring (what buildNavigationGraph() accepts)
 // ---------------------------------------------------------------------------
 
 /** A tool on a node. Only `does` is required — details may materialize at mount. */
@@ -81,7 +81,7 @@ export interface SkillDef2 {
   when?: WhereFilter;
 }
 
-export interface AppMapDef {
+export interface NavigationGraphDef {
   does?: string;
   pages: Record<string, PageNodeDef>;
   /** Root-level multi-attach tools: offered on several PAGES at once. */
@@ -90,7 +90,29 @@ export interface AppMapDef {
 }
 
 // ---------------------------------------------------------------------------
-// Compiled (what appMap() returns — plain frozen data + the tree index)
+// Typed node paths — buildNavigationGraph infers the union of every node path
+// from the def literal, so a typo in registerToolGroup('catalog.filter-rai')
+// or setVisible/show is a COMPILE error, not a silent no-op.
+// ---------------------------------------------------------------------------
+
+type BucketPaths<Prefix extends string, B> = B extends Record<string, unknown>
+  ? { [K in keyof B & string]: `${Prefix}.${K}` | ChildPaths<`${Prefix}.${K}`, B[K]> }[keyof B & string]
+  : never;
+
+type ChildPaths<Prefix extends string, N> =
+  | (N extends { areas: infer A } ? BucketPaths<Prefix, A> : never)
+  | (N extends { tabs: infer T } ? BucketPaths<Prefix, T> : never)
+  | (N extends { modals: infer M } ? BucketPaths<Prefix, M> : never);
+
+/** The union of every declared node path in a NavigationGraphDef literal. */
+export type NodePathsOf<Def> = Def extends { pages: infer P }
+  ? P extends Record<string, unknown>
+    ? { [K in keyof P & string]: K | ChildPaths<K, P[K]> }[keyof P & string]
+    : string
+  : string;
+
+// ---------------------------------------------------------------------------
+// Compiled (what buildNavigationGraph() returns — plain frozen data + index)
 // ---------------------------------------------------------------------------
 
 export type NodeKind = 'page' | 'area' | 'tab' | 'modal';
@@ -116,17 +138,19 @@ export interface MapNode {
   instances?: (state: Record<string, unknown>) => string[];
 }
 
-export interface AppMap {
+export interface NavigationGraph<Paths extends string = string> {
   id: string;
   /**
    * The flat projection: a Session-compatible SkillGraphSpec whose affordance
    * ids are qualified dot paths and whose guards are the composed root→leaf
-   * chains. A plain Session runs on it unchanged; NavSession adds the tree.
+   * chains. A plain Session runs on it unchanged; InteractionSession adds the tree.
    */
   spec: SkillGraphSpec;
   /** Every node by path — pages included. */
   nodes: Record<string, MapNode>;
   /** Qualified tool id → the node path(s) it lives on (root tools list their pages). */
   toolNodes: Record<string, string[]>;
-  createSession(opts?: NavSessionOptions): NavSession;
+  /** Create a live interaction session; `Paths` carries the typed node paths through. */
+  createSession(opts?: InteractionSessionOptions): InteractionSession<Paths>;
 }
+

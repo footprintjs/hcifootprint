@@ -234,6 +234,53 @@ export interface SessionOptions {
   captureProduced?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Events — a PASSIVE observer surface (the footprintjs recorder category, at
+// the session's grain). Listeners are notified after the fact; they never
+// change what the session does, and a throwing listener is isolated (caught +
+// warned), never aborting the session. This is telemetry/reaction, NOT logic.
+// ---------------------------------------------------------------------------
+
+export interface SessionEvents {
+  /** A new or newly-settled occurrence (a snapshot of the record). */
+  transition: TransitionRecord;
+  /** A committed state delta landed (the `state` version moved). */
+  state: { version: number; stateVersion: number };
+  /** The served tool-surface changed — frame open/close, or a mount/enable flip. */
+  structure: { version: number; structureVersion: number };
+  /** A new unmet-demand row was recorded (a deep copy). */
+  gap: GapRecord;
+}
+
+export type SessionEventName = keyof SessionEvents;
+
+/**
+ * The handle returned by registerToolGroup — the group's IDENTITY. You never
+ * name a group with a string (two components would collide and you'd have to
+ * invent unique names); registration hands you this handle and you act through
+ * it. `id` is a generated opaque token, exposed only for telemetry/warnings.
+ */
+export interface ToolGroup {
+  /** Generated identity of this registration (for telemetry/debug — not caller-supplied). */
+  readonly id: string;
+  /** The node path this group is registered on (tree API); undefined for the flat API. */
+  readonly node?: string;
+  /** Grey out / re-enable one tool in this group (a disabled button). */
+  setEnabled(toolId: string, enabled: boolean): void;
+  /** Remove this group's registrations (call on unmount). Idempotent. */
+  unregister(): void;
+}
+
+/** The handle returned by registerTool — a single-tool ToolGroup. */
+export interface ToolHandle {
+  readonly id: string;
+  readonly node?: string;
+  readonly toolId: string;
+  /** Grey out / re-enable this tool. */
+  setEnabled(enabled: boolean): void;
+  unregister(): void;
+}
+
 /**
  * One occurrence: a row in the interaction log. SETTLED (and stimulus/sync)
  * transitions join 1:1 to a CommitBundle by `id`; pending and
@@ -321,6 +368,13 @@ export interface AvailableEdge {
    * visibility wire exists — a flagged union, never a guessed winner.
    */
   presence?: 'unknown';
+  /**
+   * False when the registration site said the control is currently DISABLED
+   * (a grey button: on screen, not clickable). Served honestly with the
+   * marker — like a human seeing it — and firing it is a typed TOOL_DISABLED
+   * rejection. Set via ToolGroup.setEnabled / the `enabled` registration field.
+   */
+  enabled?: boolean;
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
   instances?: string[];
   /**
@@ -394,7 +448,9 @@ export type FireResult =
   /** RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link). */
   | { ok: false; reason: 'STILL_MOUNTING'; node: string }
   | { ok: false; reason: 'INSTANCE_REQUIRED'; instances: string[] }
-  | { ok: false; reason: 'INSTANCE_UNKNOWN'; instances: string[] };
+  | { ok: false; reason: 'INSTANCE_UNKNOWN'; instances: string[] }
+  /** RETRIABLE: the control is registered but currently greyed out (disabled). */
+  | { ok: false; reason: 'TOOL_DISABLED'; affordanceId: string };
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -487,7 +543,8 @@ export interface GapRecord {
     | 'NODE_NOT_VISIBLE'
     | 'STILL_MOUNTING'
     | 'INSTANCE_REQUIRED'
-    | 'INSTANCE_UNKNOWN';
+    | 'INSTANCE_UNKNOWN'
+    | 'TOOL_DISABLED';
   principal?: Principal;
   evidence?: FilterCondition[];
   // reported rows:

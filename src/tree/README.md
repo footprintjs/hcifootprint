@@ -6,7 +6,7 @@ tree index and (b) a **flat projection** every existing layer runs on
 unchanged.
 
 ```ts
-const map = appMap('shop', {
+const graph = buildNavigationGraph('shop', {
   pages: {
     catalog: {
       areas: { 'filter-rail': { tools: { 'set-color': { does: 'Filter dresses by color' } } } },
@@ -15,7 +15,7 @@ const map = appMap('shop', {
   },
   skills: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
 });
-const session = map.createSession(); // a NavSession
+const session = graph.createSession(); // an InteractionSession
 ```
 
 Design rules:
@@ -31,7 +31,7 @@ Design rules:
   children can only narrow — conflicts die at compile time.
 - **Qualified dot paths are identity** (`checkout.confirm-order.place-order`);
   skills may reference steps by unambiguous suffix, resolved (or failed
-  loudly) at `appMap()` time.
+  loudly) at `buildNavigationGraph()` time.
 - The v1 fluent `skillGraph()` stays forever as the one-level sugar; both
   surfaces share the same guard-enforcement spine (`graph/guards.ts`).
 

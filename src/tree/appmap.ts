@@ -1,5 +1,5 @@
 /**
- * appMap() — the D18 authoring surface: one object literal, validated and
+ * buildNavigationGraph() — the authoring surface: one object literal, validated and
  * frozen in one call (no .build()).
  *
  * The compiler's two jobs:
@@ -23,17 +23,25 @@ import type {
   SkillGraphSpec,
 } from '../atom/types.js';
 import { SkillGraphValidationError, composeGuards, validateGuardShape } from '../graph/guards.js';
-import { NavSession } from '../traverse/nav-session.js';
-import type { NavSessionOptions } from '../traverse/nav-session.js';
-import type { AppMap, AppMapDef, MapNode, NodeDef, ToolDef } from './types.js';
+import { InteractionSession } from '../traverse/nav-session.js';
+import type { InteractionSessionOptions } from '../traverse/nav-session.js';
+import type { NavigationGraph, NavigationGraphDef, NodePathsOf, MapNode, NodeDef, ToolDef } from './types.js';
 
 /** Segment names become path/registry/MCP identities — keep the delimiters out. */
 const BAD_SEGMENT = /[.[\]#/|]/;
 
-export function appMap(id: string, def: AppMapDef): AppMap {
-  if (!id || !id.trim()) throw new SkillGraphValidationError('appMap(id) requires a non-empty id.');
+/**
+ * Compile a navigation graph. The `const` type parameter preserves the literal
+ * node names, so the returned graph's session methods (registerToolGroup,
+ * setVisible, show) accept ONLY real node paths — a typo is a compile error.
+ */
+export function buildNavigationGraph<const Def extends NavigationGraphDef>(
+  id: string,
+  def: Def,
+): NavigationGraph<NodePathsOf<Def>> {
+  if (!id || !id.trim()) throw new SkillGraphValidationError('buildNavigationGraph(id) requires a non-empty id.');
   if (!def.pages || Object.keys(def.pages).length === 0) {
-    throw new SkillGraphValidationError(`appMap '${id}' has no pages — declare at least one.`);
+    throw new SkillGraphValidationError(`buildNavigationGraph '${id}' has no pages — declare at least one.`);
   }
 
   // Null-prototype containers: membership checks and lookups must never see
@@ -252,15 +260,18 @@ export function appMap(id: string, def: AppMapDef): AppMap {
     affordances: Object.freeze(affordances),
     skills: Object.freeze(skills),
   });
-  const map: AppMap = {
+  const map: NavigationGraph = {
     id,
     spec,
     nodes: Object.freeze(nodes),
     toolNodes: Object.freeze(toolNodes),
-    createSession: (opts?: NavSessionOptions) => new NavSession(map, opts),
+    createSession: (opts?: InteractionSessionOptions) => new InteractionSession(map, opts),
   };
-  return Object.freeze(map);
+  // The runtime object is path-untyped; the `const Def` signature re-attaches
+  // the literal node-path union to what the caller sees.
+  return Object.freeze(map) as unknown as NavigationGraph<NodePathsOf<Def>>;
 }
+
 
 function deriveRole(tool: ToolDef): CanonicalRole {
   if (tool.role) return tool.role;
