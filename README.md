@@ -20,11 +20,11 @@
 
 <p align="center"><i>The easiest way to turn your web app into an agentic app — one an AI can navigate and act on, on behalf of your user.</i></p>
 
-> **Beta — pre-1.0.** The API is being finalized in the open and **can change without deprecation aliases until `1.0`**, which is the target stable release. Not yet published to npm. Pin a commit if you build on it now.
->
-> The hero above is an animated SVG (HCI → H·**A**·CI). A standalone version lives in [`hero/index.html`](hero/index.html).
->
-> npm package: `hcifootprint` (the "hci" is still in there — we slid an **A** for **Agent** in next to the Human). Prose name: **HACI Footprint**.
+```bash
+npm install hcifootprint
+```
+
+> **Beta · pre-1.0** — the API can still change until `1.0`. npm publish lands with `1.0`; until then, install from this repo or pin a commit.
 
 ---
 
