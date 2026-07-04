@@ -95,6 +95,29 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     expect(text(fired)['did']).toBe('checkout.place-order');
   });
 
+  it('produced data (a handler return) travels IN the tool result over MCP', async () => {
+    const map = buildNavigationGraph('shop', {
+      pages: { catalog: { tools: { search: { does: 'Search', writes: ['n'] } } } },
+      skills: { browse: { does: 'Browse', steps: ['search'] } },
+    });
+    const session = map.createSession({ node: 'catalog', state: { n: 0 } });
+    const found = [{ id: 'd6', name: 'Scarlet Cocktail Dress', price: 149 }];
+    session.registerToolGroup('catalog', {
+      handlers: {
+        search: () => {
+          session.updateState({ n: 1 });
+          return found; // the app's own return value
+        },
+      },
+    });
+    const client = await connectClient(session);
+    await client.callTool({ name: 'shop.skill.browse', arguments: {} });
+    const res = await client.callTool({ name: 'shop.skill.browse', arguments: { step: 'search' } });
+    const payload = text(res);
+    expect(payload['did']).toBe('catalog.search');
+    expect((payload['data'] as { id: string }[])[0].id).toBe('d6'); // came back over the wire
+  });
+
   it('an unknown tool comes back as isError, never a crash', async () => {
     const client = await connectClient(shopSession());
     const res = await client.callTool({ name: 'shop.skill.ghost', arguments: {} });

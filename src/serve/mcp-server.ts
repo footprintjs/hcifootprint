@@ -56,11 +56,20 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
   // Route a call to the port; a domain rejection is a normal result the model
   // reads (needs-confirm, GUARD_FAILED, …). Only a genuinely unknown tool — or
   // an unexpected throw — is surfaced as isError.
-  server.setRequestHandler(CallToolRequestSchema, (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
-      const result = port.call(name, args ?? {});
-      const misused = (result as { reason?: string }).reason === 'UNKNOWN_TOOL';
+      const result = port.call(name, args ?? {}) as Record<string, unknown>;
+      // Act → data back, over the wire: if the call fired something, let the
+      // handler settle and fold any produced data (search results, a looked-up
+      // record) INTO the result — so a remote MCP client sees it, not just an
+      // in-process caller.
+      if (typeof result['transitionId'] === 'string') {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const produced = session.producedFor(result['transitionId']);
+        if (produced !== undefined) result['data'] = produced;
+      }
+      const misused = result['reason'] === 'UNKNOWN_TOOL';
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(result) }],
         ...(misused ? { isError: true } : {}),
