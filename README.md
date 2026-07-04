@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-208%20passing-f5b301?style=flat" alt="208 tests passing">
+  <img src="https://img.shields.io/badge/tests-213%20passing-f5b301?style=flat" alt="213 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/serving-MCP--shaped-f5b301?style=flat" alt="MCP-shaped tools">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -111,27 +111,53 @@ Two things the flow above leaves implicit:
 
 ### How the model picks the next step
 
-This is the part that's easy to miss: the model **never receives a growing list of tools**. It picks from the fixed array and passes a **step name** — read from `readySteps` in the previous result — as an *argument*. "How does it tell us which one" is just the standard Anthropic **tool-use** protocol: the model returns a `tool_use` block naming one fixed tool with its input; the runner executes it and hands back a `tool_result`; repeat.
+This is the part that's easy to miss: the model **never receives a growing list of tools**. It picks from the fixed array and passes a **step name** — read from `readySteps` in the previous result — as an *argument*. "How does it tell us which one" is just the standard **tool-use** protocol: the model returns a `tool_use` block naming one fixed tool with its input; your agent host executes it and hands back a `tool_result`; repeat.
 
 ```mermaid
 sequenceDiagram
-  participant LLM as Claude
-  participant AF as agentfootprint runner
+  participant M as Model (LLM)
+  participant H as Your agent host<br/>LangGraph · MCP client · raw loop
   participant T as skillsAsTools port
   participant S as InteractionSession
 
-  Note over LLM,T: the tools array is IDENTICAL every turn — the model never gets new tools
-  T-->>LLM: tool_result — readySteps = catalog.search-dresses, data = dresses
-  Note over LLM: the model reads readySteps (which is DATA) and chooses a step NAME
-  LLM->>AF: tool_use — name = skill.purchase, input step = place-order
-  AF->>T: port.call(skill.purchase, step = place-order)
+  Note over M,T: the tools array is IDENTICAL every turn — the model never gets new tools
+  T-->>M: tool_result — readySteps = catalog.search-dresses, data = dresses
+  Note over M: the model reads readySteps (which is DATA) and chooses a step NAME
+  M->>H: tool_use — name = skill.purchase, input step = place-order
+  H->>T: port.call(skill.purchase, step = place-order)
   T->>S: fire checkout.place-order
   S-->>T: did + the next readySteps + judgment
-  T-->>AF: result JSON
-  AF-->>LLM: tool_result — loop continues
+  T-->>H: result JSON
+  H-->>M: tool_result — loop continues
 ```
 
-So the loop is: a result carries `readySteps` (data) → the model emits `tool_use(skill.purchase, step)` → the port fires it on the session → a new result with the next `readySteps`. The tool *set* is constant; only the `step` **argument** changes. That is exactly what keeps the prompt cache warm and lets *any* MCP host serve it — no dynamic tool list required.
+So the loop is: a result carries `readySteps` (data) → the model emits `tool_use(skill.purchase, step)` → the port fires it on the session → a new result with the next `readySteps`. The tool *set* is constant; only the `step` **argument** changes. That is exactly what keeps the prompt cache warm and lets *any* host serve it — no dynamic tool list required.
+
+### Plugging into your framework (LangGraph, LangChain, a raw loop, …)
+
+hcifootprint is **not tied to any agent framework** — the demo happens to use [agentfootprint](https://github.com/footprintjs/agentfootprint), but the library only hands your host two things:
+
+```ts
+const port = skillsAsTools(session);
+
+const tools = port.tools();                 // fixed, MCP-shaped: { name, description, inputSchema }[]
+// → register `tools` with your agent (LangGraph, LangChain, an Anthropic/OpenAI loop, …)
+
+// then, inside each tool's executor, route the model's tool_use to:
+const result = port.call(toolName, toolInput);   // → return `result` as the tool_result
+```
+
+That's the whole integration: **`tools()` + `call()`**. And to expose it as a **real MCP server** that any MCP client (LangGraph's MCP adapter, Claude Desktop, Cursor, …) auto-discovers, there's a one-liner:
+
+```ts
+import { mcpServer } from 'hcifootprint/mcp';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const server = mcpServer(session);            // tools/list + tools/call, wired to the session
+await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTTP transport
+```
+
+`mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the transport** (stdio for local/desktop, SSE or HTTP for a remote agent) and run it wherever your session lives. The SDK is an **optional peer dependency**, imported only behind the `hcifootprint/mcp` subpath — so the core stays zero-dependency and you only pull it in if you use it. Over MCP, a high-effect step returns `judgment: needs-confirm`, and the host decides how to get approval before calling again with `confirm: true` — a portable human-in-the-loop that needs no framework-specific pause/resume.
 
 ## Quick start — three steps
 
@@ -224,7 +250,7 @@ Under the hood, every action lands in a real [footprintjs](https://github.com/fo
 
 ## Integration
 
-- **MCP-compatible.** `skillsAsTools` emits MCP-shaped tool descriptors with a fixed schema, so the surface drops in behind any provider that speaks MCP. (A thin turnkey MCP-server wrapper is on the roadmap; today you wire the port to your agent, as the demo does with [agentfootprint](https://github.com/footprintjs/agentfootprint).)
+- **MCP — a real server, not just a shape.** `skillsAsTools` gives you the fixed, MCP-shaped tool surface (`tools()` + `call()`) to bind into any framework directly, and `hcifootprint/mcp`'s `mcpServer(session)` wraps it in an actual `@modelcontextprotocol/sdk` server (`tools/list` + `tools/call`) that any MCP client drives — proven by a Client↔Server round-trip in the test suite. The SDK is an optional peer dependency isolated to that subpath; the core is zero-dependency. Framework-agnostic by construction — the demo uses [agentfootprint](https://github.com/footprintjs/agentfootprint), but LangGraph, LangChain, or a raw loop work the same.
 - **Human-in-the-loop (HITL).** High-effect actions (`confirm: true`) stop at a `needs-confirm` gate and are never auto-crossed. The approve-then-continue mechanism is **checkpoint / pause-and-resume** — a form of durable execution: the agent's ReAct loop freezes, control is handed to the human, and the run resumes exactly where it stopped. The demo implements it with agentfootprint's pause/resume checkpointing.
 
 ## Frontend: framework-agnostic
