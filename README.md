@@ -90,6 +90,49 @@ sequenceDiagram
 
 The load-bearing moves, in order: the **tool set never changes** (one tool per skill), so the prompt cache stays warm; the session answers *"what can I do here?"* from the **navigation graph at the current cursor**, not from a DOM dump; firing runs **your own handler** as the signed-in user; produced data (search results) comes back on the **data channel**, so untrusted content can't become instructions; and a **high-effect** step stops for **human approval** (pause/resume) before it ever fires.
 
+### What each turn actually sends to the model
+
+Every turn is **one** Anthropic Messages API request with three channels:
+
+```text
+POST /v1/messages
+├── system     "You are the shopping assistant… here is how to work…"     ← authored by YOU, only
+├── tools[]     skill.find-dress · skill.purchase · skill.track-order
+│               whats_here · do_action · request_confirmation · …          ← FIXED — identical every turn
+└── messages    … prior turns …
+                tool_result  { readySteps: […], data: [dress names…] }     ← the app's DATA lands here
+                user:  "find a red dress under $150 and buy it"            ← the user's own text, as-is
+```
+
+Two things the flow above leaves implicit:
+
+- **The user's message is passed as-is.** It's the operator talking to *their own* assistant, so it belongs in the instruction channel — nothing is stripped or paraphrased.
+- **App content never enters the instruction channel.** Product names, search results, anything the app produced rides **only** inside `tool_result` data — never the `system` prompt or a tool's `description`. The model reads it as data, so a dress literally named `IGNORE PREVIOUS INSTRUCTIONS…` can't hijack the agent. That's the two-string-class firewall.
+
+### How the model picks the next step
+
+This is the part that's easy to miss: the model **never receives a growing list of tools**. It picks from the fixed array and passes a **step name** — read from `readySteps` in the previous result — as an *argument*. "How does it tell us which one" is just the standard Anthropic **tool-use** protocol: the model returns a `tool_use` block naming one fixed tool with its input; the runner executes it and hands back a `tool_result`; repeat.
+
+```mermaid
+sequenceDiagram
+  participant LLM as Claude
+  participant AF as agentfootprint runner
+  participant T as skillsAsTools port
+  participant S as InteractionSession
+
+  Note over LLM,T: the tools array is IDENTICAL every turn — the model never gets new tools
+  T-->>LLM: tool_result — readySteps = catalog.search-dresses, data = dresses
+  Note over LLM: the model reads readySteps (which is DATA) and chooses a step NAME
+  LLM->>AF: tool_use — name = skill.purchase, input step = place-order
+  AF->>T: port.call(skill.purchase, step = place-order)
+  T->>S: fire checkout.place-order
+  S-->>T: did + the next readySteps + judgment
+  T-->>AF: result JSON
+  AF-->>LLM: tool_result — loop continues
+```
+
+So the loop is: a result carries `readySteps` (data) → the model emits `tool_use(skill.purchase, step)` → the port fires it on the session → a new result with the next `readySteps`. The tool *set* is constant; only the `step` **argument** changes. That is exactly what keeps the prompt cache warm and lets *any* MCP host serve it — no dynamic tool list required.
+
 ## Quick start — three steps
 
 **1. Describe the app** as the tree you already picture — pages, the containers inside them, and the actions inside those. Each action needs one sentence; that sentence is both your label and the tool description the LLM reads.
