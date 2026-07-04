@@ -1,10 +1,27 @@
-<!-- Hero: the classic term HCI, with an A slid in next to the Human — the agent joins the human's team. -->
-<h1 align="center">H·A·C·I&nbsp;Footprint</h1>
+<h1 align="center">HACI&nbsp;Footprint</h1>
+
 <p align="center"><b>Human &amp; Agent · Computer Interaction</b></p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/haci-hero-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/haci-hero-light.svg">
+    <img alt="HACI Footprint — the classic term HCI becomes HACI as a yellow A (Agent) joins the Human's side; a person and an AI act on the app as a team." src="docs/assets/haci-hero-light.svg" width="100%">
+  </picture>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/tests-192%20passing-f5b301?style=flat" alt="192 tests passing">
+  <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
+  <img src="https://img.shields.io/badge/serving-MCP--shaped-f5b301?style=flat" alt="MCP-shaped tools">
+  <img src="https://img.shields.io/badge/status-experimental%20v0-eab308?style=flat" alt="experimental v0">
+  <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
+</p>
+
 <p align="center"><i>The easiest way to turn your web app into an agentic app — one an AI can navigate and act on, on behalf of your user.</i></p>
 
-> An animated version of the hero (HCI → H·**A**·CI) lives in [`hero/index.html`](hero/index.html) — open it in a browser.
-
+> The hero above is an animated SVG (HCI → H·**A**·CI). A standalone version lives in [`hero/index.html`](hero/index.html).
+>
 > npm package: `hcifootprint` (the "hci" is still in there — we slid an **A** for **Agent** in next to the Human). Prose name: **HACI Footprint**.
 
 ---

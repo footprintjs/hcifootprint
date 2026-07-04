@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img"
+     aria-label="HACI Footprint — Human and Agent, Computer Interaction. The classic term HCI becomes HACI as a yellow A (Agent) joins the Human's side, and the two act on the app as a team.">
+  <defs>
+    <style>
+      .ey   { fill:#a16207; font:700 20px ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:8px; }
+      .ltr  { fill:#1c1917; font:600 168px Georgia,"Times New Roman",serif; }
+      .a    { fill:#eab308; }
+      .foot { fill:#78716c; font:800 30px ui-sans-serif,system-ui,sans-serif; letter-spacing:2px; }
+      .tag  { fill:#78716c; font:400 22px ui-sans-serif,system-ui,sans-serif; }
+      .tag b, .tagb { fill:#1c1917; font-weight:600; }
+
+      .rise { opacity:0; animation:rise .6s forwards; }
+      .d1{animation-delay:.20s}.d2{animation-delay:.35s}.d3{animation-delay:.50s}
+      .ey.rise{animation-delay:.05s}
+      .foot.rise{animation-delay:1.95s}.tag.rise{animation-delay:2.25s}
+      .agent{ opacity:0; transform-box:fill-box; transform-origin:center bottom;
+              animation:pop .85s 1.2s cubic-bezier(.2,.9,.3,1.4) forwards, glow 2.4s 2.1s ease-in-out infinite; }
+      .spark{ opacity:0; animation:spark .5s 1.15s ease-out; }
+
+      @keyframes rise { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+      @keyframes pop  { 0%{opacity:0;transform:scale(.2) translateY(-34px) rotate(-12deg)}
+                        55%{opacity:1;transform:scale(1.16) rotate(0)} 100%{opacity:1;transform:none} }
+      @keyframes spark{ 0%{opacity:.85} 100%{opacity:0;transform:scaleY(1.7)} }
+      @keyframes glow { 0%,100%{filter:none} 50%{filter:drop-shadow(0 0 10px rgba(234,179,8,.55))} }
+
+      @media (prefers-reduced-motion: reduce){
+        .rise,.agent,.spark{animation:none;opacity:1;transform:none}
+        .spark{opacity:0}
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="360" fill="#ffffff"/>
+
+  <text class="ey rise" x="600" y="66" text-anchor="middle">HUMAN &amp; AGENT · COMPUTER INTERACTION</text>
+
+  <!-- the word: H A C I  — the yellow A pops in beside the human -->
+  <g>
+    <text class="ltr rise d1" x="452" y="240" text-anchor="middle">H</text>
+    <text class="ltr a agent" x="556" y="240" text-anchor="middle">A</text>
+    <rect class="spark" x="554" y="112" width="4" height="132" rx="2" fill="#eab308"/>
+    <text class="ltr rise d2" x="656" y="240" text-anchor="middle">C</text>
+    <text class="ltr rise d3" x="730" y="240" text-anchor="middle">I</text>
+  </g>
+
+  <text class="foot rise" x="600" y="290" text-anchor="middle">F O O T P R I N T</text>
+
+  <text class="tag rise" x="600" y="336" text-anchor="middle">Turn your web app into an <tspan class="tagb">agentic app</tspan> — an AI drives the frontend a human already can.</text>
+</svg>
