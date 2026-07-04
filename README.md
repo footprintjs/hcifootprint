@@ -40,6 +40,56 @@ The key idea, and the reason it's safe to adopt: **you are not opening your back
 
 Both the human and the agent drive the **same live session** — that's the "Human **and** Agent" in the name, a team on one side of the screen, and it's exactly what the [demo](https://github.com/footprintjs/hcifootprint-demo) shows.
 
+## How it works — one turn, end to end
+
+A single request, *"find a red dress under $150 and buy it,"* flows through five parties: you, the agent, a **fixed** set of MCP-shaped tools, the **InteractionSession** (which reads your navigation graph), and your app's own handlers. The navigation graph is what makes each step position-aware — the session only ever offers what is actually doable at the current cursor.
+
+```mermaid
+sequenceDiagram
+  actor U as User
+  participant A as Agent (LLM)
+  participant T as MCP tools<br/>skillsAsTools
+  participant S as InteractionSession<br/>+ navigation graph
+  participant App as Your app<br/>handlers · store · router
+
+  U->>A: find a red dress under $150 and buy it
+  Note over A,T: The tool set is FIXED for the whole conversation — cache stays warm
+
+  A->>T: whats_here
+  T->>S: available + availableSkills
+  Note over S: the navigation graph serves only what is fireable AT THE CURSOR
+  S-->>T: on catalog; skills find-dress, purchase
+  T-->>A: position + actions + skills (data, not new tools)
+
+  A->>T: open skill find-dress
+  T->>S: commitSkill find-dress
+  S-->>T: readySteps = catalog.search-dresses
+  T-->>A: readySteps — disclosure rides the RESULT, not the tool list
+
+  A->>T: find-dress step=search-dresses input=red
+  T->>S: fire catalog.search-dresses
+  S->>App: run your handler shop.search — as the signed-in user
+  App-->>S: store tap updateState + the matched dresses
+  S-->>T: did + readySteps=view-dress + data=dresses
+  Note right of S: results ride the DATA channel — untrusted text, never instructions
+  T-->>A: the dresses to pick from + the next ready step
+
+  A->>T: purchase step=place-order
+  T->>S: fire checkout.place-order (high-effect)
+  S-->>A: judgment = needs-confirm — never auto-crossed
+  A->>U: Approve placing the order?
+  Note over A,U: human-in-the-loop — the run pauses on a checkpoint
+  U-->>A: approve
+  A->>T: purchase step=place-order confirm=true
+  T->>S: fire checkout.place-order
+  S->>App: shop.placeOrder
+  App-->>S: order placed
+  S-->>A: done
+  A-->>U: Ordered the Floral Wrap Dress — $120
+```
+
+The load-bearing moves, in order: the **tool set never changes** (one tool per skill), so the prompt cache stays warm; the session answers *"what can I do here?"* from the **navigation graph at the current cursor**, not from a DOM dump; firing runs **your own handler** as the signed-in user; produced data (search results) comes back on the **data channel**, so untrusted content can't become instructions; and a **high-effect** step stops for **human approval** (pause/resume) before it ever fires.
+
 ## Quick start — three steps
 
 **1. Describe the app** as the tree you already picture — pages, the containers inside them, and the actions inside those. Each action needs one sentence; that sentence is both your label and the tool description the LLM reads.
