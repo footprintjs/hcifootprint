@@ -40,8 +40,12 @@ async function connectClient(session: ReturnType<typeof shopSession>) {
   return client;
 }
 
-const text = (res: { content: unknown }) =>
-  JSON.parse(((res.content as { type: string; text: string }[])[0]).text) as Record<string, unknown>;
+// The SDK's CallToolResult is a union (a toolResult arm has no `content`), so
+// accept the result loosely and narrow to the text-content arm we assert on.
+const text = (res: unknown) =>
+  JSON.parse(
+    ((res as { content: { type: string; text: string }[] }).content[0]).text,
+  ) as Record<string, unknown>;
 
 describe('mcpServer — a real MCP server backed by a live session', () => {
   it('tools/list returns the FIXED tool set (one per skill + the two generics)', async () => {

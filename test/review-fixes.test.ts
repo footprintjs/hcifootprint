@@ -234,7 +234,9 @@ describe('compile hardening', () => {
 
   it('in/notIn guards require arrays; skill ids obey segment rules', () => {
     expect(() =>
-      buildNavigationGraph('x', { pages: { a: { tools: { t: { does: 'd', when: { tier: { in: 'gold' } } } } } } }),
+      // Intentionally a non-array `in` (a runtime mistake the builder must reject);
+      // cast past the compile-time array requirement to exercise that guard.
+      buildNavigationGraph('x', { pages: { a: { tools: { t: { does: 'd', when: { tier: { in: 'gold' as never } } } } } } }),
     ).toThrow(/needs an ARRAY/);
     expect(() =>
       buildNavigationGraph('x', {
