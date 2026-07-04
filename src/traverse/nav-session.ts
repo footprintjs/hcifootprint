@@ -54,6 +54,13 @@ export interface InteractionSessionOptions extends Omit<SessionOptions, 'node'> 
    * instantly if the router then confirms their page. Default 3000ms.
    */
   dormantGraceMs?: number;
+  /**
+   * The clock the dormancy / overlay-grace timers read (epoch ms). Defaults to
+   * `Date.now`. Inject a controllable clock to test time-dependent staleness
+   * deterministically — a dormant registration, a mount-grace warning — without
+   * real waits (hcifootprint/testing's harness wires one for you).
+   */
+  now?: () => number;
 }
 
 /** A tool declared at mount time. `does` is a registration-site source-code literal — still authored. */
@@ -108,6 +115,8 @@ export class InteractionSession<Paths extends string = string> extends Session {
   readonly #overlaySeen = new Map<string, number>();
   readonly #warnedOnce = new Set<string>();
   readonly #graceMs: number;
+  /** Clock for the grace timers (injectable for deterministic staleness tests). */
+  readonly #now: () => number;
 
   constructor(map: NavigationGraph, opts?: InteractionSessionOptions) {
     const node = opts?.node ?? Object.keys(map.spec.pages)[0];
@@ -115,6 +124,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
     this.#map = map;
     this.#focusPath = node;
     this.#graceMs = opts?.dormantGraceMs ?? 3000;
+    this.#now = opts?.now ?? Date.now;
     // Our fingerprint override reads the fields above — re-baseline now so the
     // first real mutation (not construction itself) is what flushes a row.
     this.resetStructureBaseline();
@@ -188,7 +198,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
     // 4. Dormancy bookkeeping: a mount outside the router-confirmed page is
     //    held, not offered — its clock starts now.
     if (node.page !== this.node && !this.#foreignSeen.has(path)) {
-      this.#foreignSeen.set(path, Date.now());
+      this.#foreignSeen.set(path, this.#now());
     }
     this.noteStructureChange();
 
@@ -437,11 +447,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
   #overlayGraceCheck(path: string): void {
     const firstSeen = this.#overlaySeen.get(path);
     if (firstSeen === undefined) {
-      this.#overlaySeen.set(path, Date.now());
+      this.#overlaySeen.set(path, this.#now());
       return;
     }
     const warnKey = `overlay:${path}`;
-    if (Date.now() - firstSeen >= this.#graceMs && !this.#warnedOnce.has(warnKey)) {
+    if (this.#now() - firstSeen >= this.#graceMs && !this.#warnedOnce.has(warnKey)) {
       this.#warnedOnce.add(warnKey);
       this.warn(
         `hcifootprint: modal '${path}' has been masking its page on mount-presence alone for over ` +
@@ -661,7 +671,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
       for (const path of this.#presence.presentNodes()) {
         const node = this.#map.nodes[path];
         if (node && node.page !== this.node && !this.#foreignSeen.has(path)) {
-          this.#foreignSeen.set(path, Date.now());
+          this.#foreignSeen.set(path, this.#now());
         }
       }
     }
@@ -723,7 +733,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
 
   /** Foreign registrations past grace = sensor drift: one dev warning + one gap row, per node. */
   #driftCheck(): void {
-    const now = Date.now();
+    const now = this.#now();
     for (const [path, firstSeen] of [...this.#foreignSeen]) {
       if (!this.#presence.isPresent(path) || this.#map.nodes[path]?.page === this.node) {
         this.#foreignSeen.delete(path);

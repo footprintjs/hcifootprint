@@ -13,6 +13,14 @@
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./testing/lint": {
+      "types": "./dist/testing/lint.d.ts",
+      "default": "./dist/testing/lint.js"
     }
   },
   "files": [

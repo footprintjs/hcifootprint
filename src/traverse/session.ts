@@ -64,6 +64,7 @@ import type {
   UpdateResult,
 } from '../atom/types.js';
 import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
+import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
 import type { ToolHandler } from '../registry/registry.js';
 
@@ -540,15 +541,7 @@ export class Session {
     }
     const steps: SkillPlanStep[] = skill.steps.map((stepId) => {
       const aff = this.spec.affordances[stepId];
-      const guardKeys = Object.keys(aff.guard ?? {});
-      const dependsOn = skill.steps
-        .filter((otherId) => otherId !== stepId)
-        .map((otherId) => {
-          const other = this.spec.affordances[otherId];
-          const viaKeys = (other.effect?.writes ?? []).filter((key) => guardKeys.includes(key));
-          return { affordanceId: otherId, viaKeys };
-        })
-        .filter((dep) => dep.viaKeys.length > 0);
+      const dependsOn = stepDependencies(this.spec.affordances, skill.steps, stepId);
 
       const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
       const frameForSkill = this.#frame?.skillId === skillId ? this.#frame : null;

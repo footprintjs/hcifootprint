@@ -248,6 +248,46 @@ Two properties do a lot of the safety work:
 
 Under the hood, every action lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit log, so `session.why(key)` gives a causal answer to *"why is the app in this state?"* with zero extra code.
 
+## Testing — is your graph still true?
+
+The navigation graph is a **second artifact** you keep alongside the real app, so it **drifts** as the app changes: a button's disable rule moves, a page is removed, a handler starts changing different state. `hcifootprint/testing` catches that drift **in dev and CI, before production** — so you release knowing the graph (and therefore what the agent sees) still matches the app. It adds **zero dependencies**, is tree-shakeable, and drives the **real session** (never a copy), in two layers.
+
+**1. `lintGraph` — static, no test code.** Reads the graph alone and reports stale logic: a control gated on state nothing produces, a guard that can never be true, a skill that can never finish, a page nothing can reach. The cheap CI gate. It's **advisory by default** and only escalates to hard errors once you tell it the starting state — it never cries "dead" over a key it can't see.
+
+```ts
+import { lintGraph, checkGraph, expectNoStaleLogic } from 'hcifootprint/testing';
+
+lintGraph(graph);                                  // → findings you can inspect
+expectNoStaleLogic(graph, { initialState });       // → throws in CI if the graph drifted
+
+// Or the one-call health verdict — findings grouped by drift type + a printable report:
+const health = checkGraph(graph, { initialState });
+if (!health.ok) { console.error(health.summary); process.exit(1); }
+```
+
+`checkGraph` is static and pure — import it from `hcifootprint/testing/lint` for a CI step that loads no engine code at all.
+
+Every finding names **what** drifted and **where**, and states the two remedies — update the graph to match the app, or treat it as a sign the app changed by mistake. It surfaces the drift; **the fix is your team's call.**
+
+**2. `testApp` — "Playwright for your interaction logic, minus the browser."** Write mock handlers (one per action, returning a state change), then drive the graph as a **user** (clicking) or as the **agent** (the real Mode B tool path). The library's own honesty marker, `effectVerified`, flips false when a handler no longer does what the graph declares — that *is* the behavioral-drift alarm. **Report by default; pass `strict: true` to fail the instant drift appears.**
+
+```ts
+import { testApp } from 'hcifootprint/testing';
+
+const app = testApp(graph, {
+  initialState: { cartCount: 0 },
+  resolvers: { 'add-to-cart': (_p, { state }) => ({ patch: { cartCount: state.cartCount + 1 } }) },
+});
+
+await app.user.fire('add-to-cart');          // drive like a human
+app.expectState({ cartCount: 1 });
+await app.agent.skill('purchase', { step: 'go-to-cart' });  // drive like the LLM
+app.expectOn('cart');
+app.report();                                 // { ok, effectDrift, gaps, unevaluatedGuards }
+```
+
+**Honest boundary (say it out loud).** This tests interaction **logic** above the binding — guards, skills, navigation, effect claims, typed rejections. It does **not** verify pixels, the DOM, or that a binding resolves to a real element — that stays **Playwright's** job, and it complements it, not replaces it. Three traps to keep in mind: (1) a green `lintGraph` proves the graph is internally consistent, **not** that the app works — it reasons about which state *keys* move, never their values, so a right-key/wrong-value bug is the harness's job (`effectVerified`), not the linter's; (2) a mock is a **simulation** — if it diverges from the real handler, the test is green while prod is broken, so use `testApp({ session })` (bring your own wired session) for full fidelity; (3) auto-mocked runs prove *"the graph hangs together,"* not that your real handlers match.
+
 ## Integration
 
 - **MCP — a real server, not just a shape.** `skillsAsTools` gives you the fixed, MCP-shaped tool surface (`tools()` + `call()`) to bind into any framework directly, and `hcifootprint/mcp`'s `mcpServer(session)` wraps it in an actual `@modelcontextprotocol/sdk` server (`tools/list` + `tools/call`) that any MCP client drives — proven by a Client↔Server round-trip in the test suite. The SDK is an optional peer dependency isolated to that subpath; the core is zero-dependency. Framework-agnostic by construction — the demo uses [agentfootprint](https://github.com/footprintjs/agentfootprint), but LangGraph, LangChain, or a raw loop work the same.
@@ -261,7 +301,7 @@ The core is plain TypeScript and knows nothing about your framework — you conn
 
 ## Status & the atom
 
-> **Experimental v0.** The headless core — author the graph, drive it, serve it as tools, trace every step — works and is fully tested (**192 tests**). The browser auto-wiring adapter is roadmap; today you connect with a few lines.
+> **Experimental v0.** The headless core — author the graph, drive it, serve it as tools, trace every step, and **test it for drift** (`hcifootprint/testing`) — works and is fully tested (**252 tests**). The browser auto-wiring adapter is roadmap; today you connect with a few lines.
 
 The model underneath, for the curious:
 
@@ -278,7 +318,7 @@ Deeper topics — on-demand disclosure (skill frames), the context brief, the na
 
 ```bash
 npm install
-npm test          # vitest — 192 tests
+npm test          # vitest — 252 tests
 npm run typecheck # src + tests
 npm run build
 ```
