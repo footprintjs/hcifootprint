@@ -1,0 +1,52 @@
+/* HACI Footprint site — consumer theme (the storydeck token contract) + page chrome.
+   Dark default; storydeck.css supplies the Read/Scroll/Watch view styles. Self-contained:
+   no CDN fonts — system stacks only. The deck slides carry their own dark canvas (.deck-scope). */
+:root {
+  --bg: #fbfaf8; --bg-elev: #ffffff; --fg: #18181b; --fg-muted: #5f5f63; --fg-faint: #8a8a8f;
+  --line: #e7e7e4; --line2: #d6d5d0; --yellow: #ffc700; --accent-ink: #7a5b00;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --content: 46rem;
+}
+html.dark {
+  --bg: #0a0a0b; --bg-elev: #141416; --fg: #fafafa; --fg-muted: #a1a1a1; --fg-faint: #6b6b6b;
+  --line: rgba(250, 250, 250, .10); --line2: rgba(250, 250, 250, .17); --accent-ink: #ffc700;
+}
+* { box-sizing: border-box; }
+html.dark { color-scheme: dark; } html.light { color-scheme: light; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans);
+  line-height: 1.6; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+:where(a, button, [tabindex]):focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; border-radius: 4px; }
+.skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; background: var(--yellow); color: #111; padding: 10px 16px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 12px; }
+
+/* header */
+.site-hd {
+  position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: .75rem; height: 60px;
+  padding: 0 clamp(1.25rem, 5vw, 2.75rem); background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+}
+.site-hd .brand { display: inline-flex; align-items: center; gap: .6rem; text-decoration: none; font-weight: 700; letter-spacing: -0.01em; }
+.site-hd .brand .a { color: var(--yellow); }
+.site-hd .brand img { width: 26px; height: 26px; }
+.site-hd .sp { flex: 1; }
+.site-hd a.nav { color: var(--fg-muted); text-decoration: none; font-size: .875rem; margin-left: 1.1rem; }
+.site-hd a.nav:hover { color: var(--fg); }
+
+/* footer */
+.site-ft {
+  border-top: 1px solid var(--line); margin-top: 5rem; padding: 1.9rem clamp(1.25rem, 5vw, 2.75rem);
+  color: var(--fg-faint); font-size: .8rem; font-family: var(--mono); text-align: center; line-height: 1.9;
+}
+.site-ft a { color: var(--fg-muted); text-decoration: none; }
+.site-ft a:hover { color: var(--fg); }
+.site-ft .built { color: var(--fg-muted); }
+.site-ft .built a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+/* content column (PostView renders inside .wrap.wide) */
+.wrap { max-width: 58rem; margin: 0 auto; padding: 2.75rem 1.25rem 0; }
+.wrap.wide { max-width: 66rem; }

@@ -1,0 +1,15 @@
+{
+  "slug": "hcifootprint",
+  "title": "HACI Footprint",
+  "description": "Turn a web app's interaction surface into a typed, traversable skill graph an LLM agent can plan over and act on — the frontend sibling of footprintjs.",
+  "date": "2026-07-08",
+  "author": "Sanjay Krishna Anbalagan",
+  "tags": ["llm", "agent", "mcp", "skill-graph", "footprintjs"],
+  "sections": [
+    { "key": "what",       "label": "What",         "heading": "A skill graph your agent can operate",       "slides": ["What"] },
+    { "key": "why",        "label": "Why",          "heading": "Agents driving UIs are blind and brittle",   "slides": ["Why"] },
+    { "key": "gap",        "label": "The gap loop", "heading": "Grow the app around real agent demand",       "slides": ["Gap 1", "Gap 2", "Gap 3"] },
+    { "key": "coexist",    "label": "MCP",          "heading": "Coexists with Anthropic's MCP",              "slides": ["Coexist 1", "Coexist 2", "Coexist 3", "Coexist 4"] },
+    { "key": "stays-true", "label": "Stays true",   "heading": "Keep the graph true — the drift harness",     "slides": ["Stays true"] }
+  ]
+}
