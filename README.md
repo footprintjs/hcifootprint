@@ -418,6 +418,14 @@ the source (`src/*/README.md`) and in [`docs/design/`](docs/design/).
 The [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) tells the pitch as a diff, because
 the diff *is* the demo:
 
+<p align="center">
+  <a href="https://youtu.be/vx5amF94ipI">
+    <img src="https://img.youtube.com/vi/vx5amF94ipI/maxresdefault.jpg" alt="Watch: turn your web app into an agentic app with HACI Footprint (demo video)" width="720">
+  </a>
+  <br>
+  <em>▶ Watch the demo — a vanilla dress shop becomes an agent-operable app (37 sec)</em>
+</p>
+
 | Commit | What it adds | What it proves |
 |---|---|---|
 | 1 | The plain store — subscribers, a tiny router, handler methods. | The unbiased baseline, built with zero knowledge of any agent layer. |
