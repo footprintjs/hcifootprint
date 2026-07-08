@@ -2,6 +2,8 @@
   "name": "hcifootprint",
   "version": "0.1.0",
   "description": "Turn a web app's interaction surface into a typed, traversable skill graph an LLM can plan over — the frontend sibling of footprintjs.",
+  "homepage": "https://footprintjs.github.io/hcifootprint/",
+  "repository": { "type": "git", "url": "git+https://github.com/footprintjs/hcifootprint.git" },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

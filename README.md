@@ -29,6 +29,10 @@
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
 </p>
 
+<p align="center">
+  <strong>🌐 <a href="https://footprintjs.github.io/hcifootprint/">footprintjs.github.io/hcifootprint</a></strong> — the story in three lenses: <a href="https://footprintjs.github.io/hcifootprint/">Read</a> · <a href="https://footprintjs.github.io/hcifootprint/?view=scrolly">Scroll</a> · <a href="https://footprintjs.github.io/hcifootprint/?view=slides">Watch</a>
+</p>
+
 ```bash
 npm install hcifootprint
 ```
