@@ -51,7 +51,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "footprintjs": "file:../footPrint"
+    "footprintjs": "^9.10.1"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": ">=1.0.0"
