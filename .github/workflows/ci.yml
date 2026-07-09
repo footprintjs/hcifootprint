@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      # Build BEFORE test — the package is ESM-only with subpath exports
+      # (./mcp, ./testing, ./testing/lint) resolved from dist/; publint and
+      # attw below also need a built dist/ to inspect.
+      - run: npm run build
+      - run: npm test
+      # Packaging-correctness gate: the published artifact resolves cleanly.
+      - run: npx publint
+      # esm-only profile: this package ships no CJS build (type: module,
+      # exports have no "require" condition) — the node10/CJS-consumer
+      # checks in attw's default "strict" profile don't apply here and
+      # would flag the ESM-only design as an error.
+      - run: npx @arethetypeswrong/cli --pack --profile esm-only
