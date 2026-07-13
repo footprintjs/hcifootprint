@@ -82,6 +82,32 @@ outcome bars (C3). All analysis scripts live in `harness/` and recompute from `r
 - Provenance attribution in the reference implementation degrades FIFO under same-signature
   interleaved settlements; episodes hitting that path are flagged via the `inferred` marker.
 
+## Drift axis (added 2026-07-13, pre-freeze; merged spine per DECISIONS.md)
+
+Mutation-testing the drift harness itself: 13 single-fault mutants over the shop
+(graph-side guard/page/skill/effect faults; app-side handler/nav faults), scored against the
+harness's layers in CI order — compile → static lint diff → behavioral (report + journey).
+Per-mutant layer predictions were logged in code (`harness/src/drift/mutations.ts`) **before first
+execution**; one mutant (M13 guard-weakened) was preregistered as a designed miss to measure the
+journey-coverage boundary.
+
+**Executed 2026-07-13** (deterministic, no model in the loop — results in `results/drift/`):
+baseline clean (precision holds) · **recall 11/12 catchable = 92%** · designed miss confirmed 1/1 ·
+layer-prediction accuracy 11/13 = 85%. Two deviations, both kept as findings:
+
+- **M04 (discovered boundary):** a stale declared-write list is invisible when the key exists in
+  initial state (key-level lint counts it producible) and the app still writes it (extra writes
+  unflagged at settlement). Goes to limitations + a candidate library improvement.
+- **M09:** caught one layer earlier than predicted (gap rows precede the journey throw) — the
+  layered design is stronger than assumed, not weaker.
+
+## Honesty axis (scaffold pending — needs API runs)
+
+Marker ablation (`map` vs `map` with honesty fields stripped from results and brief) over
+uncertainty scenarios (still-mounting, assumed-active, unverifiable effect): measure correct
+replanning vs hallucinated success. To be preregistered in full before its first run (August window).
+
 ## Amendments
 
-*(none — draft not yet frozen)*
+*(none — draft not yet frozen; the drift-axis section above was added before any model-run and
+records its own deterministic execution honestly rather than as a prediction)*

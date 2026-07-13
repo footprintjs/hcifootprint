@@ -67,13 +67,19 @@ results/                raw episode transcripts + aggregated tables (committed, 
 ## Status
 
 - [x] Problem framing, claims, venue decision (conversation ledger, 2026-07-13)
-- [x] Title + abstract drafted (`paper/title-abstract.md`)
-- [x] Preregistration drafted — **freeze before first real run**
-- [x] Pilot harness: three substrates over app #1, MockLLM smoke test
-- [ ] Pilot run (dress-shop, ~10 tasks × 3 substrates × interleave levels) — needs `ANTHROPIC_API_KEY`
+- [x] Title + abstract — FINAL, accepted by Sanjay (`paper/title-abstract.md`)
+- [x] Spine merged with the CTXBUG-side plan; IUI 2027 = **abstracts Aug 13, papers Aug 20** (verified)
+- [x] Preregistration drafted — **freeze before first model run**
+- [x] Interleave harness: three substrates over app #1, MockLLM smoke tests green
+- [x] **Drift axis executed**: 13 mutants, baseline clean, recall 92%, designed miss confirmed,
+      one boundary DISCOVERED (M04 stale declared-writes) — `results/drift/`
+- [ ] Honesty axis: marker-ablation substrate + scenarios (scaffold next; runs need `ANTHROPIC_API_KEY`)
+- [ ] Scale axis numbers re-verified from the demo repo's committed `scale.jsonl` (needs repo access approval)
+- [ ] Interleave pilot run (6 tasks × 3 substrates × 3 seeds) — needs `ANTHROPIC_API_KEY`
 - [ ] Wire-level serving fixes upstreamed (`sinceVersion` on `whats_here`, `why` over MCP)
-- [ ] App #2: retrofit onto an open-source app we did not write (+ authoring-cost measurement)
-- [ ] Full runs + analysis + draft
+- [ ] App #2: retrofit onto an app we did not write (+ authoring-cost measurement) — honestly
+      deferred to limitations if the August window forces it
+- [ ] Full paper draft (Aug 13–20 window)
 
 ## Run
 

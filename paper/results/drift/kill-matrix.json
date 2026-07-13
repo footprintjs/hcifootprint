@@ -1,0 +1,204 @@
+{
+ "baselineClean": true,
+ "baselineDetail": "static: 0 errors / 0 warnings (+6 advisory notes) · report drift: false · journey threw: false",
+ "results": [
+  {
+   "id": "M01-guard-dangling-key",
+   "family": "guard",
+   "story": "The store renamed resultCount but the graph guard still reads the old key.",
+   "expectedLayer": "static",
+   "layers": {
+    "compile": false,
+    "static": "error",
+    "behavioralReport": false,
+    "behavioralJourney": false
+   },
+   "caughtBy": "static",
+   "matchedPrediction": true,
+   "detail": "dangling-guard-key: Action “catalog.filter-by-color” is gated on “inventoryReady”, which nothing produces — no action writes it, and you did not list it in the initial or external state. This action can never become available. · uncompletable-skill: Skill “find-dress” can never finish: step “catalog"
+  },
+  {
+   "id": "M02-guard-unsatisfiable",
+   "family": "guard",
+   "story": "A merge mangled the guard into a condition no state can satisfy.",
+   "expectedLayer": "static",
+   "layers": {
+    "compile": false,
+    "static": "error",
+    "behavioralReport": true,
+    "behavioralJourney": true
+   },
+   "caughtBy": "static",
+   "matchedPrediction": true,
+   "detail": "unsatisfiable-guard: Action “catalog.view-dress” has a guard on “resultCount” that can never be true (lower bound 5 is above upper bound 3) — the control it maps to can never light up."
+  },
+  {
+   "id": "M03-page-unreachable",
+   "family": "page",
+   "story": "A redesign repointed the \"My orders\" link home; nothing reaches orders anymore.",
+   "expectedLayer": "static",
+   "layers": {
+    "compile": false,
+    "static": "warning",
+    "behavioralReport": false,
+    "behavioralJourney": false
+   },
+   "caughtBy": "static",
+   "matchedPrediction": true,
+   "detail": "unreachable-page: Page “orders” is not the start page and no action navigates to it — nothing in the graph can reach it."
+  },
+  {
+   "id": "M04-skill-uncompletable",
+   "family": "skill",
+   "story": "place-order stopped declaring orderCount; the track-order skill can never unlock.",
+   "expectedLayer": "static",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": false,
+    "behavioralJourney": false
+   },
+   "caughtBy": "missed",
+   "matchedPrediction": false,
+   "detail": ""
+  },
+  {
+   "id": "M05-write-unconsumed",
+   "family": "effect",
+   "story": "Search grew a telemetry write nothing in the graph consumes (leftover claim).",
+   "expectedLayer": "static-advisory",
+   "layers": {
+    "compile": false,
+    "static": "info",
+    "behavioralReport": true,
+    "behavioralJourney": false
+   },
+   "caughtBy": "static-advisory",
+   "matchedPrediction": true,
+   "detail": "unconsumed-write: Action “catalog.search-dresses” declares it writes “resultIds” and “searchTelemetry”, but no guard anywhere reads them — the write does nothing for planning (the app UI may still use it)."
+  },
+  {
+   "id": "M06-skill-step-unknown",
+   "family": "skill",
+   "story": "The purchase flow references a coupon step that was deleted from the app.",
+   "expectedLayer": "compile",
+   "layers": {
+    "compile": true,
+    "static": null,
+    "behavioralReport": false,
+    "behavioralJourney": false
+   },
+   "caughtBy": "compile",
+   "matchedPrediction": true,
+   "detail": "SkillGraphValidationError: hcifootprint: skill 'purchase' step 'apply-coupon' matches no tool. Known: home.browse-dresses, catalog.search-dresses, catalog.filter-by-color, catalog.view-dress, product."
+  },
+  {
+   "id": "M07-handler-wrong-write",
+   "family": "handler",
+   "story": "add-to-cart now updates a renamed basket key; the declared cart keys never move.",
+   "expectedLayer": "behavioral-report",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": true,
+    "behavioralJourney": true
+   },
+   "caughtBy": "behavioral-report",
+   "matchedPrediction": true,
+   "detail": "effectDrift: [product.add-to-cart] gaps: 0 · journey: Error: hcifootprint/testing: expected state “cartIds” to be [\"d3\"], but it is []."
+  },
+  {
+   "id": "M08-handler-no-op",
+   "family": "handler",
+   "story": "A refactor left search wired to a stub that changes nothing.",
+   "expectedLayer": "behavioral-report",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": true,
+    "behavioralJourney": true
+   },
+   "caughtBy": "behavioral-report",
+   "matchedPrediction": true,
+   "detail": "effectDrift: [catalog.search-dresses] gaps: 0 · journey: Error: hcifootprint/testing: expected state “resultCount” to be 2, but it is 0."
+  },
+  {
+   "id": "M09-handler-missing",
+   "family": "handler",
+   "story": "The add-to-cart handler was deleted; the button is declared but dead.",
+   "expectedLayer": "behavioral-journey",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": true,
+    "behavioralJourney": true
+   },
+   "caughtBy": "behavioral-report",
+   "matchedPrediction": false,
+   "detail": "effectDrift: [product.add-to-cart] gaps: 0 · journey: Error: hcifootprint/testing: expected state “cartIds” to be [\"d3\"], but it is []."
+  },
+  {
+   "id": "M10-handler-wrong-nav",
+   "family": "nav",
+   "story": "view-dress now routes to the cart (an A/B experiment); the graph claims product.",
+   "expectedLayer": "behavioral-journey",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": false,
+    "behavioralJourney": true
+   },
+   "caughtBy": "behavioral-journey",
+   "matchedPrediction": true,
+   "detail": "Error: hcifootprint/testing: expected to be on “product”, but on “cart”."
+  },
+  {
+   "id": "M11-handler-partial-write",
+   "family": "handler",
+   "story": "place-order stopped clearing the cart; it still writes the order keys.",
+   "expectedLayer": "behavioral-report",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": true,
+    "behavioralJourney": true
+   },
+   "caughtBy": "behavioral-report",
+   "matchedPrediction": true,
+   "detail": "effectDrift: [checkout.place-order] gaps: 0 · journey: Error: hcifootprint/testing: expected state “cartCount” to be 0, but it is 1."
+  },
+  {
+   "id": "M12-handler-wrong-value",
+   "family": "handler",
+   "story": "add-to-cart writes the right keys with the wrong dress id (right-key/wrong-value).",
+   "expectedLayer": "behavioral-journey",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": false,
+    "behavioralJourney": true
+   },
+   "caughtBy": "behavioral-journey",
+   "matchedPrediction": true,
+   "detail": "Error: hcifootprint/testing: expected state “cartIds” to be [\"d3\"], but it is [\"d999\"]."
+  },
+  {
+   "id": "M13-guard-weakened",
+   "family": "guard",
+   "story": "place-order lost its cart guard; the graph now OFFERS ordering an empty cart.",
+   "expectedLayer": "expected-miss",
+   "layers": {
+    "compile": false,
+    "static": null,
+    "behavioralReport": false,
+    "behavioralJourney": false
+   },
+   "caughtBy": "missed",
+   "matchedPrediction": true,
+   "detail": ""
+  }
+ ],
+ "recall": 0.9166666666666666,
+ "boundaryConfirmed": 1,
+ "predictionAccuracy": 0.8461538461538461
+}

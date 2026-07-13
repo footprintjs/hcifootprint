@@ -7,7 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "pilot": "tsx src/pilot.ts"
+    "pilot": "tsx src/pilot.ts",
+    "drift": "tsx src/drift/run-drift.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
