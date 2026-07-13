@@ -65,6 +65,18 @@ system-paper kill; the named problem supplies the intellectual frame that makes 
   demonstrated gap-loop closure, pilot perception stand-in.
 - Decisions ~Nov 23; fallback UIST 2027 (CHI 2027 will have passed).
 
+## Decisions taken under delegated authority ("use your expertise and decide", 2026-07-13)
+
+1. **Axes builder: this session.** Drift axis built + executed (92% recall, M04 boundary discovered).
+2. **Wire fixes upstreamed to the library on main** (per the direct-to-main instruction): Mode B's
+   fixed set is now one-per-skill + `whats_here {sinceVersion?}` + `why {key}` + `do_action`.
+   One-time prompt-cache bust for existing conversations on upgrade — acceptable pre-1.0; the
+   paper's map substrate now measures the real wire, not stand-ins. Library suite 269/269.
+3. **Bench repo name: `hacibench`** (recorded; repo creation still blocked by integration perms).
+4. **No model runs this session** — no API key in the environment; honesty-ablation and interleave
+   pilot runs stay in the Aug 1–13 window. Next buildable without a key: the honesty-axis
+   scaffold (marker-stripped `map` variant + uncertainty scenarios).
+
 ## Open decisions (Sanjay only)
 
 1. **Commit to Aug 13?** Both agents vote yes.

@@ -2,7 +2,7 @@
  * Plumbing smoke tests — MockLLM, no API key. Each substrate runs a scripted
  * episode end-to-end; the interleave test IS the paper's core mechanism in
  * miniature: the user acts between agent turns, and the map substrate's
- * whats_changed delta names the user's actions.
+ * whats_here {sinceVersion} delta names the user's actions over the real wire.
  */
 import { describe, expect, it } from 'vitest';
 import { mockDriver } from '../src/driver.js';
@@ -22,14 +22,14 @@ const trivialTask = (over?: Partial<Task>): Task => ({
 });
 
 describe('harness smoke — three substrates over one shared session', () => {
-  it('map: fixed tools include skills + generics + the two wire-fix stand-ins', () => {
+  it('map: fixed tools are the real wire — skills + the three library generics, no stand-ins', () => {
     const app = createDressShopApp({ onWarn: () => {} });
     const substrate = mapSubstrate(app.session);
     const names = substrate.tools().map((t) => t.name);
     expect(names).toContain('dress-shop__skill__purchase');
     expect(names).toContain('dress-shop__whats_here');
-    expect(names).toContain('whats_changed');
-    expect(names).toContain('why');
+    expect(names).toContain('dress-shop__why');
+    expect(names).not.toContain('whats_changed'); // the stand-in era is over
   });
 
   it('map: a scripted episode fires through do_action and the session moves', async () => {
@@ -82,7 +82,7 @@ describe('harness smoke — three substrates over one shared session', () => {
     expect(episode.turns[2].toolCalls[0].result).toContain('IGNORE PREVIOUS INSTRUCTIONS');
   });
 
-  it('interleave: the user acts between turns and whats_changed names it (the paper, in one test)', async () => {
+  it('interleave: the user acts between turns and whats_here {sinceVersion} names it (the paper, in one test)', async () => {
     const task = trivialTask({
       script: {
         level: 'light',
@@ -105,8 +105,8 @@ describe('harness smoke — three substrates over one shared session', () => {
       substrate: 'map',
       driver: mockDriver([
         { calls: [{ name: 'dress-shop__whats_here' }] },
-        { calls: [{ name: 'whats_changed', input: { sinceVersion: 0 } }] },
-        { calls: [{ name: 'why', input: { key: 'cartIds' } }] },
+        { calls: [{ name: 'dress-shop__whats_here', input: { sinceVersion: 0 } }] },
+        { calls: [{ name: 'dress-shop__why', input: { key: 'cartIds' } }] },
         { text: 'done' },
       ]),
     });
