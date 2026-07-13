@@ -1,0 +1,25 @@
+{
+  "name": "waypoint-harness",
+  "private": true,
+  "version": "0.0.1",
+  "description": "World-interleaved evaluation harness: three grounding substrates over shared live sessions.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "pilot": "tsx src/pilot.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
+    "hcifootprint": "file:../.."
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.22.5",
+    "typescript": "^5.5.0",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
