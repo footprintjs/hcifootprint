@@ -4,7 +4,7 @@
  * can drive your app without a line of framework-specific glue.
  *
  * It wraps {@link skillsAsTools} (Mode B): `tools/list` returns the FIXED tool
- * array (one per skill + whats_here / do_action), and `tools/call` routes to
+ * array (one per skill + whats_here / do_action / why), and `tools/call` routes to
  * the port. Because the tool set never changes, a plain MCP server works with
  * no `tools/list_changed` churn — that is the whole point of the fixed-tool
  * design. High-effect steps come back as `judgment: 'needs-confirm'` in the

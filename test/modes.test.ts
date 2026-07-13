@@ -36,13 +36,14 @@ function freshPort() {
 }
 
 describe('the static tool array', () => {
-  it('is one tool per skill + whats_here + do_action, and NEVER changes across navigation', () => {
+  it('is one tool per skill + whats_here + why + do_action, and NEVER changes across navigation', () => {
     const { session, port } = freshPort();
     const before = JSON.stringify(port.tools());
     expect(port.tools().map((tool) => tool.name)).toEqual([
       'shop.skill.purchase',
       'shop.skill.browse',
       'shop.whats_here',
+      'shop.why',
       'shop.do_action',
     ]);
 
@@ -150,5 +151,41 @@ describe('the generics', () => {
     const result = port.call('shop.skill.ghost');
     expect(result).toMatchObject({ ok: false, reason: 'UNKNOWN_TOOL' });
     expect(result['tools']).toContain('shop.skill.purchase');
+  });
+
+  it('whats_here {sinceVersion} narrates only the delta — the mixed-initiative resync', () => {
+    const { session, port } = freshPort();
+    expect(session.fire('catalog.add-to-cart', { source: 'agent' }).ok).toBe(true);
+    session.updateState({ cart: ['dress'] });
+    const seen = session.version;
+
+    // The USER acts after the agent's last look.
+    expect(session.fire('catalog.go-checkout', { source: 'user' }).ok).toBe(true);
+
+    const delta = port.call('shop.whats_here', { sinceVersion: seen });
+    expect(delta['ok']).toBe(true);
+    expect(delta['brief']).toContain(`Since version ${seen}`);
+    expect(delta['brief']).toContain('user fired catalog.go-checkout');
+    expect(delta['brief']).not.toContain('agent fired catalog.add-to-cart'); // before the cursor
+
+    // Omitting sinceVersion keeps the full-session brief (back-compat).
+    const full = port.call('shop.whats_here', {});
+    expect(full['brief']).toContain('Session so far');
+    expect(full['brief']).toContain('agent fired catalog.add-to-cart');
+  });
+
+  it('why {key} serves the causal backward slice, with position data', () => {
+    const { session, port } = freshPort();
+    expect(session.fire('catalog.add-to-cart', { source: 'agent' }).ok).toBe(true);
+    session.updateState({ cart: ['dress'] });
+
+    const why = port.call('shop.why', { key: 'cart' });
+    expect(why['ok']).toBe(true);
+    expect(why['why']).toContain('add-to-cart'); // the causal writer
+    expect(why['youAreOn']).toBe('catalog');
+    expect(typeof why['version']).toBe('number');
+
+    const missing = port.call('shop.why', {});
+    expect(missing).toMatchObject({ ok: false, reason: 'KEY_REQUIRED' });
   });
 });

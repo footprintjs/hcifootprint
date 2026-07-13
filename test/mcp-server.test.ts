@@ -48,13 +48,14 @@ const text = (res: unknown) =>
   ) as Record<string, unknown>;
 
 describe('mcpServer — a real MCP server backed by a live session', () => {
-  it('tools/list returns the FIXED tool set (one per skill + the two generics)', async () => {
+  it('tools/list returns the FIXED tool set (one per skill + the three generics)', async () => {
     const client = await connectClient(shopSession());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name)).toEqual([
       'shop.skill.purchase',
       'shop.skill.browse',
       'shop.whats_here',
+      'shop.why',
       'shop.do_action',
     ]);
     const purchase = tools.find((t) => t.name === 'shop.skill.purchase')!;

@@ -1,11 +1,15 @@
 /**
  * Mode B — skills as FIXED tools (the default serving mode, D18 §7).
  *
- * The tool array an LLM sees contains ONE tool per skill plus two fixed
- * generics (whats_here, do_action) and NEVER changes for the life of a
+ * The tool array an LLM sees contains ONE tool per skill plus three fixed
+ * generics (whats_here, do_action, why) and NEVER changes for the life of a
  * conversation. Disclosure rides the RESULT channel: every call returns
  * readySteps — what is fireable at the current navigation cursor, right now —
  * and the model acts by calling the SAME skill tool again with {step}.
+ * Between-turn grounding rides the same channel: whats_here accepts
+ * {sinceVersion} and narrates only the delta (who did what since the model's
+ * last look), and `why` serves the causal backward slice for a state key —
+ * the mixed-initiative attribution query.
  *
  * Why: tools render first in the prompt; any tool-set change busts every
  * prompt-cache tier. Result payloads are ordinary messages — cache-stable.
@@ -73,11 +77,17 @@ const SKILL_USAGE =
 
 const WHATS_HERE_DESCRIPTION =
   'Describe the current position: the page, the open skill (if any), what happened recently, ' +
-  'and the actions and skills available right now.';
+  'and the actions and skills available right now. Pass sinceVersion (the version from any ' +
+  'earlier result) to get only what changed since your last look — including what the user ' +
+  'did themselves in the meantime.';
 
 const DO_ACTION_DESCRIPTION =
   'Perform one available action outside any skill flow. Call whats_here first to see action names. ' +
   'High-effect actions additionally need confirm: true.';
+
+const WHY_DESCRIPTION =
+  'Explain why a state key currently holds its value: the causal chain of session actions — and ' +
+  'who fired each one — that produced it. Pass a state key name seen in results or guards.';
 
 const STEP_INPUT_SCHEMA = {
   type: 'object',
@@ -108,6 +118,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
   const skillSteps = new Map(declaredSkills.map((skill) => [skill.id, [...skill.steps]]));
   const whatsHereName = sanitizeName(`${graphId}.whats_here`);
   const doActionName = sanitizeName(`${graphId}.do_action`);
+  const whyName = sanitizeName(`${graphId}.why`);
 
   const staticTools: MCPToolDescription[] = [
     ...declaredSkills.map(
@@ -121,7 +132,28 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     {
       name: whatsHereName,
       description: WHATS_HERE_DESCRIPTION,
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          sinceVersion: {
+            type: 'number',
+            description: 'A version from a previous result: the reply narrates only the delta since it.',
+          },
+        },
+        additionalProperties: false,
+      },
+    } as MCPToolDescription,
+    {
+      name: whyName,
+      description: WHY_DESCRIPTION,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          key: { type: 'string', description: 'A state key name, as seen in results, guards, or evidence.' },
+        },
+        required: ['key'],
+        additionalProperties: false,
+      },
     } as MCPToolDescription,
     {
       name: doActionName,
@@ -223,8 +255,8 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     return matches.length === 1 ? matches[0] : null;
   }
 
-  function callWhatsHere(): ServeResult {
-    const brief = session.contextBrief();
+  function callWhatsHere(sinceVersion?: number): ServeResult {
+    const brief = session.contextBrief(sinceVersion === undefined ? undefined : { sinceVersion });
     return {
       ok: true,
       brief: brief.text,
@@ -377,7 +409,17 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
         });
       }
-      if (name === whatsHereName) return callWhatsHere();
+      if (name === whatsHereName) {
+        return callWhatsHere(typeof parsed['sinceVersion'] === 'number' ? parsed['sinceVersion'] : undefined);
+      }
+      if (name === whyName) {
+        if (typeof parsed['key'] !== 'string' || !parsed['key']) {
+          return { ok: false, judgment: 'error', reason: 'KEY_REQUIRED' };
+        }
+        // The slice text is DATA (it can carry committed state values) — it
+        // rides the result channel like producedFor(), never a description.
+        return { ok: true, key: parsed['key'], why: session.why(parsed['key']), ...positionData() };
+      }
       if (name === doActionName) {
         if (typeof parsed['action'] !== 'string' || !parsed['action']) {
           return { ok: false, judgment: 'error', reason: 'ACTION_REQUIRED' };

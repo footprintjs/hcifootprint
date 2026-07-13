@@ -14,10 +14,14 @@ Rules this layer enforces:
 ## modes.ts — Mode B: skills as fixed tools (D18, the default serving mode)
 
 `skillsAsTools(session)` serves ONE tool per skill (static `{step, input,
-confirm}` schema) plus two fixed generics (`whats_here`, `do_action`) — and
-the tool array NEVER changes for the life of a conversation. Disclosure rides
-the RESULT channel (`readySteps` data); the model acts by re-calling the same
-skill tool with `{step}`. Consequences: prompt-cache stability (tools render
+confirm}` schema) plus three fixed generics (`whats_here`, `do_action`,
+`why`) — and the tool array NEVER changes for the life of a conversation.
+Disclosure rides the RESULT channel (`readySteps` data); the model acts by
+re-calling the same skill tool with `{step}`. `whats_here {sinceVersion}`
+narrates only the delta since the model's last look (the mixed-initiative
+resync), and `why {key}` serves the causal backward slice (who produced this
+state). The why text is DATA — it may carry committed values, so it rides
+results like `producedFor()`, never a description. Consequences: prompt-cache stability (tools render
 first; any tool-set change busts every cache tier) and plain-MCP
 compatibility (no `tools/list_changed` required — any host works). Stated
 trade-off: per-step inputs are validated at `fire()`, not by the API schema;

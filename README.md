@@ -131,7 +131,7 @@ Node paths are **typed**: `registerToolGroup('catalog.filtr-rail')` is a compile
 import { skillsAsTools } from 'hcifootprint';
 
 const port = skillsAsTools(session);
-port.tools();                          // static tool array — one per skill + whats_here / do_action
+port.tools();                          // static tool array — one per skill + whats_here / do_action / why
 port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, ... }
 ```
 
@@ -151,7 +151,7 @@ handlers — with the human able to approve high-effect steps.
 
 ## 🔌 Serve it to any agent — the MCP surface
 
-The tool array the LLM sees holds **one tool per skill** plus two fixed generics (`whats_here`, `do_action`),
+The tool array the LLM sees holds **one tool per skill** plus three fixed generics (`whats_here`, `do_action`, `why`),
 and it **never changes for the life of a conversation**. Disclosure rides the *result* channel: every call
 returns `readySteps` — what's fireable at the current cursor — and the model acts by calling the same skill
 tool again with a `step`. Tools render first in the prompt, so a stable tool set keeps the **prompt cache
@@ -211,7 +211,7 @@ Every turn is **one** Messages API request with three channels:
 POST /v1/messages
 ├── system     "You are the shopping assistant… here is how to work…"     ← authored by YOU, only
 ├── tools[]     shop.skill.find-dress · shop.skill.purchase · …
-│               shop.whats_here · shop.do_action                          ← FIXED — identical every turn
+│               shop.whats_here · shop.do_action · shop.why               ← FIXED — identical every turn
 └── messages    … prior turns …
                 tool_result  { readySteps: […], data: [dress names…] }    ← the app's DATA lands here
                 user:  "find a red dress under $150 and buy it"           ← the user's own text, as-is
