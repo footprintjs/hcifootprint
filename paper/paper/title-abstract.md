@@ -1,17 +1,34 @@
-# Title & abstract — v2, the merged spine (2026-07-13)
+# Title & abstract — FINAL proposal (accepted spine, 2026-07-13)
 
 **Rules:** bracketed placeholders are filled ONLY from verified results (`results/` aggregates, or
 the demo repo's `scale.jsonl` once re-verified — see DECISIONS.md). Nothing else changes without a
-ledger entry here. v1 (interleave-benchmark spine) is archived at the bottom.
+ledger entry here. Earlier versions archived at the bottom.
 
 ## Title
 
-**The Map That Tests Itself: A Triple-Duty Action-Space Contract for Web Agents in Live, Mixed-Initiative Sessions**
+**You Are Here: A Self-Testing Action Map for Web Agents Sharing Live Apps with Their Users**
 
-Alternates (submission-time call):
+## Abstract (final, ~240 words)
 
-- *You Are Here: A Self-Testing Action Space for Agents Driving Web Apps Alongside Their Users*
-- *Declare Once, Drive Together: Size-Independent, Drift-Tested Action Spaces for Human–Agent Web Sessions*
+> Web agents today operate apps as strangers: they re-read the screen on every turn, or receive a
+> flat list of tools that says nothing about where things are or what is possible right now. Real
+> assistants work differently. They share one live, signed-in session with a human who keeps
+> clicking while the agent works — and the app itself keeps changing after the integration ships.
+> We call the first problem *grounding under mixed initiative*: knowing where the session stands,
+> who changed what, and whether a plan made a moment ago still holds. Drift — the app changing
+> under the integration — is the same problem on a longer clock. Our answer is a single artifact.
+> The app declares its interaction surface once, as a typed map of pages and actions with guards
+> and effects, and that one declaration does three jobs. It **gates** the agent: only actions
+> possible at the current position are offered, and every fire is re-checked, so a plan the human
+> just invalidated fails safely with a typed reason instead of acting on a stale world. It **tests
+> itself**: the honesty signals the agent sees double as a drift harness that catches the map and
+> the app disagreeing. It **grows the app**: every ask the map cannot serve is recorded as
+> structured demand. In our evaluation, the agent's token cost stays flat as the app grows from
+> [N₁] to [N₂] products while screen-reading baselines grow [Y]× — baselines stay cheaper below
+> ~[C] products; the drift harness catches [R]% of injected app changes at [P]% precision; and
+> removing the honesty signals drops correct replanning by [Δ] points. One declared map — not
+> richer perception — makes web agents cheap at scale, safe beside a human, and honest about what
+> they cannot see.
 
 ## Abstract (~250 words)
 
