@@ -13,7 +13,7 @@ import { TASKS } from './tasks.js';
 
 const taskId = process.env['SANITY_TASK'] ?? 'T1-find-buy-control';
 const substrate = (process.env['SANITY_SUBSTRATE'] ?? 'map') as SubstrateKind;
-const model = process.env['PILOT_MODEL'] ?? 'claude-opus-4-8';
+const model = process.env['PILOT_MODEL'] ?? 'claude-sonnet-5';
 
 const task = TASKS.find((candidate) => candidate.id === taskId);
 if (!task) {

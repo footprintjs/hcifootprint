@@ -13,7 +13,7 @@ import { runEpisode, type EpisodeLog, type SubstrateKind } from './runner.js';
 import { TASKS } from './tasks.js';
 import { aggregate, table } from './measures.js';
 
-const MODEL = process.env['PILOT_MODEL'] ?? 'claude-opus-4-8';
+const MODEL = process.env['PILOT_MODEL'] ?? 'claude-sonnet-5';
 const SEEDS = Number(process.env['PILOT_SEEDS'] ?? 3);
 const SUBSTRATES: SubstrateKind[] = ['map', 'flat', 'perception'];
 

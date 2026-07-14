@@ -109,5 +109,9 @@ replanning vs hallucinated success. To be preregistered in full before its first
 
 ## Amendments
 
-*(none — draft not yet frozen; the drift-axis section above was added before any model-run and
-records its own deterministic execution honestly rather than as a prediction)*
+- **A1 (2026-07-14) — pilot model `claude-opus-4-8` → `claude-sonnet-5`.** Reason: Sanjay's
+  directive after the credit-exhaustion run ("API credits cost is high — use the appropriate
+  model"); Sonnet 5 is near-Opus on agentic work at ~40% of the price (intro $2/$10 per MTok).
+  The only completed Opus cells (1 sanity + 1 pilot episode, run 2026-07-14T04-16-20) are
+  excluded from analysis — that run is marked infra-failed and the matrix reruns in full on
+  Sonnet 5. One model per pilot still holds; §3's "one fixed model id" now reads `claude-sonnet-5`.
