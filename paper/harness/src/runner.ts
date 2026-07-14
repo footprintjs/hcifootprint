@@ -47,6 +47,7 @@ export interface EpisodeLog {
   probeAnswers: { question: string; truth: string; answer: string; correct: boolean }[];
   /** Ground truth for reanalysis: the session's full interaction + commit history. */
   transitions: unknown[];
+  commitLog: unknown[];
   gaps: unknown[];
   finalState: Record<string, unknown>;
   finalNode: string;
@@ -148,6 +149,7 @@ export async function runEpisode(opts: {
     success: opts.task.success(session, app),
     probeAnswers,
     transitions: session.transitions().map((t) => JSON.parse(JSON.stringify(t))),
+    commitLog: session.commitLog().map((b) => JSON.parse(JSON.stringify(b))),
     gaps: session.gaps().map((g) => JSON.parse(JSON.stringify(g))),
     finalState: session.state(),
     finalNode: session.node,

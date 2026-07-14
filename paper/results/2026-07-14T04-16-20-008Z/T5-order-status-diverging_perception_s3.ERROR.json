@@ -1,0 +1,6 @@
+{
+ "task": "T5-order-status-diverging",
+ "substrate": "perception",
+ "seed": 3,
+ "error": "Error: 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd1JdTgn26oCV3947fr2K\"}"
+}

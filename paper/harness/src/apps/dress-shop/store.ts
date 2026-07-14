@@ -96,12 +96,16 @@ export function createDressShopApp(opts?: { onWarn?: (m: string) => void }): Dre
       return results.map((d) => ({ id: d.id, name: d.name, color: d.color, price: d.price }));
     },
     'view-dress': (payload) => {
-      const { dressId } = payload as { dressId: string };
-      selected = dressId;
-      report({ selectedDressId: dressId });
-      goto('product');
+      const { dressId } = payload as { dressId?: string };
       const dress = DRESSES.find((d) => d.id === dressId);
-      return dress ? { ...dress } : { error: 'no such dress' };
+      // A real app's route handler 404s an unknown id instead of opening a
+      // product page for nothing (pilot run 2026-07-14 sold a [null] cart
+      // when a wrong payload key slipped through — see results RUN-NOTES).
+      if (!dress) return { error: `no such dress: ${String(dressId)}. Pass dressId from the search results.` };
+      selected = dress.id;
+      report({ selectedDressId: dress.id });
+      goto('product');
+      return { ...dress };
     },
     'add-to-cart': () => {
       cart = [...cart, selected];
