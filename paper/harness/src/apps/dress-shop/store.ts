@@ -76,27 +76,37 @@ export function createDressShopApp(opts?: { onWarn?: (m: string) => void }): Dre
   const report = (delta: Record<string, unknown>) => session.updateState(delta);
 
   // ── the app's EXISTING handlers, registered by reference ─────────────────
-  const handlers: Record<string, (payload?: unknown) => void> = {
+  // Handlers RETURN what a real app's functions return (matched records, the
+  // opened record, a status) — the act→data-back channel: the session captures
+  // it as `produced`, and serving layers fold it into tool results. All three
+  // substrates see equivalent content (map: producedFor; flat: naturalReturn;
+  // perception: the page dump).
+  const handlers: Record<string, (payload?: unknown) => unknown> = {
     'browse-dresses': () => goto('catalog'),
     'search-dresses': (payload) => {
       const { query } = payload as { query: string };
       results = searchDresses(query);
       report({ resultIds: results.map((d) => d.id), resultCount: results.length });
+      return results.map((d) => ({ id: d.id, name: d.name, color: d.color, price: d.price }));
     },
     'filter-by-color': (payload) => {
       const { color } = payload as { color: string };
       results = filterByColor(results, color);
       report({ resultIds: results.map((d) => d.id), resultCount: results.length, activeColor: color });
+      return results.map((d) => ({ id: d.id, name: d.name, color: d.color, price: d.price }));
     },
     'view-dress': (payload) => {
       const { dressId } = payload as { dressId: string };
       selected = dressId;
       report({ selectedDressId: dressId });
       goto('product');
+      const dress = DRESSES.find((d) => d.id === dressId);
+      return dress ? { ...dress } : { error: 'no such dress' };
     },
     'add-to-cart': () => {
       cart = [...cart, selected];
       report({ cartIds: [...cart], cartCount: cart.length });
+      return { cartCount: cart.length };
     },
     'go-to-cart': () => goto('cart'),
     'proceed-to-checkout': () => goto('checkout'),
@@ -105,12 +115,15 @@ export function createDressShopApp(opts?: { onWarn?: (m: string) => void }): Dre
       orders = [...orders, { id, status: 'processing' }];
       cart = [];
       report({ lastOrderId: id, orderCount: orders.length, cartIds: [], cartCount: 0 });
+      return { orderId: id };
     },
     'view-orders': () => goto('orders'),
     'check-order-status': (payload) => {
       const { orderId } = payload as { orderId: string };
       const order = orders.find((o) => o.id === orderId);
-      report({ orderStatus: order ? `${order.id}: ${order.status}` : `${orderId}: not found` });
+      const status = order ? `${order.id}: ${order.status}` : `${orderId}: not found`;
+      report({ orderStatus: status });
+      return { status };
     },
   };
 
