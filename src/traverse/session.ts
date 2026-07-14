@@ -738,8 +738,25 @@ export class Session {
    *    designed detector for key mismatches.
    * 4. No pendings, no hints: recorded as a `stimulus:'unknown'` transition —
    *    state never moves silently.
+   *
+   * Undefined-valued entries are dropped from the report before anything else
+   * (uniformly — new and existing keys): a report cannot store undefined, and
+   * a declared write reported as undefined counts as missing
+   * (`effectVerified: false`).
    */
   updateState(delta: Record<string, unknown>, opts?: UpdateOptions): UpdateResult {
+    // Uniform undefined semantics: entries whose value is undefined are
+    // DROPPED from the report — new and existing keys alike, on every
+    // attribution path. Before this rule, a NEW key with undefined was
+    // dropped while an EXISTING key STORED undefined — and a stored
+    // undefined slips through value guards (`ne ''` matches undefined),
+    // which let a wrong-payload handler put a null item in a cart while
+    // the "item selected" guard passed. A JSON tap cannot even express
+    // undefined; from in-process handlers it is always an accident.
+    // Consequence: a declared write reported as undefined is a MISSING
+    // write — effectVerified flips false, the designed drift detector.
+    delta = Object.fromEntries(Object.entries(delta).filter(([, value]) => value !== undefined));
+
     // Validate BEFORE consuming a pending: a non-cloneable value (function, DOM
     // node) must reject loudly without destroying the attribution queue.
     try {
@@ -1234,7 +1251,14 @@ export class Session {
   } {
     if (!guard) return { matched: true, conditions: [], unevaluable: [] };
     const state = this.#stateView();
-    const unevaluable = Object.keys(guard).filter((key) => !(key in state));
+    // A key holding undefined is as unevaluable as an absent one: operators
+    // like `ne ''` would MATCH undefined, so a guard authored to mean "a
+    // value is set" would pass exactly when it is not. Honesty over guessing:
+    // serve the edge with the guardUnevaluated marker instead. (updateState
+    // drops undefined from reports; this also covers undefined handed in via
+    // the initial state.)
+    const evaluableKey = (key: string) => state[key] !== undefined;
+    const unevaluable = Object.keys(guard).filter((key) => !evaluableKey(key));
     if (unevaluable.length === 0) {
       const { matched, conditions } = evaluateFilter(
         (key) => state[key],
@@ -1244,7 +1268,7 @@ export class Session {
       return { matched, conditions, unevaluable };
     }
     const evaluable = Object.fromEntries(
-      Object.entries(guard).filter(([key]) => key in state),
+      Object.entries(guard).filter(([key]) => evaluableKey(key)),
     ) as WhereFilter;
     // evaluateFilter deliberately never matches {} — an all-unevaluable guard
     // must not fall into that anti-vacuous-truth rule, so short-circuit.

@@ -76,6 +76,9 @@ results/                raw episode transcripts + aggregated tables (committed, 
 - [ ] Honesty axis: marker-ablation substrate + scenarios (scaffold next; runs need `ANTHROPIC_API_KEY`)
 - [ ] Scale axis numbers re-verified from the demo repo's committed `scale.jsonl` (needs repo access approval)
 - [ ] Interleave pilot run (6 tasks × 3 substrates × 3 seeds) — needs `ANTHROPIC_API_KEY`
+- [x] **Null-dress library fixes upstreamed** (2026-07-14): uniform undefined-drop in
+      `updateState` + undefined-valued guard keys serve `guardUnevaluated` — findings A/B from
+      the first real episode, regression-tested (`test/undefined-semantics.test.ts`, suite 275/275)
 - [x] **Wire fixes upstreamed to the library** — Mode B now serves three fixed generics:
       `whats_here {sinceVersion?}` (O(Δ) resync) and `why {key}` (causal slice) ship over real MCP;
       the map substrate rides the real wire, stand-ins deleted

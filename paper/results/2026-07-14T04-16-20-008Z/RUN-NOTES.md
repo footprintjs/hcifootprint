@@ -14,13 +14,17 @@ failure chain is paper-grade (fully reproduced offline via tool-call replay):
    graph's schema is plain JSON Schema and v0 ships no JSON-Schema validator (documented
    trade-off), so the fire went through.
 2. The store handler destructured `dressId` → `undefined`; `report({selectedDressId: undefined})`.
-3. **Library finding A (inconsistent undefined semantics):** the settlement path STORED the key
-   with value `undefined`, while the stimulus path drops undefined values (pinned in the library's
-   own `trace.test.ts` "undefined values are dropped"). Same input, two behaviors, path-dependent.
-4. **Library finding B (guard semantics under undefined):** the guard `selectedDressId ne ''`
-   evaluated `undefined ≠ ''` → **passed with full evidence** (not `guardUnevaluated`). A guard
-   authored to mean "a dress is selected" passes when none is. Candidate improvement: an
-   undefined-valued key should serve `guardUnevaluated` (honest uncertainty), never `ne`-true.
+3. **Library finding A (inconsistent undefined semantics) — FIXED 2026-07-14:** probing showed the
+   split is existence-dependent, not path-dependent: an EXISTING key set to undefined STORED the
+   undefined (both paths), while a NEW key was dropped (the case pinned in `trace.test.ts`). Fix:
+   `updateState` now drops undefined-valued entries uniformly before validation/attribution/commit;
+   a declared write reported as undefined counts as missing (`effectVerified: false` — pre-fix it
+   counted as TRUE). Regression tests: `test/undefined-semantics.test.ts`.
+4. **Library finding B (guard semantics under undefined) — FIXED 2026-07-14:** the guard
+   `selectedDressId ne ''` evaluated `undefined ≠ ''` → **passed with full evidence** (not
+   `guardUnevaluated`). Fix: a key holding undefined is now as unevaluable as an absent one — the
+   edge serves `guardUnevaluated` (honest uncertainty), and no `ne` evidence is fabricated over
+   undefined. Same regression file.
 5. Cart became `[undefined]` → committed as `[null]`; the order "succeeded".
 6. **Behavioral finding C (confabulated success):** the model's final message confidently reported
    buying the Floral Wrap Dress at $120 — a specific claim about a purchase that never contained

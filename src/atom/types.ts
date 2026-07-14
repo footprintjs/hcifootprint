@@ -349,8 +349,10 @@ export interface AvailableEdge {
   /** Per-condition guard evidence (key/op/threshold/actual) — why it is passable. */
   evidence: FilterCondition[];
   /**
-   * Guard keys absent from the session's state view — the edge is served
-   * anyway, WITH this marker, instead of being silently hidden (D18 fix).
+   * Guard keys absent from the session's state view (or holding undefined —
+   * a value guard like `ne ''` would match undefined, so an unset value is
+   * unevaluable, not passable) — the edge is served anyway, WITH this
+   * marker, instead of being silently hidden (D18 fix).
    */
   guardUnevaluated?: string[];
   schema?: unknown;
@@ -410,7 +412,7 @@ export interface Explanation {
   guardPassed: boolean;
   available: boolean;
   evidence: FilterCondition[];
-  /** Guard keys that could not be evaluated (absent from the state view). */
+  /** Guard keys that could not be evaluated (absent from the state view, or holding undefined). */
   guardUnevaluated?: string[];
 }
 
