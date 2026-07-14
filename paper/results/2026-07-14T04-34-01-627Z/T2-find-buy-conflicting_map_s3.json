@@ -1,0 +1,926 @@
+{
+ "task": "T2-find-buy-conflicting",
+ "substrate": "map",
+ "seed": 3,
+ "model": "claude-sonnet-5",
+ "turns": [
+  {
+   "turn": 1,
+   "usage": {
+    "input": 2102,
+    "output": 90
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {},
+     "result": "{\"ok\":true,\"brief\":\"You are on: home.\\nSession so far (version 1):\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: browse-dresses, view-orders.\",\"actions\":[{\"action\":\"browse-dresses\",\"does\":\"Browse the dress catalog\"},{\"action\":\"view-orders\",\"does\":\"Open your past orders\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"home\",\"version\":1}"
+    },
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"off-node\"},{\"step\":\"filter-by-color\",\"status\":\"blocked\"},{\"step\":\"view-dress\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"home\",\"version\":2}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 2,
+   "usage": {
+    "input": 2679,
+    "output": 114
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__do_action",
+     "input": {
+      "action": "browse-dresses"
+     },
+     "result": "{\"ok\":true,\"did\":\"browse-dresses\",\"settlement\":\"settled\",\"transitionId\":\"browse-dresses#1\",\"youAreOn\":\"catalog\",\"version\":4}"
+    }
+   ],
+   "text": "",
+   "interleaved": [
+    {
+     "kind": "goto",
+     "page": "catalog"
+    },
+    {
+     "kind": "fire",
+     "id": "search-dresses",
+     "payload": {
+      "query": "black"
+     }
+    },
+    {
+     "kind": "fire",
+     "id": "view-dress",
+     "payload": {
+      "dressId": "d2"
+     }
+    }
+   ]
+  },
+  {
+   "turn": 3,
+   "usage": {
+    "input": 2853,
+    "output": 36
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"done\"},{\"step\":\"filter-by-color\",\"status\":\"off-node\"},{\"step\":\"view-dress\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 4,
+   "usage": {
+    "input": 3038,
+    "output": 101
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {
+      "sinceVersion": 2
+     },
+     "result": "{\"ok\":true,\"brief\":\"You are on: product.\\nOpen skill: find-dress — Find a dress: search the catalog, optionally filter by color, open one (2/3 steps done).\\nSince version 2 (now 10):\\n  • agent fired browse-dresses — Browse the dress catalog (home → catalog) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\n  • user fired search-dresses — Search dresses by name or color\\n  • user fired view-dress — Open one dress from the results (catalog → product) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: leave-skill.\",\"actions\":[{\"action\":\"add-to-cart\",\"does\":\"Add the open dress to the cart\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 5,
+   "usage": {
+    "input": 3570,
+    "output": 265
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__why",
+     "input": {
+      "key": "view-dress"
+     },
+     "result": "{\"ok\":true,\"key\":\"view-dress\",\"why\":\"SLICE for 'view-dress' — reads via: map\\nno slice: 'view-dress' was never written in range — the value came from initial state, frozen run input (args), or a closure; the commit log cannot see those.\",\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 6,
+   "usage": {
+    "input": 3941,
+    "output": 81
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {},
+     "result": "{\"ok\":true,\"brief\":\"You are on: product.\\nOpen skill: find-dress — Find a dress: search the catalog, optionally filter by color, open one (2/3 steps done).\\nSession so far (version 10):\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\n  • agent fired browse-dresses — Browse the dress catalog (home → catalog) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\n  • user fired search-dresses — Search dresses by name or color\\n  • user fired view-dress — Open one dress from the results (catalog → product) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: leave-skill.\",\"actions\":[{\"action\":\"add-to-cart\",\"does\":\"Add the open dress to the cart\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 7,
+   "usage": {
+    "input": 4481,
+    "output": 430
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {
+      "step": "leave-skill"
+     },
+     "result": "{\"ok\":false,\"judgment\":\"error\",\"skill\":\"find-dress\",\"reason\":\"UNKNOWN_STEP\",\"steps\":[\"search-dresses\",\"filter-by-color\",\"view-dress\"],\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 8,
+   "usage": {
+    "input": 4993,
+    "output": 86
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__do_action",
+     "input": {
+      "action": "leave-skill"
+     },
+     "result": "{\"ok\":false,\"judgment\":\"error\",\"reason\":\"UNKNOWN_ACTION\",\"actions\":[\"add-to-cart\"],\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 9,
+   "usage": {
+    "input": 5142,
+    "output": 251
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"done\"},{\"step\":\"filter-by-color\",\"status\":\"off-node\"},{\"step\":\"view-dress\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"product\",\"version\":10}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 10,
+   "usage": {
+    "input": 5542,
+    "output": 266
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"readySteps\":[{\"step\":\"add-to-cart\",\"does\":\"Add the open dress to the cart\"}],\"laterSteps\":[{\"step\":\"go-to-cart\",\"status\":\"blocked\"},{\"step\":\"proceed-to-checkout\",\"status\":\"blocked\"},{\"step\":\"place-order\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"product\",\"version\":12}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 11,
+   "usage": {
+    "input": 5988,
+    "output": 140
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__why",
+     "input": {
+      "key": "open-dress"
+     },
+     "result": "{\"ok\":true,\"key\":\"open-dress\",\"why\":\"SLICE for 'open-dress' — reads via: map\\nno slice: 'open-dress' was never written in range — the value came from initial state, frozen run input (args), or a closure; the commit log cannot see those.\",\"youAreOn\":\"product\",\"version\":12}"
+    },
+    {
+     "name": "dress-shop__why",
+     "input": {
+      "key": "product"
+     },
+     "result": "{\"ok\":true,\"key\":\"product\",\"why\":\"SLICE for 'product' — reads via: map\\nno slice: 'product' was never written in range — the value came from initial state, frozen run input (args), or a closure; the commit log cannot see those.\",\"youAreOn\":\"product\",\"version\":12}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 12,
+   "usage": {
+    "input": 6385,
+    "output": 291
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__do_action",
+     "input": {
+      "action": "browse-dresses"
+     },
+     "result": "{\"ok\":false,\"judgment\":\"error\",\"reason\":\"UNKNOWN_ACTION\",\"actions\":[\"add-to-cart\"],\"youAreOn\":\"product\",\"version\":12}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 13,
+   "usage": {
+    "input": 6739,
+    "output": 77
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {},
+     "result": "{\"ok\":true,\"brief\":\"You are on: product.\\nOpen skill: purchase — Buy the open dress: add it to the cart and place the order (0/4 steps done).\\nSession so far (version 12):\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\n  • agent fired browse-dresses — Browse the dress catalog (home → catalog) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\n  • user fired search-dresses — Search dresses by name or color\\n  • user fired view-dress — Open one dress from the results (catalog → product) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: add-to-cart, leave-skill.\",\"actions\":[{\"action\":\"add-to-cart\",\"does\":\"Add the open dress to the cart\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"product\",\"version\":12}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 14,
+   "usage": {
+    "input": 7277,
+    "output": 145
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__do_action",
+     "input": {
+      "action": "leave-skill"
+     },
+     "result": "{\"ok\":false,\"judgment\":\"error\",\"reason\":\"UNKNOWN_ACTION\",\"actions\":[\"add-to-cart\"],\"youAreOn\":\"product\",\"version\":12}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 15,
+   "usage": {
+    "input": 7485,
+    "output": 225
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "leave-skill"
+     },
+     "result": "{\"ok\":false,\"judgment\":\"error\",\"skill\":\"purchase\",\"reason\":\"UNKNOWN_STEP\",\"steps\":[\"add-to-cart\",\"go-to-cart\",\"proceed-to-checkout\",\"place-order\"],\"youAreOn\":\"product\",\"version\":12}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 16,
+   "usage": {
+    "input": 7801,
+    "output": 194
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {
+      "step": "search-dresses",
+      "input": {
+       "query": "red"
+      }
+     },
+     "result": "{\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"rejected\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"off-node\"},{\"step\":\"filter-by-color\",\"status\":\"off-node\"},{\"step\":\"view-dress\",\"status\":\"off-node\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":false,\"did\":\"search-dresses\",\"reason\":\"NOT_ON_NODE\",\"node\":\"product\",\"youAreOn\":\"product\",\"version\":14}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 17,
+   "usage": {
+    "input": 8172,
+    "output": 230
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"off-node\"},{\"step\":\"filter-by-color\",\"status\":\"off-node\"},{\"step\":\"view-dress\",\"status\":\"off-node\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"product\",\"version\":14}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 18,
+   "usage": {
+    "input": 8555,
+    "output": 285
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "add-to-cart"
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"awaitingState\":[\"add-to-cart\"],\"readySteps\":[],\"laterSteps\":[{\"step\":\"go-to-cart\",\"status\":\"blocked\"},{\"step\":\"proceed-to-checkout\",\"status\":\"blocked\"},{\"step\":\"place-order\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"add-to-cart\",\"settlement\":\"awaiting-state\",\"transitionId\":\"add-to-cart#6\",\"youAreOn\":\"product\",\"version\":17,\"data\":{\"cartCount\":1}}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 19,
+   "usage": {
+    "input": 9061,
+    "output": 88
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {
+      "sinceVersion": 12
+     },
+     "result": "{\"ok\":true,\"brief\":\"You are on: product.\\nOpen skill: purchase — Buy the open dress: add it to the cart and place the order (1/4 steps done).\\nSince version 12 (now 18):\\n  • agent fired add-to-cart — Add the open dress to the cart\\nPending: none.\\nAvailable now: add-to-cart, go-to-cart, leave-skill.\",\"actions\":[{\"action\":\"add-to-cart\",\"does\":\"Add the open dress to the cart\"},{\"action\":\"go-to-cart\",\"does\":\"Open the shopping cart\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"product\",\"version\":18}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 20,
+   "usage": {
+    "input": 9469,
+    "output": 90
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "go-to-cart"
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"readySteps\":[{\"step\":\"proceed-to-checkout\",\"does\":\"Proceed to checkout\"}],\"laterSteps\":[{\"step\":\"add-to-cart\",\"status\":\"done\"},{\"step\":\"go-to-cart\",\"status\":\"done\"},{\"step\":\"place-order\",\"status\":\"off-node\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"go-to-cart\",\"settlement\":\"settled\",\"transitionId\":\"go-to-cart#7\",\"youAreOn\":\"cart\",\"version\":20}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 21,
+   "usage": {
+    "input": 9767,
+    "output": 84
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {
+      "sinceVersion": 18
+     },
+     "result": "{\"ok\":true,\"brief\":\"You are on: cart.\\nOpen skill: purchase — Buy the open dress: add it to the cart and place the order (2/4 steps done).\\nSince version 18 (now 21):\\n  • agent fired go-to-cart — Open the shopping cart (product → cart) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: proceed-to-checkout, leave-skill.\",\"actions\":[{\"action\":\"proceed-to-checkout\",\"does\":\"Proceed to checkout\"},{\"action\":\"view-orders\",\"does\":\"Open your past orders\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"cart\",\"version\":21}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 22,
+   "usage": {
+    "input": 10215,
+    "output": 451
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__why",
+     "input": {
+      "key": "cart"
+     },
+     "result": "{\"ok\":true,\"key\":\"cart\",\"why\":\"SLICE for 'cart' — reads via: map\\nno slice: 'cart' was never written in range — the value came from initial state, frozen run input (args), or a closure; the commit log cannot see those.\",\"youAreOn\":\"cart\",\"version\":21}"
+    },
+    {
+     "name": "dress-shop__why",
+     "input": {
+      "key": "search-dresses"
+     },
+     "result": "{\"ok\":true,\"key\":\"search-dresses\",\"why\":\"SLICE for 'search-dresses' — reads via: map\\nno slice: 'search-dresses' was never written in range — the value came from initial state, frozen run input (args), or a closure; the commit log cannot see those.\",\"youAreOn\":\"cart\",\"version\":21}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 23,
+   "usage": {
+    "input": 10931,
+    "output": 766
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__do_action",
+     "input": {
+      "action": "leave-skill"
+     },
+     "result": "{\"ok\":false,\"judgment\":\"error\",\"reason\":\"UNKNOWN_ACTION\",\"actions\":[\"proceed-to-checkout\",\"view-orders\"],\"youAreOn\":\"cart\",\"version\":21}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 24,
+   "usage": {
+    "input": 11769,
+    "output": 517
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "proceed-to-checkout"
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"readySteps\":[{\"step\":\"place-order\",\"does\":\"Place the order for everything in the cart\",\"highEffect\":true}],\"laterSteps\":[{\"step\":\"add-to-cart\",\"status\":\"done\"},{\"step\":\"go-to-cart\",\"status\":\"done\"},{\"step\":\"proceed-to-checkout\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"proceed-to-checkout\",\"settlement\":\"settled\",\"transitionId\":\"proceed-to-checkout#9\",\"youAreOn\":\"checkout\",\"version\":23}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 25,
+   "usage": {
+    "input": 12508,
+    "output": 59
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {
+      "sinceVersion": 21
+     },
+     "result": "{\"ok\":true,\"brief\":\"You are on: checkout.\\nOpen skill: purchase — Buy the open dress: add it to the cart and place the order (3/4 steps done).\\nSince version 21 (now 24):\\n  • agent fired proceed-to-checkout — Proceed to checkout (cart → checkout) [navigation claimed, unconfirmed]\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: place-order [high-effect], leave-skill.\",\"actions\":[{\"action\":\"place-order\",\"does\":\"Place the order for everything in the cart\",\"highEffect\":true},{\"action\":\"view-orders\",\"does\":\"Open your past orders\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"checkout\",\"version\":24}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 26,
+   "usage": {
+    "input": 11160,
+    "output": 4
+   },
+   "toolCalls": [],
+   "text": "USER",
+   "interleaved": []
+  }
+ ],
+ "finalText": "",
+ "aborted": true,
+ "success": false,
+ "probeAnswers": [
+  {
+   "question": "Who opened the Evening Silk Gown product page — you or the user?",
+   "truth": "user",
+   "answer": "user",
+   "correct": true
+  }
+ ],
+ "transitions": [
+  {
+   "id": "stimulus:structure-swap#0",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784004023537,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "home",
+   "toNode": "home",
+   "cursorVersion": 0
+  },
+  {
+   "id": "browse-dresses#1",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "browse-dresses",
+    "principal": "agent"
+   },
+   "timestamp": 1784004026906,
+   "outcome": "committed",
+   "evidence": [],
+   "fromNode": "home",
+   "cursorVersion": 2,
+   "effectVerified": "unobservable",
+   "toNode": "catalog",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#2",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784004026907,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "catalog",
+   "toNode": "catalog",
+   "cursorVersion": 4
+  },
+  {
+   "id": "search-dresses#3",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "search-dresses",
+    "principal": "user"
+   },
+   "timestamp": 1784004026908,
+   "payload": {
+    "query": "black"
+   },
+   "outcome": "committed",
+   "evidence": [],
+   "fromNode": "catalog",
+   "cursorVersion": 5,
+   "effectVerified": true,
+   "toNode": "catalog",
+   "produced": [
+    {
+     "id": "d2",
+     "name": "Evening Silk Gown",
+     "color": "black",
+     "price": 249
+    }
+   ]
+  },
+  {
+   "id": "view-dress#4",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "view-dress",
+    "principal": "user"
+   },
+   "timestamp": 1784004026909,
+   "payload": {
+    "dressId": "d2"
+   },
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "resultCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "catalog",
+   "cursorVersion": 7,
+   "effectVerified": true,
+   "toNode": "product",
+   "toNodeClaimed": true,
+   "produced": {
+    "id": "d2",
+    "name": "Evening Silk Gown",
+    "color": "black",
+    "size": "S",
+    "price": 249
+   }
+  },
+  {
+   "id": "stimulus:structure-swap#5",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784004026909,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "product",
+   "toNode": "product",
+   "cursorVersion": 9
+  },
+  {
+   "id": "add-to-cart#6",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "add-to-cart",
+    "principal": "agent"
+   },
+   "timestamp": 1784004078926,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "selectedDressId",
+     "op": "ne",
+     "threshold": "",
+     "actualSummary": "\"d2\"",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "product",
+   "cursorVersion": 16,
+   "effectVerified": true,
+   "toNode": "product",
+   "produced": {
+    "cartCount": 1
+   }
+  },
+  {
+   "id": "go-to-cart#7",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "go-to-cart",
+    "principal": "agent"
+   },
+   "timestamp": 1784004082971,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "cartCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "product",
+   "cursorVersion": 18,
+   "effectVerified": "unobservable",
+   "toNode": "cart",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#8",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784004082971,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "cart",
+   "toNode": "cart",
+   "cursorVersion": 20
+  },
+  {
+   "id": "proceed-to-checkout#9",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "proceed-to-checkout",
+    "principal": "agent"
+   },
+   "timestamp": 1784004112675,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "cartCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "cart",
+   "cursorVersion": 21,
+   "effectVerified": "unobservable",
+   "toNode": "checkout",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#10",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784004112676,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "checkout",
+   "toNode": "checkout",
+   "cursorVersion": 23
+  }
+ ],
+ "commitLog": [
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#0",
+   "idx": 0
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "browse-dresses",
+   "stageId": "browse-dresses",
+   "runtimeStageId": "browse-dresses#1",
+   "idx": 1
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#2",
+   "idx": 2
+  },
+  {
+   "overwrite": {
+    "resultIds": [
+     "d2"
+    ],
+    "resultCount": 1
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "resultIds",
+     "verb": "append",
+     "readKeys": []
+    },
+    {
+     "path": "resultCount",
+     "verb": "set",
+     "readKeys": []
+    }
+   ],
+   "stage": "search-dresses",
+   "stageId": "search-dresses",
+   "runtimeStageId": "search-dresses#3",
+   "idx": 3
+  },
+  {
+   "overwrite": {
+    "selectedDressId": "d2"
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "selectedDressId",
+     "verb": "set",
+     "readKeys": [
+      "resultCount"
+     ]
+    }
+   ],
+   "stage": "view-dress",
+   "stageId": "view-dress",
+   "runtimeStageId": "view-dress#4",
+   "idx": 4
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#5",
+   "idx": 5
+  },
+  {
+   "overwrite": {
+    "cartIds": [
+     "d2"
+    ],
+    "cartCount": 1
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "cartIds",
+     "verb": "append",
+     "readKeys": [
+      "selectedDressId"
+     ]
+    },
+    {
+     "path": "cartCount",
+     "verb": "set",
+     "readKeys": [
+      "selectedDressId"
+     ]
+    }
+   ],
+   "stage": "add-to-cart",
+   "stageId": "add-to-cart",
+   "runtimeStageId": "add-to-cart#6",
+   "idx": 6
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "go-to-cart",
+   "stageId": "go-to-cart",
+   "runtimeStageId": "go-to-cart#7",
+   "idx": 7
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#8",
+   "idx": 8
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "proceed-to-checkout",
+   "stageId": "proceed-to-checkout",
+   "runtimeStageId": "proceed-to-checkout#9",
+   "idx": 9
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#10",
+   "idx": 10
+  }
+ ],
+ "gaps": [
+  {
+   "kind": "fire-rejected",
+   "timestamp": 1784004071581,
+   "node": "product",
+   "version": 14,
+   "availableActions": [
+    "add-to-cart"
+   ],
+   "availableSkills": [
+    "find-dress",
+    "purchase",
+    "track-order"
+   ],
+   "affordanceId": "search-dresses",
+   "rejectionReason": "NOT_ON_NODE",
+   "principal": "agent"
+  }
+ ],
+ "finalState": {
+  "resultIds": [
+   "d2"
+  ],
+  "resultCount": 1,
+  "activeColor": "",
+  "selectedDressId": "d2",
+  "cartIds": [
+   "d2"
+  ],
+  "cartCount": 1,
+  "lastOrderId": "",
+  "orderCount": 0,
+  "orderStatus": ""
+ },
+ "finalNode": "checkout",
+ "version": 24
+}

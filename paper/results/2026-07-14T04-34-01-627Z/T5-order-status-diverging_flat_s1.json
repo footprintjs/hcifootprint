@@ -1,0 +1,293 @@
+{
+ "task": "T5-order-status-diverging",
+ "substrate": "flat",
+ "seed": 1,
+ "model": "claude-sonnet-5",
+ "turns": [
+  {
+   "turn": 1,
+   "usage": {
+    "input": 1362,
+    "output": 142
+   },
+   "toolCalls": [
+    {
+     "name": "view-dress",
+     "input": {
+      "dressId": "d1"
+     },
+     "result": "{\"ok\":false,\"error\":\"the app could not perform this action right now\"}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 2,
+   "usage": {
+    "input": 1531,
+    "output": 71
+   },
+   "toolCalls": [
+    {
+     "name": "view-dress",
+     "input": {
+      "dressId": "d1"
+     },
+     "result": "{\"ok\":false,\"error\":\"the app could not perform this action right now\"}"
+    }
+   ],
+   "text": "The app couldn't open the dress right now. Let me retry.",
+   "interleaved": []
+  },
+  {
+   "turn": 3,
+   "usage": {
+    "input": 1630,
+    "output": 65
+   },
+   "toolCalls": [
+    {
+     "name": "browse-dresses",
+     "input": {},
+     "result": "{\"ok\":true,\"done\":true}"
+    }
+   ],
+   "text": "",
+   "interleaved": [
+    {
+     "kind": "goto",
+     "page": "home"
+    }
+   ]
+  },
+  {
+   "turn": 4,
+   "usage": {
+    "input": 1712,
+    "output": 102
+   },
+   "toolCalls": [
+    {
+     "name": "view-dress",
+     "input": {
+      "dressId": "d1"
+     },
+     "result": "{\"ok\":false,\"error\":\"the app could not perform this action right now\"}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 5,
+   "usage": {
+    "input": 1842,
+    "output": 85
+   },
+   "toolCalls": [],
+   "text": "I'm unable to open the Summer Linen Midi (d1) right now — the app keeps rejecting that action, even though browsing works. This might be a temporary glitch or the item may be unavailable. Want me to keep retrying, or try searching for it a different way?",
+   "interleaved": []
+  }
+ ],
+ "finalText": "I'm unable to open the Summer Linen Midi (d1) right now — the app keeps rejecting that action, even though browsing works. This might be a temporary glitch or the item may be unavailable. Want me to keep retrying, or try searching for it a different way?",
+ "aborted": false,
+ "success": false,
+ "probeAnswers": [],
+ "transitions": [
+  {
+   "id": "stimulus:structure-swap#0",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005632958,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "home",
+   "toNode": "home",
+   "cursorVersion": 0
+  },
+  {
+   "id": "browse-dresses#1",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "browse-dresses",
+    "principal": "agent"
+   },
+   "timestamp": 1784005637504,
+   "outcome": "committed",
+   "evidence": [],
+   "fromNode": "home",
+   "cursorVersion": 1,
+   "effectVerified": "unobservable",
+   "toNode": "catalog",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#2",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005637504,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "catalog",
+   "toNode": "catalog",
+   "cursorVersion": 3
+  },
+  {
+   "id": "sync:home#3",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "navigation",
+    "principal": "system"
+   },
+   "timestamp": 1784005637506,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "unverifiedEdge": true,
+   "fromNode": "catalog",
+   "toNode": "home",
+   "cursorVersion": 4
+  },
+  {
+   "id": "stimulus:structure-swap#4",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005637506,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "home",
+   "toNode": "home",
+   "cursorVersion": 5
+  }
+ ],
+ "commitLog": [
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#0",
+   "idx": 0
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "browse-dresses",
+   "stageId": "browse-dresses",
+   "runtimeStageId": "browse-dresses#1",
+   "idx": 1
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#2",
+   "idx": 2
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "sync:home",
+   "stageId": "sync:home",
+   "runtimeStageId": "sync:home#3",
+   "idx": 3
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#4",
+   "idx": 4
+  }
+ ],
+ "gaps": [
+  {
+   "kind": "fire-rejected",
+   "timestamp": 1784005634765,
+   "node": "home",
+   "version": 1,
+   "availableActions": [
+    "browse-dresses",
+    "view-orders"
+   ],
+   "availableSkills": [
+    "find-dress",
+    "purchase",
+    "track-order"
+   ],
+   "affordanceId": "view-dress",
+   "rejectionReason": "NOT_ON_NODE",
+   "principal": "agent"
+  },
+  {
+   "kind": "fire-rejected",
+   "timestamp": 1784005636060,
+   "node": "home",
+   "version": 1,
+   "availableActions": [
+    "browse-dresses",
+    "view-orders"
+   ],
+   "availableSkills": [
+    "find-dress",
+    "purchase",
+    "track-order"
+   ],
+   "affordanceId": "view-dress",
+   "rejectionReason": "NOT_ON_NODE",
+   "principal": "agent"
+  },
+  {
+   "kind": "fire-rejected",
+   "timestamp": 1784005639723,
+   "node": "home",
+   "version": 6,
+   "availableActions": [
+    "browse-dresses",
+    "view-orders"
+   ],
+   "availableSkills": [
+    "find-dress",
+    "purchase",
+    "track-order"
+   ],
+   "affordanceId": "view-dress",
+   "rejectionReason": "NOT_ON_NODE",
+   "principal": "agent"
+  }
+ ],
+ "finalState": {
+  "resultIds": [],
+  "resultCount": 0,
+  "activeColor": "",
+  "selectedDressId": "",
+  "cartIds": [],
+  "cartCount": 0,
+  "lastOrderId": "",
+  "orderCount": 0,
+  "orderStatus": ""
+ },
+ "finalNode": "home",
+ "version": 6
+}

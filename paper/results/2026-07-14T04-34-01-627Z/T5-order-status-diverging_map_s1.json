@@ -1,0 +1,939 @@
+{
+ "task": "T5-order-status-diverging",
+ "substrate": "map",
+ "seed": 1,
+ "model": "claude-sonnet-5",
+ "turns": [
+  {
+   "turn": 1,
+   "usage": {
+    "input": 2110,
+    "output": 124
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__whats_here",
+     "input": {},
+     "result": "{\"ok\":true,\"brief\":\"You are on: home.\\nSession so far (version 1):\\n  • the served tool surface changed (something mounted, unmounted, or changed visibility)\\nPending: none.\\nAvailable now: browse-dresses, view-orders.\",\"actions\":[{\"action\":\"browse-dresses\",\"does\":\"Browse the dress catalog\"},{\"action\":\"view-orders\",\"does\":\"Open your past orders\"}],\"skills\":[{\"skill\":\"find-dress\",\"does\":\"Find a dress: search the catalog, optionally filter by color, open one\",\"feasible\":true},{\"skill\":\"purchase\",\"does\":\"Buy the open dress: add it to the cart and place the order\",\"feasible\":true},{\"skill\":\"track-order\",\"does\":\"Check on a past order\",\"feasible\":false}],\"youAreOn\":\"home\",\"version\":1}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 2,
+   "usage": {
+    "input": 2505,
+    "output": 58
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"off-node\"},{\"step\":\"filter-by-color\",\"status\":\"blocked\"},{\"step\":\"view-dress\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"home\",\"version\":2}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 3,
+   "usage": {
+    "input": 2715,
+    "output": 97
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {
+      "step": "search-dresses",
+      "input": {
+       "query": "Summer Linen Midi"
+      }
+     },
+     "result": "{\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"rejected\",\"readySteps\":[],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"off-node\"},{\"step\":\"filter-by-color\",\"status\":\"blocked\"},{\"step\":\"view-dress\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":false,\"did\":\"search-dresses\",\"reason\":\"NOT_ON_NODE\",\"node\":\"home\",\"youAreOn\":\"home\",\"version\":2}"
+    }
+   ],
+   "text": "",
+   "interleaved": [
+    {
+     "kind": "goto",
+     "page": "home"
+    }
+   ]
+  },
+  {
+   "turn": 4,
+   "usage": {
+    "input": 2989,
+    "output": 81
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__do_action",
+     "input": {
+      "action": "browse-dresses"
+     },
+     "result": "{\"ok\":true,\"did\":\"browse-dresses\",\"settlement\":\"settled\",\"transitionId\":\"browse-dresses#1\",\"youAreOn\":\"catalog\",\"version\":4}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 5,
+   "usage": {
+    "input": 3130,
+    "output": 97
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {
+      "step": "search-dresses",
+      "input": {
+       "query": "Summer Linen Midi"
+      }
+     },
+     "result": "{\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"awaitingState\":[\"search-dresses\"],\"readySteps\":[],\"laterSteps\":[{\"step\":\"filter-by-color\",\"status\":\"blocked\"},{\"step\":\"view-dress\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"search-dresses\",\"settlement\":\"awaiting-state\",\"transitionId\":\"search-dresses#3\",\"youAreOn\":\"catalog\",\"version\":6,\"data\":[{\"id\":\"d1\",\"name\":\"Summer Linen Midi\",\"color\":\"white\",\"price\":89}]}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 6,
+   "usage": {
+    "input": 3449,
+    "output": 89
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {
+      "step": "view-dress",
+      "input": {
+       "id": "d1"
+      }
+     },
+     "result": "{\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"filter-by-color\",\"does\":\"Filter the current results by color\",\"expects\":{\"type\":\"object\",\"properties\":{\"color\":{\"type\":\"string\"}},\"required\":[\"color\"]}}],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"view-dress\",\"settlement\":\"awaiting-state\",\"transitionId\":\"view-dress#4\",\"youAreOn\":\"catalog\",\"version\":8,\"data\":{\"error\":\"no such dress: undefined. Pass dressId from the search results.\"}}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 7,
+   "usage": {
+    "input": 3787,
+    "output": 119
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__find-dress",
+     "input": {
+      "step": "view-dress",
+      "input": {
+       "dressId": "d1"
+      }
+     },
+     "result": "{\"skill\":\"find-dress\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"filter-by-color\",\"does\":\"Filter the current results by color\",\"expects\":{\"type\":\"object\",\"properties\":{\"color\":{\"type\":\"string\"}},\"required\":[\"color\"]}}],\"laterSteps\":[{\"step\":\"search-dresses\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"view-dress\",\"settlement\":\"awaiting-state\",\"transitionId\":\"view-dress#5\",\"youAreOn\":\"catalog\",\"version\":9,\"data\":{\"id\":\"d1\",\"name\":\"Summer Linen Midi\",\"color\":\"white\",\"size\":\"M\",\"price\":89}}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 8,
+   "usage": {
+    "input": 4164,
+    "output": 53
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"add-to-cart\",\"does\":\"Add the open dress to the cart\"}],\"laterSteps\":[{\"step\":\"go-to-cart\",\"status\":\"blocked\"},{\"step\":\"proceed-to-checkout\",\"status\":\"blocked\"},{\"step\":\"place-order\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"product\",\"version\":13}"
+    }
+   ],
+   "text": "Dress opened. Now proceeding to purchase.",
+   "interleaved": []
+  },
+  {
+   "turn": 9,
+   "usage": {
+    "input": 4411,
+    "output": 61
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "add-to-cart"
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"awaitingState\":[\"view-dress\",\"add-to-cart\"],\"readySteps\":[],\"laterSteps\":[{\"step\":\"go-to-cart\",\"status\":\"blocked\"},{\"step\":\"proceed-to-checkout\",\"status\":\"blocked\"},{\"step\":\"place-order\",\"status\":\"blocked\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"add-to-cart\",\"settlement\":\"awaiting-state\",\"transitionId\":\"add-to-cart#7\",\"youAreOn\":\"product\",\"version\":14,\"data\":{\"cartCount\":1}}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 10,
+   "usage": {
+    "input": 4698,
+    "output": 35
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"go-to-cart\",\"does\":\"Open the shopping cart\"}],\"laterSteps\":[{\"step\":\"add-to-cart\",\"status\":\"done\"},{\"step\":\"proceed-to-checkout\",\"status\":\"off-node\"},{\"step\":\"place-order\",\"status\":\"off-node\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"product\",\"version\":15}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 11,
+   "usage": {
+    "input": 4923,
+    "output": 61
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "go-to-cart"
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"proceed-to-checkout\",\"does\":\"Proceed to checkout\"}],\"laterSteps\":[{\"step\":\"add-to-cart\",\"status\":\"done\"},{\"step\":\"go-to-cart\",\"status\":\"done\"},{\"step\":\"place-order\",\"status\":\"off-node\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"go-to-cart\",\"settlement\":\"settled\",\"transitionId\":\"go-to-cart#8\",\"youAreOn\":\"cart\",\"version\":17}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 12,
+   "usage": {
+    "input": 5206,
+    "output": 64
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "proceed-to-checkout"
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"place-order\",\"does\":\"Place the order for everything in the cart\",\"highEffect\":true}],\"laterSteps\":[{\"step\":\"add-to-cart\",\"status\":\"done\"},{\"step\":\"go-to-cart\",\"status\":\"done\"},{\"step\":\"proceed-to-checkout\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"proceed-to-checkout\",\"settlement\":\"settled\",\"transitionId\":\"proceed-to-checkout#10\",\"youAreOn\":\"checkout\",\"version\":20}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 13,
+   "usage": {
+    "input": 5506,
+    "output": 113
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__purchase",
+     "input": {
+      "step": "place-order",
+      "confirm": true
+     },
+     "result": "{\"skill\":\"purchase\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"awaitingState\":[\"view-dress\",\"place-order\"],\"readySteps\":[],\"laterSteps\":[{\"step\":\"add-to-cart\",\"status\":\"done\"},{\"step\":\"go-to-cart\",\"status\":\"done\"},{\"step\":\"proceed-to-checkout\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"place-order\",\"settlement\":\"awaiting-state\",\"transitionId\":\"place-order#12\",\"youAreOn\":\"checkout\",\"version\":22,\"data\":{\"orderId\":\"ord-1\"}}"
+    }
+   ],
+   "text": "This is the final, high-effect step: placing the order. You've already approved it, so I'll proceed.",
+   "interleaved": []
+  },
+  {
+   "turn": 14,
+   "usage": {
+    "input": 5839,
+    "output": 55
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__track-order",
+     "input": {},
+     "result": "{\"ok\":true,\"skill\":\"track-order\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"view-orders\",\"does\":\"Open your past orders\"}],\"laterSteps\":[{\"step\":\"check-order-status\",\"status\":\"off-node\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"youAreOn\":\"checkout\",\"version\":25}"
+    }
+   ],
+   "text": "Order placed: **ord-1**. Now checking its status.",
+   "interleaved": []
+  },
+  {
+   "turn": 15,
+   "usage": {
+    "input": 6043,
+    "output": 59
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__track-order",
+     "input": {
+      "step": "view-orders"
+     },
+     "result": "{\"skill\":\"track-order\",\"frame\":\"open\",\"judgment\":\"one-ready-step\",\"awaitingState\":[\"view-dress\"],\"readySteps\":[{\"step\":\"check-order-status\",\"does\":\"Look up the status of one order\",\"expects\":{\"type\":\"object\",\"properties\":{\"orderId\":{\"type\":\"string\"}},\"required\":[\"orderId\"]}}],\"laterSteps\":[{\"step\":\"view-orders\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"view-orders\",\"settlement\":\"settled\",\"transitionId\":\"view-orders#13\",\"youAreOn\":\"orders\",\"version\":27}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 16,
+   "usage": {
+    "input": 6317,
+    "output": 93
+   },
+   "toolCalls": [
+    {
+     "name": "dress-shop__skill__track-order",
+     "input": {
+      "step": "check-order-status",
+      "input": {
+       "orderId": "ord-1"
+      }
+     },
+     "result": "{\"skill\":\"track-order\",\"frame\":\"open\",\"judgment\":\"navigate-or-wait\",\"awaitingState\":[\"view-dress\",\"check-order-status\"],\"readySteps\":[],\"laterSteps\":[{\"step\":\"view-orders\",\"status\":\"done\"}],\"howToAct\":\"Call this tool again with step set to one of readySteps.\",\"ok\":true,\"did\":\"check-order-status\",\"settlement\":\"awaiting-state\",\"transitionId\":\"check-order-status#15\",\"youAreOn\":\"orders\",\"version\":29,\"data\":{\"status\":\"ord-1: processing\"}}"
+    }
+   ],
+   "text": "",
+   "interleaved": []
+  },
+  {
+   "turn": 17,
+   "usage": {
+    "input": 6595,
+    "output": 64
+   },
+   "toolCalls": [],
+   "text": "Done! Here's the summary:\n\n- **Purchased:** Summer Linen Midi (d1), white, size M, $89\n- **Order ID:** ord-1\n- **Status:** Processing",
+   "interleaved": []
+  }
+ ],
+ "finalText": "Done! Here's the summary:\n\n- **Purchased:** Summer Linen Midi (d1), white, size M, $89\n- **Order ID:** ord-1\n- **Status:** Processing",
+ "aborted": false,
+ "success": true,
+ "probeAnswers": [],
+ "transitions": [
+  {
+   "id": "stimulus:structure-swap#0",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005542194,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "home",
+   "toNode": "home",
+   "cursorVersion": 0
+  },
+  {
+   "id": "browse-dresses#1",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "browse-dresses",
+    "principal": "agent"
+   },
+   "timestamp": 1784005548456,
+   "outcome": "committed",
+   "evidence": [],
+   "fromNode": "home",
+   "cursorVersion": 2,
+   "effectVerified": "unobservable",
+   "toNode": "catalog",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#2",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005548457,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "catalog",
+   "toNode": "catalog",
+   "cursorVersion": 4
+  },
+  {
+   "id": "search-dresses#3",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "search-dresses",
+    "principal": "agent"
+   },
+   "timestamp": 1784005550276,
+   "payload": {
+    "query": "Summer Linen Midi"
+   },
+   "outcome": "committed",
+   "evidence": [],
+   "fromNode": "catalog",
+   "cursorVersion": 5,
+   "effectVerified": true,
+   "toNode": "catalog",
+   "produced": [
+    {
+     "id": "d1",
+     "name": "Summer Linen Midi",
+     "color": "white",
+     "price": 89
+    }
+   ]
+  },
+  {
+   "id": "view-dress#4",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "view-dress",
+    "principal": "agent"
+   },
+   "timestamp": 1784005555173,
+   "payload": {
+    "id": "d1"
+   },
+   "outcome": "pending",
+   "evidence": [
+    {
+     "key": "resultCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "catalog",
+   "cursorVersion": 7,
+   "produced": {
+    "error": "no such dress: undefined. Pass dressId from the search results."
+   }
+  },
+  {
+   "id": "view-dress#5",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "view-dress",
+    "principal": "agent"
+   },
+   "timestamp": 1784005556743,
+   "payload": {
+    "dressId": "d1"
+   },
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "resultCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "catalog",
+   "cursorVersion": 8,
+   "effectVerified": true,
+   "toNode": "product",
+   "toNodeClaimed": true,
+   "produced": {
+    "id": "d1",
+    "name": "Summer Linen Midi",
+    "color": "white",
+    "size": "M",
+    "price": 89
+   }
+  },
+  {
+   "id": "stimulus:structure-swap#6",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005556744,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "product",
+   "toNode": "product",
+   "cursorVersion": 10
+  },
+  {
+   "id": "add-to-cart#7",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "add-to-cart",
+    "principal": "agent"
+   },
+   "timestamp": 1784005559177,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "selectedDressId",
+     "op": "ne",
+     "threshold": "",
+     "actualSummary": "\"d1\"",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "product",
+   "cursorVersion": 13,
+   "effectVerified": true,
+   "toNode": "product",
+   "produced": {
+    "cartCount": 1
+   }
+  },
+  {
+   "id": "go-to-cart#8",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "go-to-cart",
+    "principal": "agent"
+   },
+   "timestamp": 1784005561185,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "cartCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "product",
+   "cursorVersion": 15,
+   "effectVerified": "unobservable",
+   "toNode": "cart",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#9",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005561185,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "cart",
+   "toNode": "cart",
+   "cursorVersion": 17
+  },
+  {
+   "id": "proceed-to-checkout#10",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "proceed-to-checkout",
+    "principal": "agent"
+   },
+   "timestamp": 1784005562542,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "cartCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "cart",
+   "cursorVersion": 18,
+   "effectVerified": "unobservable",
+   "toNode": "checkout",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#11",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005562543,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "checkout",
+   "toNode": "checkout",
+   "cursorVersion": 20
+  },
+  {
+   "id": "place-order#12",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "place-order",
+    "principal": "agent"
+   },
+   "timestamp": 1784005566954,
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "cartCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "checkout",
+   "cursorVersion": 21,
+   "effectVerified": true,
+   "toNode": "checkout",
+   "produced": {
+    "orderId": "ord-1"
+   }
+  },
+  {
+   "id": "view-orders#13",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "view-orders",
+    "principal": "agent"
+   },
+   "timestamp": 1784005569818,
+   "outcome": "committed",
+   "evidence": [],
+   "fromNode": "checkout",
+   "cursorVersion": 25,
+   "effectVerified": "unobservable",
+   "toNode": "orders",
+   "toNodeClaimed": true
+  },
+  {
+   "id": "stimulus:structure-swap#14",
+   "cause": {
+    "kind": "stimulus",
+    "stimulus": "structure-swap",
+    "principal": "system"
+   },
+   "timestamp": 1784005569818,
+   "outcome": "committed",
+   "effectVerified": "unobservable",
+   "fromNode": "orders",
+   "toNode": "orders",
+   "cursorVersion": 27
+  },
+  {
+   "id": "check-order-status#15",
+   "cause": {
+    "kind": "fired",
+    "affordanceId": "check-order-status",
+    "principal": "agent"
+   },
+   "timestamp": 1784005571527,
+   "payload": {
+    "orderId": "ord-1"
+   },
+   "outcome": "committed",
+   "evidence": [
+    {
+     "key": "orderCount",
+     "op": "gt",
+     "threshold": 0,
+     "actualSummary": "1",
+     "result": true,
+     "redacted": false
+    }
+   ],
+   "fromNode": "orders",
+   "cursorVersion": 28,
+   "effectVerified": true,
+   "toNode": "orders",
+   "produced": {
+    "status": "ord-1: processing"
+   }
+  }
+ ],
+ "commitLog": [
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#0",
+   "idx": 0
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "browse-dresses",
+   "stageId": "browse-dresses",
+   "runtimeStageId": "browse-dresses#1",
+   "idx": 1
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#2",
+   "idx": 2
+  },
+  {
+   "overwrite": {
+    "resultIds": [
+     "d1"
+    ],
+    "resultCount": 1
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "resultIds",
+     "verb": "append",
+     "readKeys": []
+    },
+    {
+     "path": "resultCount",
+     "verb": "set",
+     "readKeys": []
+    }
+   ],
+   "stage": "search-dresses",
+   "stageId": "search-dresses",
+   "runtimeStageId": "search-dresses#3",
+   "idx": 3
+  },
+  {
+   "overwrite": {
+    "selectedDressId": "d1"
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "selectedDressId",
+     "verb": "set",
+     "readKeys": [
+      "resultCount"
+     ]
+    }
+   ],
+   "stage": "view-dress",
+   "stageId": "view-dress",
+   "runtimeStageId": "view-dress#5",
+   "idx": 4
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#6",
+   "idx": 5
+  },
+  {
+   "overwrite": {
+    "cartIds": [
+     "d1"
+    ],
+    "cartCount": 1
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "cartIds",
+     "verb": "append",
+     "readKeys": [
+      "selectedDressId"
+     ]
+    },
+    {
+     "path": "cartCount",
+     "verb": "set",
+     "readKeys": [
+      "selectedDressId"
+     ]
+    }
+   ],
+   "stage": "add-to-cart",
+   "stageId": "add-to-cart",
+   "runtimeStageId": "add-to-cart#7",
+   "idx": 6
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "go-to-cart",
+   "stageId": "go-to-cart",
+   "runtimeStageId": "go-to-cart#8",
+   "idx": 7
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#9",
+   "idx": 8
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "proceed-to-checkout",
+   "stageId": "proceed-to-checkout",
+   "runtimeStageId": "proceed-to-checkout#10",
+   "idx": 9
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#11",
+   "idx": 10
+  },
+  {
+   "overwrite": {
+    "lastOrderId": "ord-1",
+    "orderCount": 1,
+    "cartIds": [],
+    "cartCount": 0
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "lastOrderId",
+     "verb": "set",
+     "readKeys": [
+      "cartCount"
+     ]
+    },
+    {
+     "path": "orderCount",
+     "verb": "set",
+     "readKeys": [
+      "cartCount"
+     ]
+    },
+    {
+     "path": "cartIds",
+     "verb": "set",
+     "readKeys": [
+      "cartCount"
+     ]
+    },
+    {
+     "path": "cartCount",
+     "verb": "set",
+     "readKeys": [
+      "cartCount"
+     ]
+    }
+   ],
+   "stage": "place-order",
+   "stageId": "place-order",
+   "runtimeStageId": "place-order#12",
+   "idx": 11
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "view-orders",
+   "stageId": "view-orders",
+   "runtimeStageId": "view-orders#13",
+   "idx": 12
+  },
+  {
+   "overwrite": {},
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [],
+   "stage": "stimulus:structure-swap",
+   "stageId": "stimulus:structure-swap",
+   "runtimeStageId": "stimulus:structure-swap#14",
+   "idx": 13
+  },
+  {
+   "overwrite": {
+    "orderStatus": "ord-1: processing"
+   },
+   "updates": {},
+   "redactedPaths": [],
+   "trace": [
+    {
+     "path": "orderStatus",
+     "verb": "set",
+     "readKeys": [
+      "orderCount"
+     ]
+    }
+   ],
+   "stage": "check-order-status",
+   "stageId": "check-order-status",
+   "runtimeStageId": "check-order-status#15",
+   "idx": 14
+  }
+ ],
+ "gaps": [
+  {
+   "kind": "fire-rejected",
+   "timestamp": 1784005546632,
+   "node": "home",
+   "version": 2,
+   "availableActions": [
+    "browse-dresses",
+    "view-orders"
+   ],
+   "availableSkills": [
+    "find-dress",
+    "purchase",
+    "track-order"
+   ],
+   "affordanceId": "search-dresses",
+   "rejectionReason": "NOT_ON_NODE",
+   "principal": "agent"
+  }
+ ],
+ "finalState": {
+  "resultIds": [
+   "d1"
+  ],
+  "resultCount": 1,
+  "activeColor": "",
+  "selectedDressId": "d1",
+  "cartIds": [],
+  "cartCount": 0,
+  "lastOrderId": "ord-1",
+  "orderCount": 1,
+  "orderStatus": "ord-1: processing"
+ },
+ "finalNode": "orders",
+ "version": 30
+}
