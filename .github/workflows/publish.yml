@@ -1,0 +1,70 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+
+# Least privilege: NO id-token at the top level. OIDC publish power is granted ONLY to the
+# `publish` job, which consumes a PRE-PACKED tarball and does ZERO dependency resolution —
+# so dependency installation (in `build`) never shares a runtime with the registry token
+# or `npm publish --provenance`.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # This job has NO publish power.
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+      # Packaging-correctness gate — block a publish that would ship broken/masquerading types.
+      - run: npx publint
+      - run: npx @arethetypeswrong/cli --pack
+
+      # Pack here, where node_modules + .git exist, so lifecycle scripts (prepare → build)
+      # run cleanly. The publish job consumes this exact tarball — it does NOT re-pack.
+      - name: Pack the publishable tarball
+        run: |
+          npm pack
+          mv ./*.tgz package.tgz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-tarball
+          path: package.tgz
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC trusted publishing — granted to THIS job only
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-tarball
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Pinned to the 11.x line: npm 12.0.0 ships a broken provenance path
+      # (MODULE_NOT_FOUND: sigstore) that fails `npm publish --provenance`.
+      - run: npm install -g npm@11
+
+      # Publish the pre-packed tarball directly. No node_modules, no dependency resolution,
+      # and lifecycle scripts do NOT re-run — they already ran at pack time.
+      # Trusted publishing: no NODE_AUTH_TOKEN — npm authenticates via the GitHub OIDC token.
+      - name: Publish to npm
+        run: npm publish ./package.tgz --provenance --access public
