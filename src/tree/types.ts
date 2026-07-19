@@ -152,5 +152,20 @@ export interface NavigationGraph<Paths extends string = string> {
   toolNodes: Record<string, string[]>;
   /** Create a live interaction session; `Paths` carries the typed node paths through. */
   createSession(opts?: InteractionSessionOptions): InteractionSession<Paths>;
+  /**
+   * The sorted, deduped set of state keys every guard in this graph reads —
+   * across ALL tool `when`s, container-node `when`s, and skill preconditions,
+   * whether or not the node is currently mounted. Seed each of these in your
+   * state projector: a guard key ABSENT from projected state is NOT treated as
+   * false and hidden — it is served WITH the `guardUnevaluated` honesty marker
+   * (the edge is offered, the missing condition flagged as taken-on-faith), so
+   * an incompletely-seeded projector silently degrades honest availability into
+   * unevaluated-guess territory. Container `when`s are included because they
+   * AND-compose into every descendant tool's guard (at build, and into
+   * mount-declared tools at runtime), so a guard-bearing container must be
+   * seeded even before a tool lands under it. A projection covering this whole
+   * set is what lets guards actually decide rather than defer.
+   */
+  requiredStateKeys(): string[];
 }
 

@@ -22,7 +22,7 @@ import type {
   Skill,
   SkillGraphSpec,
 } from '../atom/types.js';
-import { SkillGraphValidationError, composeGuards, validateGuardShape } from '../graph/guards.js';
+import { SkillGraphValidationError, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
 import { InteractionSession } from '../traverse/nav-session.js';
 import type { InteractionSessionOptions } from '../traverse/nav-session.js';
 import type { NavigationGraph, NavigationGraphDef, NodePathsOf, MapNode, NodeDef, ToolDef } from './types.js';
@@ -266,6 +266,15 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
     nodes: Object.freeze(nodes),
     toolNodes: Object.freeze(toolNodes),
     createSession: (opts?: InteractionSessionOptions) => new InteractionSession(map, opts),
+    // Tool guards already carry the COMPOSED ancestor chain, but a guard-bearing
+    // container with no static descendant tool contributes keys only via its own
+    // node.guard (composed into mount-declared tools at runtime) — so fold those in too.
+    requiredStateKeys: () =>
+      guardStateKeys([
+        ...Object.values(spec.affordances).map((aff) => aff.guard),
+        ...Object.values(spec.skills).map((skill) => skill.precondition),
+        ...Object.values(nodes).map((node) => node.guard),
+      ]),
   };
   // The runtime object is path-untyped; the `const Def` signature re-attaches
   // the literal node-path union to what the caller sees.

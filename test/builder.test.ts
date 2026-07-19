@@ -141,3 +141,35 @@ describe('skillGraph builder — enforcement spine', () => {
     expect(g.spec.affordances['cancel'].role).toBe('cancel');
   });
 });
+
+describe('skillGraph — requiredStateKeys (the projector-seed set)', () => {
+  it('returns the sorted, deduped guard-key set across every tool and skill precondition', () => {
+    // shop() guards read `authenticated` (login, add-to-cart, place-order + the
+    // skill precondition) and `cartCount` (go-to-cart, proceed-to-checkout,
+    // place-order) — every key, once, sorted.
+    expect(shop().requiredStateKeys()).toEqual(['authenticated', 'cartCount']);
+  });
+
+  it('a guard-free graph returns []', () => {
+    const g = skillGraph('g')
+      .page('a')
+      .affordance('x', { on: 'a', description: 'd', binding })
+      .build();
+    expect(g.requiredStateKeys()).toEqual([]);
+  });
+
+  it('a key read by several guards (and a precondition) appears exactly once', () => {
+    const g = skillGraph('g')
+      .page('a')
+      .affordance('x', { on: 'a', description: 'd', binding, guard: { role: { eq: 'admin' } } })
+      .affordance('y', {
+        on: 'a',
+        description: 'd',
+        binding,
+        guard: { role: { ne: 'guest' }, tier: { eq: 'gold' } },
+      })
+      .skill('s', { description: 'd', steps: ['x'], precondition: { role: { eq: 'admin' } } })
+      .build();
+    expect(g.requiredStateKeys()).toEqual(['role', 'tier']);
+  });
+});

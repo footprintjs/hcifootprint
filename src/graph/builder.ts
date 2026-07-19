@@ -19,13 +19,25 @@ import type {
   SkillGraphSpec,
 } from '../atom/types.js';
 import { Session } from '../traverse/session.js';
-import { SkillGraphValidationError, validateGuardShape } from './guards.js';
+import { SkillGraphValidationError, guardStateKeys, validateGuardShape } from './guards.js';
 
 export { SkillGraphValidationError } from './guards.js';
 
 export interface SkillGraph {
   spec: SkillGraphSpec;
   createSession(opts: SessionOptions): Session;
+  /**
+   * The sorted, deduped set of state keys every guard in this graph reads —
+   * across all affordance guards and skill preconditions, whether or not their
+   * tool is currently offered. Seed each of these in your state projector: a
+   * guard key ABSENT from projected state is NOT treated as false and hidden —
+   * it is served WITH the `guardUnevaluated` honesty marker (the edge is
+   * offered, the missing condition flagged as taken-on-faith), so an
+   * incompletely-seeded projector silently degrades honest availability into
+   * unevaluated-guess territory. A projection covering this whole set is what
+   * lets guards actually decide rather than defer.
+   */
+  requiredStateKeys(): string[];
 }
 
 export function skillGraph(id: string, opts?: { description?: string }): SkillGraphBuilder {
@@ -174,6 +186,11 @@ export class SkillGraphBuilder {
     return {
       spec,
       createSession: (opts: SessionOptions) => new Session(spec, opts),
+      requiredStateKeys: () =>
+        guardStateKeys([
+          ...Object.values(spec.affordances).map((aff) => aff.guard),
+          ...Object.values(spec.skills).map((skill) => skill.precondition),
+        ]),
     };
   }
 

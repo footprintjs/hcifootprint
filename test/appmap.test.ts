@@ -166,3 +166,58 @@ describe('buildNavigationGraph — compile', () => {
     }).toThrow();
   });
 });
+
+describe('buildNavigationGraph — requiredStateKeys (the projector-seed set)', () => {
+  const GUARDED: NavigationGraphDef = {
+    pages: {
+      catalog: {
+        tools: {
+          'add-to-cart': { does: 'd', when: { authenticated: { eq: true } }, writes: ['cart'] },
+          browse: { does: 'd' }, // guard-free — contributes no key
+        },
+      },
+      checkout: {
+        when: { authenticated: { eq: true } }, // node guard — key repeats a tool's
+        areas: {
+          promo: {
+            when: { tier: { eq: 'gold' } },
+            tools: { 'apply-code': { does: 'd', when: { hasPromo: { eq: true } } } },
+          },
+        },
+      },
+      settings: {
+        // A guard-bearing container with NO descendant tool: its key surfaces
+        // ONLY through node.guard (it AND-composes into a tool mounted here later).
+        areas: { advanced: { when: { betaEnabled: { eq: true } } } },
+        tools: { save: { does: 'd' } },
+      },
+    },
+    skills: {
+      buy: { does: 'd', steps: ['add-to-cart'], when: { cartCount: { gt: 0 } } },
+    },
+  };
+
+  it('folds tool whens, composed chains, container-only whens, and skill preconditions — sorted, deduped', () => {
+    const map = buildNavigationGraph('shop', GUARDED);
+    // apply-code's composed guard = checkout.authenticated + promo.tier + own hasPromo;
+    // settings.advanced contributes betaEnabled purely via node.guard; buy adds cartCount.
+    expect(map.requiredStateKeys()).toEqual([
+      'authenticated',
+      'betaEnabled',
+      'cartCount',
+      'hasPromo',
+      'tier',
+    ]);
+  });
+
+  it('a guard-free graph returns []', () => {
+    const map = buildNavigationGraph('bare', { pages: { home: { tools: { hi: { does: 'd' } } } } });
+    expect(map.requiredStateKeys()).toEqual([]);
+  });
+
+  it('a key read by several guards appears exactly once (authenticated spans a tool, a node, and a composed chain)', () => {
+    const map = buildNavigationGraph('shop', GUARDED);
+    const keys = map.requiredStateKeys();
+    expect(keys.filter((k) => k === 'authenticated')).toEqual(['authenticated']);
+  });
+});

@@ -59,6 +59,22 @@ export function composeGuards(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
+/**
+ * The sorted, deduped set of top-level state keys a collection of guards
+ * (WhereFilters) reads. A WhereFilter is a FLAT `key → { op: value }` map, so
+ * its own-enumerable keys ARE the state keys the evaluator looks up — the same
+ * `Object.keys(guard)` set #evalGuard tests for presence before deciding. Both
+ * authoring surfaces build their `requiredStateKeys()` on this.
+ */
+export function guardStateKeys(guards: Iterable<Record<string, unknown> | undefined>): string[] {
+  const keys = new Set<string>();
+  for (const guard of guards) {
+    if (!guard) continue;
+    for (const key of Object.keys(guard)) keys.add(key);
+  }
+  return [...keys].sort();
+}
+
 /** Catch shape mistakes at authoring time — the evaluator fails them silently at runtime. */
 export function validateGuardShape(owner: string, guard: Record<string, unknown>): void {
   for (const [key, ops] of Object.entries(guard)) {
