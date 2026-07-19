@@ -178,7 +178,9 @@ const result = port.call(name, args);           // route a tool_use; return `res
 `tools()` returns, for graph id `shop`:
 
 - one tool per skill: `shop.skill.<id>` (input: `{ step?, input?, confirm?, instance? }`)
-- `shop.whats_here` — describe the current position (no args)
+- `shop.whats_here` — describe the current position. Optional `{ sinceVersion }`: pass a version
+  from any previous result and the reply narrates only the DELTA since it (who did what since the
+  model's last look) — cheaper re-grounding after write-steps.
 - `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, instance? }`)
 
 `MCPToolDescription` = `{ name, description, inputSchema }` (source: footprintjs).
@@ -234,6 +236,10 @@ the projected state are collected as *unevaluable*. Only the evaluable subset de
   `guardUnevaluated: [key, ...]` marker (the condition is flagged as taken-on-faith — the app stays
   the enforcer). It is NOT treated as false, and NOT hidden.
 - a guard key **present but failing** its operator → the edge IS hidden (`available()` omits it).
+- `undefined` is never stored: a report entry whose value is `undefined` is dropped (a declared
+  write reported as `undefined` counts as MISSING), and a key somehow holding `undefined` is as
+  unevaluable as an absent one — it rides `guardUnevaluated`, never sneaks past an operator
+  (src/traverse/session.ts).
 
 The consequence: an incompletely-seeded projector silently degrades honest availability into
 unevaluated-guess territory (everything shows up flagged instead of actually decided).
