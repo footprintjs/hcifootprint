@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-267%20passing-f5b301?style=flat" alt="267 tests passing">
+  <img src="https://img.shields.io/badge/tests-273%20passing-f5b301?style=flat" alt="273 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -38,6 +38,8 @@ npm install hcifootprint
 ```
 
 > **Beta · pre-1.0** — the API can still change until `1.0`. The npm publish lands with `1.0`; until then, install from this repo or pin a commit.
+
+> **Agents:** read [`llms.txt`](llms.txt) — the entire API surface on one self-contained page.
 
 ---
 
@@ -100,6 +102,9 @@ const graph = buildNavigationGraph('shop', {
 });
 ```
 
+D18 `buildNavigationGraph` is the canonical authoring surface; the v1 `skillGraph()` fluent builder
+remains as legacy sugar.
+
 **2. Connect it** to your running app through three ordinary wires. Components register what they have *when
 they render*: registration hands back a handle (you never invent a group name), your existing functions bind
 by reference, the router owns the page.
@@ -137,6 +142,26 @@ port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, 
 
 The agent plans over skills, sees only what's available at the current position, and acts through your own
 handlers — with the human able to approve high-effect steps.
+
+## The adoption ladder — start in guide mode
+
+You don't wire everything at once. Adoption is a ladder, and the first rung needs no handlers at all.
+
+**Phase 0 — guide mode (read-only).** Wire only the two reporting calls: `sync()` when the router moves and
+`updateState()` when your store changes. Register nothing. The agent can now read the position and *plan* over
+the declared action space (`whats_here` / `available()`), but it acts on nothing — with no handlers bound,
+every offered edge is plannable-only. This rung is **zero-risk**: it cannot touch your app. The one rule is
+**never `fire()` an unregistered tool.** Firing records a transition your app never performed, which desyncs
+the cursor and mis-attributes the next real state report. In guide mode, move the cursor with `sync()` and
+`updateState()` only.
+
+**Phase 1 — register handlers.** As components mount, `registerToolGroup(path, { handlers })` binds your
+existing functions by reference, so firing runs the app's own code. Edges now report `materialized` (false =
+still declared-only, true = wired), and you watch the surface light up.
+
+**Phase 2 — serve an agent (Mode B).** `skillsAsTools(session)` hands your host a fixed MCP tool set; the
+agent plans over skills and acts through your handlers. One authored graph carried you the whole way — no
+rung forced you to maintain a second, stripped-down copy.
 
 ---
 
@@ -226,6 +251,13 @@ The model never receives a growing list of tools. It picks from the fixed array 
 read from `readySteps` in the previous result — as an *argument*. The tool *set* is constant; only the `step`
 changes. That's exactly what keeps the cache warm and lets any host serve it.
 
+**After a write-step, re-read `whats_here`.** A step that changes state settles *asynchronously* — `fire()`
+returns `settlement: 'awaiting-state'` and the step stays pending until your app reports the new state back
+through `updateState()`. Until it does, the step that just fired is held out of `readySteps` (so the model
+can't double-fire it), and any step that depends on its write isn't ready yet. So an agent re-reads
+`whats_here` (or re-opens the skill) after a write-step, rather than trusting the `readySteps` from the
+write's own result.
+
 ### Plug into any framework — or run a real MCP server
 
 hcifootprint is **not tied to any agent framework**. The library hands your host two functions:
@@ -310,6 +342,26 @@ Two properties do most of the safety work:
 
 Under the hood, every action lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit
 log, so `session.why(key)` gives a causal answer to *"why is the app in this state?"* with zero extra code.
+
+## Guard semantics (read this before writing a projector)
+
+A guard (`when:`) is a **flat** filter over your projected state — `key: { op: value }`, ANDed across keys,
+operators `eq / ne / gt / gte / lt / lte / in / notIn`. There is no `$or` and no nesting; the filter is
+deliberately flat. To express "A **or** B", derive a boolean in your projector and guard on that:
+
+```ts
+session.updateState({ canCheckout: cart.length > 0 || savedOrder != null });
+// then author:  when: { canCheckout: { eq: true } }
+```
+
+A guard key the projected state has **never contained** is not treated as false. The edge is served anyway,
+carrying a `guardUnevaluated` marker — the condition is flagged as taken on faith, with the app still the
+enforcer. (A key that *is* present but fails its test hides the edge, as you'd expect.) The reason: absence of
+data must not masquerade as `false`. That honesty is what lets one authored graph work before every key is
+wired — but it also means an under-seeded projector quietly turns real decisions into flagged guesses.
+
+So seed every guard key up front. `graph.requiredStateKeys()` returns exactly that set — every key your
+guards and skill preconditions read, sorted and deduped — as the checklist for your state projector.
 
 ---
 
@@ -452,7 +504,7 @@ the answer).
 
 ```bash
 npm install
-npm test          # vitest — 267 tests
+npm test          # vitest — 273 tests
 npm run typecheck # src + tests
 npm run build
 ```

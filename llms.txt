@@ -1,0 +1,310 @@
+# hcifootprint — LLM-facing API surface
+
+> Agents and humans: this single page is meant to be read INSTEAD of the source. It is
+> verified against the code; where a claim cites a source file, that file is the authority.
+> Package: `hcifootprint`. Beta, pre-1.0. Zero-dependency core.
+
+## What this is
+
+hcifootprint turns a web app's interaction surface into a typed, traversable **skill graph**
+an LLM agent can plan over and act on — as the signed-in user, through the app's own buttons
+and handlers. You author a navigation tree in your own vocabulary (pages, containers, tools);
+the library derives the agent-facing skill graph, gates every action on a serializable guard,
+and records each occurrence in a footprintjs commit log. Nothing is hidden silently: anything
+the runtime derives rather than observes is stamped with an honesty marker, and every refused
+action returns a typed reason. It is not tied to any agent framework — you get a fixed
+MCP-shaped tool surface any host can drive.
+
+---
+
+## 1. Authoring — `buildNavigationGraph` (canonical, D18)
+
+`buildNavigationGraph(id, def)` validates and freezes one object literal in a single call (no
+`.build()`). Node names in the literal become a typed path union, so a typo in a later
+`registerToolGroup('catalog.filtr-rail')` is a COMPILE error, not a silent no-op.
+
+Source: `src/tree/appmap.ts`, `src/tree/types.ts`.
+
+```ts
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: {
+      tools: {
+        'search':      { does: 'Search dresses by name or color' },
+        'add-to-cart': { does: 'Add the open dress to the cart', when: { authenticated: { eq: true } } },
+      },
+    },
+    checkout: {
+      modals: {
+        'confirm-order': { tools: { 'place-order': { does: 'Place the order', confirm: true } } },
+      },
+    },
+  },
+  skills: {
+    purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
+  },
+});
+```
+
+Authoring vocabulary (all optional except where noted):
+
+- `pages` (REQUIRED) — top-level route targets. Each page is a container node.
+- Container buckets inside any node: `areas` (coexist, AND), `tabs` (at most one shown),
+  `modals` (overlay; a shown blocking modal masks sibling tools — `blocks: false` = popover).
+- `tools` — leaf actions on a node. A tool's fields (source: `ToolDef`, `src/tree/types.ts`):
+  - `does` (REQUIRED) — one authored sentence; it is BOTH your label and the tool description
+    the LLM reads. It is a source-code literal, never runtime text (injection firewall).
+  - `when` — availability guard (a flat WhereFilter; see §5). AND-composed with every ancestor `when`.
+  - `writes` — state keys this tool claims to change (verified at settlement).
+  - `goTo` — page id this tool claims to navigate to.
+  - `confirm` — high-effect gate: requires explicit confirmation before firing.
+  - `input` — payload contract (Zod, JSON Schema, or any `.safeParse`/`.parse` validator).
+  - `binding` — how to reach it on screen (ARIA role + name first); optional (handlers don't need it).
+- Root-level `tools` (multi-attach): a tool offered on several pages, each entry needs `on: string | string[]`.
+- `skills` — named multi-step flows. Fields (source: `SkillDef2`): `does` (REQUIRED planner text),
+  `steps` (REQUIRED, tool ids by qualified path or unambiguous suffix), `when` (precondition guard).
+- `repeats: true` on a container = a template (one parameterized tool for N cards). Optional
+  `instances: (state) => string[]` is the complete instance set; without it, served lists fall
+  back to the mounted window (marked `enumeration: 'mounted-window'`).
+
+Returns a `NavigationGraph` (source: `src/tree/types.ts`): `{ id, spec, nodes, toolNodes,
+createSession(opts?), requiredStateKeys() }`. All referential/shape mistakes (unknown `goTo`,
+guard-operator typos, ambiguous skill steps, contradictory ancestor/descendant guards) throw at
+build time.
+
+**v1 `skillGraph()` is legacy sugar.** The fluent `skillGraph('id').page(...).affordance(...).build()`
+builder (source: `src/graph/builder.ts`) still ships and works, but `buildNavigationGraph` is the
+canonical authoring surface — it adds the container tree (modals/tabs/repeats), typed node paths,
+and mount-time tool declaration. Prefer it for new work.
+
+---
+
+## 2. Session lifecycle
+
+`graph.createSession(opts?)` returns an `InteractionSession`. Source: `src/traverse/nav-session.ts`
+(runtime), `src/traverse/session.ts` (base), `src/atom/types.ts` (result types).
+
+### `createSession(opts)` — `InteractionSessionOptions`
+
+Extends the base `SessionOptions` (source: `src/atom/types.ts`) plus two tree-only fields.
+
+- `node?: string` — starting page id. Default: the first declared page.
+- `state?: Record<string, unknown>` — initial projected state (the lean snapshot guards read —
+  not your whole app store).
+- `stateTap?: boolean` — whether this session receives `updateState()` reports. Default: true when
+  `state` was provided, else false. Without a tap, declared-writes fires settle on handler
+  completion (or immediately) with `effectVerified: 'unobservable'` instead of pending forever.
+- `redactedKeys?: string[]` — keys stored as `'REDACTED'` in the commit log; live state keeps raw values.
+- `commitValues?: 'full' | 'delta'` — commit-log value encoding (footprintjs dial). Default `'delta'`.
+- `onWarn?: (message: string) => void` — dev-warning sink (StrictMode re-registrations, handler
+  errors, sensor drift). Default `console.warn`.
+- `captureProduced?: boolean` — capture each handler's RETURN value onto its transition
+  (`produced`, sanitized + capped) as the "act → get data back" channel. Default true.
+- `dormantGraceMs?: number` — how long a registration outside the router-confirmed page may
+  persist before drift telemetry fires. Default 3000ms.
+- `now?: () => number` — the clock the grace timers read (epoch ms). Default `Date.now`. Inject a
+  controllable clock for deterministic staleness tests.
+
+### `registerToolGroup(path, opts?)` — `RegisterToolGroupOptions`
+
+Call when a component that renders `path` mounts. You NEVER name a group — this returns a
+`ToolGroupHandle` that IS the identity; hold it and call `.unregister()` on unmount. `path` is
+typed against the graph's node paths. Source: `src/traverse/nav-session.ts`.
+
+Options:
+
+- `handlers?: Record<string, ToolHandler>` — bind the app's EXISTING functions (by reference) to
+  tools declared on this node. `ToolHandler = (payload?) => unknown | Promise<unknown>`.
+- `tools?: Record<string, RegisteredToolDef>` — declare NEW leaf tools here-and-now (the
+  register-with-just-a-description path). `RegisteredToolDef` = a `ToolDef` plus an optional `handler`.
+- `instance?: string` — instance key when registering one card of a `repeats` container (e.g. `'o-123'`).
+- `visible?: boolean` — initial visibility signal (same wire as `setVisible`).
+- `enabled?: Record<string, boolean>` — initial per-tool enabled state (grey a button out; flip
+  later via `handle.setEnabled(toolId, false)`).
+
+Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), unregister() }`.
+`registerTool(path, toolId, { handler, ... })` is the single-tool convenience form.
+
+### Reporting reality — fire / updateState / sync / stimulus
+
+- `fire(affordanceId, opts)` — apply a transition. `opts` (`FireOptions`): `source` (Principal:
+  `'user' | 'agent' | 'system' | 'unknown'`), `payload?`, `instance?`, `expectedVersion?`
+  (optimistic-concurrency token from `available().version`), `invoke?` (default true; false =
+  record-only, for a DOM sensor). Returns `FireResult` — `{ ok: true, transition, version,
+  settlement: 'settled' | 'awaiting-state' }` or a typed `{ ok: false, reason, ... }` (see §6).
+- `updateState(delta, opts?)` — the app reports a projected-state delta (router/store tap); pending
+  fires settle. `opts` (`UpdateOptions`): `transitionId?` (settle THIS pending precisely — preferred
+  over FIFO), `stimulus?`, `principal?`. Returns `UpdateResult`.
+- `sync(observedNode, opts?)` — reconcile the cursor when the world moved without an offered edge
+  (back button, redirect, deep link). `opts`: `stimulus?`, `principal?`. An unauthored page is not an
+  error — the cursor follows reality and `available()` honestly serves zero edges there
+  (`offGraph: true`).
+- **Stimulus** = world-initiated motion (`StimulusKind`: `'navigation' | 'timeout' | 'push' |
+  'structure-swap' | 'unknown'`). It is not a standalone method on the session — you record it via
+  the `stimulus` option on `updateState`/`sync`. When set, the delta is NEVER attributed to a pending
+  fired transition (a server push must not hijack an action's provenance). (`hcifootprint/testing`'s
+  harness exposes a convenience `stimulus()` method — source: `src/testing/harness.ts`.)
+
+### Reading + observing
+
+- `available()` → `AvailableSlice` `{ version, node, edges }`. Each edge carries `affordanceId`,
+  `description`, `role`, `highEffect`, guard `evidence`, and honesty stamps: `guardUnevaluated?`,
+  `activation?`, `presence?: 'unknown'`, `materialized?`, `enabled?`, `instances?`/`enumeration?`.
+- `availableSkills()`, `contextBrief(opts?)` (token-lean prompt context, authored strings only),
+  `explain(id)`, `why(key)` (footprint backward causal slice).
+- Passive observers: `on('transition' | 'state' | 'structure' | 'gap', listener)` → unsubscribe fn.
+  A throwing listener is isolated, never aborts the session.
+- Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire and every explicit `reportGap(...)`
+  becomes a token-lean, name-only row for demand-driven triage.
+
+---
+
+## 3. Mode B serving — `skillsAsTools`
+
+`skillsAsTools(session, opts?)` projects the session as a FIXED set of MCP-shaped tools whose bytes
+never change for the life of a conversation (keeps the prompt cache warm). Disclosure rides the
+RESULT channel. Source: `src/serve/modes.ts`.
+
+```ts
+import { skillsAsTools } from 'hcifootprint';
+
+const port = skillsAsTools(session);            // opts: { confirmHighEffect?: boolean=true, source?: Principal='agent' }
+const tools = port.tools();                     // static MCPToolDescription[] — register with your host
+const result = port.call(name, args);           // route a tool_use; return `result` as the tool_result
+```
+
+`tools()` returns, for graph id `shop`:
+
+- one tool per skill: `shop.skill.<id>` (input: `{ step?, input?, confirm?, instance? }`)
+- `shop.whats_here` — describe the current position (no args)
+- `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, instance? }`)
+
+`MCPToolDescription` = `{ name, description, inputSchema }` (source: footprintjs).
+
+### The three call shapes
+
+- **`shop.whats_here` →** `{ ok: true, brief, actions: [{ action, does, highEffect?, guardUnevaluated?,
+  instances?, enumeration?, activation? }], skills: [{ skill, does, feasible, feasibilityUnknownFor? }],
+  youAreOn, version }`.
+- **`shop.skill.<id>` with no `step` →** opens the skill frame and returns `frameData`:
+  `{ ok: true, skill, frame: 'open', judgment, readySteps: [...], laterSteps: [...], howToAct,
+  awaitingState?, youAreOn, version }`.
+- **`shop.skill.<id>` with `step` →** fires that step: merges `frameData` + `fireData` + position.
+- **`shop.do_action` with `action` →** fires one action: `fireData` + position.
+
+### `ServeResult` shape
+
+`ServeResult = Record<string, unknown>` — a plain data object; serialize it as the tool_result body.
+Text fields are authored strings only; runtime values (state, payloads, instance keys, evidence,
+produced data) are structured DATA fields. Fields you will encounter (source: `src/serve/modes.ts`):
+
+- `ok: boolean` and `judgment` — the routing discriminant on `ok: false`:
+  `'blocked'` (skill precondition fails), `'error'` (unknown step/action, bad tool), `'needs-confirm'`
+  (high-effect step awaiting `confirm: true`), `'rejected'` (fire refused — carries `reason`).
+  On an open frame `judgment` is `'navigate-or-wait' | 'one-ready-step' | 'needs-choice'`; on
+  completion `'done'`.
+- Position (always): `youAreOn` (current node), `version` (the total-order cursor).
+- Frame: `frame` (`'open' | 'completed' | 'cancelled' | 'demoted'`), `readySteps`
+  (`[{ step, does, highEffect?, guardUnevaluated?, expects? }]`), `laterSteps` (`[{ step, status }]`),
+  `awaitingState?` (steps whose fire has not yet been reported back), `howToAct`.
+- Fire success: `did` (the step id fired), `settlement` (`'settled' | 'awaiting-state'`),
+  `transitionId` (fetch `producedFor(id)` after awaiting an async handler), `guardUnevaluated?`.
+- Fire rejection: `reason` (see §6), plus `evidence?` / `issues?` / `instances?` / `node?` /
+  `expects?` / `retriable?` depending on the reason.
+
+---
+
+## 4. THE GUARD RULES (read before writing a state projector)
+
+Source: `src/graph/guards.ts` (shape + operators), `src/traverse/session.ts` `#evalGuard`
+(runtime evaluation).
+
+**A guard is a flat WhereFilter.** `key → { op: value }`. Operators (the ONLY eight):
+`eq, ne, gt, gte, lt, lte, in, notIn` (`in`/`notIn` take an array). The map is evaluated
+**AND-only**: every key must match, and multiple ops under one key must ALL hold. There is
+**NO `$or`, no nesting, no disjunction of any kind** — the filter is deliberately flat. `{}` (an
+empty guard) is rejected at build time because the evaluator never matches an empty filter.
+
+**Absent guard key ⇒ SERVED, not hidden.** At evaluation, keys of the guard that are NOT present in
+the projected state are collected as *unevaluable*. Only the evaluable subset decides `matched`. So:
+
+- a guard key **absent** from projected state → the edge is served ANYWAY, carrying the
+  `guardUnevaluated: [key, ...]` marker (the condition is flagged as taken-on-faith — the app stays
+  the enforcer). It is NOT treated as false, and NOT hidden.
+- a guard key **present but failing** its operator → the edge IS hidden (`available()` omits it).
+
+The consequence: an incompletely-seeded projector silently degrades honest availability into
+unevaluated-guess territory (everything shows up flagged instead of actually decided).
+
+**Fix: seed every key from `graph.requiredStateKeys()` (see §7).** A projection covering that whole
+set is what lets guards actually decide rather than defer.
+
+**The OR pattern — derive a boolean in your projector.** Because the filter is AND-only, you express
+disjunction by computing a derived flag in the state you report, then guarding on that flag:
+
+```ts
+// "checkout is allowed when the cart has items OR a saved order exists" — AND-only can't express OR,
+session.updateState({ canCheckout: cart.length > 0 || savedOrder != null });   // so derive the boolean
+// then author the guard as:  when: { canCheckout: { eq: true } }
+```
+
+---
+
+## 5. THE SETTLEMENT RULE (agents: re-read after every write-step)
+
+Source: `src/traverse/session.ts` (`fire` / `#settle`), `src/serve/modes.ts` (`frameData`).
+
+A step that declares `writes` does not settle synchronously when a state tap is wired. `fire()`
+returns **`settlement: 'awaiting-state'`** and the transition sits **pending** until the app reports
+the real delta via `updateState(...)`. Until then:
+
+- the fired step is excluded from `readySteps` (advertising it would tell the model to double-fire),
+  and it appears in `awaitingState`;
+- any downstream step whose guard depends on that write is NOT `ready` yet — it only becomes ready
+  after the app reports state back.
+
+**Therefore an agent MUST re-read `whats_here` (or re-open the skill tool) after any write-step** —
+the readySteps in the write-step's own result were computed before the app moved, so they are stale
+for what comes next. (When there is no state tap, or the step declares no writes, `fire()` returns
+`settlement: 'settled'` immediately and no re-read wait applies — but re-reading is always safe.)
+
+---
+
+## 6. Typed rejection reasons
+
+`fire()` / Mode B `judgment: 'rejected'` carry one of (source: `FireResult`, `src/atom/types.ts`):
+`UNKNOWN_AFFORDANCE`, `STALE_CURSOR`, `NOT_ON_NODE`, `GUARD_FAILED` (with `evidence`),
+`PAYLOAD_INVALID` (with `issues`), `BLOCKED_BY_OVERLAY` (a shown modal masks the node),
+`NODE_NOT_VISIBLE`, `STILL_MOUNTING` (RETRIABLE — mounts not arrived yet), `INSTANCE_REQUIRED`,
+`INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out). Every refused fire is also a gap-ledger
+row. High-effect steps return `judgment: 'needs-confirm'` and never auto-cross — ask the human, then
+call again with `confirm: true`.
+
+---
+
+## 7. `requiredStateKeys()` — the projector seeding checklist
+
+Present on BOTH graph types (source: `src/graph/builder.ts` for `skillGraph`,
+`src/tree/appmap.ts` for `buildNavigationGraph`):
+
+```ts
+graph.requiredStateKeys();   // → sorted, deduped string[] of every guard key the graph reads
+```
+
+It is the sorted, deduped set of state keys every guard reads — across all tool `when`s,
+container-node `when`s (they AND-compose into descendant tools), and skill preconditions — whether
+or not the node is currently mounted. Seed each of these keys in your state projector so guards
+decide instead of deferring (see §4). This is the one call that closes the guard-honesty loop.
+
+---
+
+## Honesty markers (quick reference)
+
+Everything the runtime DERIVES rather than OBSERVES is flagged, never laundered as fact:
+`guardUnevaluated` (guard key absent from state), `activation: 'assumed'` (declared subtree,
+nothing registered), `presence: 'unknown'` (ambiguous mounted tabs), `materialized: false`
+(declared but no handler wired), `effectVerified: 'unobservable'` (no report to check against),
+`enumeration: 'mounted-window'` (instance list is partial). App text and produced data ride a strict
+DATA channel; only authored strings reach the planner's instruction channel.

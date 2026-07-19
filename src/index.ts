@@ -6,25 +6,27 @@
  * (self-explaining agents): one self-explaining trace substrate underneath.
  *
  * ```ts
- * import { skillGraph } from 'hcifootprint';
+ * import { buildNavigationGraph } from 'hcifootprint';
  *
- * const app = skillGraph('shop')
- *   .page('catalog', { route: '/products' })
- *   .affordance('add-to-cart', {
- *     on: 'catalog',
- *     description: 'Add a product to the cart',
- *     binding: { kind: 'element', locator: { role: 'button', name: 'Add to cart' } },
- *     guard: { authenticated: { eq: true } },
- *     effect: { writes: ['cart'] },
- *   })
- *   .build();
+ * const graph = buildNavigationGraph('shop', {
+ *   pages: {
+ *     catalog: {
+ *       tools: {
+ *         'add-to-cart': { does: 'Add the open dress to the cart', when: { authenticated: { eq: true } }, writes: ['cart'] },
+ *       },
+ *     },
+ *   },
+ *   skills: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+ * });
  *
- * const session = app.createSession({ node: 'catalog', state: { authenticated: false } });
- * session.available();                       // → guard-passing edges = the LLM's action space
- * session.fire('add-to-cart', { source: 'agent' });
- * session.sync('cart');                      // reconcile external navigation, first-class
- * session.why('cart');                       // footprint backward slice over the session
- * session.toMCPTools();                      // per-edge MCP descriptors for the current slice
+ * const session = graph.createSession({ node: 'catalog', state: { authenticated: true } });
+ * session.available();                        // → guard-passing edges = the LLM's action space
+ * session.registerToolGroup('catalog', { handlers: { 'add-to-cart': (i) => shop.add(i) } });
+ * session.fire('catalog.add-to-cart', { source: 'agent' });  // → settlement: 'awaiting-state'
+ * session.updateState({ cart: 1 });           // your store tap settles the pending write
+ * session.why('cart');                        // footprint backward slice over the session
+ *
+ * // v1 skillGraph() — the fluent builder — remains as legacy sugar.
  * ```
  */
 export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './graph/builder.js';
