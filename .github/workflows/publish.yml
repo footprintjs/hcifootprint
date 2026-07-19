@@ -28,7 +28,9 @@ jobs:
 
       # Packaging-correctness gate — block a publish that would ship broken/masquerading types.
       - run: npx publint
-      - run: npx @arethetypeswrong/cli --pack
+      # esm-only profile: this package is deliberately true-ESM (no CJS build);
+      # the profile still gates every real resolution failure.
+      - run: npx @arethetypeswrong/cli --pack --profile esm-only
 
       # Pack here, where node_modules + .git exist, so lifecycle scripts (prepare → build)
       # run cleanly. The publish job consumes this exact tarball — it does NOT re-pack.
