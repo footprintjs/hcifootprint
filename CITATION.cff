@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+type: software
+title: "hcifootprint: web apps as typed skill graphs agents can operate"
+authors:
+  - family-names: "Anbalagan"
+    given-names: "Sanjay Krishna"
+license: MIT
+repository-code: "https://github.com/footprintjs/hcifootprint"
+url: "https://footprintjs.github.io/hcifootprint/"
+keywords:
+  - "agent-computer interface"
+  - "MCP"
+  - "skill graph"
+  - "agent-operable apps"
+  - "explainable AI"
+  - "human-computer interaction"

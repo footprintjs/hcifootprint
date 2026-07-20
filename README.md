@@ -519,6 +519,22 @@ action a session fires lands in a footprintjs commit log, which is what makes `s
 backward causal slice rather than a guess. You don't need to learn footprintjs to use this library, but if you
 want to build primitives at that depth, [start there](https://footprintjs.github.io/footPrint/).
 
+## Citing
+
+hcifootprint is part of a research program on making software systems explain themselves — every run records *why* it did what it did, as a causal trace. Researching agent transparency, observability, or explainable AI? The [ecosystem map](https://footprintjs.github.io/) is a good starting point.
+
+If you use hcifootprint in academic work, please cite it (or use the "Cite this repository" button on GitHub):
+
+```bibtex
+@software{anbalagan_hcifootprint,
+  author  = {Anbalagan, Sanjay Krishna},
+  title   = {hcifootprint: web apps as typed skill graphs agents can operate},
+  url     = {https://github.com/footprintjs/hcifootprint},
+  license = {MIT},
+  year    = {2026}
+}
+```
+
 ## License
 
 MIT © [Sanjay Krishna Anbalagan](https://github.com/sanjay1909)
