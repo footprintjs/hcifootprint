@@ -250,6 +250,8 @@ export interface SessionEvents {
   structure: { version: number; structureVersion: number };
   /** A new unmet-demand row was recorded (a deep copy). */
   gap: GapRecord;
+  /** A confirm-journal row landed — an ask, an approval, or a decline (a deep copy). */
+  confirm: ConfirmRecord;
 }
 
 export type SessionEventName = keyof SessionEvents;
@@ -333,6 +335,15 @@ export interface TransitionRecord {
   produced?: unknown;
   /** Cursor version when the transition was created. */
   cursorVersion: number;
+  /**
+   * Set when this fire was authorized by a high-effect confirm ask — the
+   * {@link ConfirmRecord} `askId` it closes. Makes the ask → decision → fire
+   * chain auditable from the transition log alone (a committed high-effect
+   * action can be traced back to the receipts a human approved). Absent on a
+   * fire that never went through a confirm gate (e.g. a low-effect action, or
+   * a human clicking the button directly with no ask outstanding).
+   */
+  askId?: string;
 }
 
 export interface AvailableEdge {
@@ -562,6 +573,115 @@ export interface ReportGapOptions {
   reason?: GapReason;
   note?: string;
   principal?: Principal;
+}
+
+// ---------------------------------------------------------------------------
+// Confirm journal — receipts on high-effect asks + the ask→decision→fire chain
+// ---------------------------------------------------------------------------
+
+/**
+ * The plain-words "what firing will do" claim that leads a receipt: the
+ * authored edge description plus its declared, honesty-tagged effect. `writes`
+ * and `navigatesTo` are CLAIMS about the app's handler (verified at settlement
+ * / reconciled by sync), never observed truths — the same honesty stance the
+ * atom takes everywhere.
+ */
+export interface ConfirmWillDo {
+  /** The authored affordance description (planner-facing string class). */
+  does: string;
+  /** State keys this edge CLAIMS to write (from effect.writes). Omitted when none. */
+  writes?: string[];
+  /** Page this edge CLAIMS to navigate to (from effect.navigatesTo). Omitted when none. */
+  navigatesTo?: string;
+  /**
+   * True when the edge declares writes but the session has no state tap, so the
+   * effect can never be verified (settlement would be effectVerified:
+   * 'unobservable'). Stated up front so the human is not shown a claim the
+   * library itself cannot check.
+   */
+  effectUnverifiable?: boolean;
+}
+
+/** One compact row of the run-so-far trail — authored/structural facts only. */
+export interface ConfirmTrailStep {
+  /** The affordance id (fired rows) or a `stimulus:<kind>` label — never runtime text. */
+  what: string;
+  /** Who did it. */
+  principal: Principal;
+  /** Its settlement outcome. */
+  outcome: Settlement;
+}
+
+/**
+ * The "receipts" that ride a needs-confirm ask: everything the library ALREADY
+ * knows about a high-effect edge, assembled so the agent can SHOW the human
+ * what they are approving — no new capture, no extra work.
+ *
+ * Field kinship with agentfootprint's checkIn evidence is deliberate
+ * (`willDo` ≙ willDo, `because` ≙ read/drivers, `recentSteps` ≙ trail) so a
+ * consumer wiring both libraries sees ONE mental model — but nothing is
+ * imported across, and the substance differs on purpose: an AGENT's evidence
+ * SCORES which context probably drove a guessed tool choice; a UI SESSION KNOWS
+ * why an edge is fireable — the guard is the literal precondition — so
+ * `because` is structural guard evidence, never a ranked guess.
+ */
+export interface ConfirmReceipts {
+  /** What firing will do: authored words + declared, honesty-tagged effect. */
+  willDo: ConfirmWillDo;
+  /**
+   * Why this edge is fireable right now — the guard conditions that passed,
+   * one per condition (key/op/threshold/actual). Structural and KNOWN, not
+   * scored. Empty for an unguarded (always-offered) edge.
+   */
+  because: FilterCondition[];
+  /**
+   * Guard keys taken on faith because the state view never held them — the
+   * same honesty marker the edge itself carries. Present only when non-empty.
+   */
+  becauseUnevaluated?: string[];
+  /** Where the human is, folded in so the receipt is a self-contained pack. */
+  youAreOn: string;
+  /** The cursor version the receipt was assembled at (a stale-plan check anchor). */
+  version: number;
+  /** A compact tail of the session's fire journal — the trail that led here. */
+  recentSteps: ConfirmTrailStep[];
+}
+
+/**
+ * One row of the confirm journal: the auditable trail of high-effect asks and
+ * how they were answered. A needs-confirm ask lands an `'ask'` row (carrying
+ * its receipts); the human's answer lands `'approved'` (the confirmed fire,
+ * linked by `transitionId`) or `'declined'`. The three rows of one gate share
+ * an `askId`.
+ *
+ * Kept SEPARATE from the gap ledger by design: a gated action is not unmet
+ * demand — the capability exists, it awaited consent — so mixing the two would
+ * poison the "what to build next" triage signal the gap ledger feeds. Rows are
+ * token-lean and injection-safe (ids + structural facts; the only free text,
+ * `note`, is length-capped, and `receipts` carries authored strings only).
+ */
+export interface ConfirmRecord {
+  kind: 'ask' | 'approved' | 'declined';
+  /** Links the ask → decision → fire rows of one high-effect gate. */
+  askId: string;
+  affordanceId: string;
+  /** Epoch milliseconds when the row was recorded. */
+  timestamp: number;
+  node: string;
+  version: number;
+  /** Who asked ('ask'), or the principal that recorded the decision. */
+  principal: Principal;
+  // 'ask' rows -------------------------------------------------------------
+  /** The receipts that rode this ask (present on 'ask' rows). */
+  receipts?: ConfirmReceipts;
+  // 'approved' rows --------------------------------------------------------
+  /** The TransitionRecord.id of the fire this approval authorized. */
+  transitionId?: string;
+  // 'approved' / 'declined' rows -------------------------------------------
+  /** Who answered — an operator id, an email, your host's label. Optional. */
+  by?: string;
+  /** Free-text note (length-capped). On a decline, typically why. */
+  note?: string;
 }
 
 // ---------------------------------------------------------------------------

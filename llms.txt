@@ -154,10 +154,15 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   `activation?`, `presence?: 'unknown'`, `materialized?`, `enabled?`, `instances?`/`enumeration?`.
 - `availableSkills()`, `contextBrief(opts?)` (token-lean prompt context, authored strings only),
   `explain(id)`, `why(key)` (footprint backward causal slice).
-- Passive observers: `on('transition' | 'state' | 'structure' | 'gap', listener)` → unsubscribe fn.
-  A throwing listener is isolated, never aborts the session.
+- Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
+  unsubscribe fn. A throwing listener is isolated, never aborts the session.
 - Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire and every explicit `reportGap(...)`
   becomes a token-lean, name-only row for demand-driven triage.
+- Confirm journal (D21): `confirmAsk(id)` → `{ askId, receipts }` (receipts = `willDo` / `because` guard
+  evidence / `youAreOn` / `recentSteps`, assembled from live state); `declineConfirm(id, {by?, note?})`;
+  `confirms()` / `onConfirm(row => ...)` — the auditable ask→decision→fire chain (a confirmed `fire()`
+  auto-closes the ask as `approved` and stamps `TransitionRecord.askId`). SEPARATE from the gap ledger:
+  a gated action is consented capability, not unmet demand.
 
 ---
 
@@ -177,11 +182,11 @@ const result = port.call(name, args);           // route a tool_use; return `res
 
 `tools()` returns, for graph id `shop`:
 
-- one tool per skill: `shop.skill.<id>` (input: `{ step?, input?, confirm?, instance? }`)
+- one tool per skill: `shop.skill.<id>` (input: `{ step?, input?, confirm?, decline?, instance? }`)
 - `shop.whats_here` — describe the current position. Optional `{ sinceVersion }`: pass a version
   from any previous result and the reply narrates only the DELTA since it (who did what since the
   model's last look) — cheaper re-grounding after write-steps.
-- `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, instance? }`)
+- `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, decline?, instance? }`)
 
 `MCPToolDescription` = `{ name, description, inputSchema }` (source: footprintjs).
 
@@ -204,7 +209,8 @@ produced data) are structured DATA fields. Fields you will encounter (source: `s
 
 - `ok: boolean` and `judgment` — the routing discriminant on `ok: false`:
   `'blocked'` (skill precondition fails), `'error'` (unknown step/action, bad tool), `'needs-confirm'`
-  (high-effect step awaiting `confirm: true`), `'rejected'` (fire refused — carries `reason`).
+  (high-effect step awaiting `confirm: true` — carries `askId` + `receipts`; `decline: true` records the
+  refusal and returns `judgment: 'declined'`), `'rejected'` (fire refused — carries `reason`).
   On an open frame `judgment` is `'navigate-or-wait' | 'one-ready-step' | 'needs-choice'`; on
   completion `'done'`.
 - Position (always): `youAreOn` (current node), `version` (the total-order cursor).

@@ -40,6 +40,10 @@ import type {
   AvailableSkill,
   AvailableSlice,
   CommitSkillResult,
+  ConfirmReceipts,
+  ConfirmRecord,
+  ConfirmTrailStep,
+  ConfirmWillDo,
   ContextBrief,
   ContextBriefOptions,
   Explanation,
@@ -147,6 +151,12 @@ export class Session {
   readonly #warn: (message: string) => void;
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
+  /** The confirm journal: high-effect ask → decision → fire rows, oldest first. */
+  readonly #confirms: ConfirmRecord[] = [];
+  /** The one OPEN (unanswered) ask per affordance — so confirm/decline can close it. */
+  readonly #openAsks = new Map<string, string>();
+  /** Monotonic counter for generated ask ids (never caller-supplied). */
+  #askSeq = 0;
   /** Passive observer listeners, by event name (the recorder category, session grain). */
   readonly #listeners = new Map<SessionEventName, Set<(payload: unknown) => void>>();
   /** Monotonic counter for generated tool-group ids (never caller-supplied). */
@@ -266,6 +276,7 @@ export class Session {
       cause: { ...t.cause },
       evidence: t.evidence ? t.evidence.map((c) => ({ ...c })) : undefined,
       ...(t.guardUnevaluated ? { guardUnevaluated: [...t.guardUnevaluated] } : {}),
+      ...(t.askId !== undefined ? { askId: t.askId } : {}),
       ...(t.payload !== undefined ? { payload: cloneSafe(t.payload) } : {}),
       ...(t.produced !== undefined ? { produced: cloneSafe(t.produced) } : {}),
     };
@@ -622,6 +633,10 @@ export class Session {
       fromNode: this.#node,
       cursorVersion: this.#version,
     };
+    // A confirmed high-effect fire closes its open ask: stamp askId on the
+    // record and land the 'approved' decision BEFORE the first emit, so every
+    // observer sees the fire already linked to the receipts it authorized.
+    this.#resolveOpenAsk(record, affordanceId, opts.source);
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 
@@ -1098,6 +1113,167 @@ export class Session {
       } catch (error) {
         // Consumer export code must never break the session (recorder rule).
         this.#warn(`hcifootprint: gap listener threw: ${String(error)}`);
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Confirm journal — receipts on high-effect asks + the ask→decision→fire chain
+  // -------------------------------------------------------------------------
+
+  /**
+   * Record a high-effect confirm ask and assemble its RECEIPTS from what the
+   * session already knows — the guard evidence that made the edge fireable, the
+   * declared (honesty-tagged) effect, the current position, and a compact tail
+   * of the fire journal. No new capture: this is a pure read over live state.
+   *
+   * A serving layer calls this the moment it decides to gate a high-effect edge
+   * on human consent, then relays the returned receipts to the person. The
+   * returned `askId` is the chain key: the confirmed fire closes it as
+   * 'approved' automatically (linked by transitionId), or {@link declineConfirm}
+   * closes it as 'declined'. Asking twice for the same edge while an ask is
+   * still open SUPERSEDES it (the human is still deciding) — one open ask per
+   * affordance. Never throws: an unknown affordance yields a minimal receipt
+   * (a serving layer relies on this mid-turn).
+   */
+  confirmAsk(affordanceId: string, opts?: { source?: Principal }): { askId: string; receipts: ConfirmReceipts } {
+    const principal: Principal = opts?.source ?? 'agent';
+    const receipts = this.#assembleReceipts(affordanceId);
+    const askId = this.#openAsks.get(affordanceId) ?? this.#mintAskId();
+    this.#openAsks.set(affordanceId, askId);
+    this.#pushConfirm({
+      kind: 'ask',
+      askId,
+      affordanceId,
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      principal,
+      receipts,
+    });
+    // Return a detached copy so a serving layer can serialize/annotate freely.
+    return { askId, receipts: structuredClone(receipts) };
+  }
+
+  /**
+   * Close a high-effect ask as DECLINED — the human said no. Records the
+   * decision so the chain closes honestly instead of the ask dangling forever
+   * (the v1 reality: a declined action was simply never re-called, an invisible
+   * event). Closes the open ask for `affordanceId` when one exists; with none
+   * open (a pre-emptive decline) it mints a standalone decline row — a refusal
+   * is worth recording either way. Returns the row (a deep copy).
+   */
+  declineConfirm(
+    affordanceId: string,
+    opts?: { by?: string; note?: string; principal?: Principal },
+  ): ConfirmRecord {
+    const askId = this.#openAsks.get(affordanceId) ?? this.#mintAskId();
+    this.#openAsks.delete(affordanceId);
+    const row: ConfirmRecord = {
+      kind: 'declined',
+      askId,
+      affordanceId,
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      principal: opts?.principal ?? 'user',
+      ...(opts?.by !== undefined ? { by: opts.by } : {}),
+      ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+    };
+    this.#pushConfirm(row);
+    return structuredClone(row);
+  }
+
+  /**
+   * The confirm journal (DEEP copies): every high-effect ask and how it was
+   * answered — an auditable ask → decision → fire chain (join `transitionId`
+   * back to the commit log, `askId` across the three rows). Export it to your
+   * audit sink like gaps(); it grows for the session's life.
+   */
+  confirms(): ConfirmRecord[] {
+    return this.#confirms.map((c) => structuredClone(c));
+  }
+
+  /** Live export hook: fires once per new confirm row. Sugar for `on('confirm', …)`. */
+  onConfirm(listener: (record: ConfirmRecord) => void): () => void {
+    return this.on('confirm', listener);
+  }
+
+  /** Close an open ask as APPROVED when a matching fire lands (called from fire()). */
+  #resolveOpenAsk(record: TransitionRecord, affordanceId: string, source: Principal): void {
+    const askId = this.#openAsks.get(affordanceId);
+    if (askId === undefined) return;
+    this.#openAsks.delete(affordanceId);
+    record.askId = askId;
+    this.#pushConfirm({
+      kind: 'approved',
+      askId,
+      affordanceId,
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      principal: source,
+      transitionId: record.id,
+    });
+  }
+
+  /** Assemble the receipts pack from live state — no new capture, all reads. */
+  #assembleReceipts(affordanceId: string): ConfirmReceipts {
+    const aff = this.spec.affordances[affordanceId];
+    const { conditions, unevaluable } = aff
+      ? this.#evalGuard(aff.guard)
+      : { conditions: [] as FilterCondition[], unevaluable: [] as string[] };
+    const writes = aff?.effect?.writes;
+    const declaresWrites = (writes?.length ?? 0) > 0;
+    const willDo: ConfirmWillDo = {
+      does: aff?.description ?? affordanceId,
+      ...(declaresWrites ? { writes: [...writes!] } : {}),
+      ...(aff?.effect?.navigatesTo ? { navigatesTo: aff.effect.navigatesTo } : {}),
+      // A declared write with no state tap can never be verified (settlement is
+      // effectVerified:'unobservable') — say so up front, don't show a claim we
+      // cannot check.
+      ...(declaresWrites && !this.#stateTap ? { effectUnverifiable: true } : {}),
+    };
+    return {
+      willDo,
+      // Copy the condition objects — the same objects ride available().evidence;
+      // a consumer annotating a receipt must never rewrite the trace.
+      because: conditions.map((c) => ({ ...c })),
+      ...(unevaluable.length > 0 ? { becauseUnevaluated: [...unevaluable] } : {}),
+      youAreOn: this.#node,
+      version: this.#version,
+      recentSteps: this.#recentTrail(),
+    };
+  }
+
+  /** A compact, injection-safe tail of the fire journal (names + principal + outcome). */
+  #recentTrail(max = 5): ConfirmTrailStep[] {
+    return this.#transitions.slice(-max).map((t) => ({
+      what:
+        t.cause.kind === 'fired'
+          ? t.cause.affordanceId ?? 'unknown'
+          : `stimulus:${t.cause.stimulus ?? 'unknown'}`,
+      principal: t.cause.principal,
+      outcome: t.outcome,
+    }));
+  }
+
+  #mintAskId(): string {
+    return `ask#${(this.#askSeq += 1)}`;
+  }
+
+  #pushConfirm(row: ConfirmRecord): void {
+    this.#confirms.push(row);
+    // Per-listener deep copy (the gap-ledger discipline): exporter mutation must
+    // never touch the journal, nor another listener's view.
+    const set = this.#listeners.get('confirm');
+    if (!set) return;
+    for (const listener of set) {
+      try {
+        listener(structuredClone(row));
+      } catch (error) {
+        // Consumer export code must never break the session (recorder rule).
+        this.#warn(`hcifootprint: confirm listener threw: ${String(error)}`);
       }
     }
   }

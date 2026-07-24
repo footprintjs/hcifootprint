@@ -54,11 +54,12 @@ describe('the static tool array', () => {
     expect(JSON.stringify(port.tools())).toBe(before); // identical BYTES — the cache contract
   });
 
-  it('every skill tool carries the same static {step, input, confirm, instance} schema', () => {
+  it('every skill tool carries the same static {step, input, confirm, decline, instance} schema', () => {
     const { port } = freshPort();
     const tool = port.tools().find((candidate) => candidate.name === 'shop.skill.purchase')!;
     expect(Object.keys((tool.inputSchema as { properties: object }).properties).sort()).toEqual([
       'confirm',
+      'decline',
       'input',
       'instance',
       'step',

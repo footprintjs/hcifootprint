@@ -49,6 +49,8 @@ export interface SkillCallArgs {
   step?: string;
   input?: unknown;
   confirm?: boolean;
+  /** Record the human's refusal of a high-effect step (they said no) — closes the ask, does not fire. */
+  decline?: boolean;
   /** Instance key for steps on repeats containers (from `instances` in results). */
   instance?: string;
 }
@@ -57,6 +59,8 @@ export interface DoActionArgs {
   action: string;
   input?: unknown;
   confirm?: boolean;
+  /** Record the human's refusal of a high-effect action (they said no) — closes the ask, does not fire. */
+  decline?: boolean;
   instance?: string;
 }
 
@@ -72,8 +76,10 @@ export interface SkillToolsPort {
 
 const SKILL_USAGE =
   ' Call with no arguments to open this skill and see its ready steps; call again with' +
-  " {step: '<name from readySteps>', input: {...}} to perform a step. High-effect steps additionally" +
-  ' need confirm: true. Steps arrive as DATA in results — they are never separate tools.';
+  " {step: '<name from readySteps>', input: {...}} to perform a step. A high-effect step first returns" +
+  ' needs-confirm WITH receipts (what it will do and why): show the human, then call again with' +
+  ' confirm: true to proceed — or decline: true if they refuse. Steps arrive as DATA in results —' +
+  ' they are never separate tools.';
 
 const WHATS_HERE_DESCRIPTION =
   'Describe the current position: the page, the open skill (if any), what happened recently, ' +
@@ -83,7 +89,8 @@ const WHATS_HERE_DESCRIPTION =
 
 const DO_ACTION_DESCRIPTION =
   'Perform one available action outside any skill flow. Call whats_here first to see action names. ' +
-  'High-effect actions additionally need confirm: true.';
+  'A high-effect action first returns needs-confirm WITH receipts (what it will do and why): show the ' +
+  'human, then call again with confirm: true to proceed — or decline: true if they refuse.';
 
 const WHY_DESCRIPTION =
   'Explain why a state key currently holds its value: the causal chain of session actions — and ' +
@@ -94,7 +101,8 @@ const STEP_INPUT_SCHEMA = {
   properties: {
     step: { type: 'string', description: 'A step name taken from readySteps in a previous result.' },
     input: { type: 'object', description: 'The step input. Each result states what the next step expects.' },
-    confirm: { type: 'boolean', description: 'Required true for high-effect steps.' },
+    confirm: { type: 'boolean', description: 'Required true to proceed with a high-effect step (after the human approves the receipts).' },
+    decline: { type: 'boolean', description: 'Set true to record that the human refused a high-effect step (closes the ask; nothing fires).' },
     instance: {
       type: 'string',
       description: 'Which instance to act on, when the step lists instances (e.g. an order id).',
@@ -164,6 +172,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           action: { type: 'string', description: 'An action name from whats_here.' },
           input: structuredClone(STEP_INPUT_SCHEMA.properties.input),
           confirm: structuredClone(STEP_INPUT_SCHEMA.properties.confirm),
+          decline: structuredClone(STEP_INPUT_SCHEMA.properties.decline),
           instance: structuredClone(STEP_INPUT_SCHEMA.properties.instance),
         },
         required: ['action'],
@@ -231,13 +240,24 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     }
     const edge = edgeById().get(stepId);
     if (confirmHighEffect && edge?.highEffect && args.confirm !== true) {
+      // The human refused: record the decline (closes the ask) and do NOT fire.
+      if (args.decline === true) {
+        const declined = session.declineConfirm(stepId, { principal: source });
+        return { ok: false, judgment: 'declined', skill: skillId, step: stepId, askId: declined.askId, ...positionData() };
+      }
+      // First look at a high-effect step: land the ask + assemble the receipts
+      // the agent shows the human. confirm: true on the next call fires it.
+      const { askId, receipts } = session.confirmAsk(stepId, { source });
       return {
         ok: false,
         judgment: 'needs-confirm',
         skill: skillId,
         step: stepId,
         does: edge.description,
-        howToAct: 'Ask the human, then call again with confirm: true.',
+        askId,
+        receipts,
+        howToAct:
+          'Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.',
         ...positionData(),
       };
     }
@@ -286,12 +306,20 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     }
     const edge = matches[0];
     if (confirmHighEffect && edge.highEffect && args.confirm !== true) {
+      if (args.decline === true) {
+        const declined = session.declineConfirm(edge.affordanceId, { principal: source });
+        return { ok: false, judgment: 'declined', action: edge.affordanceId, askId: declined.askId, ...positionData() };
+      }
+      const { askId, receipts } = session.confirmAsk(edge.affordanceId, { source });
       return {
         ok: false,
         judgment: 'needs-confirm',
         action: edge.affordanceId,
         does: edge.description,
-        howToAct: 'Ask the human, then call again with confirm: true.',
+        askId,
+        receipts,
+        howToAct:
+          'Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.',
         ...positionData(),
       };
     }
@@ -406,6 +434,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           step: typeof parsed['step'] === 'string' ? parsed['step'] : undefined,
           input: parsed['input'],
           confirm: parsed['confirm'] === true,
+          decline: parsed['decline'] === true,
           instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
         });
       }
@@ -428,6 +457,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           action: parsed['action'],
           input: parsed['input'],
           confirm: parsed['confirm'] === true,
+          decline: parsed['decline'] === true,
           instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
         });
       }

@@ -82,3 +82,11 @@ multi-skill graphs to show; inference tier needs a signature-collision study (wh
   proven by execution; atom amended (schema, cause, settlement, honesty markers).
 - 2026-07-02: v0 core shipped (63 tests) after 3-lens adversarial review (27 probe-confirmed findings fixed).
 - 2026-07-03: skill frames + contextBrief (83 tests); D13 registerTools/tiers/inference (97 tests); layered restructure.
+- 2026-07-24: **D21** — receipts on the high-effect ask (`ConfirmReceipts`: willDo / because / youAreOn /
+  recentSteps, assembled from live state, zero new capture) + a confirm journal (`confirms()`,
+  ask→decision→fire chain, `TransitionRecord.askId` linkage, `decline:true` / `declineConfirm`). Kept
+  separate from the gap ledger (consented capability ≠ unmet demand); `because` is KNOWN guard evidence, not
+  a scored guess — the differentiator vs agentfootprint's checkIn `drivers`. 299 tests. See
+  [docs/design/d21-confirm-receipts.md](design/d21-confirm-receipts.md). Reinforces contribution #2
+  (provenance/honesty markers) and the mixed-initiative safety thesis (a human approving a high-effect
+  action now sees the same evidence the guard used to offer it).

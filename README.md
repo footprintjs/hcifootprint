@@ -333,6 +333,40 @@ approval:
 Either way, the gate is enforced at the session, so an agent can't fire a high-effect action without a real
 approval.
 
+### The ask carries receipts
+
+An empty "are you sure?" makes a human rubber-stamp. So the `needs-confirm` result carries a **`receipts`**
+object, assembled from what the session already knows — no new work, nothing for you to wire:
+
+```jsonc
+{ "judgment": "needs-confirm", "step": "checkout.place-order", "askId": "ask#1",
+  "receipts": {
+    "willDo":   { "does": "Place the order", "writes": ["orders"] },   // what happens (a claim, honesty-tagged)
+    "because":  [{ "key": "cartCount", "op": "gt", "actual": 2, "result": true }],  // why it's fireable — the guard evidence
+    "youAreOn": "checkout", "version": 7,                              // where the human is
+    "recentSteps": [{ "what": "catalog.add-to-cart", "principal": "agent", "outcome": "committed" }]  // the trail
+  },
+  "howToAct": "Show the human what this will do (see receipts)…" }
+```
+
+`because` is **structural guard evidence**, not a guessed rationale — the session *knows* why the edge is
+fireable. (If you also wire [agentfootprint](https://github.com/footprintjs/agentfootprint), its `checkIn`
+evidence is deliberately field-kin — `willDo` / read-like / trail — so one mental model spans both libraries;
+nothing is imported across.)
+
+### Decisions leave a record
+
+Both answers are recorded, so the gate is auditable end to end:
+
+- **Approve** → call again with `confirm: true`; the fire lands and its transition carries `askId` back to the
+  receipts the human saw.
+- **Decline** → call with `decline: true` (Mode B) or `session.declineConfirm(id)`; the refusal is recorded
+  instead of the ask dangling forever.
+
+`session.confirms()` returns the **ask → decision → fire** chain (a separate journal from the gap ledger — a
+gated action is consented capability, not unmet demand). `session.onConfirm(fn)` streams rows to your audit
+sink live.
+
 ## 🔒 Honest by construction
 
 Two properties do most of the safety work:

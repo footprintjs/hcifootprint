@@ -61,6 +61,7 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     const purchase = tools.find((t) => t.name === 'shop.skill.purchase')!;
     expect(Object.keys((purchase.inputSchema as { properties: object }).properties).sort()).toEqual([
       'confirm',
+      'decline',
       'input',
       'instance',
       'step',
@@ -91,13 +92,23 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     const client = await connectClient(session);
     await client.callTool({ name: 'shop.skill.purchase', arguments: {} });
     const res = await client.callTool({ name: 'shop.skill.purchase', arguments: { step: 'place-order' } });
-    expect(text(res)['judgment']).toBe('needs-confirm');
+    const asked = text(res);
+    expect(asked['judgment']).toBe('needs-confirm');
+    // …carrying the RECEIPTS the host shows the human, intact across JSON/the wire:
+    const receipts = asked['receipts'] as { willDo: { does: string; writes?: string[] }; youAreOn: string };
+    expect(receipts.willDo).toMatchObject({ does: 'Place the order', writes: ['orders'] });
+    expect(receipts.youAreOn).toBe('checkout');
+    expect(typeof asked['askId']).toBe('string');
     // …and the host confirming (calling again with confirm:true) actually fires it:
     const fired = await client.callTool({
       name: 'shop.skill.purchase',
       arguments: { step: 'place-order', confirm: true },
     });
     expect(text(fired)['did']).toBe('checkout.place-order');
+    // the confirmed fire closed the ask as approved, linked to the transition:
+    const chain = session.confirms();
+    expect(chain.map((c) => c.kind)).toEqual(['ask', 'approved']);
+    expect(chain[1].askId).toBe(asked['askId']);
   });
 
   it('produced data (a handler return) travels IN the tool result over MCP', async () => {
