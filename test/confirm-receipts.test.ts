@@ -309,7 +309,6 @@ describe('Mode B — receipts + decline over the serve layer', () => {
     expect(JSON.parse(JSON.stringify(receipts))).toEqual(receipts);
     // whole needs-confirm result serializes cleanly (mcp-server JSON.stringifies it)
     expect(() => JSON.stringify(asked)).not.toThrow();
-    session; // (chain asserted elsewhere)
     const chain = session.confirms();
     expect(JSON.parse(JSON.stringify(chain))).toEqual(chain);
   });
