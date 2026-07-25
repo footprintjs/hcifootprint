@@ -184,6 +184,21 @@ describe('testApp — bring-your-own session (integration fidelity)', () => {
     expect(result.ok).toBe(true);
     app.expectState({ cartCount: 1 });
   });
+
+  it('a BYO session with nothing bound: the agent facade surfaces NOT_MATERIALIZED, the user facade still works', async () => {
+    const graph = shopGraph();
+    const session = graph.createSession({ node: 'catalog', state: { cartCount: 0 } });
+    const app = testApp<ShopState>({ session }); // no registerToolGroup: nothing is wired
+
+    const acted = await app.agent.do('catalog.add-to-cart');
+    expect(acted).toMatchObject({ ok: false, judgment: 'rejected', reason: 'NOT_MATERIALIZED' });
+    app.expectState({ cartCount: 0 }); // the app never moved
+
+    // The user facade reports the app's OWN motion — never gated. (fireRaw: with
+    // nothing bound, the app's own tap is what would settle it.)
+    const clicked = app.user.fireRaw('catalog.add-to-cart');
+    expect(clicked.ok).toBe(true);
+  });
 });
 
 describe('testApp — pending window', () => {

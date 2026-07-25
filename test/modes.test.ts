@@ -32,6 +32,13 @@ function shopMap(): NavigationGraph {
 
 function freshPort() {
   const session = shopMap().createSession({ state: { cart: [] }, onWarn: () => undefined });
+  // The app binds its buttons (Phase 1). Since 0.3.0 an agent fire of a
+  // declared-but-unbound tool is refused NOT_MATERIALIZED — serving an agent
+  // means something is actually wired to execute.
+  session.registerToolGroup('catalog', {
+    handlers: { 'add-to-cart': () => undefined, 'go-checkout': () => undefined },
+  });
+  session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
   return { session, port: skillsAsTools(session) };
 }
 

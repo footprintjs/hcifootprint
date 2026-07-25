@@ -102,6 +102,10 @@ Extends the base `SessionOptions` (source: `src/atom/types.ts`) plus two tree-on
   errors, sensor drift). Default `console.warn`.
 - `captureProduced?: boolean` — capture each handler's RETURN value onto its transition
   (`produced`, sanitized + capped) as the "act → get data back" channel. Default true.
+- `allowUnmaterializedFires?: boolean` — let AGENT fires of declared-but-UNBOUND tools proceed as
+  honest no-ops (`executed: false` + `materialized: false` on the result, an `unmaterialized-fire`
+  gap row, `materialized: false` stamped on every served edge) instead of the default
+  `NOT_MATERIALIZED` rejection. For guide/tour/plan flows. Default false (fail-closed).
 - `dormantGraceMs?: number` — how long a registration outside the router-confirmed page may
   persist before drift telemetry fires. Default 3000ms.
 - `now?: () => number` — the clock the grace timers read (epoch ms). Default `Date.now`. Inject a
@@ -132,8 +136,13 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
 - `fire(affordanceId, opts)` — apply a transition. `opts` (`FireOptions`): `source` (Principal:
   `'user' | 'agent' | 'system' | 'unknown'`), `payload?`, `instance?`, `expectedVersion?`
   (optimistic-concurrency token from `available().version`), `invoke?` (default true; false =
-  record-only, for a DOM sensor). Returns `FireResult` — `{ ok: true, transition, version,
-  settlement: 'settled' | 'awaiting-state' }` or a typed `{ ok: false, reason, ... }` (see §6).
+  record-only, for a DOM sensor, or an external actuator that already executed the action).
+  Returns `FireResult` — `{ ok: true, transition, version, settlement: 'settled' | 'awaiting-state',
+  executed?: false, materialized?: false }` or a typed `{ ok: false, reason, ... }` (see §6).
+  **An agent fire of a tool nothing is bound to is refused `NOT_MATERIALIZED`** — firing it would
+  execute nothing. The app self-report tier (`source: 'user' | 'system'`, or `invoke: false`) is
+  never gated: that motion really happened. A session created with `allowUnmaterializedFires` lets
+  the no-op through and marks it `executed: false` + `materialized: false` instead.
 - `updateState(delta, opts?)` — the app reports a projected-state delta (router/store tap); pending
   fires settle. `opts` (`UpdateOptions`): `transitionId?` (settle THIS pending precisely — preferred
   over FIFO), `stimulus?`, `principal?`. Returns `UpdateResult`.
@@ -156,8 +165,10 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   `explain(id)`, `why(key)` (footprint backward causal slice).
 - Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
   unsubscribe fn. A throwing listener is isolated, never aborts the session.
-- Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire and every explicit `reportGap(...)`
-  becomes a token-lean, name-only row for demand-driven triage.
+- Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire (`kind: 'fire-rejected'`), every
+  explicit `reportGap(...)` (`kind: 'reported'`), and every allowed no-op tour fire
+  (`kind: 'unmaterialized-fire'` — the binding still to build) becomes a token-lean, name-only row
+  for demand-driven triage.
 - Confirm journal (D21): `confirmAsk(id)` → `{ askId, receipts }` (receipts = `willDo` / `because` guard
   evidence / `youAreOn` / `recentSteps`, assembled from live state); `declineConfirm(id, {by?, note?})`;
   `confirms()` / `onConfirm(row => ...)` — the auditable ask→decision→fire chain (a confirmed `fire()`
@@ -176,6 +187,10 @@ RESULT channel. Source: `src/serve/modes.ts`.
 import { skillsAsTools } from 'hcifootprint';
 
 const port = skillsAsTools(session);            // opts: { confirmHighEffect?: boolean=true, source?: Principal='agent' }
+// Leave `source` at 'agent' for any port a MODEL drives. It stamps the principal on every fire the
+// port makes, and the NOT_MATERIALIZED guarantee keys off it: a port stamping 'user'/'system' is
+// declaring app self-report, so its unbound fires are deliberately NOT gated and the success-shaped
+// no-op comes back. Only stamp a non-agent source for a port your own code drives.
 const tools = port.tools();                     // static MCPToolDescription[] — register with your host
 const result = port.call(name, args);           // route a tool_use; return `result` as the tool_result
 ```
@@ -215,10 +230,14 @@ produced data) are structured DATA fields. Fields you will encounter (source: `s
   completion `'done'`.
 - Position (always): `youAreOn` (current node), `version` (the total-order cursor).
 - Frame: `frame` (`'open' | 'completed' | 'cancelled' | 'demoted'`), `readySteps`
-  (`[{ step, does, highEffect?, guardUnevaluated?, expects? }]`), `laterSteps` (`[{ step, status }]`),
+  (`[{ step, does, highEffect?, guardUnevaluated?, materialized?, expects? }]` — `materialized: false`
+  means nothing is bound to execute that step), `laterSteps` (`[{ step, status }]`),
   `awaitingState?` (steps whose fire has not yet been reported back), `howToAct`.
 - Fire success: `did` (the step id fired), `settlement` (`'settled' | 'awaiting-state'`),
-  `transitionId` (fetch `producedFor(id)` after awaiting an async handler), `guardUnevaluated?`.
+  `transitionId` (fetch `producedFor(id)` after awaiting an async handler), `guardUnevaluated?`,
+  `executed?: false` + `materialized?: false` (an allowed unmaterialized tour fire — NOTHING ran),
+  `toNodeClaimed?: true` (the cursor moved on the edge's declared `goTo` CLAIM, not on an
+  observation — re-`sync()` before trusting `youAreOn`; see §5).
 - Fire rejection: `reason` (see §6), plus `evidence?` / `issues?` / `instances?` / `node?` /
   `expects?` / `retriable?` depending on the reason.
 
@@ -282,6 +301,12 @@ the readySteps in the write-step's own result were computed before the app moved
 for what comes next. (When there is no state tap, or the step declares no writes, `fire()` returns
 `settlement: 'settled'` immediately and no re-read wait applies — but re-reading is always safe.)
 
+**And re-`sync()` after any CLAIMED navigation.** A result carrying `toNodeClaimed: true` means the
+cursor moved on the graph's declared `goTo` — a claim about your app, not an observation (a bound
+handler completing does not confirm it either; only `sync()` does). Confirm the real page with
+`session.sync(routerPage)` before trusting `youAreOn`; a mismatch is reconciled and recorded as an
+unverified hop instead of silently diverging.
+
 ---
 
 ## 6. Typed rejection reasons
@@ -290,8 +315,10 @@ for what comes next. (When there is no state tap, or the step declares no writes
 `UNKNOWN_AFFORDANCE`, `STALE_CURSOR`, `NOT_ON_NODE`, `GUARD_FAILED` (with `evidence`),
 `PAYLOAD_INVALID` (with `issues`), `BLOCKED_BY_OVERLAY` (a shown modal masks the node),
 `NODE_NOT_VISIBLE`, `STILL_MOUNTING` (RETRIABLE — mounts not arrived yet), `INSTANCE_REQUIRED`,
-`INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out). Every refused fire is also a gap-ledger
-row. High-effect steps return `judgment: 'needs-confirm'` and never auto-cross — ask the human, then
+`INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out), `NOT_MATERIALIZED` (declared but
+unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with a
+tool group, or create the session with `allowUnmaterializedFires` for read-only touring). Every
+refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` and never auto-cross — ask the human, then
 call again with `confirm: true`.
 
 ---
@@ -317,6 +344,8 @@ decide instead of deferring (see §4). This is the one call that closes the guar
 Everything the runtime DERIVES rather than OBSERVES is flagged, never laundered as fact:
 `guardUnevaluated` (guard key absent from state), `activation: 'assumed'` (declared subtree,
 nothing registered), `presence: 'unknown'` (ambiguous mounted tabs), `materialized: false`
-(declared but no handler wired), `effectVerified: 'unobservable'` (no report to check against),
+(declared but no handler wired — on a served edge, and on a fire result together with
+`executed: false` when the fire itself ran nothing), `toNodeClaimed: true` (the cursor moved on a
+declared `goTo` claim, unconfirmed), `effectVerified: 'unobservable'` (no report to check against),
 `enumeration: 'mounted-window'` (instance list is partial). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.

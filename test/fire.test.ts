@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { skillGraph } from '../src/index.js';
-import { shop, initialState, okUpdate } from './fixture.js';
+import { shop, initialState, okUpdate, wire } from './fixture.js';
 
 const binding = { kind: 'element', locator: { role: 'button', name: 'Go' } } as const;
 
@@ -55,7 +55,7 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
 
   it('a missing declared write settles with effectVerified=false — the effect claim lied', () => {
     const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
-    s.fire('add-to-cart', { source: 'agent', payload: { productId: 'p1' } });
+    s.fire('add-to-cart', { source: 'user', payload: { productId: 'p1' } });
     const settled = okUpdate(s.updateState({ cart: [{ id: 'p1' }] })); // declared cartCount never arrived
     expect(settled.transition.effectVerified).toBe(false);
     expect(settled.transition.outcome).toBe('committed');
@@ -109,8 +109,8 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
     // stateTap: this session HAS a reporting tap (it just starts empty) — the
     // pending/attribution machinery below is exactly the with-tap contract.
     const s = g.createSession({ node: 'a', stateTap: true });
-    const a = s.fire('save-name', { source: 'agent' }) as { transition: { id: string } };
-    const b = s.fire('save-email', { source: 'agent' }) as { transition: { id: string } };
+    const a = s.fire('save-name', { source: 'user' }) as { transition: { id: string } };
+    const b = s.fire('save-email', { source: 'user' }) as { transition: { id: string } };
 
     // email handler resolves first — precise attribution beats FIFO
     const settledB = okUpdate(s.updateState({ email: 'a@b.c' }, { transitionId: b.transition.id }));
@@ -132,8 +132,8 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
       .affordance('save-email', { on: 'a', description: 'Save email', binding, effect: { writes: ['email'] } })
       .build();
     const s = g.createSession({ node: 'a', stateTap: true });
-    s.fire('save-name', { source: 'agent' });
-    s.fire('save-email', { source: 'agent' });
+    s.fire('save-name', { source: 'user' });
+    s.fire('save-email', { source: 'user' });
     const first = okUpdate(s.updateState({ email: 'a@b.c' })); // arrives out of order
     const second = okUpdate(s.updateState({ name: 'ada' }));
     expect(first.transition.cause.affordanceId).toBe('save-name'); // FIFO mis-attribution…
@@ -157,12 +157,12 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
       })
       .build();
     const s = g.createSession({ node: 'a' });
-    expect(s.fire('save', { source: 'agent', payload: {} })).toMatchObject({
+    expect(s.fire('save', { source: 'user', payload: {} })).toMatchObject({
       ok: false,
       reason: 'PAYLOAD_INVALID',
       issues: expect.stringContaining('name is required'),
     });
-    expect(s.fire('save', { source: 'agent', payload: { name: 'x' } })).toMatchObject({ ok: true });
+    expect(s.fire('save', { source: 'user', payload: { name: 'x' } })).toMatchObject({ ok: true });
   });
 
   it('reject() on a pending: no bundle, version bumps, later deltas are not attributed to it', () => {
@@ -198,13 +198,14 @@ describe('fire() — transitions with provenance, CAS, and settlement', () => {
       state: { ...initialState, authenticated: true },
       redactedKeys: ['authenticated'],
     });
-    const r = s.fire('add-to-cart', { source: 'agent', payload: { productId: 'p1' } });
+    const r = s.fire('add-to-cart', { source: 'user', payload: { productId: 'p1' } });
     const t = (r as { transition: { evidence?: { redacted: boolean; actualSummary: string }[] } }).transition;
     expect(t.evidence?.[0]).toMatchObject({ redacted: true, actualSummary: '[REDACTED]' });
   });
 
   it('every transition carries cause with principal — user and agent interleave in one log', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
+    wire(s, 'add-to-cart'); // the agent needs a real binding to act through
     s.fire('login', { source: 'user' });
     s.updateState({ authenticated: true, user: { name: 'ada' } });
     s.fire('add-to-cart', { source: 'agent', payload: { productId: 'p1' } });

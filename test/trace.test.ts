@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { arrayProvenance, causalChain, formatCausalChain } from 'footprintjs/trace';
-import { shop, initialState, okUpdate } from './fixture.js';
+import { shop, initialState, okUpdate, wire } from './fixture.js';
 import type { Session } from '../src/index.js';
 
 /** user logs in, agent adds two products, walks to checkout, places the order */
@@ -17,6 +17,9 @@ function playSession(commitValues?: 'full' | 'delta'): Session {
     redactedKeys: ['user'],
     ...(commitValues ? { commitValues } : {}),
   });
+  // The app has bound its buttons (Phase 1) — an agent fire of an unbound tool
+  // is a NOT_MATERIALIZED rejection since 0.3.0.
+  wire(s, 'add-to-cart', 'go-to-cart', 'proceed-to-checkout', 'place-order');
   s.fire('login', { source: 'user' });
   s.updateState({ authenticated: true, user: { name: 'ada' } });
   s.fire('add-to-cart', { source: 'agent', payload: { productId: 'p1' } });
@@ -105,6 +108,7 @@ describe('footprint trace toolchain over a UI session', () => {
 
   it('runtimeStageIds stay unique across unbounded revisits (monotonic counter)', () => {
     const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
+    wire(s, 'add-to-cart');
     for (let i = 0; i < 25; i++) {
       s.fire('add-to-cart', { source: 'agent', payload: { productId: `p${i}` } });
       s.updateState({ cart: [], cartCount: 0 });

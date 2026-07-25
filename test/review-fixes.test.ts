@@ -46,7 +46,7 @@ describe('sibling shown modals — never a mutual deadlock', () => {
   it('each shown modal serves its OWN tools; only the page outside is masked', () => {
     const session = checkoutMap().createSession({ node: 'checkout', onWarn: () => undefined });
     session.registerToolGroup('checkout.confirm-order');
-    session.registerToolGroup('checkout.size-help');
+    session.registerToolGroup('checkout.size-help', { handlers: { 'close-help': () => undefined } });
     const ids = session.available().edges.map((e) => e.affordanceId).sort();
     expect(ids).toEqual(['checkout.confirm-order.place-order', 'checkout.size-help.close-help']);
     expect(session.fire('checkout.edit-cart', { source: 'agent' })).toMatchObject({
@@ -117,7 +117,9 @@ describe('instances — the render cap must never cap fireability', () => {
       },
     });
     const ids = Array.from({ length: 60 }, (_, i) => `o-${i}`);
-    const session = map.createSession({ node: 'list', state: { ids } });
+    // Nothing is mounted: the story is the render cap vs fireability, so the
+    // session tours (an unbound agent fire is NOT_MATERIALIZED by default).
+    const session = map.createSession({ node: 'list', state: { ids }, allowUnmaterializedFires: true });
     const edge = session.available().edges[0];
     expect(edge.instances).toHaveLength(50); // render cap
     expect(session.fire('list.card.cancel', { source: 'agent', instance: 'o-55' }).ok).toBe(true);
@@ -190,6 +192,7 @@ describe('attribution — in-flight handlers never fabricate duplicates or stran
       .affordance('go-b', { on: 'a', description: 'Go b', binding, effect: { writes: ['x'], navigatesTo: 'b' } })
       .build();
     const session = graph.createSession({ node: 'a', state: {}, stateTap: true });
+    session.registerTools({ group: 'app', tools: { 'go-b': () => undefined } });
     const fired = session.fire('go-b', { source: 'agent' }) as { transition: { id: string } };
     session.sync('c'); // the router observed REAL navigation elsewhere
     session.updateState({ x: 1 }, { transitionId: fired.transition.id }); // late report settles the claim
@@ -269,7 +272,13 @@ describe('Mode B — the panel’s serve-layer findings', () => {
       },
       skills: { cancel_order: { does: 'Cancel an order', steps: ['cancel'] } },
     });
-    const session = map.createSession({ node: 'list', state: { ids: ['o-1', 'o-2'] } });
+    // A guide-mode port: no card is mounted, so the tour opt-in keeps these
+    // serve-layer stories about DISCLOSURE rather than execution.
+    const session = map.createSession({
+      node: 'list',
+      state: { ids: ['o-1', 'o-2'] },
+      allowUnmaterializedFires: true,
+    });
     return { session, port: skillsAsTools(session) };
   }
 
@@ -283,8 +292,13 @@ describe('Mode B — the panel’s serve-layer findings', () => {
     expect(fired['ok']).toBe(true);
   });
 
-  it('a step awaiting its state report is NOT re-advertised as ready', () => {
-    const { port } = repeatsPort();
+  it('a step awaiting its state report is NOT re-advertised as ready', async () => {
+    // This story needs a REAL pending fire, so the row is genuinely wired: an
+    // unmaterialized no-op executes nothing, so nothing will ever report for it
+    // and it settles at once rather than sitting in awaitingState.
+    const { session, port } = repeatsPort();
+    session.registerToolGroup('list.card', { instance: 'o-1', handlers: { cancel: () => undefined } });
+    await tick();
     port.call('orders.skill.cancel_order', {});
     const afterFire = port.call('orders.skill.cancel_order', { step: 'cancel', instance: 'o-1' });
     expect(afterFire['awaitingState']).toEqual(['list.card.cancel']);

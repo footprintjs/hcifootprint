@@ -29,7 +29,9 @@ function taplessGraph() {
 
 describe('rung-killer 1 — unevaluable guards serve with a marker', () => {
   it('no state at all (L0): every guarded edge is offered, marked, and fireable', () => {
-    const s = taplessGraph().createSession({ node: 'a' });
+    // L0 = guide mode: nothing is bound, so the tour opt-in is what makes an
+    // agent fire proceed (it is an honest no-op) instead of NOT_MATERIALIZED.
+    const s = taplessGraph().createSession({ node: 'a', allowUnmaterializedFires: true });
     const edge = s.available().edges.find((e) => e.affordanceId === 'guarded')!;
     expect(edge.guardUnevaluated).toEqual(['vip']);
     const fired = s.fire('guarded', { source: 'agent' });
@@ -81,7 +83,7 @@ describe('rung-killer 1 — unevaluable guards serve with a marker', () => {
 
 describe('rung-killer 2 — tapless sessions settle instead of pending forever', () => {
   it('no tap, no handler: a declared-writes fire settles immediately as unobservable', () => {
-    const s = taplessGraph().createSession({ node: 'a' });
+    const s = taplessGraph().createSession({ node: 'a', allowUnmaterializedFires: true });
     const fired = s.fire('save', { source: 'agent' });
     expect(fired).toMatchObject({ ok: true, settlement: 'settled' });
     expect((fired as { transition: { outcome: string; effectVerified?: unknown } }).transition).toMatchObject({

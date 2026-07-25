@@ -96,6 +96,7 @@ describe('commitSkill() / leaveSkill() — the frame lifecycle', () => {
     expect(cancelled.leaveSkill()!.status).toBe('cancelled'); // nothing fired
 
     const completed = g.createSession({ node: 'a' });
+    completed.registerTools({ group: 'app', tools: { 'step-1': () => undefined } });
     completed.commitSkill('one-step');
     completed.fire('step-1', { source: 'agent' });
     expect(completed.skillFrame()!.firedSteps).toEqual(['step-1']);

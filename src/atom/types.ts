@@ -232,6 +232,15 @@ export interface SessionOptions {
    * internal and should never reach the agent).
    */
   captureProduced?: boolean;
+  /**
+   * Let AGENT fires of declared-but-unbound tools proceed as honest no-ops
+   * (executed: false, materialized: false on the result) instead of the
+   * default NOT_MATERIALIZED rejection. For guide/tour/plan flows — the
+   * Phase-0 rung walking the graph without touching the app. Navigation
+   * claims still move the cursor (that is the tour); re-sync() before
+   * trusting position. Default false (fail-closed).
+   */
+  allowUnmaterializedFires?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,6 +353,15 @@ export interface TransitionRecord {
    * a human clicking the button directly with no ask outstanding).
    */
   askId?: string;
+  /**
+   * Present (false) only on an allowed unmaterialized fire (the
+   * `allowUnmaterializedFires` tour): the fire invoked NOTHING — nothing was
+   * bound to execute it — so every effect on this record is a claim, including
+   * any navigation. The same honesty stance as `toNodeClaimed` and
+   * `guardUnevaluated`: absence means normal, a stamped false means the
+   * library is telling you what it could not do.
+   */
+  materialized?: false;
 }
 
 export interface AvailableEdge {
@@ -447,7 +465,16 @@ export interface FireOptions {
 }
 
 export type FireResult =
-  | { ok: true; transition: TransitionRecord; version: number; settlement: 'settled' | 'awaiting-state' }
+  | {
+      ok: true;
+      transition: TransitionRecord;
+      version: number;
+      settlement: 'settled' | 'awaiting-state';
+      /** Present (false) only on an allowed unmaterialized agent fire: nothing ran. */
+      executed?: false;
+      /** Present (false) only on an allowed unmaterialized agent fire: nothing is bound. */
+      materialized?: false;
+    }
   | { ok: false; reason: 'UNKNOWN_AFFORDANCE'; available: string[] }
   | { ok: false; reason: 'STALE_CURSOR'; version: number }
   | { ok: false; reason: 'NOT_ON_NODE'; node: string }
@@ -463,7 +490,12 @@ export type FireResult =
   | { ok: false; reason: 'INSTANCE_REQUIRED'; instances: string[] }
   | { ok: false; reason: 'INSTANCE_UNKNOWN'; instances: string[] }
   /** RETRIABLE: the control is registered but currently greyed out (disabled). */
-  | { ok: false; reason: 'TOOL_DISABLED'; affordanceId: string };
+  | { ok: false; reason: 'TOOL_DISABLED'; affordanceId: string }
+  /** Declared but nothing is bound: an agent fire would execute NOTHING (register
+   *  a tool group, or opt the session into read-only touring via
+   *  allowUnmaterializedFires). The app-self-report tier (source 'user'/'system'
+   *  or invoke:false) is never gated — that motion really happened. */
+  | { ok: false; reason: 'NOT_MATERIALIZED'; affordanceId: string };
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -516,11 +548,16 @@ export type GapReason =
   | 'other';
 
 /**
- * One row of unmet demand. Two kinds:
- * - 'fire-rejected' — an attempted action the session refused (unknown id,
+ * One row of unmet demand. Three kinds:
+ * - 'fire-rejected'      — an attempted action the session refused (unknown id,
  *   failed guard, wrong page, stale plan, bad payload). Recorded automatically.
- * - 'reported'      — an ask no available action or skill could serve,
+ * - 'reported'           — an ask no available action or skill could serve,
  *   reported explicitly (typically by the agent's report_gap tool).
+ * - 'unmaterialized-fire' — an ALLOWED no-op agent fire: the session runs with
+ *   `allowUnmaterializedFires` (a guide/tour flow) and the tool it fired has no
+ *   binding, so nothing executed. Nothing was refused and nobody reported it —
+ *   it is the binding still to build. Tour rows are the demand backlog for
+ *   Phase-1 wiring: cluster them to see which handlers agents keep reaching for.
  *
  * Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
  * never descriptions or transcripts — so a consumer's batch triage LLM can
@@ -536,7 +573,7 @@ export type GapReason =
  * export via onGap and drain, like the transition log.
  */
 export interface GapRecord {
-  kind: 'fire-rejected' | 'reported';
+  kind: 'fire-rejected' | 'reported' | 'unmaterialized-fire';
   timestamp: number;
   node: string;
   version: number;
@@ -557,7 +594,8 @@ export interface GapRecord {
     | 'STILL_MOUNTING'
     | 'INSTANCE_REQUIRED'
     | 'INSTANCE_UNKNOWN'
-    | 'TOOL_DISABLED';
+    | 'TOOL_DISABLED'
+    | 'NOT_MATERIALIZED';
   principal?: Principal;
   evidence?: FilterCondition[];
   // reported rows:

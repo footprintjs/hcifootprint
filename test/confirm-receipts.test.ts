@@ -14,7 +14,7 @@
  * is imported across (this suite proves the shape stands on its own).
  */
 import { describe, expect, it } from 'vitest';
-import { shop, initialState, okUpdate } from './fixture.js';
+import { shop, initialState, okUpdate, wire } from './fixture.js';
 import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
 import type { ConfirmReceipts, ConfirmRecord, NavigationGraph } from '../src/index.js';
 
@@ -41,6 +41,11 @@ function shopMap(): NavigationGraph {
 /** Drive a Mode B port all the way to a needs-confirm on place-order. */
 function atNeedsConfirm() {
   const session = shopMap().createSession({ state: { cart: [] }, onWarn: () => undefined });
+  // The app binds its buttons: an agent fire of an unbound tool is refused.
+  session.registerToolGroup('catalog', {
+    handlers: { 'add-to-cart': () => undefined, 'go-checkout': () => undefined },
+  });
+  session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
   const port = skillsAsTools(session);
   port.call('shop.skill.purchase', {});
   port.call('shop.skill.purchase', { step: 'add-to-cart' });
@@ -77,6 +82,7 @@ describe('receipts ride the ask', () => {
 
   it('recentSteps carries a compact, injection-safe tail of the fire journal', () => {
     const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
+    wire(s, 'add-to-cart');
     s.fire('add-to-cart', { source: 'agent', payload: { productId: 'p1' } });
     okUpdate(s.updateState({ cart: ['p1'], cartCount: 1 })); // settle it committed
 
@@ -122,6 +128,7 @@ describe('receipts ride the ask', () => {
 describe('asks and decisions become records', () => {
   it('a confirmed fire closes the ask as approved and stamps askId on the transition', () => {
     const s = shop().createSession({ node: 'checkout', state: { cartCount: 2, authenticated: true } });
+    wire(s, 'place-order');
     const { askId } = s.confirmAsk('place-order', { source: 'agent' });
 
     const fired = s.fire('place-order', { source: 'agent' });
@@ -156,6 +163,7 @@ describe('asks and decisions become records', () => {
 
   it('asking twice while an ask is open supersedes it (one open ask per edge)', () => {
     const s = shop().createSession({ node: 'checkout', state: { cartCount: 2, authenticated: true } });
+    wire(s, 'place-order');
     const first = s.confirmAsk('place-order').askId;
     const second = s.confirmAsk('place-order').askId;
     expect(second).toBe(first);
@@ -272,6 +280,7 @@ describe('Mode B — receipts + decline over the serve layer', () => {
     });
     // ask
     const s1 = map.createSession({ state: {} });
+    s1.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
     const p1 = skillsAsTools(s1);
     const asked = p1.call('shop.do_action', { action: 'place-order' });
     expect(asked).toMatchObject({ ok: false, judgment: 'needs-confirm', action: 'checkout.place-order' });
@@ -282,6 +291,7 @@ describe('Mode B — receipts + decline over the serve layer', () => {
     expect(s1.confirms().map((c) => c.kind)).toEqual(['ask', 'approved']);
     // decline (fresh session)
     const s2 = map.createSession({ state: {} });
+    s2.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
     const p2 = skillsAsTools(s2);
     p2.call('shop.do_action', { action: 'place-order' });
     const declined = p2.call('shop.do_action', { action: 'place-order', decline: true });
@@ -291,6 +301,9 @@ describe('Mode B — receipts + decline over the serve layer', () => {
 
   it('a NON-high-effect edge is untouched — no ask, no receipts, no confirm rows', () => {
     const session = shopMap().createSession({ state: { cart: [] }, onWarn: () => undefined });
+    session.registerToolGroup('catalog', {
+      handlers: { 'add-to-cart': () => undefined, 'go-checkout': () => undefined },
+    });
     const port = skillsAsTools(session);
     port.call('shop.skill.purchase', {});
     const step = port.call('shop.skill.purchase', { step: 'add-to-cart' }); // low-effect

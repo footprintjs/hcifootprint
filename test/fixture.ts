@@ -4,7 +4,22 @@
  * high-effect marking, multi-page affordances, and a skill.
  */
 import { skillGraph } from '../src/index.js';
-import type { SkillGraph, TransitionRecord, UpdateResult } from '../src/index.js';
+import type { Session, SkillGraph, TransitionRecord, UpdateResult } from '../src/index.js';
+
+/**
+ * Phase-1 wiring: bind live handlers so an AGENT can really act. Since 0.3.0 an
+ * agent fire of a declared-but-UNBOUND tool is a NOT_MATERIALIZED rejection
+ * (firing it would execute nothing), so any test whose story is "the agent
+ * acts on a wired app" binds the app's side of the wire here. The handlers are
+ * inert on purpose: the app's state report still arrives through the test's own
+ * updateState() calls — the store tap a real app owns.
+ */
+export function wire(session: Session, ...toolIds: string[]): void {
+  session.registerTools({
+    group: 'app',
+    tools: Object.fromEntries(toolIds.map((id) => [id, () => undefined])),
+  });
+}
 
 /** Narrow an UpdateResult to its success arm (throws loudly on failure). */
 export function okUpdate(u: UpdateResult): {

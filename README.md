@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-273%20passing-f5b301?style=flat" alt="273 tests passing">
+  <img src="https://img.shields.io/badge/tests-324%20passing-f5b301?style=flat" alt="324 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -150,10 +150,24 @@ You don't wire everything at once. Adoption is a ladder, and the first rung need
 **Phase 0 — guide mode (read-only).** Wire only the two reporting calls: `sync()` when the router moves and
 `updateState()` when your store changes. Register nothing. The agent can now read the position and *plan* over
 the declared action space (`whats_here` / `available()`), but it acts on nothing — with no handlers bound,
-every offered edge is plannable-only. This rung is **zero-risk**: it cannot touch your app. The one rule is
-**never `fire()` an unregistered tool.** Firing records a transition your app never performed, which desyncs
-the cursor and mis-attributes the next real state report. In guide mode, move the cursor with `sync()` and
-`updateState()` only.
+every offered edge is plannable-only. This rung is **zero-risk**: it cannot touch your app.
+
+The one rule used to be *never `fire()` an unregistered tool* — **0.3.0 enforces it for you.** An
+agent-sourced fire of a tool nothing is bound to is a typed `NOT_MATERIALIZED` rejection: it would execute
+nothing, so it is refused rather than returning a success-shaped no-op the model reads as "it worked".
+(Your app reporting its *own* motion — `fire(id, { source: 'user' })`, `source: 'system'`, or the record-only
+`invoke: false` sensor — is never gated: that motion really happened.)
+
+Want the agent to walk the graph anyway — a tour, a plan preview, a guided demo? Opt in:
+
+```ts
+const session = graph.createSession({ node: 'catalog', allowUnmaterializedFires: true });
+```
+
+Fires then proceed as **honest no-ops**: the result carries `executed: false` and `materialized: false`,
+every served edge is stamped `materialized: false` before it is even offered, and each one lands an
+`unmaterialized-fire` row in the gap ledger — the binding your team has yet to build. Navigation claims still
+move the cursor (that is the tour) and say so with `toNodeClaimed: true`.
 
 **Phase 1 — register handlers.** As components mount, `registerToolGroup(path, { handlers })` binds your
 existing functions by reference, so firing runs the app's own code. Edges now report `materialized` (false =
@@ -258,6 +272,11 @@ can't double-fire it), and any step that depends on its write isn't ready yet. S
 `whats_here` (or re-opens the skill) after a write-step, rather than trusting the `readySteps` from the
 write's own result.
 
+**After a claimed navigation, re-`sync()`.** A fire whose edge declares `goTo` moves the session cursor on
+the *graph's claim* about your app, not on an observation — the result says so with `toNodeClaimed: true`
+(and `youAreOn` shows the claimed page). Confirm it from the router with `session.sync(realPage)` before
+trusting the position; if the app went somewhere else, `sync()` reconciles and records the real hop.
+
 ### Plug into any framework — or run a real MCP server
 
 hcifootprint is **not tied to any agent framework**. The library hands your host two functions:
@@ -319,6 +338,10 @@ session.onGap((row) => { … });  // or stream rows live (sugar for session.on('
 Rows are deliberately structured and name-only — the ask plus lists of available action/skill names, never
 descriptions or transcripts — so a batch triage LLM can cluster thousands of them cheaply.
 
+Three kinds of row: `fire-rejected` (the session refused an action), `reported` (the agent filed an ask
+nothing could serve), and `unmaterialized-fire` (a touring session let an agent fire a tool nothing is bound
+to — the *binding* to build, clustered for free alongside the rest).
+
 ---
 
 ## 🛟 Human-in-the-loop
@@ -371,7 +394,8 @@ sink live.
 
 Two properties do most of the safety work:
 
-- **It says what it can't see.** Anything the runtime *derives* rather than *observes* is flagged — `activation: 'assumed'`, `presence: 'unknown'`, `guardUnevaluated`. Every refused action returns a *typed* reason (`BLOCKED_BY_OVERLAY`, `STILL_MOUNTING`, `GUARD_FAILED`, …) and is logged, so the agent replans instead of hallucinating.
+- **It says what it can't see.** Anything the runtime *derives* rather than *observes* is flagged — `activation: 'assumed'`, `presence: 'unknown'`, `guardUnevaluated`. Every refused action returns a *typed* reason (`BLOCKED_BY_OVERLAY`, `STILL_MOUNTING`, `GUARD_FAILED`, `NOT_MATERIALIZED`, …) and is logged, so the agent replans instead of hallucinating.
+- **It never reports a no-op as success.** An agent fire that nothing is bound to execute is refused (`NOT_MATERIALIZED`) rather than settling a transition your app never performed; a tour that opts in (`allowUnmaterializedFires`) gets `executed: false` + `materialized: false` on the result instead of a silent lie. (The guarantee keys off `source: 'agent'` — a serving port created with `skillsAsTools(session, { source: 'user' })` is declaring *app self-report*, which is never gated, so never hand a model a port with a non-agent source.)
 - **Untrusted content can never become instructions.** Page text, product names, and user content ride a strict *data* channel; only your authored strings reach the planner's *instruction* channel. It's a firewall against prompt injection — proven in the demo by a product literally named `IGNORE PREVIOUS INSTRUCTIONS…`, which renders as harmless data everywhere.
 
 Under the hood, every action lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit

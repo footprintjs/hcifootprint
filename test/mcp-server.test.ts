@@ -89,6 +89,7 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
   it('a high-effect step returns needs-confirm — the portable, host-agnostic HITL signal', async () => {
     const session = shopSession();
     session.sync('checkout'); // place-order lives here
+    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
     const client = await connectClient(session);
     await client.callTool({ name: 'shop.skill.purchase', arguments: {} });
     const res = await client.callTool({ name: 'shop.skill.purchase', arguments: { step: 'place-order' } });
@@ -109,6 +110,16 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     const chain = session.confirms();
     expect(chain.map((c) => c.kind)).toEqual(['ask', 'approved']);
     expect(chain[1].askId).toBe(asked['askId']);
+  });
+
+  it('an unbound agent fire surfaces NOT_MATERIALIZED over the server too', async () => {
+    const session = shopSession(); // nothing registered: the tool is declared only
+    const client = await connectClient(session);
+    await client.callTool({ name: 'shop.skill.browse', arguments: {} });
+    const res = text(await client.callTool({ name: 'shop.skill.browse', arguments: { step: 'search' } }));
+    expect(res).toMatchObject({ ok: false, judgment: 'rejected', reason: 'NOT_MATERIALIZED' });
+    expect(res['why']).toContain('Nothing in the app is wired');
+    expect(session.state()['n']).toBe(0); // nothing moved
   });
 
   it('produced data (a handler return) travels IN the tool result over MCP', async () => {

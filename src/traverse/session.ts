@@ -123,6 +123,12 @@ export class Session {
   readonly #stateTap: boolean;
   /** Whether handler return values are captured onto records (act → data back). */
   readonly #captureProduced: boolean;
+  /**
+   * Whether an AGENT may fire a declared-but-unbound tool as an honest no-op
+   * (guide/tour flows) instead of being refused NOT_MATERIALIZED. Default false
+   * — fail closed, so a success-shaped no-op can never read as "it worked".
+   */
+  readonly #allowUnmaterialized: boolean;
   /** Fingerprint of the served structure at the last coalesced flush. */
   #structureFingerprint = '';
   #structureFlushScheduled = false;
@@ -172,6 +178,7 @@ export class Session {
     this.#node = opts.node;
     this.#stateTap = opts.stateTap ?? opts.state !== undefined;
     this.#captureProduced = opts.captureProduced ?? true;
+    this.#allowUnmaterialized = opts.allowUnmaterializedFires ?? false;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
     this.#heap = new SharedMemory(undefined, initial);
@@ -341,7 +348,10 @@ export class Session {
   // -------------------------------------------------------------------------
 
   available(): AvailableSlice {
-    const flagMaterialized = this.#registry.hasAny();
+    // A touring session (allowUnmaterializedFires) stamps the marker even with
+    // an empty registry: every edge honestly says "nothing is bound here"
+    // BEFORE the agent fires it, instead of staying silent.
+    const flagMaterialized = this.#registry.hasAny() || this.#allowUnmaterialized;
     const edges: AvailableEdge[] = [];
     for (const aff of Object.values(this.spec.affordances)) {
       if (!aff.on.includes(this.#node)) continue;
@@ -619,6 +629,25 @@ export class Session {
       this.recordRejection(affordanceId, 'TOOL_DISABLED', opts.source);
       return { ok: false, reason: 'TOOL_DISABLED', affordanceId };
     }
+    // The session is an AGENT's only actuator: with nothing bound and invoke
+    // wanted, firing would execute nothing — a success-shaped no-op. Fail closed
+    // (the guardUnevaluated stance: never launder a claim as a fact). The app
+    // self-reporting its OWN motion (source 'user'/'system', or invoke:false)
+    // is real motion and passes untouched. Last in the taxonomy order, so a
+    // greyed tool still says TOOL_DISABLED and a mounting one STILL_MOUNTING.
+    const unmaterialized =
+      opts.invoke !== false && this.handlerFor(affordanceId, opts) === undefined;
+    const honestNoOp = unmaterialized && opts.source === 'agent';
+    if (honestNoOp && !this.#allowUnmaterialized) {
+      this.recordRejection(affordanceId, 'NOT_MATERIALIZED', opts.source);
+      return { ok: false, reason: 'NOT_MATERIALIZED', affordanceId };
+    }
+    if (honestNoOp) {
+      // Allowed tour fire: the binding the app team still has to build.
+      this.#recordUnmaterializedFire(affordanceId, opts.source);
+    }
+    // Only ever present on the allowed-no-op path — absence means normal.
+    const noOpMarks = honestNoOp ? ({ executed: false, materialized: false } as const) : {};
 
     const record: TransitionRecord = {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
@@ -632,6 +661,9 @@ export class Session {
       ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
       fromNode: this.#node,
       cursorVersion: this.#version,
+      // Nothing executed: every effect on this record — including any
+      // navigation — is a claim (the tour's honesty marker).
+      ...(honestNoOp ? { materialized: false as const } : {}),
     };
     // A confirmed high-effect fire closes its open ask: stamp askId on the
     // record and land the 'approved' decision BEFORE the first emit, so every
@@ -641,29 +673,52 @@ export class Session {
     this.#version++; // firing changes the world the next plan must see
 
     const declaredWrites = aff.effect?.writes ?? [];
-    if (declaredWrites.length > 0 && this.#stateTap) {
+    // An allowed no-op never pends on the state tap: nothing ran, so no report
+    // is coming for it. Pending here would (a) hang 'awaiting-state' forever and
+    // (b) let the NEXT real app report settle this phantom by FIFO — certifying
+    // the agent's no-op as the verified cause of motion a human performed. It
+    // settles unobservably below instead.
+    if (declaredWrites.length > 0 && this.#stateTap && !honestNoOp) {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
       this.#invokeHandler(record, affordanceId, opts);
-      return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state' };
+      return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state', ...noOpMarks };
     }
     if (declaredWrites.length > 0) {
-      // No state tap: nothing will ever report a delta. A registered handler
-      // settles this record on ITS completion; with nothing to execute, settle
-      // now. Either way effectVerified is honestly 'unobservable'.
+      // Nothing will ever report a delta for this record — either the session
+      // has no state tap, or it is an allowed no-op that ran nothing. A
+      // registered handler settles on ITS completion; with nothing to execute,
+      // settle now. Either way effectVerified is honestly 'unobservable'.
       const willExecute = opts.invoke !== false && this.handlerFor(affordanceId, opts) !== undefined;
       if (willExecute) {
         this.#pending.push({ record, affordance: aff, settleOnCompletion: true });
         this.#invokeHandler(record, affordanceId, opts);
-        return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state' };
+        return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state', ...noOpMarks };
       }
       this.#settle(record, aff, {}, { forceUnobservable: true });
       this.#invokeHandler(record, affordanceId, opts);
-      return { ok: true, transition: record, version: this.#version, settlement: 'settled' };
+      return { ok: true, transition: record, version: this.#version, settlement: 'settled', ...noOpMarks };
     }
     this.#settle(record, aff, {});
     this.#invokeHandler(record, affordanceId, opts);
-    return { ok: true, transition: record, version: this.#version, settlement: 'settled' };
+    return { ok: true, transition: record, version: this.#version, settlement: 'settled', ...noOpMarks };
+  }
+
+  /**
+   * Ledger an ALLOWED no-op agent fire (allowUnmaterializedFires): nothing was
+   * refused, so it is not a 'fire-rejected' row — it is the missing binding.
+   * Same token-lean shape as every other gap row; exporters see it via onGap.
+   */
+  #recordUnmaterializedFire(affordanceId: string, principal: Principal): void {
+    this.#pushGap({
+      kind: 'unmaterialized-fire',
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      ...this.#gapContext(),
+      affordanceId,
+      principal,
+    });
   }
 
   /**
@@ -1560,6 +1615,7 @@ export class Session {
       const flags: string[] = [];
       if (t.cause.inferred) flags.push('inferred, not observed');
       if (aff?.highEffect) flags.push('high-effect');
+      if (t.materialized === false) flags.push('not materialized — nothing executed');
       if (t.toNodeClaimed) flags.push('navigation claimed, unconfirmed');
       if (t.outcome === 'pending') flags.push('awaiting app state');
       if (t.outcome === 'rejected' || t.outcome === 'rolled-back' || t.outcome === 'superseded') {

@@ -96,6 +96,11 @@ const WHY_DESCRIPTION =
   'Explain why a state key currently holds its value: the causal chain of session actions — and ' +
   'who fired each one — that produced it. Pass a state key name seen in results or guards.';
 
+const NOT_MATERIALIZED_WHY =
+  'Nothing in the app is wired to execute this action yet — firing it would do nothing. ' +
+  'Tell the human it is not available; the app team can register a tool group to wire it, ' +
+  'or create the session with allowUnmaterializedFires for read-only touring.';
+
 const STEP_INPUT_SCHEMA = {
   type: 'object',
   properties: {
@@ -363,6 +368,8 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           does: step.description,
           ...(edge?.highEffect ? { highEffect: true } : {}),
           ...(step.guardUnevaluated ? { guardUnevaluated: step.guardUnevaluated } : {}),
+          // Declared here but nothing is bound: firing it executes nothing.
+          ...(edge?.materialized === false ? { materialized: false } : {}),
           ...expectsData(edge?.schema),
         };
       }),
@@ -386,6 +393,11 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
         // Copy: fired.transition is the LIVE record — a consumer mutating its
         // result must never rewrite the trace.
         ...(fired.transition.guardUnevaluated ? { guardUnevaluated: [...fired.transition.guardUnevaluated] } : {}),
+        // Honest no-op (allowUnmaterializedFires tour): nothing ran, nothing is bound.
+        ...(fired.executed === false ? { executed: false, materialized: false } : {}),
+        // Navigation moved on a CLAIM (effect.navigatesTo), not an app confirmation —
+        // youAreOn already shows the claimed position; this flags it as unconfirmed.
+        ...(fired.transition.toNodeClaimed ? { toNodeClaimed: true } : {}),
       };
     }
     return {
@@ -399,6 +411,8 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       ...('node' in fired ? { node: fired.node } : {}),
       ...(fired.reason === 'PAYLOAD_INVALID' ? expectsData(edge?.schema) : {}),
       ...(fired.reason === 'STILL_MOUNTING' ? { retriable: true } : {}),
+      // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
+      ...(fired.reason === 'NOT_MATERIALIZED' ? { why: NOT_MATERIALIZED_WHY } : {}),
     };
   }
 
@@ -408,6 +422,8 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       does: edge.description,
       ...(edge.highEffect ? { highEffect: true } : {}),
       ...(edge.guardUnevaluated ? { guardUnevaluated: edge.guardUnevaluated } : {}),
+      // Nothing is bound to execute this one — visible BEFORE the agent fires it.
+      ...(edge.materialized === false ? { materialized: false } : {}),
       ...(edge.instances ? { instances: edge.instances, enumeration: edge.enumeration } : {}),
       ...(edge.activation && edge.activation !== 'registered' && edge.activation !== 'synced'
         ? { activation: edge.activation }

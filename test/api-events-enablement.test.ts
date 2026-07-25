@@ -30,13 +30,15 @@ describe('events — a passive observer surface (never business logic)', () => {
     session.on('state', () => (seen.state += 1));
     session.on('structure', () => (seen.structure += 1));
 
+    // The app binds its button first: since 0.3.0 an agent fire of an unbound
+    // tool is a NOT_MATERIALIZED rejection (it would execute nothing).
+    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.fire('catalog.add-to-cart', { source: 'agent' }); // transition (pending)
     session.updateState({ cart: ['x'] }); // settle → transition + state
     expect(seen.transition).toBeGreaterThanOrEqual(2);
     expect(seen.state).toBe(1);
 
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
-    await tick(); // coalesced structure swap
+    await tick(); // coalesced structure swap from the registration
     expect(seen.structure).toBeGreaterThanOrEqual(1);
 
     offT();
@@ -48,6 +50,7 @@ describe('events — a passive observer surface (never business logic)', () => {
   it("a throwing listener is isolated — it never breaks the session", () => {
     const warnings: string[] = [];
     const session = shop().createSession({ node: 'catalog', state: { cart: [] }, onWarn: (m) => warnings.push(m) });
+    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.on('transition', () => {
       throw new Error('observer exploded');
     });
@@ -58,6 +61,7 @@ describe('events — a passive observer surface (never business logic)', () => {
 
   it('the transition payload is a copy — a listener cannot mutate the log', () => {
     const session = shop().createSession({ node: 'catalog', state: { cart: [] } });
+    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.on('transition', (t: TransitionRecord) => {
       (t as { fromNode: string }).fromNode = 'TAMPERED';
     });
@@ -172,6 +176,7 @@ describe('observer completeness + copy safety (review fixes)', () => {
 
   it('a transition listener cannot corrupt the log via nested payload/produced', () => {
     const session = shop().createSession({ node: 'catalog', state: { cart: [] } });
+    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.on('transition', (t) => {
       if (t.payload) (t.payload as { sku: string }).sku = 'TAMPERED';
     });

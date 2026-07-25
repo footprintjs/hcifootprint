@@ -187,9 +187,22 @@ describe('STILL_MOUNTING — retriable, never a fake GUARD_FAILED', () => {
     expect(fired.ok).toBe(true);
   });
 
-  it('with NO mounts anywhere (pure L0), fires proceed exactly as v1', () => {
+  it('with NO mounts anywhere (pure L0), an agent fire is NOT_MATERIALIZED — a tour opts in', () => {
     const session = shopMap().createSession({ onWarn: () => undefined });
-    expect(session.fire('catalog.filter-rail.set-color', { source: 'agent', payload: {} }).ok).toBe(true);
+    // Nothing is bound anywhere: firing would execute nothing, so it is refused
+    // (not a fake STILL_MOUNTING — nothing is en route either).
+    expect(session.fire('catalog.filter-rail.set-color', { source: 'agent', payload: {} })).toMatchObject({
+      ok: false,
+      reason: 'NOT_MATERIALIZED',
+    });
+    // The app self-reporting its OWN motion is untouched — that motion happened.
+    expect(session.fire('catalog.filter-rail.set-color', { source: 'user', payload: {} }).ok).toBe(true);
+    const tour = shopMap().createSession({ onWarn: () => undefined, allowUnmaterializedFires: true });
+    expect(tour.fire('catalog.filter-rail.set-color', { source: 'agent', payload: {} })).toMatchObject({
+      ok: true,
+      executed: false,
+      materialized: false,
+    });
   });
 });
 
@@ -265,7 +278,13 @@ describe('repeats — one parameterized tool, instance keys as data', () => {
   });
 
   it('the selector owns existence (L2): scrolled-out instances are fireable; unknown ones are not', () => {
-    const session = shopMap().createSession({ node: 'orders', state: { orderIds: ['o-1', 'o-2'] } });
+    // Nothing is mounted here — the point is that the SELECTOR decides which
+    // instances exist, so the session tours (allowUnmaterializedFires).
+    const session = shopMap().createSession({
+      node: 'orders',
+      state: { orderIds: ['o-1', 'o-2'] },
+      allowUnmaterializedFires: true,
+    });
     const edge = session.available().edges.find((e) => e.affordanceId === 'orders.order-card.cancel-order')!;
     expect(edge.instances).toEqual(['o-1', 'o-2']);
     expect(edge.enumeration).toBe('selector');
