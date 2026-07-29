@@ -36,6 +36,12 @@ export { matchRoute } from './graph/route-match.js';
 export type { RoutedPages } from './graph/route-match.js';
 export { Session } from './traverse/session.js';
 export type { RegisteredTools, RegisterToolsOptions } from './traverse/session.js';
+// Growable graph sources — the descriptions the app already owns become graph
+// input: fromRoutes seeds pages (the spine), fromJourneys seeds skills (the
+// overlay). Leaf modules: importing one never drags session machinery.
+export { fromRoutes } from './graph/sources/from-routes.js';
+export { fromJourneys } from './graph/sources/from-journeys.js';
+export type { GraphSource, JourneysSource, RoutesSource } from './graph/sources/types.js';
 // The navigation graph: buildNavigationGraph() authoring, InteractionSession runtime
 export { buildNavigationGraph } from './tree/appmap.js';
 export type {

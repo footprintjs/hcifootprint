@@ -22,13 +22,11 @@ import type {
   Skill,
   SkillGraphSpec,
 } from '../atom/types.js';
-import { SkillGraphValidationError, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
+import { SkillGraphValidationError, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
+import { mergeSources } from '../graph/sources/merge.js';
 import { InteractionSession } from '../traverse/nav-session.js';
 import type { InteractionSessionOptions } from '../traverse/nav-session.js';
 import type { NavigationGraph, NavigationGraphDef, NodePathsOf, MapNode, NodeDef, ToolDef } from './types.js';
-
-/** Segment names become path/registry/MCP identities — keep the delimiters out. */
-const BAD_SEGMENT = /[.[\]#/|]/;
 
 /**
  * Compile a navigation graph. The `const` type parameter preserves the literal
@@ -37,9 +35,16 @@ const BAD_SEGMENT = /[.[\]#/|]/;
  */
 export function buildNavigationGraph<const Def extends NavigationGraphDef>(
   id: string,
-  def: Def,
+  rawDef: Def,
 ): NavigationGraph<NodePathsOf<Def>> {
   if (!id || !id.trim()) throw new SkillGraphValidationError('buildNavigationGraph(id) requires a non-empty id.');
+  // Declared sources fold into ONE plain def BEFORE the walk, so every pass
+  // below (checkSegment, compileTool, resolveStep, freeze) runs unchanged on
+  // merged input. A def without sources takes the identity path — it compiles
+  // bit-for-bit as it did before sources existed.
+  const def: NavigationGraphDef = rawDef.sources && rawDef.sources.length > 0 ? mergeSources(rawDef) : rawDef;
+  // The no-pages refusal judges the EFFECTIVE graph: a def whose only pages
+  // come from fromRoutes(...) is a complete graph, not an empty one.
   if (!def.pages || Object.keys(def.pages).length === 0) {
     throw new SkillGraphValidationError(`buildNavigationGraph '${id}' has no pages — declare at least one.`);
   }
@@ -286,15 +291,6 @@ function deriveRole(tool: ToolDef): CanonicalRole {
   if (tool.role) return tool.role;
   if (tool.goTo) return 'next';
   return 'action';
-}
-
-function checkSegment(owner: string, name: string): void {
-  if (!name || !name.trim()) throw new SkillGraphValidationError(`${owner}: empty name.`);
-  if (BAD_SEGMENT.test(name)) {
-    throw new SkillGraphValidationError(
-      `${owner}: '${name}' contains a reserved character (. [ ] # / |) — names become path identities.`,
-    );
-  }
 }
 
 function rejectEmptyWhen(owner: string, when: WhereFilter): void {

@@ -1,5 +1,43 @@
 # Changelog
 
+## [Unreleased]
+
+The graph now GROWS from what the app already has. An app owns descriptions of
+itself — a route table, a set of journeys — and until now each had to be
+re-typed by hand into the definition, where the copy drifts the moment either
+side edits. `buildNavigationGraph` accepts growable **sources**, and the graph
+reads the owner's truth instead of copying it.
+
+### Added (static graph sources)
+- `fromRoutes(table)` — the app's route table becomes the page SPINE. Page
+  names are explicit (the table's keys — this library does not guess a name
+  from `/orders/:id`); a route contributes a page, never an action. Seeded
+  pages are found again by `matchRoute` for the URLs their routes describe,
+  because both sides share one segment law.
+- `fromJourneys(journeys)` — the app's journeys become skills, in SkillDef2's
+  own vocabulary (`does`/`steps`/`when`). A journey's meaning is judged by the
+  compiler's existing skills pass: unknown or ambiguous steps die in the
+  builder's existing voice.
+- `sources` on `NavigationGraphDef`, folded in BEFORE the compiler's walk
+  under ONE documented merge order: **"Pages first (routes then hand-authored,
+  hand-authored wins), journeys overlay second and may only add, live actions
+  attach last and only bind — nothing later in the order may remove anything
+  earlier."** (Live sources arrive in a later release; the order already
+  reserves their place.) Hand-authored wins per page id with one courtesy — a
+  hand page missing `route` inherits the source's route; the same page
+  declaring two DIFFERENT routes is refused loudly (drift made visible), with
+  route equality judged by the matcher's own segment reading, never string
+  bytes. A hand-authored skill wins over a same-id journey silently
+  (deterministic and documented). Two sources of the same kind colliding on an
+  id are refused loudly — ambiguous authorship.
+- Typed node paths now include routes-source pages: `registerToolGroup('home')`
+  compiles when `home` came from `fromRoutes`, and a typo is still a compile
+  error.
+
+Non-breaking by construction: a def without `sources` takes the identity path
+and compiles bit-for-bit as before; `fromRoutes`/`fromJourneys` are leaf
+modules, so importing one never drags session machinery into a bundle.
+
 ## [0.4.0] - 2026-07-29
 
 `fire()` now tells you what actually happened. Three workarounds the Hodgkin FE POC team

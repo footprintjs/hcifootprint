@@ -19,6 +19,9 @@
  */
 import type { WhereFilter } from 'footprintjs';
 import type { Binding, CanonicalRole, SkillGraphSpec } from '../atom/types.js';
+// Type-only cycle with graph/sources/types.ts (it names PageNodeDef/SkillDef2,
+// we name GraphSource) — erased at build, so no runtime cycle exists.
+import type { GraphSource } from '../graph/sources/types.js';
 import type { InteractionSession, InteractionSessionOptions } from '../traverse/nav-session.js';
 
 // ---------------------------------------------------------------------------
@@ -87,6 +90,20 @@ export interface NavigationGraphDef {
   /** Root-level multi-attach tools: offered on several PAGES at once. */
   tools?: Record<string, ToolDef & { on: string | string[] }>;
   skills?: Record<string, SkillDef2>;
+  /**
+   * Growable inputs the app ALREADY owns — fromRoutes(app.routes) seeds pages,
+   * fromJourneys(app.journeys) seeds skills — folded into this def BEFORE the
+   * compiler's walk, under ONE documented order:
+   *
+   *   "Pages first (routes then hand-authored, hand-authored wins), journeys
+   *    overlay second and may only add, live actions attach last and only
+   *    bind — nothing later in the order may remove anything earlier."
+   *
+   * Deterministic on purpose: nothing later in the order can remove anything
+   * earlier, so a traveler can trust the floor under their feet. A def without
+   * sources compiles exactly as before this field existed.
+   */
+  sources?: ReadonlyArray<GraphSource>;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,12 +121,27 @@ type ChildPaths<Prefix extends string, N> =
   | (N extends { tabs: infer T } ? BucketPaths<Prefix, T> : never)
   | (N extends { modals: infer M } ? BucketPaths<Prefix, M> : never);
 
-/** The union of every declared node path in a NavigationGraphDef literal. */
-export type NodePathsOf<Def> = Def extends { pages: infer P }
-  ? P extends Record<string, unknown>
-    ? { [K in keyof P & string]: K | ChildPaths<K, P[K]> }[keyof P & string]
-    : string
-  : string;
+/**
+ * Page ids contributed by routes sources in a def literal. fromRoutes carries
+ * its table's literal keys through `const` inference precisely so they can
+ * surface here: a source-contributed page is a REAL node on the compiled
+ * graph, so it must be a REAL typed path too — otherwise the guardrail would
+ * reject at compile time what the runtime happily serves.
+ */
+type SourcePagePaths<S> = S extends ReadonlyArray<infer Src>
+  ? Src extends { kind: 'routes'; pages: infer P }
+    ? keyof P & string
+    : never
+  : never;
+
+/** The union of every declared node path in a NavigationGraphDef literal — hand-authored pages and their children, plus routes-source pages. */
+export type NodePathsOf<Def> =
+  | (Def extends { pages: infer P }
+      ? P extends Record<string, unknown>
+        ? { [K in keyof P & string]: K | ChildPaths<K, P[K]> }[keyof P & string]
+        : string
+      : string)
+  | (Def extends { sources: infer S } ? SourcePagePaths<S> : never);
 
 // ---------------------------------------------------------------------------
 // Compiled (what buildNavigationGraph() returns — plain frozen data + index)

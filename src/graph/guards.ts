@@ -32,6 +32,25 @@ export class SkillGraphValidationError extends Error {
   }
 }
 
+/** Segment names become path/registry/MCP identities — keep the delimiters out. */
+const BAD_SEGMENT = /[.[\]#/|]/;
+
+/**
+ * The ONE segment-name law. It lived inside buildNavigationGraph; it lives
+ * here (the shared authoring-enforcement leaf) so graph sources can refuse a
+ * bad page/skill id at the factory with the SAME words the compiler would use
+ * at build — one law, two doors, zero drift. Behavior is byte-identical to the
+ * original appmap-private copy.
+ */
+export function checkSegment(owner: string, name: string): void {
+  if (!name || !name.trim()) throw new SkillGraphValidationError(`${owner}: empty name.`);
+  if (BAD_SEGMENT.test(name)) {
+    throw new SkillGraphValidationError(
+      `${owner}: '${name}' contains a reserved character (. [ ] # / |) — names become path identities.`,
+    );
+  }
+}
+
 /**
  * AND-compose a guard chain (root → leaf → own). Children may only NARROW:
  * the same key+operator appearing twice with different values is a

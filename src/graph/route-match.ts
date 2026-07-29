@@ -48,15 +48,18 @@ export type RoutedPages = Record<string, { route?: string }>;
  * trailing slash and a path served without one are the single most common way
  * a hand-written mapping fails, and normalizing only the path would reproduce
  * it here.
+ *
+ * Exported (non-barrel, internal) so graph sources judge route strings with
+ * the SAME reading the matcher uses — routing and matching can never disagree.
  */
-function segmentsOf(pathOrRoute: string): string[] {
+export function segmentsOf(pathOrRoute: string): string[] {
   const cut = pathOrRoute.search(/[?#]/);
   const bare = cut === -1 ? pathOrRoute : pathOrRoute.slice(0, cut);
   return bare.split('/').filter((segment) => segment.length > 0);
 }
 
-/** A `:param` segment matches any ONE segment; its name is never read. */
-function isParam(segment: string): boolean {
+/** A `:param` segment matches any ONE segment; its name is never read. Exported (non-barrel) with segmentsOf — one owner of segment semantics. */
+export function isParam(segment: string): boolean {
   return segment.startsWith(':');
 }
 
