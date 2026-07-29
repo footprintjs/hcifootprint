@@ -12,9 +12,10 @@
  * Mutation proof: fromLiveStore did not exist before this change, so the
  * probe importing it fails to build against pre-change src.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -84,3 +85,96 @@ function contributedFilesAssertable(files: string[]) {
     },
   });
 }
+
+/**
+ * THE SHIPPED-BYTES PROOF — same question, asked of dist instead of src.
+ *
+ * The src probes above prove the import GRAPH points the right way. They
+ * cannot prove what a consumer ships, because a consumer bundles dist/ under
+ * this package's package.json — and there `sideEffects: false` (package.json)
+ * is load-bearing, not decorative: the packaging recon measured the matchRoute
+ * probe at 510 B with the flag honored vs 11,337 B with annotations ignored.
+ * Only a dist-level bundle exercises that flag the way a real bundler does.
+ *
+ * Assertion surface (probe-verified): `metafile.inputs` lists every module
+ * merely PARSED (142 here) — the truth is `metafile.outputs[...].inputs`
+ * filtered to bytesInOutput > 0, the modules that CONTRIBUTED bytes.
+ *
+ * Ceilings are regression pins on measured reality, with headroom, so honest
+ * growth passes and a machinery leak fails: the trio bundled to 2,342 B and
+ * matchRoute alone to 510 B on the day these numbers were pinned.
+ *
+ * Mutation proof (run, then reverted): giving fromRoutes a USED value import
+ * — `import { InteractionSession } from '../../traverse/nav-session.js';`
+ * referenced inside the function body — and rebuilding flips the allowlist
+ * assertion with 31 leaked modules (session machinery + footprintjs). Note a
+ * BARE side-effect import does NOT flip it: it binds no exports, so the very
+ * `sideEffects: false` flag under test licenses bundlers to drop it — the
+ * regression this block guards is a leaf gaining a real value dependency.
+ */
+const distIndex = path.join(repoRoot, 'dist/index.js');
+// dist/graph/sources/*.js must ALSO exist — an older dist would still have
+// dist/index.js, and a probe against it would "pass" by testing stale bytes.
+const distSources = ['from-routes.js', 'from-journeys.js', 'from-live-store.js'].map((f) =>
+  path.join(repoRoot, 'dist/graph/sources', f),
+);
+
+/** Bundle symbols from the BUILT barrel; return contributors + total bytes. */
+async function bundleFromDist(symbols: string): Promise<{ files: string[]; bytes: number }> {
+  const result = await build({
+    stdin: {
+      // Absolute dist path: esbuild then resolves this package's own
+      // package.json for the sideEffects flag — the consumer's view.
+      contents: `export { ${symbols} } from '${distIndex}';`,
+      resolveDir: repoRoot,
+    },
+    bundle: true,
+    minify: true,
+    format: 'esm',
+    write: false,
+    metafile: true,
+    outdir: 'out',
+    logLevel: 'silent',
+  });
+  const [output] = Object.values(result.metafile!.outputs);
+  return {
+    files: Object.entries(output.inputs)
+      .filter(([, meta]) => meta.bytesInOutput > 0)
+      .map(([file]) => file),
+    bytes: output.bytes,
+  };
+}
+
+describe('the built package (dist) stays shakeable for a real consumer', () => {
+  beforeAll(() => {
+    // A gate, never a skip: without dist these tests would prove nothing,
+    // and silently skipping would report green on an unproven package.
+    for (const file of [distIndex, ...distSources]) {
+      if (!fs.existsSync(file)) {
+        throw new Error(`treeshake dist proof needs ${path.relative(repoRoot, file)} — run npm run build first`);
+      }
+    }
+  });
+
+  it('the source trio ships only dist/index.js + dist/graph/** — and stays under 15 KB', async () => {
+    const { files, bytes } = await bundleFromDist('fromRoutes, fromJourneys, fromLiveStore');
+    // Allowlist beats a blocklist: a NEW machinery directory would slip past
+    // a list of known-bad prefixes, but cannot slip past known-good ones.
+    const leaked = files.filter((f) => f !== 'dist/index.js' && !f.startsWith('dist/graph/'));
+    expect(leaked, 'modules outside dist/index.js + dist/graph/** leaked into the trio bundle').toEqual([]);
+    // Belt to the allowlist's braces: name the classic offenders so a failure
+    // in a future refactor reads as the sentence it is.
+    for (const forbidden of ['dist/traverse/', 'dist/tree/', 'dist/serve/', 'dist/presence/', 'dist/registry/', 'node_modules/footprintjs']) {
+      expect(files.filter((f) => f.includes(forbidden)), `bundle must not contain ${forbidden}`).toEqual([]);
+    }
+    expect(files.some((f) => f === 'dist/graph/sources/from-routes.js'), 'probe must actually pull the trio').toBe(true);
+    expect(bytes).toBeLessThanOrEqual(15 * 1024);
+  });
+
+  it('matchRoute alone stays a sub-kilobyte leaf (regression pin on 510 B)', async () => {
+    const { files, bytes } = await bundleFromDist('matchRoute');
+    const leaked = files.filter((f) => f !== 'dist/index.js' && !f.startsWith('dist/graph/'));
+    expect(leaked, 'modules outside dist/index.js + dist/graph/** leaked into the matchRoute bundle').toEqual([]);
+    expect(bytes).toBeLessThanOrEqual(1024);
+  });
+});
