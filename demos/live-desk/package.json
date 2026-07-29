@@ -1,0 +1,29 @@
+{
+  "name": "live-desk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "LIVE DESK — a support inbox whose actions arrive from the app's own store, and a panel wall that never states a fact the session did not return.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "verify": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && vitest run && vite build"
+  },
+  "dependencies": {
+    "agentfootprint": "^7.9.0",
+    "hcifootprint": "file:../..",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.0.0"
+  }
+}
