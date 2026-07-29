@@ -1,7 +1,7 @@
 /**
  * fromJourneys() — the journeys the app already owns become skills, overlaid
- * on the spine. One authoring vocabulary (does/steps/when — SkillDef2's own
- * field names), and one judge: a journey's MEANING is validated by the
+ * on the spine. One authoring vocabulary (does/steps/when — the JourneyDef
+ * shape), and one judge: a journey's MEANING is validated by the
  * compiler's existing skills pass, so unknown and ambiguous steps die in the
  * builder's existing voice, not a second dialect of it.
  *
@@ -24,7 +24,7 @@ const PAGES = {
 };
 
 describe('fromJourneys — the factory', () => {
-  it('reads SkillDef2 field names as-is and freezes the snapshot', () => {
+  it('reads JourneyDef field names as-is and freezes the snapshot', () => {
     const journey = { does: 'Buy end to end', steps: ['add-to-cart'], when: { authenticated: { eq: true } } };
     const src = fromJourneys({ purchase: journey });
     expect(src.kind).toBe('journeys');

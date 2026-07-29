@@ -1,5 +1,5 @@
 import { buildNavigationGraph, fromRoutes } from 'hcifootprint';
-import type { PageNodeDef, SkillDef2 } from 'hcifootprint';
+import type { JourneyDef, PageNodeDef } from 'hcifootprint';
 
 /**
  * WHAT THE SOURCES ACTUALLY CONTRIBUTED — computed, never counted by hand.
@@ -73,7 +73,7 @@ export function describeSourcesContribution(input: {
   /** The page blocks this app spells out by hand. */
   handPages: Record<string, PageNodeDef>;
   /** Skills this app spells out by hand — none, in this demo. */
-  handSkills?: Record<string, SkillDef2>;
+  handSkills?: Record<string, JourneyDef>;
 }): SourcesContribution {
   const { compiled, handPages } = input;
   const handSkills = input.handSkills ?? {};

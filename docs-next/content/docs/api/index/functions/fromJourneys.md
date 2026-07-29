@@ -6,7 +6,7 @@ title: fromJourneys
 
 > **fromJourneys**(`journeys`): [`JourneysSource`](/api/index/interfaces/JourneysSource)
 
-Defined in: [src/graph/sources/from-journeys.ts:19](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-journeys.ts#L19)
+Defined in: [src/graph/sources/from-journeys.ts:20](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-journeys.ts#L20)
 
 Read a journey list into a JourneysSource — a frozen snapshot of the app's truth.
 
@@ -14,7 +14,7 @@ Read a journey list into a JourneysSource — a frozen snapshot of the app's tru
 
 ### journeys
 
-`Record`\<`string`, [`SkillDef2`](/api/index/interfaces/SkillDef2)\>
+`Record`\<`string`, [`JourneyDef`](/api/index/interfaces/JourneyDef)\>
 
 ## Returns
 

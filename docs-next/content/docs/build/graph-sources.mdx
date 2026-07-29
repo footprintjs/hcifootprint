@@ -73,7 +73,7 @@ still a compile error.
 
 ## `fromJourneys` — skills overlay, and may only add
 
-A journey becomes a skill, in `SkillDef2`'s own vocabulary — `does` / `steps` / `when` — one
+A journey becomes a skill, written in the `JourneyDef` shape — `does` / `steps` / `when` — one
 authoring vocabulary, not a second dialect. Journeys compile through the existing skills
 pass, so an unknown or ambiguous step dies at build time in the builder's existing voice.
 Structurally, the output is skills-only: a journey **cannot** remove or hide a page action —

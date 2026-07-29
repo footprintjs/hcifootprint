@@ -4,7 +4,7 @@ title: MapNode
 
 # Interface: MapNode
 
-Defined in: [src/tree/types.ts:170](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L170)
+Defined in: [src/tree/types.ts:189](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L189)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/tree/types.ts:170](https://github.com/footprintjs/hcifootprint/
 
 > **children**: `string`[]
 
-Defined in: [src/tree/types.ts:181](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L181)
+Defined in: [src/tree/types.ts:200](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L200)
 
 Child NODE paths (tools are not children — see AppMap.toolNodes).
 
@@ -22,7 +22,7 @@ Child NODE paths (tools are not children — see AppMap.toolNodes).
 
 > `optional` **description?**: `string`
 
-Defined in: [src/tree/types.ts:187](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L187)
+Defined in: [src/tree/types.ts:206](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L206)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/tree/types.ts:187](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **guard?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:186](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L186)
+Defined in: [src/tree/types.ts:205](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L205)
 
 The node's OWN `when` (tool guards already carry the composed chain).
 
@@ -40,7 +40,7 @@ The node's OWN `when` (tool guards already carry the composed chain).
 
 > **id**: `string`
 
-Defined in: [src/tree/types.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L174)
+Defined in: [src/tree/types.ts:193](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L193)
 
 Last path segment.
 
@@ -50,7 +50,7 @@ Last path segment.
 
 > `optional` **instances?**: (`state`) => `string`[]
 
-Defined in: [src/tree/types.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L188)
+Defined in: [src/tree/types.ts:207](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L207)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [src/tree/types.ts:188](https://github.com/footprintjs/hcifootprint/
 
 > **kind**: [`NodeKind`](/api/index/type-aliases/NodeKind)
 
-Defined in: [src/tree/types.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L175)
+Defined in: [src/tree/types.ts:194](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L194)
 
 ***
 
@@ -76,7 +76,7 @@ Defined in: [src/tree/types.ts:175](https://github.com/footprintjs/hcifootprint/
 
 > **overlay**: `boolean`
 
-Defined in: [src/tree/types.ts:183](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L183)
+Defined in: [src/tree/types.ts:202](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L202)
 
 True for a blocking modal (kind 'modal' with blocks !== false).
 
@@ -86,7 +86,7 @@ True for a blocking modal (kind 'modal' with blocks !== false).
 
 > **page**: `string`
 
-Defined in: [src/tree/types.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L179)
+Defined in: [src/tree/types.ts:198](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L198)
 
 Owning page id (== path's first segment).
 
@@ -96,7 +96,7 @@ Owning page id (== path's first segment).
 
 > **parent**: `string` \| `null`
 
-Defined in: [src/tree/types.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L177)
+Defined in: [src/tree/types.ts:196](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L196)
 
 Parent path; null for pages.
 
@@ -106,7 +106,7 @@ Parent path; null for pages.
 
 > **path**: `string`
 
-Defined in: [src/tree/types.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L172)
+Defined in: [src/tree/types.ts:191](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L191)
 
 Dot path — the node's identity ('checkout.confirm-order').
 
@@ -116,4 +116,4 @@ Dot path — the node's identity ('checkout.confirm-order').
 
 > **repeats**: `boolean`
 
-Defined in: [src/tree/types.ts:184](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L184)
+Defined in: [src/tree/types.ts:203](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L203)

@@ -1,9 +1,11 @@
 /**
- * Type-level checks for buildNavigationGraph's typed node paths. This file is
- * NOT run — it must COMPILE (a bad path must be a type error). `npm run
- * typecheck` covers it. @ts-expect-error asserts the error exists.
+ * Type-level checks for buildNavigationGraph's typed node paths, and for the
+ * authoring types' NAMES. This file is NOT run — it must COMPILE (a bad path
+ * must be a type error). `npm run typecheck` covers it. @ts-expect-error
+ * asserts the error exists.
  */
 import { buildNavigationGraph, fromRoutes } from '../src/index.js';
+import type { JourneyDef, SkillDef2 } from '../src/index.js';
 
 const graph = buildNavigationGraph('shop', {
   pages: {
@@ -68,3 +70,23 @@ sourcesOnlySession.show('cart');
 
 // @ts-expect-error 'hom' is not a page any source declared
 sourcesOnlySession.registerToolGroup('hom');
+
+// -- JourneyDef, and the old name that still compiles ------------------------
+// `SkillDef2` was renamed to `JourneyDef` (no number-suffixed names on a public
+// surface) and left behind as a deprecated ALIAS, so 0.5.0 code keeps building.
+// This is the mutation proof for both halves: against a rename with no alias,
+// or an alias that is a lookalike shape rather than the same type, this file
+// fails `npm run typecheck`.
+const journey: JourneyDef = { does: 'Buy a dress end to end', steps: ['add-to-cart'] };
+const underTheOldName: SkillDef2 = journey;
+const andBackAgain: JourneyDef = underTheOldName;
+
+// Either name authors the same `skills:` block:
+buildNavigationGraph('shop-journeys', {
+  pages: { catalog: { tools: { 'add-to-cart': { does: 'Add' } } } },
+  skills: { purchase: andBackAgain },
+});
+
+// @ts-expect-error a journey's `does` is REQUIRED — the planner-facing sentence
+const noDoes: JourneyDef = { steps: ['add-to-cart'] };
+void noDoes;

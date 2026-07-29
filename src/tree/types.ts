@@ -19,7 +19,7 @@
  */
 import type { WhereFilter } from 'footprintjs';
 import type { Binding, CanonicalRole, SkillGraphSpec } from '../atom/types.js';
-// Type-only cycle with graph/sources/types.ts (it names PageNodeDef/SkillDef2,
+// Type-only cycle with graph/sources/types.ts (it names PageNodeDef/JourneyDef,
 // we name GraphSource) — erased at build, so no runtime cycle exists.
 import type { GraphSource } from '../graph/sources/types.js';
 import type { InteractionSession, InteractionSessionOptions } from '../traverse/nav-session.js';
@@ -77,12 +77,30 @@ export interface PageNodeDef extends NodeDef {
   route?: string;
 }
 
-export interface SkillDef2 {
+/**
+ * A named multi-step flow, in the navigation graph's authoring vocabulary.
+ *
+ * Named for the person WRITING it: a journey is the path someone takes through
+ * the app ("sign up", "buy a dress end to end"). What the agent reads is the
+ * compiled SKILL — `does` becomes its description, `when` its precondition,
+ * suffix steps resolve to qualified ids — which is the dual identity this
+ * whole authoring layer is built on (navigation in, skill graph out). The two
+ * vocabularies keep separate names on purpose: the compiled shape is `Skill`.
+ * An app that already keeps a journey list feeds it in with `fromJourneys()`.
+ */
+export interface JourneyDef {
   does: string;
   /** Steps by qualified path ('checkout.confirm-order.place-order') or unambiguous suffix ('place-order'). */
   steps: string[];
   when?: WhereFilter;
 }
+
+/**
+ * @deprecated Renamed to {@link JourneyDef} — a number-suffixed name has no
+ * business in a public surface. The alias keeps 0.5.0 code compiling and will
+ * be removed in a future major.
+ */
+export type SkillDef2 = JourneyDef;
 
 export interface NavigationGraphDef {
   does?: string;
@@ -97,7 +115,8 @@ export interface NavigationGraphDef {
   pages?: Record<string, PageNodeDef>;
   /** Root-level multi-attach tools: offered on several PAGES at once. */
   tools?: Record<string, ToolDef & { on: string | string[] }>;
-  skills?: Record<string, SkillDef2>;
+  /** Named multi-step flows: the journeys this graph can be planned over. */
+  skills?: Record<string, JourneyDef>;
   /**
    * Growable inputs the app ALREADY owns — fromRoutes(app.routes) seeds pages,
    * fromJourneys(app.journeys) seeds skills, fromLiveStore(app.actionStore)

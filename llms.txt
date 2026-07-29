@@ -63,7 +63,7 @@ Authoring vocabulary (all optional except where noted):
   - `input` — payload contract (Zod, JSON Schema, or any `.safeParse`/`.parse` validator).
   - `binding` — how to reach it on screen (ARIA role + name first); optional (handlers don't need it).
 - Root-level `tools` (multi-attach): a tool offered on several pages, each entry needs `on: string | string[]`.
-- `skills` — named multi-step flows. Fields (source: `SkillDef2`): `does` (REQUIRED planner text),
+- `skills` — named multi-step flows. Fields (source: `JourneyDef`): `does` (REQUIRED planner text),
   `steps` (REQUIRED, tool ids by qualified path or unambiguous suffix), `when` (precondition guard).
 - `repeats: true` on a container = a template (one parameterized tool for N cards). Optional
   `instances: (state) => string[]` is the complete instance set; without it, served lists fall

@@ -39,7 +39,7 @@
  */
 import { SkillGraphValidationError } from '../guards.js';
 import { isParam, segmentsOf } from '../route-match.js';
-import type { NavigationGraphDef, PageNodeDef, SkillDef2 } from '../../tree/types.js';
+import type { JourneyDef, NavigationGraphDef, PageNodeDef } from '../../tree/types.js';
 
 /**
  * A payload the merge can read as id → definition: a plain non-array object.
@@ -76,7 +76,7 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
   // in the documented order and overrides reuse the FIRST appearance's slot
   // (JS keeps an existing key's position on reassignment).
   const pages: Record<string, PageNodeDef> = Object.create(null) as Record<string, PageNodeDef>;
-  const skills: Record<string, SkillDef2> = Object.create(null) as Record<string, SkillDef2>;
+  const skills: Record<string, JourneyDef> = Object.create(null) as Record<string, JourneyDef>;
   let journeysContributed = false;
 
   // -- phase 1: sources, in declaration order ---------------------------------
@@ -107,7 +107,7 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         );
       }
       journeysContributed = true;
-      for (const [skillId, skill] of Object.entries<SkillDef2>(source.skills)) {
+      for (const [skillId, skill] of Object.entries<JourneyDef>(source.skills)) {
         if (Object.hasOwn(skills, skillId)) {
           throw new SkillGraphValidationError(
             `sources: skill '${skillId}' is declared by two journeys sources — ambiguous authorship; keep one owner.`,

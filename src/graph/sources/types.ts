@@ -17,7 +17,7 @@
  * time — createSession attaches it to each new session, exactly where the
  * order sentence reserved its place (last, bind-only).
  */
-import type { PageNodeDef, SkillDef2 } from '../../tree/types.js';
+import type { JourneyDef, PageNodeDef } from '../../tree/types.js';
 // Type-only imports from the session layer (erased at build): a source module
 // or a consumer importing these types never drags session machinery.
 import type { RegisteredToolDef, RegisterToolGroupOptions, ToolGroupHandle } from '../../traverse/nav-session.js';
@@ -36,7 +36,7 @@ export interface RoutesSource<PageIds extends string = string> {
 /** A journey list read as skills — overlaid on the spine; may only add. */
 export interface JourneysSource {
   readonly kind: 'journeys';
-  readonly skills: Record<string, SkillDef2>;
+  readonly skills: Record<string, JourneyDef>;
 }
 
 /**

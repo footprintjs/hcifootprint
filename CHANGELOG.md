@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed (naming — non-breaking)
+- **`SkillDef2` is now `JourneyDef`.** A number-suffixed name has no business in
+  a public surface; the digit only ever existed because `SkillDef` (the v1 flat
+  builder's shape, `description`/`steps`/`precondition`) had taken the obvious
+  one. The two types were never the same thing: `JourneyDef` is the AUTHORED
+  navigation-graph vocabulary (`does`/`steps`/`when`, steps by qualified path
+  or unambiguous suffix), and it COMPILES INTO the other — `does` becomes the
+  skill's description, `when` its precondition. That is this library's dual
+  identity (the consumer authors navigation, the agent reads skills), so the
+  authored side is now named for the person writing it: a journey is the path
+  someone takes through the app, and `fromJourneys()` already spoke that word.
+  `SkillDef2` remains as a deprecated type alias — 0.5.0 code keeps compiling.
+
 ## [0.5.0] - 2026-07-29
 
 **A real-world FE integration's ~350 lines of integration glue rewrites to 26 lines

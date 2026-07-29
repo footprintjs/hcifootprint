@@ -4,7 +4,7 @@ title: NavigationGraphDef
 
 # Interface: NavigationGraphDef
 
-Defined in: [src/tree/types.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L87)
+Defined in: [src/tree/types.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L105)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/tree/types.ts:87](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **does?**: `string`
 
-Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L88)
+Defined in: [src/tree/types.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L106)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **pages?**: `Record`\<`string`, [`PageNodeDef`](/api/index/interfaces/PageNodeDef)\>
 
-Defined in: [src/tree/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L97)
+Defined in: [src/tree/types.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L115)
 
 Hand-authored pages. Optional since sources exist: a def whose whole
 spine comes from `fromRoutes(...)` is the headline use case, and forcing
@@ -33,9 +33,11 @@ loudly with "has no pages".
 
 ### skills?
 
-> `optional` **skills?**: `Record`\<`string`, [`SkillDef2`](/api/index/interfaces/SkillDef2)\>
+> `optional` **skills?**: `Record`\<`string`, [`JourneyDef`](/api/index/interfaces/JourneyDef)\>
 
-Defined in: [src/tree/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L100)
+Defined in: [src/tree/types.ts:119](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L119)
+
+Named multi-step flows: the journeys this graph can be planned over.
 
 ***
 
@@ -43,7 +45,7 @@ Defined in: [src/tree/types.ts:100](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **sources?**: readonly [`GraphSource`](/api/index/type-aliases/GraphSource)[]
 
-Defined in: [src/tree/types.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L115)
+Defined in: [src/tree/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L134)
 
 Growable inputs the app ALREADY owns — fromRoutes(app.routes) seeds pages,
 fromJourneys(app.journeys) seeds skills, fromLiveStore(app.actionStore)
@@ -64,6 +66,6 @@ sources compiles exactly as before this field existed.
 
 > `optional` **tools?**: `Record`\<`string`, [`ToolDef`](/api/index/interfaces/ToolDef) & `object`\>
 
-Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
+Defined in: [src/tree/types.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L117)
 
 Root-level multi-attach tools: offered on several PAGES at once.

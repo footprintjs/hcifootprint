@@ -58,14 +58,16 @@ export type {
   NavigationGraph,
   NavigationGraphDef,
   NodePathsOf,
+  JourneyDef,
   MapNode,
   ModalDef,
   NodeDef,
   NodeKind,
   PageNodeDef,
-  SkillDef2,
   ToolDef,
 } from './tree/types.js';
+// Deprecated alias: JourneyDef's former name. Kept so 0.5.0 code still compiles.
+export type { SkillDef2 } from './tree/types.js';
 export { InteractionSession } from './traverse/nav-session.js';
 export type {
   RegisterToolGroupOptions,

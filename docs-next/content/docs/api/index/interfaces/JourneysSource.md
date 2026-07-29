@@ -20,6 +20,6 @@ Defined in: [src/graph/sources/types.ts:38](https://github.com/footprintjs/hcifo
 
 ### skills
 
-> `readonly` **skills**: `Record`\<`string`, [`SkillDef2`](/api/index/interfaces/SkillDef2)\>
+> `readonly` **skills**: `Record`\<`string`, [`JourneyDef`](/api/index/interfaces/JourneyDef)\>
 
 Defined in: [src/graph/sources/types.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L39)

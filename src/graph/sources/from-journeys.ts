@@ -1,7 +1,8 @@
 /**
  * fromJourneys() — the app's journey definitions become skills, overlaid on
- * the spine. SAME field names as SkillDef2 (does/steps/when): one authoring
- * vocabulary, nothing to translate.
+ * the spine. The app's list is read as-is: a JourneyDef is exactly what the
+ * def's own `skills:` block accepts (does/steps/when), so there is one
+ * authoring vocabulary and nothing to translate.
  *
  * Deliberately thin: a journey's MEANING is judged where every skill is
  * judged — the compiler's existing skills pass (missing does, empty steps,
@@ -12,14 +13,14 @@
  * Importing fromJourneys must never drag session machinery into a bundle.
  */
 import { SkillGraphValidationError, checkSegment } from '../guards.js';
-import type { SkillDef2 } from '../../tree/types.js';
+import type { JourneyDef } from '../../tree/types.js';
 import type { JourneysSource } from './types.js';
 
 /** Read a journey list into a JourneysSource — a frozen snapshot of the app's truth. */
-export function fromJourneys(journeys: Record<string, SkillDef2>): JourneysSource {
+export function fromJourneys(journeys: Record<string, JourneyDef>): JourneysSource {
   // Null prototype: a journey literally named '__proto__' must become a KEY,
   // not a prototype swap — same discipline as the compiler's containers.
-  const skills: Record<string, SkillDef2> = Object.create(null) as Record<string, SkillDef2>;
+  const skills: Record<string, JourneyDef> = Object.create(null) as Record<string, JourneyDef>;
   for (const [skillId, journey] of Object.entries(journeys)) {
     // Skill ids feed MCP tool names — same segment law as the compiler,
     // refused at the factory where the author is looking.

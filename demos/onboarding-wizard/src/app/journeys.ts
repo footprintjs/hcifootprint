@@ -1,11 +1,11 @@
-import type { SkillDef2 } from 'hcifootprint';
+import type { JourneyDef } from 'hcifootprint';
 
 /**
  * THE JOURNEY LIST — the multi-step tasks this product already describes to
  * itself (onboarding funnels, analytics names, the PM's spec). fromJourneys()
  * reads them as skills.
  *
- * SAME field names as the library's own SkillDef2 (does / steps / when): one
+ * The library's own JourneyDef IS this shape (does / steps / when): one
  * authoring vocabulary, nothing to translate, so this file is the app's
  * document and the graph's input at the same time.
  *
@@ -15,7 +15,7 @@ import type { SkillDef2 } from 'hcifootprint';
  * not know the page tree still compiles, or fails loudly saying which paths
  * collided.
  */
-export const JOURNEYS: Record<string, SkillDef2> = {
+export const JOURNEYS: Record<string, JourneyDef> = {
   signup: {
     does: 'Create an account: fill the profile, pick a plan, confirm the signup.',
     steps: ['save-profile', 'choose-plan', 'confirm-signup'],
