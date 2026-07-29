@@ -22,6 +22,11 @@
  *   carries the first caller's edit.
  * - the throw arms — return a never-resolving promise instead and every one of
  *   them hangs (which is the failure being fixed).
+ * - 'names a fire pending() cannot see' — implement awaitingSettlement() as
+ *   `pending().map(p => p.id)` and this reads [] while the handler is running.
+ * - 'one list, one law' — point #noSettlementMessage at pending() instead of
+ *   the door and this fails: the sentence would name no fire while the door
+ *   names a live one.
  */
 import { describe, expect, it } from 'vitest';
 import { skillGraph } from '../src/index.js';
@@ -190,6 +195,73 @@ describe('settlementOf() — how a fire came to rest, asked later', () => {
     // pending() is the non-blocking door.
     expect(await immediately(session.settlementOf(f.transition.id))).toBeTypeOf('symbol');
     expect(session.pending().map((p) => p.id)).toEqual([f.transition.id]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// awaitingSettlement — what is still live, without waiting to find out
+// ---------------------------------------------------------------------------
+
+describe('awaitingSettlement() — the fires whose question is still open', () => {
+  it('names a fire pending() cannot see: no declared writes, handler still running', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
+    session.registerTools({ group: 'g', tools: { ping: async () => { await held; } } });
+    const f = fired(session.fire('ping', { source: 'agent' }));
+    await flush();
+
+    // It really is live: no settlement exists for it yet.
+    expect(session.settlementIfKnown(f.transition.id)).toBeUndefined();
+    // …and the STATE-report queue is empty, because a fire declaring no writes
+    // never joins it. Asked "what is still live?", pending() alone answers
+    // "nothing" about an action that is running at that very moment.
+    expect(session.pending()).toEqual([]);
+    expect(session.awaitingSettlement()).toEqual([f.transition.id]);
+
+    release();
+    await f.whenSettled;
+    expect(session.awaitingSettlement()).toEqual([]); // the question closed; the list did too
+  });
+
+  it('is the SUPERSET: a pending fire is awaiting a settlement too', () => {
+    const session = app().createSession({ node: 'a', state: { saved: false } });
+    const f = fired(session.fire('save', { source: 'user', invoke: false }));
+    expect(session.pending().map((p) => p.id)).toEqual([f.transition.id]);
+    expect(session.awaitingSettlement()).toEqual([f.transition.id]);
+  });
+
+  it('a fire born at rest never enters it — there is nothing to wait for', () => {
+    const session = app().createSession({ node: 'a' }); // tapless, nothing registered
+    fired(session.fire('ping', { source: 'user' }));
+    fired(session.fire('save', { source: 'user' }));
+    expect(session.awaitingSettlement()).toEqual([]);
+  });
+
+  it('lists in fire order, so the oldest live action reads first', () => {
+    const session = app().createSession({ node: 'a', state: { saved: false, archived: false } });
+    const first = fired(session.fire('save', { source: 'user', invoke: false }));
+    const second = fired(session.fire('archive', { source: 'user', invoke: false }));
+    expect(session.awaitingSettlement()).toEqual([first.transition.id, second.transition.id]);
+  });
+
+  it('ONE LIST, ONE LAW: the refusal message names exactly what the door lists', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
+    session.registerTools({ group: 'g', tools: { ping: async () => { await held; } } });
+    fired(session.fire('ping', { source: 'agent' }));
+    await flush();
+
+    const live = session.awaitingSettlement();
+    expect(live).toHaveLength(1);
+    // The sentence a caller reads and the list a caller can query cannot drift.
+    for (const id of live) expect(() => session.settlementOf('nope#1')).toThrow(id);
+    release();
   });
 });
 

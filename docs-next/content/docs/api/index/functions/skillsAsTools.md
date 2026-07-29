@@ -6,7 +6,7 @@ title: skillsAsTools
 
 > **skillsAsTools**(`session`, `opts?`): [`SkillToolsPort`](/api/index/interfaces/SkillToolsPort)
 
-Defined in: [src/serve/modes.ts:150](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L150)
+Defined in: [src/serve/modes.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L154)
 
 ## Parameters
 

@@ -60,16 +60,27 @@ that same result.
 It is a **poll, not a wait** — `call()` is synchronous, so it answers in one of three ways and
 never blocks:
 
-- **settled** — `{ settled: true, did, effectStatus, outcome, effectVerified, verified?,
-  toNode?, error?, data? }`. Two axes, side by side: `effectStatus` is *did anyone perform
-  it*, `effectVerified` is *were the declared writes observed*. `verified` is the boolean
-  form and is **absent** when the answer isn't knowable — a model testing truthiness would
-  otherwise read the string `'unobservable'` as a verified write.
+- **settled** — `{ settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
+  verified?, toNode?, error?, data? }`. Two axes, side by side: `effectStatus` is *did anyone
+  perform it*, `effectVerified` is *were the declared writes observed*. `verified` is the
+  boolean form and is **absent** when the answer isn't knowable — a model testing truthiness
+  would otherwise read the string `'unobservable'` as a verified write.
 - **still pending** — `{ settled: false, judgment: 'still-pending', did, howToAct }`. Honest,
   immediate, and it tells the model not to repeat the action.
-- **unknown** — `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...] }`. A wrong id is
-  refused *by name*, listing the fires that are live. That refusal is the point: waiting on a
-  mistyped id and then reporting a guess is the failure this tool exists to end.
+- **unknown** — `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...], awaitingSettlement:
+  [...] }`. A wrong id is refused *by name*, listing the fires that are live. That refusal is
+  the point: waiting on a mistyped id and then reporting a guess is the failure this tool
+  exists to end. Two lists, because they are two different facts: `pending` is fires awaiting
+  the app's **state report** (`updateState`'s own word, same meaning here), while
+  `awaitingSettlement` is every fire this tool can still be asked about — the superset, and
+  the one the question is about. A step declaring no `writes` never joins the first list while
+  its handler runs.
+
+A settlement is a **receipt** of how the fire came to rest, and first settlement wins — so the
+record can move afterwards (a server rejecting an order the app already reported flips it to
+`'rolled-back'`). When the live record no longer agrees with the receipt, the settled arm
+carries `outcomeNow` **alongside** `outcome` — never over it — plus the one instruction that
+resolves it: go look at `whats_here`. The receipt is never rewritten; both truths are carried.
 
 In process, [`session.settlementOf(transitionId)`](doc:sessions) is the same truth as a
 promise, and `port.whenSettled(transitionId)` is that promise for a caller holding only the

@@ -122,6 +122,10 @@ const STILL_PENDING_HOWTO =
   'action again — call this tool again with the same transitionId, or call whats_here to see where ' +
   'things stand.';
 
+const OUTCOME_MOVED_HOWTO =
+  'This is the receipt from when the action came to rest — the app has moved it since (see ' +
+  'outcomeNow). Do NOT act on outcome alone: call whats_here to see where things actually stand.';
+
 const NOT_MATERIALIZED_WHY =
   'Nothing in the app is wired to execute this action yet — firing it would do nothing. ' +
   'Tell the human it is not available; the app team can register a tool group to wire it, ' +
@@ -408,14 +412,28 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       settled = session.settlementIfKnown(transitionId);
     } catch {
       // The session refuses an id no settlement can ever exist for. Over the
-      // wire a throw is not an answer, so it becomes a typed result — and
-      // `pending` names the ids that ARE live, the same teaching updateState()
-      // gives a caller who passes an unknown transitionId.
+      // wire a throw is not an answer, so it becomes a typed result carrying
+      // TWO lists, side by side, neither standing in for the other:
+      //
+      //   pending            — fires awaiting the app's STATE report. The exact
+      //                        meaning updateState()'s own UNKNOWN_TRANSITION
+      //                        carries, kept identical so one word does not
+      //                        mean two things across the library.
+      //   awaitingSettlement — fires this tool can still be asked about.
+      //
+      // The second is the one the model's question is actually about, and it is
+      // the SUPERSET: a fire declaring no writes never joins `pending` while
+      // its handler runs, so `pending` alone answered "[]" — "nothing is live" —
+      // about an action that was at that moment running. That is the same
+      // confident-emptiness this tool exists to end, and it left the wire
+      // teaching strictly less than the in-process throw, which has always
+      // named the open latches.
       return {
         ok: false,
         judgment: 'error',
         reason: 'UNKNOWN_TRANSITION',
         pending: session.pending().map((waiting) => waiting.id),
+        awaitingSettlement: session.awaitingSettlement(),
         ...positionData(),
       };
     }
@@ -432,6 +450,16 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     }
     const data = session.producedFor(transitionId);
     const verified = settled.transition.effectVerified;
+    // A settlement is a RECEIPT of how the fire came to rest, and first
+    // settlement wins — so the record can move on afterwards while the receipt
+    // stands (a server rejecting an order the app already reported flips it to
+    // 'rolled-back'). This tool's own question is "did the app actually do it",
+    // so serving the receipt alone would answer "it worked" about something the
+    // app has since undone — a fact the session is holding right there. The
+    // later word rides ALONGSIDE, never over: the receipt is not rewritten, and
+    // it appears only when the two genuinely disagree.
+    const outcomeNow = session.transitions().find((row) => row.id === transitionId)?.outcome;
+    const moved = outcomeNow !== undefined && outcomeNow !== settled.outcome;
     return {
       ok: true,
       settled: true,
@@ -443,6 +471,10 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       // declared writes observed.
       effectStatus: settled.effectStatus,
       outcome: settled.outcome,
+      // Only on disagreement — and with the one instruction that resolves it,
+      // because a settled arm that points nowhere is how a model acts on a
+      // receipt for an action the app has taken back.
+      ...(moved ? { outcomeNow, howToAct: OUTCOME_MOVED_HOWTO } : {}),
       ...(verified !== undefined ? { effectVerified: verified } : {}),
       // The BOOLEAN form, present only when the answer is knowable. A model
       // testing truthiness would read the string 'unobservable' as a verified

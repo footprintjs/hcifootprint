@@ -1191,6 +1191,26 @@ export class Session {
     return this.#retainedSettlement(transitionId);
   }
 
+  /**
+   * The fires whose settlement question is still OPEN — every id
+   * {@link Session.settlementOf} has an answer coming for, in fire order.
+   *
+   * NOT the same list as {@link Session.pending}, and the difference is the
+   * reason this door exists. `pending()` names fires awaiting the app's STATE
+   * report, which a fire declaring no writes NEVER joins — it still has a
+   * handler running and a settlement coming. So every pending fire is awaiting
+   * a settlement, and not every fire awaiting a settlement is pending. Asked
+   * "what is still live?", `pending()` alone answers "nothing" about an action
+   * that is at that moment running.
+   *
+   * Ids, not rows: a runtimeStageId already carries the affordance that made it
+   * (`catalog.go-checkout#0`), so nothing has to be looked up — or guessed —
+   * to say which action is still out there.
+   */
+  awaitingSettlement(): string[] {
+    return [...this.#effectLatches.keys()];
+  }
+
   /** The retained answer, or the teaching refusal for an id that can never have one. */
   #retainedSettlement(transitionId: string): FireSettlement {
     const retained = this.#settlements.get(transitionId);
@@ -1206,7 +1226,9 @@ export class Session {
    * message names what IS live.
    */
   #noSettlementMessage(transitionId: string): string {
-    const open = [...this.#effectLatches.keys()];
+    // The public door's own list, so the sentence a caller reads and the list
+    // a caller can query can never name different fires.
+    const open = this.awaitingSettlement();
     const known = this.#transitions.find((t) => t.id === transitionId);
     const what =
       known === undefined

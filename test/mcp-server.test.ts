@@ -187,6 +187,12 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
  * 'a refusal' fail — the handler that takes 5ms still reads 'pending', which
  * is exactly what the wire used to say about an action that had already
  * finished (or already failed).
+ *
+ * MUTATION PROOF (the `0` pair): make `0` skip the fold — the "off switch" the
+ * option was once documented as — and 'an answer already in hand still folds'
+ * fails. It is the shortest CEILING, not an off switch, and the two tests below
+ * pin both halves so the sentence in the docs cannot drift from the behaviour
+ * again.
  */
 describe('settleWithinMs — the settled truth folded into the fire result', () => {
   /** A shop whose add-to-cart takes `delayMs` and then reports (or fails). */
@@ -259,5 +265,45 @@ describe('settleWithinMs — the settled truth folded into the fire result', () 
     const client = await connectClient(session, { settleWithinMs: 5 });
     const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
     expect(res).toMatchObject({ ok: true, effectStatus: 'pending' });
+  });
+
+  /** A shop whose handler reports in the SAME turn — no timer anywhere. */
+  function instantShop() {
+    const map = buildNavigationGraph('shop', {
+      pages: { catalog: { tools: { search: { does: 'Search dresses', writes: ['n'] } } } },
+      skills: { browse: { does: 'Look around', steps: ['search'] } },
+    });
+    const session = map.createSession({ node: 'catalog', state: { n: 0 }, onWarn: () => undefined });
+    session.registerToolGroup('catalog', {
+      handlers: {
+        search: () => {
+          session.updateState({ n: 1 });
+          return [{ id: 'd6' }];
+        },
+      },
+    });
+    return session;
+  }
+
+  it('0 — an answer already in hand still folds: the shortest ceiling, not an off switch', async () => {
+    // The timer is a macrotask, so a handler reporting in the same microtask
+    // turn wins the race even at 0. Withholding an answer the session is
+    // already holding would be the one dishonest move available here.
+    const client = await connectClient(instantShop(), { settleWithinMs: 0 });
+    const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
+
+    expect(res['effectStatus']).toBe('performed');
+    expect((res['data'] as { id: string }[])[0].id).toBe('d6');
+    expect(res['howToSettle']).toBeUndefined(); // the pointer is stale; it goes
+  });
+
+  it('0 — and it really is the SHORTEST ceiling: one timer is already too slow', async () => {
+    const client = await connectClient(slowShop(0), { settleWithinMs: 0 });
+    const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
+
+    // slowShop(0) still awaits a timer, so its report lands after the ceiling.
+    // Nothing is invented: 'pending' was true when the ceiling expired.
+    expect(res['effectStatus']).toBe('pending');
+    expect(String(res['howToSettle'])).toContain('shop.did_it_work');
   });
 });

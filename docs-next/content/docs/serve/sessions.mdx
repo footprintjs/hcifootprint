@@ -62,8 +62,17 @@ is exactly how a mistyped id becomes a confident lie four seconds later.
 
 A fire the app never reports on keeps its promise **open** — `FireSettlement` excludes
 `'pending'` by construction, so a timed-out answer could only be a guessed `'unobservable'`.
-When you need an answer that cannot wait, use `pending()`, `settlementIfKnown()`, or Mode B's
-[`did_it_work`](doc:modes) tool.
+When you need an answer that cannot wait, use `awaitingSettlement()`, `settlementIfKnown()`,
+or Mode B's [`did_it_work`](doc:modes) tool.
+
+### What is still live — `awaitingSettlement`
+
+`session.awaitingSettlement()` lists the ids whose settlement question is still open, in fire
+order. It is **not** the same list as `pending()`, and the difference matters: `pending()`
+names fires awaiting the app's **state report**, which a step declaring no `writes` never
+joins — it still has a handler running and a settlement coming. Every pending fire is awaiting
+a settlement; not every fire awaiting a settlement is pending. Asked *"what is still live?"*,
+`pending()` alone answers "nothing" about an action that is running right now.
 
 ## The settlement rule
 

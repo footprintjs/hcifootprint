@@ -22,6 +22,11 @@
  * - 'no boolean verified when the write was never observed' — emit `verified`
  *   for the 'unobservable' case and a model reading it gets a verified write
  *   nobody ever saw.
+ * - 'names the live fire even when it declared no writes' — drop
+ *   awaitingSettlement from the refusal and the wire says "nothing is live"
+ *   about an action that is at that moment running.
+ * - 'carries outcomeNow when the app took the action back' — drop the marker
+ *   and the wire answers "it worked" about an order the server rejected.
  */
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
@@ -207,6 +212,37 @@ describe('did_it_work — a wrong id is refused, never soothed', () => {
       youAreOn: 'catalog',
     });
     expect(poll['pending']).toEqual([id]);
+    expect(poll['awaitingSettlement']).toEqual([id]);
+  });
+
+  it('names the live fire even when it declared no writes — `pending` alone would say "nothing"', async () => {
+    // A navigation declares no writes, so it NEVER joins the state-report queue
+    // — but its handler is running and its settlement is coming. Served alone,
+    // `pending: []` reads as "nothing is live" about this very action, which is
+    // the confident emptiness this tool exists to end.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { session, port } = wiredPort({ 'go-checkout': async () => { await held; } });
+    const { id } = fireThroughWire(port, 'go-checkout');
+    await flush();
+
+    const poll = port.call('shop.did_it_work', { transitionId: 'catalog.go-checkout#99' });
+    expect(poll).toMatchObject({ ok: false, reason: 'UNKNOWN_TRANSITION' });
+    expect(poll['pending']).toEqual([]); // the state-report queue, honestly empty
+    expect(poll['awaitingSettlement']).toEqual([id]); // …and what is actually live
+
+    // The wire is not the weaker door: it teaches what the in-process refusal
+    // teaches, which has always named the open latches.
+    let thrown = '';
+    try {
+      session.settlementIfKnown('catalog.go-checkout#99');
+    } catch (error) {
+      thrown = String(error);
+    }
+    for (const live of poll['awaitingSettlement'] as string[]) expect(thrown).toContain(live);
+    release();
   });
 
   it('a stimulus row is refused too — and the session’s throw never escapes call()', () => {
@@ -218,6 +254,83 @@ describe('did_it_work — a wrong id is refused, never soothed', () => {
       ok: false,
       reason: 'UNKNOWN_TRANSITION',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The receipt, and the record that moved after it
+// ---------------------------------------------------------------------------
+
+describe('did_it_work — a settlement is a receipt, and receipts go stale', () => {
+  it('carries outcomeNow when the app took the action back — never rewriting the receipt', async () => {
+    const { session, port } = wiredPort();
+    const { id } = fireThroughWire(port, 'add-to-cart');
+    session.updateState({ cart: ['d6'] }); // the app reports optimistically
+    await flush();
+
+    // Nothing has moved yet: no marker, no noise.
+    const clean = port.call('shop.did_it_work', { transitionId: id });
+    expect(clean).toMatchObject({ effectStatus: 'performed', outcome: 'committed' });
+    expect(clean).not.toHaveProperty('outcomeNow');
+    expect(clean).not.toHaveProperty('howToAct');
+
+    session.reject(id); // …and now the server says no
+
+    const poll = port.call('shop.did_it_work', { transitionId: id });
+    expect(poll).toMatchObject({
+      settled: true,
+      effectStatus: 'performed', // the receipt STANDS — first settlement wins
+      outcome: 'committed',
+      outcomeNow: 'rolled-back', // …and the later word rides alongside it
+    });
+    // The settled arm now points somewhere, like the pending arm always has.
+    expect(String(poll['howToAct'])).toContain('whats_here');
+  });
+
+  it('reports whatever the later word IS — a superseded record reads superseded', async () => {
+    const { session, port } = wiredPort();
+    const { id } = fireThroughWire(port, 'add-to-cart');
+    session.updateState({ cart: ['d6'] });
+    await flush();
+    session.reject(id, { outcome: 'superseded' });
+
+    expect(port.call('shop.did_it_work', { transitionId: id })).toMatchObject({
+      effectStatus: 'performed',
+      outcome: 'committed',
+      outcomeNow: 'superseded',
+    });
+  });
+
+  it('a handler that reported real evidence and THEN failed carries NO marker', async () => {
+    // The library's own law (session.ts #handleHandlerFailure): a commit backed
+    // by REAL evidence — the app reported the declared writes — is stronger
+    // than the handler's later failure, so the record stays committed. Nothing
+    // drifted, so nothing is flagged. The marker tracks the RECORD; it never
+    // editorialises about a settlement it disagrees with.
+    const { session, port } = wiredPort({
+      'add-to-cart': () => {
+        session.updateState({ cart: ['d6'] });
+        throw new Error('post-report cleanup failed');
+      },
+    });
+    const { id } = fireThroughWire(port, 'add-to-cart');
+    await flush();
+
+    const poll = port.call('shop.did_it_work', { transitionId: id });
+    expect(poll).toMatchObject({ effectStatus: 'performed', outcome: 'committed' });
+    expect(poll).not.toHaveProperty('outcomeNow');
+    expect(session.transitions().find((row) => row.id === id)?.outcome).toBe('committed');
+  });
+
+  it('a refused fire carries no marker — the record and the receipt already agree', async () => {
+    const { port } = wiredPort({
+      'add-to-cart': () => {
+        throw new Error('card declined');
+      },
+    });
+    const { id } = fireThroughWire(port, 'add-to-cart');
+    await flush();
+    expect(port.call('shop.did_it_work', { transitionId: id })).not.toHaveProperty('outcomeNow');
   });
 });
 

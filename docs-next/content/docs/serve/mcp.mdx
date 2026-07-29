@@ -31,8 +31,13 @@ const server = mcpServer(session, { settleWithinMs: 1000 }); // a slower backend
 
 Miss the ceiling and nothing is invented: `effectStatus: 'pending'` stands, and
 [`did_it_work`](doc:modes) is named as the next call. The ceiling decides **how long to
-wait**, never **what the answer is** — `0` restores the older behaviour of answering with the
-truth at return time and nothing more.
+wait**, never **what the answer is**.
+
+`0` is the **shortest** ceiling, not an off switch: the timer is a macrotask, so a settlement
+already in hand — or one a handler reports in the same microtask turn — still wins the race
+and is still folded in. There is no way to turn the fold off, and that is deliberate:
+withholding an answer the session is already holding would be the only dishonest move
+available here.
 
 ## The subpath is the dependency boundary
 

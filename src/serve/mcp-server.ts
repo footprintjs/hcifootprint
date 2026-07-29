@@ -48,8 +48,13 @@ export interface McpServerOptions extends SkillToolsOptions {
    * the next call. Nothing is ever guessed at the boundary — the ceiling
    * decides how long to wait, never what the answer is.
    *
-   * Raise it for an app whose handlers talk to a slow backend; 0 restores the
-   * previous behaviour (answer with the truth at return time and nothing more).
+   * Raise it for an app whose handlers talk to a slow backend.
+   *
+   * `0` is the SHORTEST ceiling, not an off switch: a settlement already in
+   * hand — or one a handler reports in the same microtask turn — still wins the
+   * race and is still folded in, because the timer is a macrotask. There is no
+   * way to turn the fold off, deliberately: withholding an answer the session
+   * is already holding would be the only thing dishonest here.
    */
   settleWithinMs?: number;
 }

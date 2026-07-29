@@ -26,11 +26,12 @@
   the writes really did land).
 - **`<graphId>.did_it_work` — a fifth fixed Mode B tool**, input `{ transitionId }`.
   A POLL, never a wait, so `SkillToolsPort.call` stays synchronous: **settled** →
-  `{ settled: true, did, effectStatus, outcome, effectVerified, verified?, toNode?,
-  error?, data? }`; **still open** → `{ settled: false, judgment: 'still-pending',
+  `{ settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified, verified?,
+  toNode?, error?, data? }`; **still open** → `{ settled: false, judgment: 'still-pending',
   did, howToAct }` — an honest answer that also tells the model not to repeat the
-  action; **unknown** → `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...] }`,
-  the `UpdateResult` vocabulary, refusing a wrong id BY NAME instead of soothing it
+  action; **unknown** → `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...],
+  awaitingSettlement: [...] }`, the `UpdateResult` vocabulary, refusing a wrong id BY
+  NAME instead of soothing it
   with a "still running" it cannot know. `verified` is the boolean form of
   `effectVerified` and is ABSENT when the answer is not knowable — a model testing
   truthiness would read the string `'unobservable'` as a verified write. A fire
@@ -47,7 +48,42 @@
   (`effectStatus` rewritten, produced data on `data`, a failure on `error`, the
   now-stale `howToSettle` dropped); miss it and `'pending'` STANDS with `did_it_work`
   named as the next call. The ceiling decides how long to wait, never what the
-  answer is; `0` restores the previous behaviour.
+  answer is. `0` is the SHORTEST ceiling, not an off switch: the timer is a
+  macrotask, so a settlement already in hand — or one a handler reports in the same
+  microtask turn — still wins the race and is still folded in. There is no way to
+  turn the fold off, deliberately: withholding an answer the session is already
+  holding would be the only dishonest move available at this boundary.
+- **`session.awaitingSettlement()`** → `string[]`, the ids whose settlement question
+  is still open, in fire order. It is NOT `pending()` and the difference is why it
+  exists: `pending()` names fires awaiting the app's STATE report, which a fire
+  declaring no `writes` never joins — it still has a handler running and a settlement
+  coming. Every pending fire is awaiting a settlement; not every fire awaiting a
+  settlement is pending. Asked "what is still live?", `pending()` alone answered
+  "nothing" about an action that was at that moment running — which is what
+  `did_it_work`'s refusal was serving, leaving the wire teaching strictly less than
+  the in-process throw (which has always named the open latches). The refusal now
+  carries both lists, side by side: `pending` keeps `updateState`'s exact meaning, and
+  `awaitingSettlement` is the superset the question is actually about. The session's
+  own refusal message is single-sourced from this door, so the sentence a caller reads
+  and the list a caller can query cannot drift apart.
+- **`outcomeNow` on `did_it_work`'s settled arm.** A settlement is a RECEIPT and first
+  settlement wins, so the record can move afterwards — `reject()` on a committed
+  transition (the server saying no after the app's optimistic report) flips it to
+  `'rolled-back'`. The tool's own question is *did the app actually do it*, so serving
+  the receipt alone answered "it worked" about something the app had since undone — a
+  fact the session was holding right there. The later word now rides ALONGSIDE
+  `outcome`, never over it, with the one instruction that resolves it (`howToAct`:
+  check `whats_here`). Present only on genuine disagreement: a handler that reported
+  real evidence and then failed leaves the record committed by design, so it carries
+  no marker.
+
+### Note for anyone implementing `SkillToolsPort` by hand
+`SkillToolsPort` gained a required `whenSettled` member. Every designed consumption path
+is unaffected (holding a port from `skillsAsTools`, spreading one into a wrapper, calling
+`tools()`/`call()`), but an object literal that hand-implements the interface — a test
+double, a from-scratch relay facade — now needs the member to typecheck. Standard
+TypeScript semver treats growth of a library-implemented interface as a minor change, and
+no runtime behaviour changed; it is named here so the compiler error is recognisable.
 
 ### Added (reachability — a spine of places you can walk between)
 - **`fromRoutes(routes, { crossLinks })`.** A route table contributed 28 pages

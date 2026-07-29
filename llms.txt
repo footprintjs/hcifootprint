@@ -155,6 +155,10 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   resolve is the failure they exist to prevent.
 - `pending()` → `PendingInfo[]` `{ id, affordanceId, firedAt }` — fires still awaiting the app's
   state report (the non-blocking door).
+- `awaitingSettlement()` → `string[]` — the ids whose settlement question is still OPEN, in fire
+  order. NOT the same list as `pending()`: a fire declaring no writes never joins that one while its
+  handler runs, so `pending()` alone answers "nothing is live" about an action that is running.
+  Every pending fire is awaiting a settlement; not every fire awaiting a settlement is pending.
 - `updateState(delta, opts?)` — the app reports a projected-state delta (router/store tap); pending
   fires settle. `opts` (`UpdateOptions`): `transitionId?` (settle THIS pending precisely — preferred
   over FIFO), `stimulus?`, `principal?`. Returns `UpdateResult`.
@@ -332,14 +336,20 @@ truth AT RETURN TIME; for anything the app still has to do it is `'pending'` (no
 the result names the door out in `howToSettle`. Call `shop.did_it_work` with that `transitionId`. It is a
 POLL, so it answers immediately, one of three ways:
 
-- settled — `{ ok: true, settled: true, did, effectStatus, outcome, effectVerified, verified?, toNode?,
-  error?, data? }`. `effectStatus` = did anyone perform it; `effectVerified` = were the declared writes
-  observed. `verified` is the boolean form and is ABSENT when the answer is not knowable (the string
-  `'unobservable'` would read as truthy).
+- settled — `{ ok: true, settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified, verified?,
+  toNode?, error?, data? }`. `effectStatus` = did anyone perform it; `effectVerified` = were the declared
+  writes observed. `verified` is the boolean form and is ABSENT when the answer is not knowable (the string
+  `'unobservable'` would read as truthy). A settlement is a RECEIPT and first settlement wins, so the record
+  can move afterwards (a server rejecting an already-reported order flips it to `'rolled-back'`); when the
+  live record no longer agrees, `outcomeNow` rides ALONGSIDE `outcome` — never over it — with `howToAct`
+  saying to check `whats_here` before acting on the receipt.
 - still running — `{ ok: true, settled: false, judgment: 'still-pending', did, howToAct }`. Do NOT perform
   the action again; call again with the same id.
-- unknown id — `{ ok: false, judgment: 'error', reason: 'UNKNOWN_TRANSITION', pending: [...] }`. A wrong id
-  is refused BY NAME, never soothed with a "still running" it cannot know.
+- unknown id — `{ ok: false, judgment: 'error', reason: 'UNKNOWN_TRANSITION', pending: [...],
+  awaitingSettlement: [...] }`. A wrong id is refused BY NAME, never soothed with a "still running" it
+  cannot know. `pending` = fires awaiting the app's STATE report (`updateState`'s own word, same meaning);
+  `awaitingSettlement` = every fire this tool can still be asked about — the superset, and the one the
+  question is about.
 
 Over a real MCP server (`mcpServer`) the answer usually arrives without a second call: the server waits up
 to `settleWithinMs` (default 250) and folds the settled word, produced data and any failure into the SAME
