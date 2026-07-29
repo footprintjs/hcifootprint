@@ -18,6 +18,22 @@ await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTT
 `mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the
 transport** and run it wherever your session lives.
 
+## Waiting, at the one boundary where it belongs
+
+A tool call is already an async turn, and the model is going to ask *"did it work?"* anyway.
+So when a call **fired** something, the server gives the app a moment — `settleWithinMs`,
+default 250 — and folds the settled truth into the **same** result: `effectStatus` becomes
+the final word, produced data lands on `data`, a failure lands on `error`.
+
+```ts
+const server = mcpServer(session, { settleWithinMs: 1000 }); // a slower backend
+```
+
+Miss the ceiling and nothing is invented: `effectStatus: 'pending'` stands, and
+[`did_it_work`](doc:modes) is named as the next call. The ceiling decides **how long to
+wait**, never **what the answer is** — `0` restores the older behaviour of answering with the
+truth at return time and nothing more.
+
 ## The subpath is the dependency boundary
 
 The SDK is an **optional peer dependency**, imported only behind the `hcifootprint/mcp`

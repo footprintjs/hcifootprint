@@ -192,6 +192,19 @@ export class Session {
    * entry stays (the honest mirror of a record that is still 'pending').
    */
   readonly #effectLatches = new Map<string, SettlementLatch>();
+  /**
+   * Every settlement this session has DELIVERED, by record id — the answer
+   * kept after the question closed, so `settlementOf()` can still be asked long
+   * after the fire came to rest (by a relay, a poll, a tool call three turns
+   * later). Written by #resolveEffect BEFORE the latch is dropped, and by the
+   * fire arms that are born at rest, so the waiting door and the asking door
+   * can never give different answers.
+   *
+   * Grows for the session's life — the same policy as #transitions and the gap
+   * ledger, and for the same reason: one small snapshot per fire, and pruning
+   * would turn a legitimate late question into a fabricated "unknown".
+   */
+  readonly #settlements = new Map<string, FireSettlement>();
   /** runtimeStageId → keys tracked-read, collected live via the scope channel. */
   readonly #readsByStep = new Map<string, string[]>();
   readonly #recorder: ScopeRecorder;
@@ -896,7 +909,7 @@ export class Session {
         // Nothing ran and nothing ever will: this fire is already at rest, and
         // 'unobservable' is the whole truth about an effect no one performed.
         effectStatus: 'unobservable',
-        whenSettled: settledNow(this.#effectSnapshot(record, 'unobservable')).promise,
+        whenSettled: this.#settledEffect(record, 'unobservable').promise,
         ...noOpMarks,
       };
     }
@@ -907,7 +920,7 @@ export class Session {
     // says a commit bundle exists; effectStatus says whether anyone did it.
     const latch = handlerWillRun
       ? this.#openEffectLatch(record)
-      : settledNow(this.#effectSnapshot(record, 'unobservable'));
+      : this.#settledEffect(record, 'unobservable');
     this.#invokeHandler(record, affordanceId, opts);
     return {
       ok: true,
@@ -1071,6 +1084,21 @@ export class Session {
   }
 
   /**
+   * A fire whose truth is known at the instant it is asked: retained AND
+   * delivered in one act. The retention is not bookkeeping — without it,
+   * `settlementOf()` would refuse a real fire whose answer this session was
+   * already holding, and a refusal that names a live id is a lie.
+   */
+  #settledEffect(
+    record: TransitionRecord,
+    effectStatus: FireSettlement['effectStatus'],
+  ): SettlementLatch {
+    const snapshot = this.#effectSnapshot(record, effectStatus);
+    this.#settlements.set(record.id, snapshot);
+    return settledNow(snapshot);
+  }
+
+  /**
    * The fire's truth as of right now. The transition rides as a COPY: a
    * settlement is a receipt of how the fire came to rest, so handing over the
    * LIVE record would both keep changing under a caller who already read it
@@ -1105,8 +1133,108 @@ export class Session {
   ): void {
     const latch = this.#effectLatches.get(record.id);
     if (!latch) return;
+    const snapshot = this.#effectSnapshot(record, effectStatus, failure);
+    // RETAINED BEFORE THE LATCH IS DROPPED. Between these two statements the
+    // fire must never be answerable by neither door — and because the guard
+    // above returns on an already-closed latch, first-settlement-wins governs
+    // the retained copy too: settlementOf() and whenSettled cannot disagree.
+    this.#settlements.set(record.id, snapshot);
     this.#effectLatches.delete(record.id);
-    latch.settle(this.#effectSnapshot(record, effectStatus, failure));
+    latch.settle(snapshot);
+  }
+
+  /**
+   * How a fire came to rest — asked at ANY time by anyone holding its
+   * transitionId. `fire()` hands ITS caller `whenSettled`; this is the same
+   * answer for everyone else, and it is the hole the field report named: a
+   * promise cannot cross a wire, so a remote agent (or the relay in front of
+   * it) held the id and had no way to learn the truth.
+   *
+   * - Still open → that fire's own latch promise. Same law as `whenSettled`:
+   *   one answer, first settlement wins, never rejects.
+   * - Already at rest → resolves immediately with a detached copy.
+   * - NEVER REPORTED (a fire whose app report never arrives) → the promise
+   *   honestly stays open, exactly as `whenSettled` does. There is no timeout
+   *   arm on purpose: {@link FireSettlement} excludes 'pending' by
+   *   construction, so a timed-out answer could only be a guessed
+   *   'unobservable'. When you need an answer that cannot wait, ask the
+   *   non-blocking doors — {@link Session.pending}, {@link
+   *   Session.settlementIfKnown}, or Mode B's `did_it_work` tool.
+   * - Unknown id, or a stimulus/sync/structure-swap row → THROWS
+   *   synchronously. A promise that could never resolve is precisely the
+   *   failure this method exists to prevent: a mistyped id that waits under
+   *   someone's ceiling and then reports a fabricated outcome.
+   */
+  settlementOf(transitionId: string): Promise<FireSettlement> {
+    const open = this.#effectLatches.get(transitionId);
+    // Detached on BOTH paths. A latch resolves with ONE snapshot object, and
+    // this door is the reason several callers can now be holding it at once —
+    // so each asker gets its own copy rather than a shared thing any one of
+    // them can edit under the others.
+    if (open) return open.promise.then((settlement) => this.#detachSettlement(settlement));
+    return Promise.resolve(this.#retainedSettlement(transitionId));
+  }
+
+  /**
+   * The same answer WITHOUT waiting: the settlement if this fire has already
+   * come to rest, `undefined` while its question is still open. Refuses an
+   * unknown id exactly as {@link Session.settlementOf} does — one law, two
+   * doors.
+   *
+   * This is the door a SYNCHRONOUS caller needs (Mode B's `did_it_work` tool
+   * answers a model inside one tool call and must never block it). `undefined`
+   * means "no settlement yet", never a guessed outcome — the caller reports
+   * still-pending, which is the truth at that instant.
+   */
+  settlementIfKnown(transitionId: string): FireSettlement | undefined {
+    if (this.#effectLatches.has(transitionId)) return undefined;
+    return this.#retainedSettlement(transitionId);
+  }
+
+  /** The retained answer, or the teaching refusal for an id that can never have one. */
+  #retainedSettlement(transitionId: string): FireSettlement {
+    const retained = this.#settlements.get(transitionId);
+    if (retained) return this.#detachSettlement(retained);
+    throw new Error(this.#noSettlementMessage(transitionId));
+  }
+
+  /**
+   * Why this id can never have a settlement, said in words that let a caller
+   * fix it. A throw follows reject()'s precedent, and it is the point: the
+   * alternative — a promise nobody will ever resolve — is the field failure
+   * mode itself (a mistyped key waits out a ceiling and then lies). So the
+   * message names what IS live.
+   */
+  #noSettlementMessage(transitionId: string): string {
+    const open = [...this.#effectLatches.keys()];
+    const known = this.#transitions.find((t) => t.id === transitionId);
+    const what =
+      known === undefined
+        ? `no transition '${transitionId}' in this session`
+        : known.cause.kind === 'fired'
+          ? `fire '${transitionId}' opened no settlement`
+          : `'${transitionId}' is a '${known.cause.stimulus ?? 'stimulus'}' row — the world moved, nobody fired it`;
+    return (
+      `hcifootprint: ${what}. Only fire() opens a settlement. ` +
+      `Fires still awaiting one: ${open.length > 0 ? open.join(', ') : '(none)'}.`
+    );
+  }
+
+  /**
+   * Hand a retained settlement out without letting the caller rewrite it —
+   * the same law #effectSnapshot applies at creation, applied again at every
+   * later ask, because the retained copy now outlives its readers. `error`
+   * stays by reference, as it does at creation: it is the app's own object,
+   * and cloning an Error would quietly drop its stack.
+   */
+  #detachSettlement(settlement: FireSettlement): FireSettlement {
+    return {
+      ...settlement,
+      transition: this.#copyRecord(settlement.transition),
+      ...(settlement.produced !== undefined
+        ? { produced: sanitizeProduced(settlement.produced) }
+        : {}),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -1234,6 +1362,12 @@ export class Session {
         record.outcome = 'committed';
         record.toNode = this.#node; // inference never moves the cursor — that would be guessing twice
         record.effectVerified = true; // writes ⊆ delta by construction of the match
+        // This row is a GUESS about who acted, and the library invoked nothing
+        // to make it: no handler ran, no fire() opened a latch. So its retained
+        // settlement is 'unobservable' — 'performed' would launder the guess
+        // into a fact for whoever asks settlementOf() later. The state axis is
+        // separate and stays true above: the declared writes really did land.
+        this.#settlements.set(record.id, this.#effectSnapshot(record, 'unobservable'));
         this.#transitions.push(record); this.#emitTransition(record);
         this.#version++;
         this.#bumpState();

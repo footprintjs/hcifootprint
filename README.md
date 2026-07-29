@@ -139,7 +139,7 @@ Node paths are **typed**: `registerToolGroup('catalog.filtr-rail')` is a compile
 import { skillsAsTools } from 'hcifootprint';
 
 const port = skillsAsTools(session);
-port.tools();                          // static tool array — one per skill + whats_here / do_action / why
+port.tools();                          // static tool array — one per skill + whats_here / do_action / why / did_it_work
 port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, ... }
 ```
 
@@ -193,8 +193,8 @@ rung forced you to maintain a second, stripped-down copy.
 
 ## 🔌 Serve it to any agent — the MCP surface
 
-The tool array the LLM sees holds **one tool per skill** plus three fixed generics (`whats_here`, `do_action`, `why`),
-and it **never changes for the life of a conversation**. Disclosure rides the *result* channel: every call
+The tool array the LLM sees holds **one tool per skill** plus four fixed generics (`whats_here`, `do_action`,
+`why`, `did_it_work`), and it **never changes for the life of a conversation**. Disclosure rides the *result* channel: every call
 returns `readySteps` — what's fireable at the current cursor — and the model acts by calling the same skill
 tool again with a `step`. Tools render first in the prompt, so a stable tool set keeps the **prompt cache
 warm**, and any plain MCP host can drive it with no dynamic-tool support required.
@@ -254,6 +254,7 @@ POST /v1/messages
 ├── system     "You are the shopping assistant… here is how to work…"     ← authored by YOU, only
 ├── tools[]     shop.skill.find-dress · shop.skill.purchase · …
 │               shop.whats_here · shop.do_action · shop.why               ← FIXED — identical every turn
+│               shop.did_it_work
 └── messages    … prior turns …
                 tool_result  { readySteps: […], data: [dress names…] }    ← the app's DATA lands here
                 user:  "find a red dress under $150 and buy it"           ← the user's own text, as-is
@@ -274,6 +275,14 @@ through `updateState()`. Until it does, the step that just fired is held out of 
 can't double-fire it), and any step that depends on its write isn't ready yet. So an agent re-reads
 `whats_here` (or re-opens the skill) after a write-step, rather than trusting the `readySteps` from the
 write's own result.
+
+**And to learn whether it actually worked, ask — never assume.** A fire result carries `effectStatus`: the
+truth *at return time*, which for anything your app still has to do is `'pending'` (nobody has done anything
+yet). The result then names the door out — `howToSettle` points at **`did_it_work`**, which takes the
+`transitionId` and answers immediately: the final outcome, or an honest *still-pending* (never a guess, never
+a block). Over a real MCP server the answer usually arrives without a second call at all — `mcpServer` waits
+up to `settleWithinMs` (default 250) and folds the settled word, the produced data and any failure into the
+same result. In process, `session.settlementOf(transitionId)` is the same truth as a promise.
 
 **After a claimed navigation, re-`sync()`.** A fire whose edge declares `goTo` moves the session cursor on
 the *graph's claim* about your app, not on an observation — the result says so with `toNodeClaimed: true`

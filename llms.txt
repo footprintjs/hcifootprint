@@ -142,7 +142,19 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   **An agent fire of a tool nothing is bound to is refused `NOT_MATERIALIZED`** — firing it would
   execute nothing. The app self-report tier (`source: 'user' | 'system'`, or `invoke: false`) is
   never gated: that motion really happened. A session created with `allowUnmaterializedFires` lets
-  the no-op through and marks it `executed: false` + `materialized: false` instead.
+  the no-op through and marks it `executed: false` + `materialized: false` instead. The success arm
+  also carries `effectStatus` (the INVOCATION axis at return time — never `'performed'` there,
+  because the handler is always deferred) and `whenSettled` (a promise resolving ONCE with the final
+  truth; it NEVER rejects — a refusal arrives as data).
+- `settlementOf(transitionId)` → `Promise<FireSettlement>` — the same final truth for anyone holding
+  the id (a relay, a poll, a later tool call), long after the fire came to rest. Same laws as
+  `whenSettled`: one answer, first settlement wins, never rejects, and a fire the app never reports
+  on stays OPEN (a timed-out answer could only be a guess). `settlementIfKnown(transitionId)` is the
+  same answer WITHOUT waiting — `undefined` while the question is open. Both THROW synchronously on
+  an unknown id or a stimulus/sync row, naming the fires that are live; a promise nobody can ever
+  resolve is the failure they exist to prevent.
+- `pending()` → `PendingInfo[]` `{ id, affordanceId, firedAt }` — fires still awaiting the app's
+  state report (the non-blocking door).
 - `updateState(delta, opts?)` — the app reports a projected-state delta (router/store tap); pending
   fires settle. `opts` (`UpdateOptions`): `transitionId?` (settle THIS pending precisely — preferred
   over FIFO), `stimulus?`, `principal?`. Returns `UpdateResult`.
@@ -210,6 +222,9 @@ const result = port.call(name, args);           // route a tool_use; return `res
   from any previous result and the reply narrates only the DELTA since it (who did what since the
   model's last look) — cheaper re-grounding after write-steps.
 - `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, decline?, instance? }`)
+- `shop.why` — the causal backward slice for a state key (`{ key }`)
+- `shop.did_it_work` — how an action ALREADY PERFORMED came to rest (`{ transitionId }`, taken from that
+  action's result). A POLL, never a wait — see §5.
 
 `MCPToolDescription` = `{ name, description, inputSchema }` (source: footprintjs).
 
@@ -243,6 +258,8 @@ produced data) are structured DATA fields. Fields you will encounter (source: `s
   means nothing is bound to execute that step), `laterSteps` (`[{ step, status }]`),
   `awaitingState?` (steps whose fire has not yet been reported back), `howToAct`.
 - Fire success: `did` (the step id fired), `settlement` (`'settled' | 'awaiting-state'`),
+  `effectStatus` (the INVOCATION axis at return time — `'pending'` means nobody has done it YET),
+  `howToSettle?` (present only on `'pending'`: the authored pointer at `shop.did_it_work`),
   `transitionId` (fetch `producedFor(id)` after awaiting an async handler), `guardUnevaluated?`,
   `executed?: false` + `materialized?: false` (an allowed unmaterialized tour fire — NOTHING ran),
   `toNodeClaimed?: true` (the cursor moved on the edge's declared `goTo` CLAIM, not on an
@@ -309,6 +326,25 @@ the real delta via `updateState(...)`. Until then:
 the readySteps in the write-step's own result were computed before the app moved, so they are stale
 for what comes next. (When there is no state tap, or the step declares no writes, `fire()` returns
 `settlement: 'settled'` immediately and no re-read wait applies — but re-reading is always safe.)
+
+**And to learn whether it actually worked, ASK — never assume.** `effectStatus` on a fire result is the
+truth AT RETURN TIME; for anything the app still has to do it is `'pending'` (nobody has done it yet), and
+the result names the door out in `howToSettle`. Call `shop.did_it_work` with that `transitionId`. It is a
+POLL, so it answers immediately, one of three ways:
+
+- settled — `{ ok: true, settled: true, did, effectStatus, outcome, effectVerified, verified?, toNode?,
+  error?, data? }`. `effectStatus` = did anyone perform it; `effectVerified` = were the declared writes
+  observed. `verified` is the boolean form and is ABSENT when the answer is not knowable (the string
+  `'unobservable'` would read as truthy).
+- still running — `{ ok: true, settled: false, judgment: 'still-pending', did, howToAct }`. Do NOT perform
+  the action again; call again with the same id.
+- unknown id — `{ ok: false, judgment: 'error', reason: 'UNKNOWN_TRANSITION', pending: [...] }`. A wrong id
+  is refused BY NAME, never soothed with a "still running" it cannot know.
+
+Over a real MCP server (`mcpServer`) the answer usually arrives without a second call: the server waits up
+to `settleWithinMs` (default 250) and folds the settled word, produced data and any failure into the SAME
+result. In process, `session.settlementOf(transitionId)` is that truth as a promise and
+`session.settlementIfKnown(transitionId)` is it without waiting; both THROW on an id that can never settle.
 
 **And re-`sync()` after any CLAIMED navigation.** A result carrying `toNodeClaimed: true` means the
 cursor moved on the graph's declared `goTo` — a claim about your app, not an observation (a bound

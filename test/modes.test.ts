@@ -43,7 +43,7 @@ function freshPort() {
 }
 
 describe('the static tool array', () => {
-  it('is one tool per skill + whats_here + why + do_action, and NEVER changes across navigation', () => {
+  it('is one tool per skill + whats_here + why + do_action + did_it_work, and NEVER changes across navigation', () => {
     const { session, port } = freshPort();
     const before = JSON.stringify(port.tools());
     expect(port.tools().map((tool) => tool.name)).toEqual([
@@ -52,6 +52,7 @@ describe('the static tool array', () => {
       'shop.whats_here',
       'shop.why',
       'shop.do_action',
+      'shop.did_it_work',
     ]);
 
     port.call('shop.skill.purchase', {}); // open a frame

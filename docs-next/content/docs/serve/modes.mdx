@@ -1,6 +1,6 @@
 ---
 title: Skills as fixed tools (Mode B)
-description: skillsAsTools serves one tool per skill plus three fixed generics — the tool array never changes for the life of a conversation, so the prompt cache stays warm.
+description: skillsAsTools serves one tool per skill plus four fixed generics — the tool array never changes for the life of a conversation, so the prompt cache stays warm.
 ---
 
 `skillsAsTools(session, opts?)` projects the session as a FIXED set of MCP-shaped tools whose
@@ -32,7 +32,9 @@ For graph id `shop`, `tools()` returns:
   write-steps;
 - **`shop.do_action`** — perform one available action outside any skill flow;
 - **`shop.why`** — the causal backward slice (who produced this state). Why-text may carry
-  committed values, so it rides results as DATA, never a description.
+  committed values, so it rides results as DATA, never a description;
+- **`shop.did_it_work`** — how an action already performed came to rest. Input
+  `{ transitionId }`, taken from that action's result. See below.
 
 ## Reading a result
 
@@ -47,6 +49,32 @@ Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEf
 `expects?` (the [declared input contract](doc:sessions), visible before the fire).
 `do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
 promise deliberately does not.
+
+## Did it work?
+
+`effectStatus` on a fire result is the truth **at return time**, and for anything your app
+still has to do that word is `'pending'` — nobody has done it yet. So the result also carries
+`howToSettle`, naming the door out: **`did_it_work`**, called with the `transitionId` from
+that same result.
+
+It is a **poll, not a wait** — `call()` is synchronous, so it answers in one of three ways and
+never blocks:
+
+- **settled** — `{ settled: true, did, effectStatus, outcome, effectVerified, verified?,
+  toNode?, error?, data? }`. Two axes, side by side: `effectStatus` is *did anyone perform
+  it*, `effectVerified` is *were the declared writes observed*. `verified` is the boolean
+  form and is **absent** when the answer isn't knowable — a model testing truthiness would
+  otherwise read the string `'unobservable'` as a verified write.
+- **still pending** — `{ settled: false, judgment: 'still-pending', did, howToAct }`. Honest,
+  immediate, and it tells the model not to repeat the action.
+- **unknown** — `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...] }`. A wrong id is
+  refused *by name*, listing the fires that are live. That refusal is the point: waiting on a
+  mistyped id and then reporting a guess is the failure this tool exists to end.
+
+In process, [`session.settlementOf(transitionId)`](doc:sessions) is the same truth as a
+promise, and `port.whenSettled(transitionId)` is that promise for a caller holding only the
+port. Over a real server, [`mcpServer`](doc:mcp) usually settles it for you before the result
+ever leaves.
 
 ## The firewall
 

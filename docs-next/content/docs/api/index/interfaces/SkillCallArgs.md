@@ -4,7 +4,7 @@ title: SkillCallArgs
 
 # Interface: SkillCallArgs
 
-Defined in: [src/serve/modes.ts:48](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L48)
+Defined in: [src/serve/modes.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L49)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/serve/modes.ts:48](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/serve/modes.ts:51](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L51)
+Defined in: [src/serve/modes.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L52)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/serve/modes.ts:51](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **decline?**: `boolean`
 
-Defined in: [src/serve/modes.ts:53](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L53)
+Defined in: [src/serve/modes.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L54)
 
 Record the human's refusal of a high-effect step (they said no) — closes the ask, does not fire.
 
@@ -30,7 +30,7 @@ Record the human's refusal of a high-effect step (they said no) — closes the a
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/serve/modes.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L50)
+Defined in: [src/serve/modes.ts:51](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L51)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/serve/modes.ts:50](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/serve/modes.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L55)
+Defined in: [src/serve/modes.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L56)
 
 Instance key for steps on repeats containers (from `instances` in results).
 
@@ -48,4 +48,4 @@ Instance key for steps on repeats containers (from `instances` in results).
 
 > `optional` **step?**: `string`
 
-Defined in: [src/serve/modes.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L49)
+Defined in: [src/serve/modes.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L50)

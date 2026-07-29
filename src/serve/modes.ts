@@ -35,8 +35,9 @@
 import type { MCPToolDescription } from 'footprintjs';
 import { detectSchema } from 'footprintjs';
 import { normalizeSchema } from 'footprintjs/advanced';
-import type { AvailableEdge, FireResult, Principal } from '../atom/types.js';
+import type { AvailableEdge, FireResult, FireSettlement, Principal } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
+import { errorText } from './error-text.js';
 
 export interface SkillToolsOptions {
   /** Require confirm:true before firing high-effect steps/actions. Default true. */
@@ -72,6 +73,20 @@ export interface SkillToolsPort {
   tools(): MCPToolDescription[];
   /** Route a tool_use by name. Unknown names return a structured error result. */
   call(name: string, args?: unknown): ServeResult;
+  /**
+   * How a fire came to rest — the ASYNC door, for the caller that holds this
+   * port and nothing else (a relay, a transport wrapper). `call()` is
+   * synchronous by contract and answers with the truth AT RETURN TIME; this is
+   * the later truth, delegated straight to {@link Session.settlementOf} with
+   * its laws intact: never rejects, first settlement wins, stays open for a
+   * fire the app never reports, and THROWS synchronously on an id no
+   * settlement can exist for.
+   *
+   * The field report is the reason it exists: a relay holding only the port
+   * could not learn the final truth, so it rebuilt one by hand out of a
+   * listener and a stopwatch.
+   */
+  whenSettled(transitionId: string): Promise<FireSettlement>;
 }
 
 const SKILL_USAGE =
@@ -95,6 +110,17 @@ const DO_ACTION_DESCRIPTION =
 const WHY_DESCRIPTION =
   'Explain why a state key currently holds its value: the causal chain of session actions — and ' +
   'who fired each one — that produced it. Pass a state key name seen in results or guards.';
+
+const DID_IT_WORK_DESCRIPTION =
+  'Find out how an action you already performed came to rest — whether the app actually did it. ' +
+  'Pass the transitionId from that action’s result. This answers immediately either way: the final ' +
+  'outcome, or that the app has not finished yet (call again). Use it whenever a result came back ' +
+  'with effectStatus "pending".';
+
+const STILL_PENDING_HOWTO =
+  'The app has not finished this action yet, so there is no outcome to report. Do NOT perform the ' +
+  'action again — call this tool again with the same transitionId, or call whats_here to see where ' +
+  'things stand.';
 
 const NOT_MATERIALIZED_WHY =
   'Nothing in the app is wired to execute this action yet — firing it would do nothing. ' +
@@ -137,6 +163,15 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
   const whatsHereName = sanitizeName(`${graphId}.whats_here`);
   const doActionName = sanitizeName(`${graphId}.do_action`);
   const whyName = sanitizeName(`${graphId}.why`);
+  const didItWorkName = sanitizeName(`${graphId}.did_it_work`);
+  // Authored, not runtime: the graph id is the author's own word and the tool
+  // name is a fixed constant of this port, so this sentence is byte-stable for
+  // the life of the conversation like every other authored string here. It
+  // rides ONLY the 'pending' arm — on a fire already at rest it would send the
+  // model to ask a question it already has the answer to.
+  const howToSettle =
+    `Not finished yet — the app’s side is still running. Call ${didItWorkName} with this ` +
+    `transitionId to learn how it came to rest. Do not perform the action again.`;
 
   const staticTools: MCPToolDescription[] = [
     ...declaredSkills.map(
@@ -186,6 +221,21 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           instance: structuredClone(STEP_INPUT_SCHEMA.properties.instance),
         },
         required: ['action'],
+        additionalProperties: false,
+      },
+    } as MCPToolDescription,
+    {
+      name: didItWorkName,
+      description: DID_IT_WORK_DESCRIPTION,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          transitionId: {
+            type: 'string',
+            description: 'The transitionId carried by the result of the action you performed.',
+          },
+        },
+        required: ['transitionId'],
         additionalProperties: false,
       },
     } as MCPToolDescription,
@@ -337,6 +387,87 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     return { ...fireData(fired, edge.affordanceId, edge), ...positionData() };
   }
 
+  /**
+   * did_it_work — the settled truth, in ONE synchronous answer.
+   *
+   * `call()` is synchronous by contract, so this POLLS the session's retained
+   * settlement instead of awaiting it: an answer that cannot arrive yet is
+   * reported as still-pending, never waited for. That is the whole design —
+   * the field failure was a relay that WAITED (a listener plus a four-second
+   * ceiling) and then rewrote the result with whatever it had, so a mistyped
+   * key produced a confident lie. Here a wrong id is refused by name, and an
+   * unfinished action says it is unfinished.
+   *
+   * Three arms, no fourth: settled (the final word), still-pending (honest,
+   * immediate), unknown (refused in the UpdateResult vocabulary the rest of
+   * the library already teaches with).
+   */
+  function callDidItWork(transitionId: string): ServeResult {
+    let settled: FireSettlement | undefined;
+    try {
+      settled = session.settlementIfKnown(transitionId);
+    } catch {
+      // The session refuses an id no settlement can ever exist for. Over the
+      // wire a throw is not an answer, so it becomes a typed result — and
+      // `pending` names the ids that ARE live, the same teaching updateState()
+      // gives a caller who passes an unknown transitionId.
+      return {
+        ok: false,
+        judgment: 'error',
+        reason: 'UNKNOWN_TRANSITION',
+        pending: session.pending().map((waiting) => waiting.id),
+        ...positionData(),
+      };
+    }
+    if (!settled) {
+      const did = firedAction(transitionId);
+      return {
+        ok: true,
+        settled: false,
+        judgment: 'still-pending',
+        ...(did !== undefined ? { did } : {}),
+        howToAct: STILL_PENDING_HOWTO,
+        ...positionData(),
+      };
+    }
+    const data = session.producedFor(transitionId);
+    const verified = settled.transition.effectVerified;
+    return {
+      ok: true,
+      settled: true,
+      ...(settled.transition.cause.affordanceId !== undefined
+        ? { did: settled.transition.cause.affordanceId }
+        : {}),
+      // The two axes, side by side, neither averaged into the other:
+      // effectStatus = did anyone perform it, effectVerified = were the
+      // declared writes observed.
+      effectStatus: settled.effectStatus,
+      outcome: settled.outcome,
+      ...(verified !== undefined ? { effectVerified: verified } : {}),
+      // The BOOLEAN form, present only when the answer is knowable. A model
+      // testing truthiness would read the string 'unobservable' as a verified
+      // write; absence cannot be misread that way.
+      ...(typeof verified === 'boolean' ? { verified } : {}),
+      ...(settled.transition.toNode !== undefined ? { toNode: settled.transition.toNode } : {}),
+      // Capped TEXT: an app's error object never crosses a result whole.
+      ...(settled.error !== undefined ? { error: errorText(settled.error) } : {}),
+      ...(data !== undefined ? { data } : {}),
+      ...positionData(),
+    };
+  }
+
+  /**
+   * Which action a transition id belongs to, for a fire still in flight (the
+   * settled arm reads it off the settlement's own record). pending() first
+   * because it is the cheap list; the log is the fallback for a fire that
+   * declared no writes and therefore never pended.
+   */
+  function firedAction(transitionId: string): string | undefined {
+    const waiting = session.pending().find((entry) => entry.id === transitionId);
+    if (waiting) return waiting.affordanceId;
+    return session.transitions().find((row) => row.id === transitionId)?.cause.affordanceId;
+  }
+
   // -- result builders (data channel; text = authored strings only) -----------
 
   function positionData(): ServeResult {
@@ -401,6 +532,11 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
         // handler — the "act → data back" channel (the tool result is built
         // synchronously here, before an async handler has produced anything).
         transitionId: fired.transition.id,
+        // 'pending' means nobody has done anything YET, and a model told only
+        // that has no move: the pointer names the door out (the settlement
+        // tool, with this same id). Only on 'pending' — the other three words
+        // are final, and pointing at a poll would invite a needless turn.
+        ...(fired.effectStatus === 'pending' ? { howToSettle } : {}),
         // Copy: fired.transition is the LIVE record — a consumer mutating its
         // result must never rewrite the trace.
         ...(fired.transition.guardUnevaluated ? { guardUnevaluated: [...fired.transition.guardUnevaluated] } : {}),
@@ -480,6 +616,12 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
         // rides the result channel like producedFor(), never a description.
         return { ok: true, key: parsed['key'], why: session.why(parsed['key']), ...positionData() };
       }
+      if (name === didItWorkName) {
+        if (typeof parsed['transitionId'] !== 'string' || !parsed['transitionId']) {
+          return { ok: false, judgment: 'error', reason: 'TRANSITION_ID_REQUIRED' };
+        }
+        return callDidItWork(parsed['transitionId']);
+      }
       if (name === doActionName) {
         if (typeof parsed['action'] !== 'string' || !parsed['action']) {
           return { ok: false, judgment: 'error', reason: 'ACTION_REQUIRED' };
@@ -494,6 +636,9 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       }
       return { ok: false, judgment: 'error', reason: 'UNKNOWN_TOOL', tools: staticTools.map((tool) => tool.name) };
     },
+    // Straight delegation — the port owns no settlement state of its own, so
+    // there is nothing here that could drift from the session's answer.
+    whenSettled: (transitionId: string) => session.settlementOf(transitionId),
   };
 }
 

@@ -31,9 +31,12 @@ function shopSession() {
   return map.createSession({ node: 'catalog', state: { cart: [], n: 0 } });
 }
 
-async function connectClient(session: ReturnType<typeof shopSession>) {
+async function connectClient(
+  session: ReturnType<typeof shopSession>,
+  opts?: { settleWithinMs?: number },
+) {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
-  const server = mcpServer(session);
+  const server = mcpServer(session, opts);
   await server.connect(serverT);
   const client = new Client({ name: 'test-host', version: '0.0.0' });
   await client.connect(clientT);
@@ -57,6 +60,7 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
       'shop.whats_here',
       'shop.why',
       'shop.do_action',
+      'shop.did_it_work',
     ]);
     const purchase = tools.find((t) => t.name === 'shop.skill.purchase')!;
     expect(Object.keys((purchase.inputSchema as { properties: object }).properties).sort()).toEqual([
@@ -166,5 +170,94 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     const client = await connectClient(shopSession());
     const res = await client.callTool({ name: 'shop.skill.ghost', arguments: {} });
     expect(res.isError).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// settleWithinMs — the one place in the library where waiting is allowed
+// ---------------------------------------------------------------------------
+
+/**
+ * A tool call is already an async turn and the model is going to ask "did it
+ * work?" anyway, so the server gives the app a moment and folds the settled
+ * truth into the SAME result. This is the rewrite the reporting integration
+ * hand-built on its own relay send path — done here, once, at the boundary.
+ *
+ * MUTATION PROOF: put back the `setTimeout(0)` fold and 'the settled word' /
+ * 'a refusal' fail — the handler that takes 5ms still reads 'pending', which
+ * is exactly what the wire used to say about an action that had already
+ * finished (or already failed).
+ */
+describe('settleWithinMs — the settled truth folded into the fire result', () => {
+  /** A shop whose add-to-cart takes `delayMs` and then reports (or fails). */
+  function slowShop(delayMs: number, fail?: string) {
+    const map = buildNavigationGraph('shop', {
+      pages: { catalog: { tools: { search: { does: 'Search dresses', writes: ['n'] } } } },
+      skills: { browse: { does: 'Look around', steps: ['search'] } },
+    });
+    const session = map.createSession({ node: 'catalog', state: { n: 0 }, onWarn: () => undefined });
+    session.registerToolGroup('catalog', {
+      handlers: {
+        search: async () => {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          if (fail) throw new Error(fail);
+          // Reported from the handler's ASYNC portion — the attribution ladder
+          // matches it to its own in-flight fire by declared writes.
+          session.updateState({ n: 1 });
+          return [{ id: 'd6' }];
+        },
+      },
+    });
+    return session;
+  }
+
+  it('settles inside the ceiling: the RESULT carries the final word, not the queued one', async () => {
+    const session = slowShop(5);
+    const client = await connectClient(session);
+    const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
+
+    expect(res['did']).toBe('catalog.search');
+    expect(res['effectStatus']).toBe('performed'); // rewritten from 'pending'
+    expect((res['data'] as { id: string }[])[0].id).toBe('d6');
+    // The pointer told the model to go poll; it just got the answer instead.
+    expect(res['howToSettle']).toBeUndefined();
+  });
+
+  it('a refusal folds too — the wire learns the action FAILED, in the same turn', async () => {
+    const session = slowShop(5, 'card declined');
+    const client = await connectClient(session);
+    const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
+
+    expect(res['effectStatus']).toBe('refused');
+    expect(String(res['error'])).toContain('card declined');
+  });
+
+  it('misses the ceiling: pending STANDS, and did_it_work is the named next call', async () => {
+    const session = slowShop(40);
+    const client = await connectClient(session, { settleWithinMs: 1 });
+    const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
+
+    // Never guessed: the ceiling decides how long to wait, never what the
+    // answer is. 'pending' is what was true when the ceiling expired.
+    expect(res['effectStatus']).toBe('pending');
+    expect(String(res['howToSettle'])).toContain('shop.did_it_work');
+
+    // …and the door it names really does answer, once the app is done.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const poll = text(
+      await client.callTool({
+        name: 'shop.did_it_work',
+        arguments: { transitionId: res['transitionId'] as string },
+      }),
+    );
+    expect(poll).toMatchObject({ settled: true, effectStatus: 'performed', effectVerified: true });
+  });
+
+  it('a fire nobody will ever report does not hang the call — the ceiling answers', async () => {
+    const session = shopSession(); // handlers registered, tap never reports
+    session.registerToolGroup('catalog', { handlers: { search: () => undefined } });
+    const client = await connectClient(session, { settleWithinMs: 5 });
+    const res = text(await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }));
+    expect(res).toMatchObject({ ok: true, effectStatus: 'pending' });
   });
 });

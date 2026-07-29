@@ -98,7 +98,7 @@ const session = graph.createSession();
 // ---cut---
 const port = skillsAsTools(session);
 
-const tools = port.tools();               // static tool array — one per skill + whats_here / do_action / why
+const tools = port.tools();               // static tool array — one per skill + the four generics
 const result = port.call('shop.skill.purchase', {}); // → { readySteps, judgment, youAreOn, ... }
 ```
 

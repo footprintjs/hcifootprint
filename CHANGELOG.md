@@ -2,6 +2,53 @@
 
 ## [Unreleased]
 
+### Added (settlement — the final truth now crosses the wire)
+- **`session.settlementOf(transitionId)` / `session.settlementIfKnown(transitionId)`.**
+  `whenSettled` belongs to the one caller that called `fire()`; a promise cannot
+  cross a tool boundary, so a REMOTE agent — and the relay in front of it — held
+  a transitionId and had no way to learn how the action came to rest (reported by
+  a production integration, whose workaround was a transition listener keyed by
+  transitionId, a four-second ceiling, and a rewrite on their relay's send path;
+  a consumer using the port directly could not do even that). The session now
+  RETAINS every settlement it delivers, so the question can be asked at any time:
+  an open fire hands back its own latch (one answer, first settlement wins, never
+  rejects), a fire already at rest resolves immediately with a detached copy, and
+  a fire the app never reports on stays honestly OPEN — `FireSettlement` excludes
+  `'pending'` by construction, so a timed-out answer could only be a guessed
+  `'unobservable'`. An unknown id, or a stimulus/sync/structure-swap row, is a
+  SYNCHRONOUS throw naming the fires that are live: a promise nobody will ever
+  resolve is precisely how a mistyped key becomes a confident lie four seconds
+  later. `settlementIfKnown` is the same law without waiting (`undefined` while
+  the question is open) — what a synchronous caller needs.
+  Inferred-attribution rows retain `effectStatus: 'unobservable'`: effect-signature
+  inference guesses WHO acted and the library invoked nothing, so `'performed'`
+  would launder the guess. The state axis is untouched (`effectVerified: true` —
+  the writes really did land).
+- **`<graphId>.did_it_work` — a fifth fixed Mode B tool**, input `{ transitionId }`.
+  A POLL, never a wait, so `SkillToolsPort.call` stays synchronous: **settled** →
+  `{ settled: true, did, effectStatus, outcome, effectVerified, verified?, toNode?,
+  error?, data? }`; **still open** → `{ settled: false, judgment: 'still-pending',
+  did, howToAct }` — an honest answer that also tells the model not to repeat the
+  action; **unknown** → `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...] }`,
+  the `UpdateResult` vocabulary, refusing a wrong id BY NAME instead of soothing it
+  with a "still running" it cannot know. `verified` is the boolean form of
+  `effectVerified` and is ABSENT when the answer is not knowable — a model testing
+  truthiness would read the string `'unobservable'` as a verified write. A fire
+  result whose `effectStatus` is `'pending'` now carries an authored `howToSettle`
+  pointer naming that tool (and only then: on a fire already at rest it would buy
+  a wasted turn).
+- **`SkillToolsPort.whenSettled(transitionId)`** — the port's async door, delegating
+  straight to `settlementOf` with its laws intact, for the relay that holds the port
+  and nothing else.
+- **`mcpServer(session, { settleWithinMs })` (default 250).** The one boundary where
+  waiting belongs: a `tools/call` is already an async turn. A call that FIRED
+  something now races the settlement against the ceiling instead of folding after
+  one macrotask — settle in time and the RESULT carries the final word
+  (`effectStatus` rewritten, produced data on `data`, a failure on `error`, the
+  now-stale `howToSettle` dropped); miss it and `'pending'` STANDS with `did_it_work`
+  named as the next call. The ceiling decides how long to wait, never what the
+  answer is; `0` restores the previous behaviour.
+
 ### Added (reachability — a spine of places you can walk between)
 - **`fromRoutes(routes, { crossLinks })`.** A route table contributed 28 pages
   and ZERO actions, so an agent on a wizard page truthfully answered "there is

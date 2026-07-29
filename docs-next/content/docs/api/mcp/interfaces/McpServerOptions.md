@@ -4,7 +4,7 @@ title: McpServerOptions
 
 # Interface: McpServerOptions
 
-Defined in: [src/serve/mcp-server.ts:33](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L33)
+Defined in: [src/serve/mcp-server.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L35)
 
 ## Extends
 
@@ -16,7 +16,7 @@ Defined in: [src/serve/mcp-server.ts:33](https://github.com/footprintjs/hcifootp
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L43)
+Defined in: [src/serve/modes.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L44)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
@@ -30,9 +30,30 @@ Require confirm:true before firing high-effect steps/actions. Default true.
 
 > `optional` **name?**: `string`
 
-Defined in: [src/serve/mcp-server.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L35)
+Defined in: [src/serve/mcp-server.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L37)
 
 Server name advertised over MCP. Default: the graph id.
+
+***
+
+### settleWithinMs?
+
+> `optional` **settleWithinMs?**: `number`
+
+Defined in: [src/serve/mcp-server.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L54)
+
+How long a `tools/call` that FIRED something waits for the app to finish
+before it answers. Default 250.
+
+This is the ONE place in the library where waiting is allowed: a tool call
+is already an async turn, and the model is going to ask "did it work?"
+anyway. Settle inside the ceiling and the result carries the final word;
+miss it and `effectStatus: 'pending'` stands, with `did_it_work` named as
+the next call. Nothing is ever guessed at the boundary — the ceiling
+decides how long to wait, never what the answer is.
+
+Raise it for an app whose handlers talk to a slow backend; 0 restores the
+previous behaviour (answer with the truth at return time and nothing more).
 
 ***
 
@@ -40,7 +61,7 @@ Server name advertised over MCP. Default: the graph id.
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L45)
+Defined in: [src/serve/modes.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L46)
 
 Principal stamped on fires made through this port. Default 'agent'.
 
@@ -54,6 +75,6 @@ Principal stamped on fires made through this port. Default 'agent'.
 
 > `optional` **version?**: `string`
 
-Defined in: [src/serve/mcp-server.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L37)
+Defined in: [src/serve/mcp-server.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L39)
 
 Server version advertised over MCP. Default '0.1.0'.

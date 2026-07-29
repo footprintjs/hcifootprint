@@ -48,6 +48,23 @@ declared writes observed?). They disagree honestly: a tapless handler completes
 `'performed'` with `effectVerified: 'unobservable'`. Both truths are carried; neither is
 averaged.
 
+### Asking later — `settlementOf`
+
+`whenSettled` belongs to the ONE caller that called `fire()`. Anyone else holding the
+transition id — a relay, a poll, a tool call three turns later — asks
+**`session.settlementOf(transitionId)`**: the same settlement, the same laws (one answer,
+first settlement wins, never rejects). `session.settlementIfKnown(transitionId)` is the same
+answer without waiting — `undefined` while the question is still open.
+
+Both **throw synchronously** on an id that can never settle (unknown, or a stimulus/sync row),
+naming the fires that are live. That refusal is deliberate: a promise nobody will ever resolve
+is exactly how a mistyped id becomes a confident lie four seconds later.
+
+A fire the app never reports on keeps its promise **open** — `FireSettlement` excludes
+`'pending'` by construction, so a timed-out answer could only be a guessed `'unobservable'`.
+When you need an answer that cannot wait, use `pending()`, `settlementIfKnown()`, or Mode B's
+[`did_it_work`](doc:modes) tool.
+
 ## The settlement rule
 
 A step that declares `writes` does not settle synchronously when a state tap is wired —

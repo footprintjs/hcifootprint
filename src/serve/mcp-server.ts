@@ -27,7 +27,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { skillsAsTools } from './modes.js';
-import type { SkillToolsOptions } from './modes.js';
+import type { SkillToolsOptions, SkillToolsPort } from './modes.js';
+import { errorText } from './error-text.js';
+import type { FireSettlement } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 
 export interface McpServerOptions extends SkillToolsOptions {
@@ -35,6 +37,21 @@ export interface McpServerOptions extends SkillToolsOptions {
   name?: string;
   /** Server version advertised over MCP. Default '0.1.0'. */
   version?: string;
+  /**
+   * How long a `tools/call` that FIRED something waits for the app to finish
+   * before it answers. Default 250.
+   *
+   * This is the ONE place in the library where waiting is allowed: a tool call
+   * is already an async turn, and the model is going to ask "did it work?"
+   * anyway. Settle inside the ceiling and the result carries the final word;
+   * miss it and `effectStatus: 'pending'` stands, with `did_it_work` named as
+   * the next call. Nothing is ever guessed at the boundary — the ceiling
+   * decides how long to wait, never what the answer is.
+   *
+   * Raise it for an app whose handlers talk to a slow backend; 0 restores the
+   * previous behaviour (answer with the truth at return time and nothing more).
+   */
+  settleWithinMs?: number;
 }
 
 /**
@@ -43,6 +60,7 @@ export interface McpServerOptions extends SkillToolsOptions {
  */
 export function mcpServer(session: Session, opts?: McpServerOptions): Server {
   const port = skillsAsTools(session, opts);
+  const settleWithinMs = opts?.settleWithinMs ?? 250;
   const server = new Server(
     { name: opts?.name ?? session.graphId, version: opts?.version ?? '0.1.0' },
     { capabilities: { tools: {} } },
@@ -60,14 +78,23 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
     const { name, arguments: args } = request.params;
     try {
       const result = port.call(name, args ?? {}) as Record<string, unknown>;
-      // Act → data back, over the wire: if the call fired something, let the
-      // handler settle and fold any produced data (search results, a looked-up
-      // record) INTO the result — so a remote MCP client sees it, not just an
-      // in-process caller.
+      // If the call FIRED something, give the app its moment and fold the
+      // settled truth INTO the result — the invocation word, the produced data
+      // (search results, a looked-up record) and any failure. A remote client
+      // gets what an in-process caller gets from `whenSettled`; before this,
+      // one macrotask of grace folded produced data only, and the result still
+      // said 'pending' about an action that had already finished or failed.
       if (typeof result['transitionId'] === 'string') {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        const produced = session.producedFor(result['transitionId']);
-        if (produced !== undefined) result['data'] = produced;
+        const settled = await settleWithin(port, result['transitionId'], settleWithinMs);
+        if (settled) {
+          result['effectStatus'] = settled.effectStatus;
+          const produced = session.producedFor(result['transitionId']);
+          if (produced !== undefined) result['data'] = produced;
+          if (settled.error !== undefined) result['error'] = errorText(settled.error);
+          // The pointer sent the model to ask did_it_work; it just got the
+          // answer, so leaving it would buy a wasted turn.
+          delete result['howToSettle'];
+        }
       }
       const misused = result['reason'] === 'UNKNOWN_TOOL';
       return {
@@ -83,4 +110,27 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
   });
 
   return server;
+}
+
+/**
+ * Wait for a fire to come to rest, but never longer than the ceiling —
+ * `undefined` means "not in time", never a guessed outcome.
+ *
+ * The timer is cleared on both paths: a settlement that wins the race must not
+ * leave a pending timer holding the event loop open behind it.
+ */
+async function settleWithin(
+  port: SkillToolsPort,
+  transitionId: string,
+  ms: number,
+): Promise<FireSettlement | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const ceiling = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), ms);
+  });
+  try {
+    return await Promise.race([port.whenSettled(transitionId), ceiling]);
+  } finally {
+    clearTimeout(timer);
+  }
 }

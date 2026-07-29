@@ -4,7 +4,7 @@ title: DoActionArgs
 
 # Interface: DoActionArgs
 
-Defined in: [src/serve/modes.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L58)
+Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/serve/modes.ts:58](https://github.com/footprintjs/hcifootprint/
 
 > **action**: `string`
 
-Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
+Defined in: [src/serve/modes.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L60)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/serve/modes.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L61)
+Defined in: [src/serve/modes.ts:62](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L62)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/serve/modes.ts:61](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **decline?**: `boolean`
 
-Defined in: [src/serve/modes.ts:63](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L63)
+Defined in: [src/serve/modes.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L64)
 
 Record the human's refusal of a high-effect action (they said no) — closes the ask, does not fire.
 
@@ -38,7 +38,7 @@ Record the human's refusal of a high-effect action (they said no) — closes the
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/serve/modes.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L60)
+Defined in: [src/serve/modes.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L61)
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [src/serve/modes.ts:60](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/serve/modes.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L64)
+Defined in: [src/serve/modes.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L65)
