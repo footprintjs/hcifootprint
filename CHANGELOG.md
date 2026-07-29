@@ -1,5 +1,108 @@
 # Changelog
 
+## [0.4.0] - 2026-07-29
+
+`fire()` now tells you what actually happened. Three workarounds the Hodgkin FE POC team
+had to write against 0.3.0 are deletable in this release:
+
+1. **The settlement timing guess** — the `setTimeout`/poll wrapper that existed because
+   `fire()` returned `settlement: 'settled'` before the deferred handler had run. Read
+   `effectStatus` for what is known at return time, and `await whenSettled` for the rest.
+2. **The throw-adapter** — the wrapper that re-threw a handler's returned `{ok: false, error}`
+   so the library would stop recording a failure as a successful transition. A returned
+   failure is now a failure.
+3. **The payload guessing** — the hand-maintained copy of each action's input shape, kept
+   because a `do_action` caller could only learn the contract by guessing wrong once, and
+   because a declared plain JSON Schema was never enforced. Every served action row now
+   carries `expects`, and a wrong payload is refused with a message that teaches the shape.
+
+### Changed (behavior change, pre-1.0 minor)
+- **A handler that reports failure by RETURNING `{ok: false}` now takes the throw's path.**
+  Previously it was recorded as a SUCCESSFUL transition carrying its own failure object as
+  planner-visible `produced` data. The outcome now flips to rejected/rolled-back, a claimed
+  navigation walks home, and the failure becomes the settlement's reason. The test is narrow
+  on purpose (own property, strict `=== false`), so a `fetch` Response — whose `ok` is a
+  prototype getter — stays data, as do `{ok: true}` and error-only objects. Warnings read
+  `"returned failure:"` vs `"threw:"` so a log can tell a protocol refusal from an exception.
+- **A plain JSON Schema is now enforced at fire time** (`checkPayloadShape`, default `true`).
+  Before, only zod-style `.safeParse`/`.parse` validators ever ran, so an action declaring
+  `{value: string}` accepted `{name: 'add milk'}` and the handler destructured `undefined`.
+  This is the promise Mode B already published — "a wrong input returns a structured error
+  RESULT carrying what was expected" — which a plain JSON Schema could not keep while nothing
+  enforced it. The checker is teachable, not complete: required keys, declared primitive
+  types, closed objects, one level of nesting. `$ref`/`allOf`/`anyOf`/`oneOf`/`enum`/`format`/
+  `pattern` it declines to judge and passes, the stance `guardUnevaluated` already takes on an
+  unevaluable key — a wrong REJECTION blocks an action the app would have accepted, and the
+  caller has no appeal. The gate is SOURCE-BLIND on purpose: a record-only `invoke: false`
+  sensor fire and the app's own `'user'`/`'system'` fires answer for the payload too (that is
+  where zod already sat in 0.3.0). `checkPayloadShape: false` restores the 0.3.0 pass-through
+  byte for byte.
+- **Upgrade note.** `PAYLOAD_INVALID` `'fire-rejected'` gap rows are now REACHABLE for plain
+  JSON Schema — same `GapRecord` shape, more rows. Transition records, the commit log and
+  `SessionEvents` are byte-identical, and `fire()` is still synchronous with every existing
+  field meaning what it did.
+
+### Added (fire() says what it knows, and hands over a promise for what it does not)
+- `FireResult.effectStatus` — the INVOCATION axis, read at return time. Structurally never
+  `'performed'` there (the handler is always deferred): `'pending'` when something will run,
+  `'unobservable'` when nothing is bound. Deliberately separate from `effectVerified` (the
+  STATE axis) — a tapless handler completes `'performed'` with `effectVerified`
+  `'unobservable'`, and a handler can fail AFTER its real state report landed. Both truths are
+  carried; neither is averaged.
+- `FireResult.whenSettled` — resolves ONCE with the final truth (`FireSettlement`: status,
+  outcome, a transition snapshot, error/produced) and NEVER rejects, because fire-and-forget is
+  the dominant call pattern and an orphaned rejecting promise would be noise no 0.3.0 consumer
+  opted into. A fire the app never reports on stays unresolved — the honest mirror of
+  `pending()`.
+- Mode B `do_action` results carry `effectStatus` too: the word crosses the wire, the promise
+  deliberately does not.
+
+### Added (the input contract, advertised before the fire)
+- Every served action row now carries `expects` — the declared input contract, visible BEFORE
+  the fire, for JSON Schema, zod and non-serializable validators alike. It already rode skill
+  `readySteps` and rejections; a `do_action` caller could previously only learn the shape by
+  guessing wrong once.
+- The refusal teaches: `missing required 'value' — expected { value: string }, received
+  { name: string }`. The rejection and the advertisement render the SAME shape string, so a
+  planner correcting from either lands in the same place. Every message is built from key names
+  and type names only — a payload value never enters a string bound for the model or the gap
+  ledger. Key names are capped at 40 characters, so a caller-chosen 100,000-character key can
+  no longer inflate `issues` on its way to the model.
+
+### Added (the small edges — a plan you can ask about, a route read back)
+- `session.trySkillPlan(id)` answers with a value where `skillPlan(id)` throws. The asymmetry
+  was ours: `commitSkill()` already returned `{ok: false, reason: 'UNKNOWN_SKILL', known}` for
+  the very same question, so a caller holding a model-supplied id handled it two ways — and the
+  throw is the one that reaches production unhandled. `skillPlan()` keeps throwing on purpose:
+  every in-library caller passes an id the spec just yielded, where an unknown one is a bug that
+  should stop the program. Membership uses `Object.hasOwn`, because `skills['constructor']` is
+  truthy on a plain object.
+- `matchRoute(pages, path)` reads the `route` every page has always declared and nothing ever
+  read back — an app whose router speaks `/orders/123` used to write that mapping a second time,
+  by hand, beside a declaration that already said it. `sync()` is deliberately NOT wired to it;
+  the caller composes `sync(matchRoute(graph.spec.pages, path) ?? path)`, so a path this cannot
+  place stays unplaced and lands on the existing off-graph behavior. Literal segments and
+  `:param` only; a syntax it does not implement MISSES rather than guessing.
+
+### Fixed
+- **A schema that allows keys by pattern is not a closed one.** `patternProperties` beside
+  `additionalProperties: false` no longer causes a wrong refusal — the author's full schema
+  ACCEPTS `{'x-trace': 'abc'}` where they wrote `patternProperties: {'^x-': …}`, and the checker
+  read the closed rule as "only the keys in `properties`". Only THAT rule stands down: required
+  keys and declared types keep being judged beside `patternProperties`.
+- The `contextBrief()` empty-key line said `(nothing)`, which reads like a report the library
+  lost and sends a reader hunting a bug that is not there. It now says what actually happened:
+  same-value writes and undefined-valued keys net out before the commit. It deliberately names
+  no dial — `commitValues` looks like the culprit and is not.
+- Docs corrected where `src/traverse/README.md` and the payload-shape module header claimed
+  `issues` reaches the gap ledger. It does not: `recordRejection` stores the rejection REASON
+  alone. `issues` rides `FireResult` and the Mode B rejection a model reads.
+- `NOT_MATERIALIZED` is pinned as KIND-AGNOSTIC. The 0.3.0 report arrived as a `goTo` tool and
+  the gate can be misread as being about navigation; it is about actuation. A write-only click
+  nothing is bound to is the same lie told without moving. Tests only.
+
+Reported by the Hodgkin FE POC team.
+
 ## [0.3.0] - 2026-07-25
 
 ### Changed (D22 — an agent fire that would execute nothing is refused)
