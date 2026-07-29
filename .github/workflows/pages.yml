@@ -16,6 +16,8 @@ on:
       - 'site/**'
       - 'docs-next/**'
       - 'src/**' # the API reference is generated from source
+      - 'examples/agent-map/**' # the homepage renders this file verbatim
+      - 'package.json' # the homepage's version badge is read from it
       - 'scripts/gen-fumadocs-api.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:

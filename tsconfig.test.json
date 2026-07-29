@@ -2,7 +2,13 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "."
+    "rootDir": ".",
+    // examples/agent-map is the integration the homepage renders. It imports the
+    // library the way a consumer does ('hcifootprint'), so the page can never
+    // show code that would not compile; this maps that specifier to the source.
+    "paths": {
+      "hcifootprint": ["./src/index.ts"]
+    }
   },
   "include": [
     "src",

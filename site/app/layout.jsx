@@ -1,6 +1,6 @@
 import 'storydeck/storydeck.css';
 import './globals.css';
-import { StoryDeckProvider, ThemeToggle } from 'storydeck';
+import { StoryDeckProvider } from 'storydeck';
 import { BASE, SITE, CANONICAL, AUTHOR, AUTHOR_URL } from '../site.config';
 
 const TITLE = 'HACI Footprint — turn your web app into an agentic app';
@@ -35,8 +35,10 @@ export const metadata = {
   },
 };
 
-// Dark by default; flip to light only if the reader chose it. Runs before paint (no flash).
-const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light')t='dark';document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`;
+// The reader's own choice wins; when they have never chosen, the OS setting
+// supplies the first guess. Runs before paint (no flash), and writes the class
+// every stylesheet on the site keys off.
+const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`;
 
 export default function RootLayout({ children }) {
   return (
@@ -47,26 +49,9 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)" />
       </head>
       <body>
-        <StoryDeckProvider basePath={BASE}>
-          <a className="skip-link" href="#main">Skip to content</a>
-          <header className="site-hd">
-            <a className="brand" href={`${BASE}/`}>
-              <img src={`${BASE}/logo-foot.png`} alt="" width={26} height={26} />
-              <span>H<span className="a">A</span>CI&nbsp;Footprint</span>
-            </a>
-            <span className="sp" />
-            <a className="nav" href="https://github.com/footprintjs/hcifootprint">GitHub</a>
-            <a className="nav" href="https://www.npmjs.com/package/hcifootprint">npm</a>
-            <a className="nav" href="https://footprintjs.github.io/">footprintjs</a>
-            <ThemeToggle />
-          </header>
-          {children}
-          <footer className="site-ft">
-            <span className="built">Built by <a href={AUTHOR_URL}>{AUTHOR}</a></span> · open source ·{' '}
-            <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE">MIT</a> · a{' '}
-            <a href="https://footprintjs.github.io/">footprintjs</a> library
-          </footer>
-        </StoryDeckProvider>
+        {/* Pages bring their own chrome: the homepage's header/footer are part of
+            its design, and /story/ opts into the shared one via <SiteChrome>. */}
+        <StoryDeckProvider basePath={BASE}>{children}</StoryDeckProvider>
       </body>
     </html>
   );
