@@ -18,6 +18,24 @@ Also lives here: CAS on `cursorVersion` + guard re-evaluation at fire time · se
 
 Longevity rules (from the footprint execution-model adjudication): fresh context per transition (never `createNext`), `runId` stays `''`, monotonic `runtimeStageId` counter.
 
+## settlement.ts + handler-result.ts — "was it actually done?"
+
+`fire()` is synchronous, but the handler it invokes is always deferred, so the
+result carries **two** answers: `effectStatus` (what is known at return time —
+never `'performed'`, by construction) and `whenSettled` (a promise resolved
+ONCE with the final truth, which never rejects; refusals arrive as data).
+
+`settlement.ts` is that promise's machinery — one latch per fired record, first
+settlement wins. `handler-result.ts` holds the one narrow test that decides
+whether a handler's return value is a REFUSAL (`{ok:false}` — routed exactly
+like a throw) or DATA (kept as `produced`).
+
+Kept deliberately apart: `effectStatus` is the INVOCATION axis (did our side
+run?) while `TransitionRecord.effectVerified` is the STATE axis (were the
+declared writes observed?). They disagree honestly — a tapless handler
+completes `'performed'` with `effectVerified: 'unobservable'` — and neither is
+averaged into the other.
+
 ## nav-session.ts — the D18 composition layer
 
 `InteractionSession extends Session` and is where the independent layers meet: the

@@ -49,6 +49,7 @@ import type {
   Explanation,
   FireOptions,
   FireResult,
+  FireSettlement,
   GapRecord,
   PendingInfo,
   Principal,
@@ -68,6 +69,9 @@ import type {
   UpdateResult,
 } from '../atom/types.js';
 import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
+import { createSettlementLatch, settledNow } from './settlement.js';
+import type { SettlementLatch } from './settlement.js';
+import { failureReason, isReturnedFailure } from './handler-result.js';
 import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
 import type { ToolHandler } from '../registry/registry.js';
@@ -139,6 +143,14 @@ export class Session {
   readonly #commitValues: 'full' | 'delta';
   readonly #transitions: TransitionRecord[] = [];
   readonly #pending: PendingTransition[] = [];
+  /**
+   * Open settlement latches by record id — the promises fire() handed out that
+   * nothing has answered yet. An entry lives exactly as long as the question
+   * does: it is deleted the moment the fire comes to rest, and a fire whose
+   * app report never arrives keeps its latch for the same reason its #pending
+   * entry stays (the honest mirror of a record that is still 'pending').
+   */
+  readonly #effectLatches = new Map<string, SettlementLatch>();
   /** runtimeStageId → keys tracked-read, collected live via the scope channel. */
   readonly #readsByStep = new Map<string, string[]>();
   readonly #recorder: ScopeRecorder;
@@ -592,7 +604,12 @@ export class Session {
   // fire — apply a transition with provenance
   // -------------------------------------------------------------------------
 
-  /** Returned transition records are LIVE views — settlement updates them in place. */
+  /**
+   * Returned transition records are LIVE views — settlement updates them in
+   * place. `effectStatus` is the opposite: a reading taken at return time, and
+   * because the handler is always deferred it can never say 'performed' here.
+   * `whenSettled` carries the later truth, once, as a snapshot.
+   */
   fire(affordanceId: string, opts: FireOptions): FireResult {
     const aff = this.spec.affordances[affordanceId];
     if (!aff) {
@@ -638,6 +655,10 @@ export class Session {
     const unmaterialized =
       opts.invoke !== false && this.handlerFor(affordanceId, opts) === undefined;
     const honestNoOp = unmaterialized && opts.source === 'agent';
+    // The one question every settlement arm below asks: will OUR side actually
+    // execute anything? (`unmaterialized` already answered "invoke wanted but
+    // nothing bound" — this is the same lookup, not a second one.)
+    const handlerWillRun = opts.invoke !== false && !unmaterialized;
     if (honestNoOp && !this.#allowUnmaterialized) {
       this.recordRejection(affordanceId, 'NOT_MATERIALIZED', opts.source);
       return { ok: false, reason: 'NOT_MATERIALIZED', affordanceId };
@@ -681,27 +702,70 @@ export class Session {
     if (declaredWrites.length > 0 && this.#stateTap && !honestNoOp) {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
+      const latch = this.#openEffectLatch(record);
       this.#invokeHandler(record, affordanceId, opts);
-      return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state', ...noOpMarks };
+      return {
+        ok: true,
+        transition: record,
+        version: this.#version,
+        settlement: 'awaiting-state',
+        // A report and/or the handler will decide; neither has happened yet.
+        effectStatus: 'pending',
+        whenSettled: latch.promise,
+        ...noOpMarks,
+      };
     }
     if (declaredWrites.length > 0) {
       // Nothing will ever report a delta for this record — either the session
       // has no state tap, or it is an allowed no-op that ran nothing. A
       // registered handler settles on ITS completion; with nothing to execute,
       // settle now. Either way effectVerified is honestly 'unobservable'.
-      const willExecute = opts.invoke !== false && this.handlerFor(affordanceId, opts) !== undefined;
-      if (willExecute) {
+      if (handlerWillRun) {
         this.#pending.push({ record, affordance: aff, settleOnCompletion: true });
+        const latch = this.#openEffectLatch(record);
         this.#invokeHandler(record, affordanceId, opts);
-        return { ok: true, transition: record, version: this.#version, settlement: 'awaiting-state', ...noOpMarks };
+        return {
+          ok: true,
+          transition: record,
+          version: this.#version,
+          settlement: 'awaiting-state',
+          effectStatus: 'pending',
+          whenSettled: latch.promise,
+          ...noOpMarks,
+        };
       }
       this.#settle(record, aff, {}, { forceUnobservable: true });
-      this.#invokeHandler(record, affordanceId, opts);
-      return { ok: true, transition: record, version: this.#version, settlement: 'settled', ...noOpMarks };
+      this.#invokeHandler(record, affordanceId, opts); // structurally a no-op: nothing is bound
+      return {
+        ok: true,
+        transition: record,
+        version: this.#version,
+        settlement: 'settled',
+        // Nothing ran and nothing ever will: this fire is already at rest, and
+        // 'unobservable' is the whole truth about an effect no one performed.
+        effectStatus: 'unobservable',
+        whenSettled: settledNow(this.#effectSnapshot(record, 'unobservable')).promise,
+        ...noOpMarks,
+      };
     }
     this.#settle(record, aff, {});
+    // THE P0-1 SEAM. The record is committed — but #invokeHandler defers, so
+    // with a handler bound the app's side has NOT run yet and can still fail a
+    // microtask later (flipping this very record to 'rolled-back'). 'settled'
+    // says a commit bundle exists; effectStatus says whether anyone did it.
+    const latch = handlerWillRun
+      ? this.#openEffectLatch(record)
+      : settledNow(this.#effectSnapshot(record, 'unobservable'));
     this.#invokeHandler(record, affordanceId, opts);
-    return { ok: true, transition: record, version: this.#version, settlement: 'settled', ...noOpMarks };
+    return {
+      ok: true,
+      transition: record,
+      version: this.#version,
+      settlement: 'settled',
+      effectStatus: handlerWillRun ? 'pending' : 'unobservable',
+      whenSettled: latch.promise,
+      ...noOpMarks,
+    };
   }
 
   /**
@@ -723,9 +787,12 @@ export class Session {
 
   /**
    * D13: fire() executes when a live binding exists. Fire-and-forget — the
-   * app's state tap reports the real delta as usual; a throwing handler
+   * app's state tap reports the real delta as usual; a FAILING handler
    * auto-rejects its still-pending transition (or rolls back an
    * already-committed immediate settle) instead of leaving a lie in the log.
+   * Failing means thrown OR returned `{ok:false}` (see handler-result.ts):
+   * both are the app saying it did not do the thing, so both route
+   * identically — only the warning text tells them apart.
    *
    * Attribution safety: while the handler's synchronous portion runs,
    * updateState() attributes to THIS record directly; while the handler is in
@@ -748,6 +815,21 @@ export class Session {
         }
       })
       .then((returnValue) => {
+        // A handler that FAILED BY RETURNING takes the throw's path, exactly —
+        // checked BEFORE the produced capture, because a refusal is the
+        // settlement's reason, never planner-visible data. While only a throw
+        // reached .catch, a returned {ok:false,error} was stamped onto a
+        // COMMITTED transition as `produced`: the failure read as a success.
+        if (isReturnedFailure(returnValue)) {
+          const reason = failureReason(returnValue);
+          this.#handleHandlerFailure(record, reason);
+          // Distinct wording from "threw:" so a log reader can tell a protocol
+          // refusal from an exception.
+          this.#warn(
+            `hcifootprint: handler for '${affordanceId}' returned failure: ${String(reason)}`,
+          );
+          return;
+        }
         // Act → get data back: whatever the handler returned (search results, a
         // looked-up record) rides the DATA channel on the record — sanitized +
         // capped so untrusted content can never become planner instructions.
@@ -755,39 +837,117 @@ export class Session {
           record.produced = sanitizeProduced(returnValue);
         }
         const entry = this.#pending.find((p) => p.record.id === record.id);
-        if (!entry) return;
+        if (!entry) {
+          // No pending entry: this fire committed synchronously (no declared
+          // writes) and its handler has now run to completion — the only event
+          // that will ever answer the 'pending' this fire() returned. If a
+          // state report already answered it, resolve-once keeps that answer.
+          this.#resolveEffect(record, 'performed');
+          return;
+        }
         if (entry.settleOnCompletion) {
           // Tapless session: the handler finishing IS the settlement signal.
           this.#pending.splice(this.#pending.indexOf(entry), 1);
           this.#settle(entry.record, entry.affordance, {}, { forceUnobservable: true });
+          // Our side ran to completion, which is what 'performed' claims —
+          // orthogonal to effectVerified, which stays honestly 'unobservable'
+          // because no report exists to check the declared writes against.
+          this.#resolveEffect(entry.record, 'performed');
           return;
         }
         entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
       })
       .catch((error) => {
-        const index = this.#pending.findIndex((p) => p.record.id === record.id);
-        if (index >= 0) {
-          // Effect never landed: reject the pending so later deltas are not mis-attributed.
-          this.#pending.splice(index, 1);
-          record.outcome = 'rejected';
-          this.#version++;
-          this.#emitTransition(record); // observers see the settled (rejected) occurrence
-        } else if (record.outcome === 'committed' && record.effectVerified === 'unobservable') {
-          // Immediate/tapless settle committed BEFORE the handler ran and the
-          // handler failed: the commit was a claim about an action that never
-          // happened. Roll it back and, if the settle moved the cursor on the
-          // navigation CLAIM, walk the cursor back honestly. A commit backed by
-          // REAL evidence (a state report settled it, effectVerified true) is
-          // stronger than the handler's failure — that one stands.
-          record.outcome = 'rolled-back';
-          this.#version++;
-          this.#emitTransition(record); // observers see the rolled-back occurrence
-          if (record.toNodeClaimed && record.toNode === this.#node && record.fromNode !== this.#node) {
-            this.sync(record.fromNode, { stimulus: 'navigation', principal: 'system' });
-          }
-        }
+        this.#handleHandlerFailure(record, error);
         this.#warn(`hcifootprint: handler for '${affordanceId}' threw: ${String(error)}`);
       });
+  }
+
+  /**
+   * A handler failed — thrown or returned, same routing, because the app's
+   * side did not do the thing either way.
+   *
+   * Idempotent by construction (a repeat pass finds no pending and an outcome
+   * that is no longer 'committed'), which is what lets both call sites use it
+   * without coordinating.
+   */
+  #handleHandlerFailure(record: TransitionRecord, reason: unknown): void {
+    const index = this.#pending.findIndex((p) => p.record.id === record.id);
+    if (index >= 0) {
+      // Effect never landed: reject the pending so later deltas are not mis-attributed.
+      this.#pending.splice(index, 1);
+      record.outcome = 'rejected';
+      this.#version++;
+      this.#emitTransition(record); // observers see the settled (rejected) occurrence
+    } else if (record.outcome === 'committed' && record.effectVerified === 'unobservable') {
+      // Immediate/tapless settle committed BEFORE the handler ran and the
+      // handler failed: the commit was a claim about an action that never
+      // happened. Roll it back and, if the settle moved the cursor on the
+      // navigation CLAIM, walk the cursor back honestly. A commit backed by
+      // REAL evidence (a state report settled it, effectVerified true) is
+      // stronger than the handler's failure — that one stands.
+      record.outcome = 'rolled-back';
+      this.#version++;
+      this.#emitTransition(record); // observers see the rolled-back occurrence
+      if (record.toNodeClaimed && record.toNode === this.#node && record.fromNode !== this.#node) {
+        this.sync(record.fromNode, { stimulus: 'navigation', principal: 'system' });
+      }
+    }
+    // 'refused' is the INVOCATION truth and stands even when the commit does
+    // (the evidence-backed case above): the handler failed AND the effect
+    // landed are both facts, and the settlement carries them side by side
+    // rather than averaging them into one comfortable word.
+    this.#resolveEffect(record, 'refused', { error: reason });
+  }
+
+  // -------------------------------------------------------------------------
+  // Settlement latches — the promise side of fire() (see traverse/settlement.ts)
+  // -------------------------------------------------------------------------
+
+  /** Open the question: a later event (report, handler, reject) will answer it. */
+  #openEffectLatch(record: TransitionRecord): SettlementLatch {
+    const latch = createSettlementLatch();
+    this.#effectLatches.set(record.id, latch);
+    return latch;
+  }
+
+  /**
+   * The fire's truth as of right now. The transition rides as a COPY: a
+   * settlement is a receipt of how the fire came to rest, so handing over the
+   * LIVE record would both keep changing under a caller who already read it
+   * and let that caller rewrite the trace.
+   */
+  #effectSnapshot(
+    record: TransitionRecord,
+    effectStatus: FireSettlement['effectStatus'],
+    failure?: { error: unknown },
+  ): FireSettlement {
+    return {
+      effectStatus,
+      outcome: record.outcome,
+      transition: this.#copyRecord(record),
+      // Only handler-failure paths pass one: reject() refuses without an error
+      // object, and inventing one would be a guess.
+      ...(failure ? { error: failure.error } : {}),
+      // Parity with producedFor(): a fresh sanitized copy, never the record's own.
+      ...(record.produced !== undefined ? { produced: sanitizeProduced(record.produced) } : {}),
+    };
+  }
+
+  /**
+   * Answer an open latch. A missing entry means this fire already came to rest
+   * (or never had a caller-visible question) — first settlement wins, and the
+   * later motion stays visible through transitions() and the 'transition' event.
+   */
+  #resolveEffect(
+    record: TransitionRecord,
+    effectStatus: FireSettlement['effectStatus'],
+    failure?: { error: unknown },
+  ): void {
+    const latch = this.#effectLatches.get(record.id);
+    if (!latch) return;
+    this.#effectLatches.delete(record.id);
+    latch.settle(this.#effectSnapshot(record, effectStatus, failure));
   }
 
   // -------------------------------------------------------------------------
@@ -845,7 +1005,7 @@ export class Session {
         };
       }
       const [pending] = this.#pending.splice(index, 1);
-      this.#settle(pending.record, pending.affordance, delta);
+      this.#settleAttributed(pending, delta);
       return { ok: true, attributed: true, transition: pending.record, version: this.#version };
     }
 
@@ -857,7 +1017,7 @@ export class Session {
       const index = this.#pending.findIndex((p) => p.record.id === this.#invokingRecordId);
       if (index >= 0) {
         const [pending] = this.#pending.splice(index, 1);
-        this.#settle(pending.record, pending.affordance, delta);
+        this.#settleAttributed(pending, delta);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
     }
@@ -868,7 +1028,7 @@ export class Session {
       const index = this.#pending.findIndex((p) => !p.handlerInFlight);
       if (index >= 0) {
         const pending = this.#pending[index];
-        this.#settle(pending.record, pending.affordance, delta);
+        this.#settleAttributed(pending, delta);
         this.#pending.splice(index, 1);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
@@ -883,7 +1043,7 @@ export class Session {
       });
       if (own.length === 1) {
         const pending = own[0];
-        this.#settle(pending.record, pending.affordance, delta);
+        this.#settleAttributed(pending, delta);
         this.#pending.splice(this.#pending.indexOf(pending), 1);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
@@ -990,16 +1150,20 @@ export class Session {
     const index = this.#pending.findIndex((p) => p.record.id === transitionId);
     if (index >= 0) {
       const [pending] = this.#pending.splice(index, 1);
-      pending.record.outcome = opts?.outcome ?? 'rejected';
+      const outcome = opts?.outcome ?? 'rejected';
+      pending.record.outcome = outcome;
       this.#version++;
       this.#emitTransition(pending.record);
+      this.#resolveEffect(pending.record, refusalStatus(outcome));
       return pending.record;
     }
     const settled = this.#transitions.find((t) => t.id === transitionId && t.outcome === 'committed');
     if (settled) {
-      settled.outcome = opts?.outcome ?? 'rolled-back';
+      const outcome = opts?.outcome ?? 'rolled-back';
+      settled.outcome = outcome;
       this.#version++;
       this.#emitTransition(settled);
+      this.#resolveEffect(settled, refusalStatus(outcome));
       return settled;
     }
     throw new Error(
@@ -1512,6 +1676,21 @@ export class Session {
     return { matched, conditions, unevaluable };
   }
 
+  /**
+   * A state report the ladder attributed to a pending fire: settle the record,
+   * then close its settlement latch as 'performed'.
+   *
+   * The latch is answered HERE and not inside #settle, because #settle is also
+   * how a fire with no declared writes commits synchronously — before its
+   * handler has run. Resolving there would re-tell the exact lie this fixes
+   * ("committed" read as "the app did it"). Only these attributed paths, plus
+   * a handler running to completion, are evidence that anyone performed it.
+   */
+  #settleAttributed(pending: PendingTransition, delta: Record<string, unknown>): void {
+    this.#settle(pending.record, pending.affordance, delta);
+    this.#resolveEffect(pending.record, 'performed');
+  }
+
   #settle(
     record: TransitionRecord,
     aff: Affordance,
@@ -1683,6 +1862,17 @@ function sanitizeProduced(value: unknown, depth = 0): unknown {
     if (clean !== undefined) out[key] = clean;
   }
   return out;
+}
+
+/**
+ * How an app-declared rejection reads on the INVOCATION axis. 'superseded'
+ * means the library stopped tracking this fire — not that it failed — so
+ * calling it 'refused' would dress a guess up as a fact.
+ */
+function refusalStatus(
+  outcome: 'rejected' | 'rolled-back' | 'superseded',
+): FireSettlement['effectStatus'] {
+  return outcome === 'superseded' ? 'unobservable' : 'refused';
 }
 
 /** Detach a value defensively — structuredClone, or the ref if it can't be cloned. */

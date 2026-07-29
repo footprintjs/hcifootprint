@@ -386,6 +386,12 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
         ok: true,
         did: id,
         settlement: fired.settlement,
+        // The planner's copy of the invocation truth. 'settled' only means a
+        // commit bundle exists, so without this word a Mode B agent reads a
+        // queued handler as a finished one — the hole this fixes was reported
+        // from exactly here, the wire, not from the in-process FireResult.
+        // Only the word crosses; whenSettled deliberately stays behind.
+        effectStatus: fired.effectStatus,
         // The transition id lets a caller fetch producedFor() AFTER awaiting the
         // handler — the "act → data back" channel (the tool result is built
         // synchronously here, before an async handler has produced anything).

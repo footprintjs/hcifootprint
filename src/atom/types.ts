@@ -464,12 +464,68 @@ export interface FireOptions {
   invoke?: boolean;
 }
 
+/**
+ * What became of a fire's effect — the INVOCATION axis, deliberately separate
+ * from `TransitionRecord.effectVerified` (the STATE axis: were the declared
+ * writes actually observed?). The two disagree honestly all the time: a
+ * handler can run to completion in a session with no state tap ('performed'
+ * with effectVerified 'unobservable'), and a handler can fail AFTER its real
+ * state report already landed ('refused' with effectVerified true). Both
+ * truths are carried; neither is averaged into the other.
+ *
+ * - `pending`      — deferred, not yet decided. Only ever seen on the
+ *                    synchronous FireResult: fire() returns before the handler
+ *                    runs, so at that instant this is the honest answer.
+ * - `performed`    — our side ran to completion, or the app's state report
+ *                    settled the record.
+ * - `refused`      — the handler threw, returned a failure, or the app called
+ *                    reject().
+ * - `unobservable` — nothing was bound to run, or tracking stopped
+ *                    ('superseded'). The library cannot know, so it says so
+ *                    rather than guessing 'performed'.
+ */
+export type EffectStatus = 'pending' | 'performed' | 'refused' | 'unobservable';
+
+/** The final truth about one fire, delivered once through `FireResult.whenSettled`. */
+export interface FireSettlement {
+  /** 'pending' is excluded by construction — a final answer is never "not yet". */
+  effectStatus: Exclude<EffectStatus, 'pending'>;
+  /** The record's outcome at the moment it came to rest. */
+  outcome: Settlement;
+  /** A snapshot — never the live record, which may keep moving afterwards. */
+  transition: TransitionRecord;
+  /**
+   * Why it was refused, when a handler failure caused the refusal: the thrown
+   * error, or the returned failure's `error` (else the returned object
+   * itself). Absent when the app itself declared the refusal via reject() —
+   * there is no error object there and inventing one would be a guess.
+   */
+  error?: unknown;
+  /** The handler's return value, sanitized (parity with `Session.producedFor()`). */
+  produced?: unknown;
+}
+
 export type FireResult =
   | {
       ok: true;
       transition: TransitionRecord;
       version: number;
       settlement: 'settled' | 'awaiting-state';
+      /**
+       * Whether the app's side has run — the truth AT RETURN TIME. The handler
+       * is always deferred, so this can never be 'performed' here: a fire with
+       * something bound to run returns 'pending', and `whenSettled` carries the
+       * answer. `settlement` answers a different question (does a commit bundle
+       * exist yet?) — reading it as "the app did it" was the reported bug.
+       */
+      effectStatus: EffectStatus;
+      /**
+       * Resolves ONCE with what actually happened. NEVER rejects: a refusal
+       * arrives as data (`effectStatus: 'refused'`), because most callers drop
+       * this result unread and an orphaned rejecting promise would be noise
+       * they never opted into.
+       */
+      whenSettled: Promise<FireSettlement>;
       /** Present (false) only on an allowed unmaterialized agent fire: nothing ran. */
       executed?: false;
       /** Present (false) only on an allowed unmaterialized agent fire: nothing is bound. */
