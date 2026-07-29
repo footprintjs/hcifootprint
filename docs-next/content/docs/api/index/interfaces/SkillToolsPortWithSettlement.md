@@ -1,14 +1,18 @@
 ---
-title: SkillToolsPort
+title: SkillToolsPortWithSettlement
 ---
 
-# Interface: SkillToolsPort
+# Interface: SkillToolsPortWithSettlement
 
-Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L69)
+Defined in: [src/serve/modes.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L104)
 
-## Extended by
+What [skillsAsTools](/api/index/functions/skillsAsTools) returns: a port whose settlement door is always
+there. Name the type only if you are storing the port somewhere typed — the
+factory's inferred return already has it.
 
-- [`SkillToolsPortWithSettlement`](/api/index/interfaces/SkillToolsPortWithSettlement)
+## Extends
+
+- [`SkillToolsPort`](/api/index/interfaces/SkillToolsPort)
 
 ## Methods
 
@@ -34,6 +38,10 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 [`ServeResult`](/api/index/type-aliases/ServeResult)
 
+#### Inherited from
+
+[`SkillToolsPort`](/api/index/interfaces/SkillToolsPort).[`call`](/api/index/interfaces/SkillToolsPort#call)
+
 ***
 
 ### tools()
@@ -48,13 +56,17 @@ The STATIC tool array — identical bytes for the life of the conversation.
 
 `MCPToolDescription`[]
 
+#### Inherited from
+
+[`SkillToolsPort`](/api/index/interfaces/SkillToolsPort).[`tools`](/api/index/interfaces/SkillToolsPort#tools)
+
 ***
 
-### whenSettled()?
+### whenSettled()
 
-> `optional` **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
+> **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
 
-Defined in: [src/serve/modes.ts:96](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L96)
+Defined in: [src/serve/modes.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L105)
 
 How a fire came to rest — the ASYNC door, for the caller that holds this
 port and nothing else (a relay, a transport wrapper). `call()` is
@@ -86,3 +98,7 @@ which is a strange way to ship a door nobody had yet.
 #### Returns
 
 `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
+
+#### Overrides
+
+[`SkillToolsPort`](/api/index/interfaces/SkillToolsPort).[`whenSettled`](/api/index/interfaces/SkillToolsPort#whensettled)

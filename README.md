@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-324%20passing-f5b301?style=flat" alt="324 tests passing">
+  <img src="https://img.shields.io/badge/tests-829%20passing-f5b301?style=flat" alt="829 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -376,11 +376,13 @@ session.onGap((row) => { … });  // or stream rows live (sugar for session.on('
 Rows are deliberately structured and name-only — the ask plus lists of available action/skill names, never
 descriptions or transcripts — so a batch triage LLM can cluster thousands of them cheaply.
 
-Four kinds of row: `fire-rejected` (the session refused an action), `reported` (the agent filed an ask
-nothing could serve), `unmaterialized-fire` (a touring session let an agent fire a tool nothing is bound
-to — the *binding* to build, clustered for free alongside the rest), and `dead-end` (the cursor came to
-rest on a page where **every** offered action would refuse — a room with no doors, recorded before an
-agent has to loop in it).
+Four kinds of row today: `fire-rejected` (the session refused an action), `reported` (the agent filed an
+ask nothing could serve), `unmaterialized-fire` (a touring session let an agent fire a tool nothing is
+bound to — the *binding* to build, clustered for free alongside the rest), and `dead-end` (the cursor came
+to rest on a page where **every** offered action would refuse — a room with no doors, recorded before an
+agent has to loop in it). **Today**, because `kind` grows as the library learns to see new shapes of unmet
+demand — no shipped value ever changes meaning, so read a row by the kind you know and let the rest fall
+through as informational.
 
 ---
 

@@ -73,6 +73,7 @@ title: index
 - [SkillPlanStep](/api/index/interfaces/SkillPlanStep)
 - [SkillToolsOptions](/api/index/interfaces/SkillToolsOptions)
 - [SkillToolsPort](/api/index/interfaces/SkillToolsPort)
+- [SkillToolsPortWithSettlement](/api/index/interfaces/SkillToolsPortWithSettlement)
 - [ToolDef](/api/index/interfaces/ToolDef)
 - [ToolGroup](/api/index/interfaces/ToolGroup)
 - [ToolGroupHandle](/api/index/interfaces/ToolGroupHandle)

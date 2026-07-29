@@ -50,6 +50,17 @@ Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEf
 `do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
 promise deliberately does not.
 
+`do_action` resolves an action NAME against what is being served, so a name matching none of
+them is refused by the port itself (`reason: 'UNKNOWN_ACTION'`, with the id list that
+answers it). When the app *does* have that action, the refusal says which true thing is the
+case rather than letting `UNKNOWN_ACTION` read as *no such thing*: `why` names it — on
+another page, or on this page with its conditions unmet, and then `evidence` carries the same
+per-condition detail a `GUARD_FAILED` fire does (plus `guardUnevaluated` for keys the state
+view could not judge). A name the graph really lacks gets no `why` at all: the library does
+not invent an explanation for something it has never seen. See
+[what the facts block leaves out](doc:grounding#what-it-leaves-out-and-why) for where this
+refusal does *not* appear.
+
 ## One `expects` law, every surface
 
 `expects` is what a caller must **send**, wire-shaped. It used to be a Mode B result field
@@ -151,6 +162,12 @@ In process, [`session.settlementOf(transitionId)`](doc:sessions) is the same tru
 promise, and `port.whenSettled(transitionId)` is that promise for a caller holding only the
 port. Over a real server, [`mcpServer`](doc:mcp) usually settles it for you before the result
 ever leaves.
+
+`skillsAsTools` returns a **`SkillToolsPortWithSettlement`**, where that method is required —
+hold the factory's port and you never check for it. On the published **`SkillToolsPort`**
+itself the method is optional, and that is the whole reason for two names: somebody's object
+literal implements that interface (a test double, a relay facade), and a required member added
+underneath it would be a compile error in code that never asked for the feature.
 
 ## The firewall
 

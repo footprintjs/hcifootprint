@@ -4,9 +4,9 @@ title: skillsAsTools
 
 # Function: skillsAsTools()
 
-> **skillsAsTools**(`session`, `opts?`): [`SkillToolsPort`](/api/index/interfaces/SkillToolsPort)
+> **skillsAsTools**(`session`, `opts?`): [`SkillToolsPortWithSettlement`](/api/index/interfaces/SkillToolsPortWithSettlement)
 
-Defined in: [src/serve/modes.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L154)
+Defined in: [src/serve/modes.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L188)
 
 ## Parameters
 
@@ -20,4 +20,4 @@ Defined in: [src/serve/modes.ts:154](https://github.com/footprintjs/hcifootprint
 
 ## Returns
 
-[`SkillToolsPort`](/api/index/interfaces/SkillToolsPort)
+[`SkillToolsPortWithSettlement`](/api/index/interfaces/SkillToolsPortWithSettlement)

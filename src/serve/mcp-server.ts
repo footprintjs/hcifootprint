@@ -27,7 +27,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { skillsAsTools } from './modes.js';
-import type { SkillToolsOptions, SkillToolsPort } from './modes.js';
+import type { SkillToolsOptions, SkillToolsPortWithSettlement } from './modes.js';
 import { errorText } from './error-text.js';
 import type { FireSettlement } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
@@ -125,7 +125,9 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
  * leave a pending timer holding the event loop open behind it.
  */
 async function settleWithin(
-  port: SkillToolsPort,
+  // The BUILT port: `mcpServer` makes its own with `skillsAsTools` above, so the
+  // settlement door is always there and this never has to check for it.
+  port: SkillToolsPortWithSettlement,
   transitionId: string,
   ms: number,
 ): Promise<FireSettlement | undefined> {

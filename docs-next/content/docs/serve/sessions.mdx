@@ -268,3 +268,11 @@ session.onGap((row) => { /* stream rows live */ });
 
 Rows are deliberately name-only — never descriptions, values or transcripts — so a batch
 triage LLM can cluster thousands of them cheaply.
+
+`kind` **grows**: 0.3.0 added `'unmaterialized-fire'`, this release adds `'dead-end'`, and a
+later release may name another shape of unmet demand — recording what nobody could serve is the
+ledger's whole job. What never happens is a kind changing meaning; a new one is always a new
+fact, never an old one relabelled. So read a row by the kind you know
+(`if (gap.kind === 'fire-rejected') …`) and let the rest fall through as informational. An
+exhaustive `never` check over today's four is the one consumer shape a future kind will stop
+compiling.

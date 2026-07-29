@@ -89,6 +89,17 @@ As deliberate as what it holds:
 An id the graph does not have renders as a constant — *(an action this app does not have)* —
 rather than echoing a model's own invention back at it in the one block it is told to trust.
 
+### An attempt is a fire the session was asked to make
+
+Every line here comes from one of the two ledgers, and `fire()` writes both — the transition
+it recorded, or the gap row it refused. A reach that never gets that far leaves no line, and
+Mode B has exactly one such reach: [`do_action`](doc:modes#reading-a-result) resolves an
+action name against what is being **served**, so a name matching none of them is refused by
+the port before any fire. That refusal teaches in the turn it happens — it names whether the
+app has the action elsewhere or on this page with its conditions unmet, with the same evidence
+a `GUARD_FAILED` fire carries — but it is not an attempt, and the ledgers hold what the
+session was asked to *do*. A name it could not resolve was never something it could act on.
+
 ## Wiring it per turn
 
 Over Mode B there is nothing to wire: **every `whats_here` result already carries `facts`**,

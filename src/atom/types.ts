@@ -809,6 +809,16 @@ export type GapReason =
  *   retriable stance the gate takes on a registered-but-disabled action.
  *   `offGraph: true` marks the other shape of trap (see below).
  *
+ * `kind` GROWS, and a consumer should be written for that. 0.3.0 added
+ * 'unmaterialized-fire' and this release adds 'dead-end', because the ledger's
+ * whole job is recording what nobody could serve — the day the library can see a
+ * new shape of that, it says so rather than filing it under an old word. What never
+ * happens is a kind CHANGING meaning: every value keeps exactly what it had,
+ * and a new one is always a new fact, never an old one relabelled. So read a row
+ * by the kind you know (`if (gap.kind === 'fire-rejected') …`) and let the rest
+ * fall through as informational — an exhaustive `never` check over today's four
+ * is the one consumer shape a future kind will stop compiling.
+ *
  * Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
  * never descriptions or transcripts — so a consumer's batch triage LLM can
  * cluster thousands of them cheaply to discover which skills/tools to build

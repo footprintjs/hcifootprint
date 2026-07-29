@@ -4,7 +4,7 @@ title: GapRecord
 
 # Interface: GapRecord
 
-Defined in: [src/atom/types.ts:825](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L825)
+Defined in: [src/atom/types.ts:835](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L835)
 
 One row of unmet demand. Four kinds:
 - 'fire-rejected'      — an attempted action the session refused (unknown id,
@@ -29,6 +29,16 @@ One row of unmet demand. Four kinds:
   retriable stance the gate takes on a registered-but-disabled action.
   `offGraph: true` marks the other shape of trap (see below).
 
+`kind` GROWS, and a consumer should be written for that. 0.3.0 added
+'unmaterialized-fire' and this release adds 'dead-end', because the ledger's
+whole job is recording what nobody could serve — the day the library can see a
+new shape of that, it says so rather than filing it under an old word. What never
+happens is a kind CHANGING meaning: every value keeps exactly what it had,
+and a new one is always a new fact, never an old one relabelled. So read a row
+by the kind you know (`if (gap.kind === 'fire-rejected') …`) and let the rest
+fall through as informational — an exhaustive `never` check over today's four
+is the one consumer shape a future kind will stop compiling.
+
 Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
 never descriptions or transcripts — so a consumer's batch triage LLM can
 cluster thousands of them cheaply to discover which skills/tools to build
@@ -48,7 +58,7 @@ export via onGap and drain, like the transition log.
 
 > `optional` **affordanceId?**: `string`
 
-Defined in: [src/atom/types.ts:850](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L850)
+Defined in: [src/atom/types.ts:860](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L860)
 
 The id the caller ASKED for — kept even when unknown (that is the signal).
 
@@ -58,7 +68,7 @@ The id the caller ASKED for — kept even when unknown (that is the signal).
 
 > **availableActions**: `string`[]
 
-Defined in: [src/atom/types.ts:835](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L835)
+Defined in: [src/atom/types.ts:845](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L845)
 
 Names only — what existed at that moment (token-lean, injection-safe).
 On a 'dead-end' row this is the whole payload and the whole point: these
@@ -70,7 +80,7 @@ are the actions the page OFFERS while none of them can act.
 
 > **availableSkills**: `string`[]
 
-Defined in: [src/atom/types.ts:836](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L836)
+Defined in: [src/atom/types.ts:846](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L846)
 
 ***
 
@@ -78,7 +88,7 @@ Defined in: [src/atom/types.ts:836](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **evidence?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:867](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L867)
+Defined in: [src/atom/types.ts:877](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L877)
 
 ***
 
@@ -86,7 +96,7 @@ Defined in: [src/atom/types.ts:867](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **gestureKind?**: `"element"` \| `"keychord"` \| `"programmatic"` \| `"url"` \| `"tab"`
 
-Defined in: [src/atom/types.ts:874](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L874)
+Defined in: [src/atom/types.ts:884](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L884)
 
 The refused edge's declared gesture KIND ('fire-rejected' and
 'unmaterialized-fire' rows) — the demand backlog now says WHICH wiring is
@@ -99,7 +109,7 @@ string only, never the binding object.
 
 > **kind**: `"fire-rejected"` \| `"reported"` \| `"unmaterialized-fire"` \| `"dead-end"`
 
-Defined in: [src/atom/types.ts:826](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L826)
+Defined in: [src/atom/types.ts:836](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L836)
 
 ***
 
@@ -107,7 +117,7 @@ Defined in: [src/atom/types.ts:826](https://github.com/footprintjs/hcifootprint/
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:828](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L828)
+Defined in: [src/atom/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L838)
 
 ***
 
@@ -115,7 +125,7 @@ Defined in: [src/atom/types.ts:828](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:885](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L885)
+Defined in: [src/atom/types.ts:895](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L895)
 
 ***
 
@@ -123,7 +133,7 @@ Defined in: [src/atom/types.ts:885](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **offGraph?**: `true`
 
-Defined in: [src/atom/types.ts:847](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L847)
+Defined in: [src/atom/types.ts:857](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L857)
 
 The cursor is resting on a node the graph has never heard of — the same
 fact [SyncResult](/api/index/type-aliases/SyncResult).offGraph reports, kept on the row so triage can
@@ -139,7 +149,7 @@ sync() the id the graph actually uses for that screen.
 
 > `optional` **principal?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:866](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L866)
+Defined in: [src/atom/types.ts:876](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L876)
 
 ***
 
@@ -147,7 +157,7 @@ Defined in: [src/atom/types.ts:866](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **reason?**: [`GapReason`](/api/index/type-aliases/GapReason)
 
-Defined in: [src/atom/types.ts:884](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L884)
+Defined in: [src/atom/types.ts:894](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L894)
 
 ***
 
@@ -155,7 +165,7 @@ Defined in: [src/atom/types.ts:884](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **rejectionReason?**: `"UNKNOWN_AFFORDANCE"` \| `"STALE_CURSOR"` \| `"NOT_ON_NODE"` \| `"GUARD_FAILED"` \| `"PAYLOAD_INVALID"` \| `"BLOCKED_BY_OVERLAY"` \| `"NODE_NOT_VISIBLE"` \| `"STILL_MOUNTING"` \| `"INSTANCE_REQUIRED"` \| `"INSTANCE_UNKNOWN"` \| `"TOOL_DISABLED"` \| `"NOT_MATERIALIZED"` \| `"ENTRY_NOT_MATERIALIZED"`
 
-Defined in: [src/atom/types.ts:851](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L851)
+Defined in: [src/atom/types.ts:861](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L861)
 
 ***
 
@@ -163,7 +173,7 @@ Defined in: [src/atom/types.ts:851](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **request?**: `string`
 
-Defined in: [src/atom/types.ts:883](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L883)
+Defined in: [src/atom/types.ts:893](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L893)
 
 The user's ask (runtime data; length-capped).
 
@@ -173,7 +183,7 @@ The user's ask (runtime data; length-capped).
 
 > `optional` **skillId?**: `string`
 
-Defined in: [src/atom/types.ts:880](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L880)
+Defined in: [src/atom/types.ts:890](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L890)
 
 The skill whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
 `affordanceId` on those rows is the entry STEP; this names the skill the
@@ -185,7 +195,7 @@ planner actually asked for.
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:827](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L827)
+Defined in: [src/atom/types.ts:837](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L837)
 
 ***
 
@@ -193,4 +203,4 @@ Defined in: [src/atom/types.ts:827](https://github.com/footprintjs/hcifootprint/
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:829](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L829)
+Defined in: [src/atom/types.ts:839](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L839)

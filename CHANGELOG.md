@@ -208,12 +208,13 @@
   no marker.
 
 ### Note for anyone implementing `SkillToolsPort` by hand
-`SkillToolsPort` gained a required `whenSettled` member. Every designed consumption path
-is unaffected (holding a port from `skillsAsTools`, spreading one into a wrapper, calling
-`tools()`/`call()`), but an object literal that hand-implements the interface — a test
-double, a from-scratch relay facade — now needs the member to typecheck. Standard
-TypeScript semver treats growth of a library-implemented interface as a minor change, and
-no runtime behaviour changed; it is named here so the compiler error is recognisable.
+Nothing to do — and that took a second name. `whenSettled` is **optional** on the published
+`SkillToolsPort`, so an object literal that hand-implements it (a test double, a from-scratch
+relay facade) keeps compiling exactly as it did in 0.5.0; `skillsAsTools` returns the new
+**`SkillToolsPortWithSettlement`**, where the member is required, so a caller holding the
+factory's port never checks for a door the library always provides. The first cut of this
+feature put the required member on the published interface itself, which is a compile error in
+code that never asked for the feature — a strange way to ship a door nobody had yet.
 
 ### Added (reachability — a spine of places you can walk between)
 - **`fromRoutes(routes, { crossLinks })`.** A route table contributed 28 pages
@@ -248,6 +249,15 @@ no runtime behaviour changed; it is named here so the compiler error is recognis
   something registered somewhere or a `navigate` in hand, and not a tour — so a
   graph merely being read is never called a trap.
 
+### Note for anyone switching exhaustively on `GapRecord.kind`
+`kind` gained a fourth value, `'dead-end'` (0.3.0 added the third, `'unmaterialized-fire'`).
+Every shipped value keeps exactly the meaning it had, and a filter for the kinds you know
+(`gap.kind === 'fire-rejected'`, `gap.rejectionReason !== undefined`) returns exactly the rows
+it always did — a new kind is a new fact, never an old one relabelled. The one consumer shape
+this stops compiling is an exhaustive `never` check over the old set, which is why the union's
+growth is now stated on the type itself, in the README, in `llms.txt` and on Sessions: read the
+kind you know and let the rest fall through as informational.
+
 ### Changed (merge order — one sentence, amended in every home)
 - The documented merge order gains a clause: "…nothing later in the order may
   remove anything earlier. **Routes may also contribute link tools;
@@ -267,6 +277,25 @@ no runtime behaviour changed; it is named here so the compiler error is recognis
   `SkillDef2` remains as a deprecated type alias — 0.5.0 code keeps compiling.
 
 ### Fixed
+- **Mode B's `do_action` no longer answers `UNKNOWN_ACTION` about an action the
+  app plainly has.** The name is resolved against the SERVED edges, so a
+  guard-closed step or a control on the next page matched nothing and came back
+  as *unknown* — a contradiction to a model that read that action's own name out
+  of a result one turn earlier, leaving it to report the control missing or reach
+  again. The typed `reason` is untouched (0.4/0.5 consumers branch on it); what
+  the refusal gained is the truth the session already held. `why` names which of
+  three true things is the case — the app has it on another page, it belongs here
+  but its conditions are not met, or it is declared here and not being offered —
+  and the conditions arm carries `evidence` (plus `guardUnevaluated`), the same
+  per-condition detail a `GUARD_FAILED` fire does. `explain()` is the door it
+  answers through, so no vocabulary was invented. A name the graph really does not
+  have gets no `why` at all, and an ambiguous SHORT name is still answered by the
+  id list: the library does not explain something it never saw, and it does not
+  resolve a guess on the caller's behalf.
+  The BOUNDARY is now stated where a reader looks (Ground truth, "An attempt is a
+  fire the session was asked to make"): this refusal is the port's own, no
+  `fire()` runs, so it lands no gap row and no `facts` line. The ledgers hold what
+  the session was asked to DO.
 - **`fire(affordanceId)` no longer crashes.** A JS caller who omitted the
   options object hit a raw `TypeError` reading `opts.source` (found by a
   production integration). `opts` is now optional at RUNTIME and still required
@@ -330,6 +359,16 @@ no runtime behaviour changed; it is named here so the compiler error is recognis
 - The demos page notes Vite's `node_modules/.vite` dep cache: after rebuilding
   the library at the repo root, clear it (or `--force`) or the dev server keeps
   serving the previous build.
+- **The README's test-count badge is now checked by the suite it counts**
+  (`scripts/check-test-badge.mjs`, run by npm's `posttest` hook). It had read 324
+  while the suite ran 806, and two commits edited the README around it without
+  noticing — a number nobody can check is a claim like any other, which is the
+  one thing this library says you may not ship. `npm test` writes the run's tally
+  (vitest's json reporter → `.test-tally.json`, gitignored) and the gate reads it
+  back, comparing BOTH spellings (the badge URL and its alt text — the alt text is
+  the version a screen reader is told). It speaks only for a whole run: fewer
+  files ran than exist on disk and it says *skipped*, out loud, rather than
+  failing a focused `vitest run one.test.ts`.
 
 ## [0.5.0] - 2026-07-29
 

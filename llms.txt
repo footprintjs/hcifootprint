@@ -218,9 +218,12 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
 - Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
   unsubscribe fn. A throwing listener is isolated, never aborts the session.
 - Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire (`kind: 'fire-rejected'`), every
-  explicit `reportGap(...)` (`kind: 'reported'`), and every allowed no-op tour fire
-  (`kind: 'unmaterialized-fire'` — the binding still to build) becomes a token-lean, name-only row
-  for demand-driven triage.
+  explicit `reportGap(...)` (`kind: 'reported'`), every allowed no-op tour fire
+  (`kind: 'unmaterialized-fire'` — the binding still to build), and every page the cursor rests on
+  where nothing could be performed at all (`kind: 'dead-end'`) becomes a token-lean, name-only row
+  for demand-driven triage. `kind` GROWS release to release; no shipped value ever changes meaning,
+  so read a row by the kind you know and let the rest fall through as informational (an exhaustive
+  `never` check over today's four is the one shape a future kind will stop compiling).
 - Confirm journal (D21): `confirmAsk(id)` → `{ askId, receipts }` (receipts = `willDo` / `because` guard
   evidence / `youAreOn` / `recentSteps`, assembled from live state); `declineConfirm(id, {by?, note?})`;
   `confirms()` / `onConfirm(row => ...)` — the auditable ask→decision→fire chain (a confirmed `fire()`
@@ -303,6 +306,12 @@ produced data) are structured DATA fields. Fields you will encounter (source: `s
   observation — re-`sync()` before trusting `youAreOn`; see §5).
 - Fire rejection: `reason` (see §6), plus `evidence?` / `issues?` / `instances?` / `node?` /
   `expects?` / `retriable?` depending on the reason.
+- Name not served (`do_action` only): `reason: 'UNKNOWN_ACTION' | 'AMBIGUOUS_ACTION'` + `actions`
+  (the ids that ARE served). The port refuses these itself — no `fire()` runs, so they are NOT in
+  the gap ledger or `facts`. When the app HAS the asked action (exact id), the refusal adds `why`:
+  it is on another page, or on this page with its conditions unmet — then `evidence` (+
+  `guardUnevaluated?`) carries the same detail a `GUARD_FAILED` fire does. A name the graph does
+  not have gets no `why`: the library does not invent an explanation for something it never saw.
 
 ---
 

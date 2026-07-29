@@ -90,6 +90,7 @@ export type {
   SkillCallArgs,
   SkillToolsOptions,
   SkillToolsPort,
+  SkillToolsPortWithSettlement,
 } from './serve/modes.js';
 export type {
   ActivationLevel,

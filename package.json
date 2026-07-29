@@ -38,6 +38,7 @@
     "build": "rm -rf dist && tsc",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
+    "posttest": "node scripts/check-test-badge.mjs",
     "test:watch": "vitest",
     "demo:chat": "tsx examples/dress-shop/chatbot.ts",
     "example:wizard": "tsx examples/guarded-wizard/run.ts",

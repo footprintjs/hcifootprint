@@ -23,7 +23,7 @@
  * and the model corrects on the next call.
  *
  * Layering: this file consumes ONLY the public Session surface (available /
- * availableSkills / skillPlan / frames / fire / contextBrief) — it is a pure
+ * availableSkills / skillPlan / frames / fire / explain / contextBrief) — it is a pure
  * projection, independently testable, swappable per conversation. One
  * conversation = one mode (a mid-conversation mode flip is a tool-set change
  * = a full cache bust).
@@ -33,7 +33,7 @@
  * values (state, payloads, instance keys, evidence) are structured DATA fields.
  */
 import type { MCPToolDescription } from 'footprintjs';
-import type { AvailableEdge, FireResult, FireSettlement, Principal } from '../atom/types.js';
+import type { AvailableEdge, Explanation, FireResult, FireSettlement, Principal } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 import { errorText } from './error-text.js';
 
@@ -83,7 +83,25 @@ export interface SkillToolsPort {
    * The field report is the reason it exists: a relay holding only the port
    * could not learn the final truth, so it rebuilt one by hand out of a
    * listener and a stopwatch.
+   *
+   * OPTIONAL here and REQUIRED on {@link SkillToolsPortWithSettlement}, which is
+   * what {@link skillsAsTools} hands back — so a caller holding a built port
+   * never meets the optionality, and nobody has to check for a member the
+   * library always provides. The split is not decoration: this interface is
+   * PUBLISHED, and an object literal written against an earlier release — a test
+   * double, a hand-rolled relay facade — is a shape that must keep compiling. A
+   * required member added underneath one would have broken every one of them,
+   * which is a strange way to ship a door nobody had yet.
    */
+  whenSettled?(transitionId: string): Promise<FireSettlement>;
+}
+
+/**
+ * What {@link skillsAsTools} returns: a port whose settlement door is always
+ * there. Name the type only if you are storing the port somewhere typed — the
+ * factory's inferred return already has it.
+ */
+export interface SkillToolsPortWithSettlement extends SkillToolsPort {
   whenSettled(transitionId: string): Promise<FireSettlement>;
 }
 
@@ -131,6 +149,22 @@ const NOT_MATERIALIZED_WHY =
   'Tell the human it is not available; the app team can register a tool group to wire it, ' +
   'or create the session with allowUnmaterializedFires for read-only touring.';
 
+// The three true things about a name this position cannot serve but the app
+// DOES have. One of them is always the case, and the session already knows
+// which — see notHereData below for why the refusal now says it.
+const NOT_ON_THIS_PAGE =
+  'This app does have that action, but not on this page. Call whats_here to see where you are and ' +
+  'what is offered here — reaching it means going to the page that offers it first.';
+
+const CONDITIONS_NOT_MET =
+  'This app does have that action and it belongs on this page, but its conditions are not met right ' +
+  'now, so it is not being offered (see evidence). Change what it needs, or tell the human it is not ' +
+  'available yet — do not report it as done.';
+
+const DECLARED_HERE_NOT_OFFERED =
+  'This app declares that action on this page, but it is not being offered right now. Call whats_here ' +
+  'to see what is.';
+
 const STEP_INPUT_SCHEMA = {
   type: 'object',
   properties: {
@@ -151,7 +185,10 @@ const STEP_INPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-export function skillsAsTools(session: Session, opts?: SkillToolsOptions): SkillToolsPort {
+export function skillsAsTools(
+  session: Session,
+  opts?: SkillToolsOptions,
+): SkillToolsPortWithSettlement {
   const confirmHighEffect = opts?.confirmHighEffect ?? true;
   const source: Principal = opts?.source ?? 'agent';
   const graphId = session.graphId;
@@ -372,6 +409,9 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
         judgment: 'error',
         reason: matches.length === 0 ? 'UNKNOWN_ACTION' : 'AMBIGUOUS_ACTION',
         actions: edges.map((edge) => edge.affordanceId),
+        // Only on the no-match arm: an ambiguous SHORT name is not a claim about
+        // any one action, and the id list above is already its whole answer.
+        ...(matches.length === 0 ? notHereData(args.action) : {}),
         ...positionData(),
       };
     }
@@ -396,6 +436,50 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
     }
     const fired = session.fire(edge.affordanceId, { source, payload: args.input, instance: args.instance });
     return { ...fireData(fired, edge.affordanceId, edge), ...positionData() };
+  }
+
+  /**
+   * The truth about a name this position cannot serve but the app DOES have.
+   *
+   * This refusal is the PORT's own — the name matched no served edge, so no
+   * `fire()` happens and the session's ledgers never see the reach (stated on
+   * the Ground truth page: what lands in `facts` is a refusal that reached
+   * `fire()`). What the refusal must not do is compound that silence with a
+   * wrong word. `UNKNOWN_ACTION` beside an action the app declares reads as *no
+   * such thing*, and a model told that about a control it watched a moment ago
+   * has one honest move left: report it missing, or reach again. The session
+   * already knows which of the three true things is the case — `explain()` is
+   * the door it has always answered through — so the refusal carries it, in
+   * `explain()`'s own evidence.
+   *
+   * EXACT ids only, and deliberately. Every result names an action by its full
+   * id, so this covers every reach for something the model has actually been
+   * shown; a shortened name the graph never served stays what it was — a guess
+   * the library does not resolve on the caller's behalf.
+   */
+  function notHereData(action: string): ServeResult {
+    let seen: Explanation;
+    try {
+      seen = session.explain(action);
+    } catch {
+      // The graph really does not have it. The words above were already the
+      // whole truth, and inventing more would be the library guessing.
+      return {};
+    }
+    if (!seen.offeredOnThisNode) return { why: NOT_ON_THIS_PAGE };
+    if (!seen.guardPassed) {
+      return {
+        why: CONDITIONS_NOT_MET,
+        // The same per-condition evidence a GUARD_FAILED fire carries — copied,
+        // because a consumer annotating a result must not rewrite the session's.
+        evidence: structuredClone(seen.evidence),
+        ...(seen.guardUnevaluated ? { guardUnevaluated: [...seen.guardUnevaluated] } : {}),
+      };
+    }
+    // Declared here, conditions met, still not served: the tree layer knows
+    // reasons this door does not (a hidden node, a blocking overlay). Say that
+    // much and no more — a guessed reason is the one thing worse than none.
+    return { why: DECLARED_HERE_NOT_OFFERED };
   }
 
   /**
