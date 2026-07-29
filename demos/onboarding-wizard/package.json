@@ -1,0 +1,31 @@
+{
+  "name": "onboarding-wizard-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A five-page signup wizard whose graph GROWS from the route table and journey list the app already owns — and whose navigation needs no handlers at all.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "verify": "npm run typecheck && vitest run && vite build"
+  },
+  "dependencies": {
+    "agentfootprint": "^7.9.0",
+    "hcifootprint": "file:../..",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.0.0"
+  }
+}
