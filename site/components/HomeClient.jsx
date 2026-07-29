@@ -264,6 +264,10 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
               <span><span className="hp-dot-h" />human — recorded</span>
               <span><span className="hp-dot-a" />agent — recorded, and gated</span>
             </div>
+            {/* the story the object above tells, in plain prose — it is a
+                description of a run, not a measurement, so it lives here and
+                not in the numbers strip */}
+            <p className="hp-legend-note">In one end-to-end example run, the agent typed, was stopped for approval, created, navigated, and configured.</p>
           </div>
           <div className="hp-hero-side">
             <div>one app</div>
@@ -346,15 +350,11 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
             </div>
             <div className="hp-num">
               <b>814 B</b>
-              <p>what one graph source adds to a bundle — <span className="mono">fromRoutes</span>, minified and gzipped</p>
+              <p>measured against this release: <span className="mono">fromRoutes</span>, minified and gzipped — what one graph source adds to a bundle</p>
             </div>
             <div className="hp-num">
               <b>1 day</b>
               <p>a version migration, reported by a production integration</p>
-            </div>
-            <div className="hp-num is-human">
-              <b>5</b>
-              <p>things an agent did in one end-to-end run: typed, was stopped for approval, created, navigated, configured</p>
             </div>
           </div>
           <div className="hp-num-cta">

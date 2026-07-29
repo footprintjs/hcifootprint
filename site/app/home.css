@@ -148,6 +148,7 @@ html.dark {
 .hp-legend span { display: flex; align-items: center; gap: 9px; }
 .hp-dot-h { width: 9px; height: 9px; border-radius: 50%; background: var(--hp-human); box-shadow: 0 0 10px 2px var(--hp-human); }
 .hp-dot-a { width: 8px; height: 8px; background: var(--hp-agent); transform: rotate(45deg); box-shadow: 0 0 10px 2px var(--hp-agent); }
+.hp-legend-note { margin: 14px 0 0; font-size: 14px; line-height: 1.55; color: var(--hp-ink2); max-width: 52ch; }
 .hp-hero-side { flex: 0 1 200px; display: flex; flex-direction: column; gap: 10px; padding-top: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--hp-ink2); text-align: right; animation: hpFade 1.2s .3s ease both; }
 .hp-hero-side div:first-child { border-top: 1px solid var(--hp-rule); padding-top: 9px; }
 .hp-hero-side .gate { color: var(--hp-human); }
@@ -196,13 +197,19 @@ html.dark {
 
 /* ── numbers ──────────────────────────────────────────────────────────────── */
 .hp-num-sec { padding: clamp(48px, 9vh, 110px) clamp(18px, 4vw, 56px); border-top: 1px solid var(--hp-rule); }
-.hp-nums { display: flex; flex-wrap: wrap; gap: 0; }
-.hp-num { flex: 1 1 210px; padding: 20px clamp(16px, 2vw, 32px) 22px clamp(16px, 2vw, 32px); border-top: 1px solid var(--hp-rule); border-left: 1px solid var(--hp-rule); }
+/* three measured facts, three equal columns — a grid rather than a wrapping
+   flex row, so the middle card can never end up alone on a second line */
+.hp-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.hp-num { padding: 20px clamp(16px, 2vw, 32px) 22px clamp(16px, 2vw, 32px); border-top: 1px solid var(--hp-rule); border-left: 1px solid var(--hp-rule); }
 .hp-num:first-child { padding-left: 0; border-left: 0; border-top-color: var(--hp-ink2); }
 .hp-num:last-child { padding-right: 0; }
-.hp-num b { display: block; font-family: var(--display); font-weight: 700; font-stretch: 125%; font-size: clamp(38px, 4.6vw, 64px); line-height: 1; letter-spacing: -.03em; color: var(--hp-ink); }
-.hp-num.is-human b { color: var(--hp-human); }
+.hp-num b { display: block; font-family: var(--display); font-weight: 700; font-stretch: 125%; font-size: clamp(34px, 4.2vw, 60px); line-height: 1; letter-spacing: -.03em; color: var(--hp-ink); }
 .hp-num p { margin: 12px 0 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--hp-ink2); }
+/* below this the third column would squeeze its caption to two words a line */
+@media (max-width: 760px) {
+  .hp-nums { grid-template-columns: minmax(0, 1fr); }
+  .hp-num { padding-left: 0; padding-right: 0; border-left: 0; }
+}
 .hp-num-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: clamp(34px, 5vh, 58px); }
 .hp-btn-solid.lg { font-size: 13.5px; padding: 14px 20px; }
 .hp-btn-line { font-family: var(--mono); font-size: 13.5px; color: var(--hp-ink); border: 1px solid var(--hp-rule); padding: 13px 20px; }
@@ -237,47 +244,27 @@ html.dark {
 @keyframes hsPage { from { opacity: 0; transform: translate3d(0,26px,40px) } to { opacity: .96; transform: translate3d(0,0,90px) } }
 @keyframes hsRiser { from { opacity: 0 } to { opacity: .4 } }
 @keyframes hsPop { from { opacity: 0; transform: scale(.15) } to { opacity: 1; transform: scale(1) } }
+/* the agent's marks are diamonds: the 45° turn has to live in the keyframe,
+   because an animated transform REPLACES the element's own (same trap the map
+   hit — see dcPopRot below) */
+@keyframes hsPopRot { from { opacity: 0; transform: rotate(45deg) scale(.15) } to { opacity: 1; transform: rotate(45deg) scale(1) } }
 @keyframes hsLit { from { opacity: 0; transform: scale(.9) } to { opacity: 1; transform: scale(1) } }
 @keyframes hsTint { from { opacity: 0 } to { opacity: .15 } }
 @keyframes hsFade { from { opacity: 0 } to { opacity: .75 } }
 @keyframes hsFill { from { width: 0 } to { width: 100% } }
-@keyframes hsK1 { from { transform: translateZ(96px) rotate(28.6deg) scaleX(0) } to { transform: translateZ(96px) rotate(28.6deg) scaleX(1) } }
-@keyframes hsK2 { from { transform: translateZ(96px) rotate(82.1deg) scaleX(0) } to { transform: translateZ(96px) rotate(82.1deg) scaleX(1) } }
-@keyframes hsK3 { from { transform: translateZ(96px) rotate(31.7deg) scaleX(0) } to { transform: translateZ(96px) rotate(31.7deg) scaleX(1) } }
-@keyframes hsK4 { from { transform: translateZ(96px) rotate(24.2deg) scaleX(0) } to { transform: translateZ(96px) rotate(24.2deg) scaleX(1) } }
-@keyframes hsK5 { from { transform: translateZ(96px) rotate(83.5deg) scaleX(0) } to { transform: translateZ(96px) rotate(83.5deg) scaleX(1) } }
-@keyframes hsK6 { from { transform: translateZ(96px) rotate(41.8deg) scaleX(0) } to { transform: translateZ(96px) rotate(41.8deg) scaleX(1) } }
-@keyframes hsK7 { from { transform: translateZ(96px) rotate(0deg) scaleX(0) } to { transform: translateZ(96px) rotate(0deg) scaleX(1) } }
-@keyframes hsK8 { from { transform: translateZ(96px) rotate(135.7deg) scaleX(0) } to { transform: translateZ(96px) rotate(135.7deg) scaleX(1) } }
-@keyframes hsBar { 0% { transform: rotate(-84deg) } 17% { transform: rotate(0deg) } 80% { transform: rotate(0deg) } 100% { transform: rotate(-84deg) } }
+/* THE TRAIL. Every road on the plate is one path, revealed by this single
+   keyframe; `pathLength="1"` normalises each road to unit length, so one
+   keyframe draws a 123px road and a 28px road alike. The road's start, its
+   duration and its easing are handed to it by the traveller's own schedule
+   (HeroScene.jsx), which is why the leading edge of the trail can never be
+   anywhere but under the traveller. */
+@keyframes hsDraw { from { stroke-dashoffset: 1 } to { stroke-dashoffset: 0 } }
 @keyframes hsRing { 0% { opacity: 0 } 8% { opacity: .85 } 30% { opacity: .1 } 50% { opacity: .85 } 72% { opacity: .1 } 90% { opacity: .85 } 100% { opacity: 0 } }
 @keyframes hsDim { from { opacity: 1 } to { opacity: .28 } }
 @keyframes hsSeam { 0% { opacity: 0; transform: scale(.5) } 22% { opacity: .7; transform: scale(1) } 70% { opacity: .6; transform: scale(1.05) } 100% { opacity: 0; transform: scale(1.18) } }
-@keyframes hsCam {
-  0%,29% { transform: scale(1) translate(0,62px) }
-  34%,42% { transform: scale(1.22) translate(24px,86px) }
-  49%,100% { transform: scale(1) translate(0,62px) }
-}
-@keyframes hsHuman {
-  0% { opacity: 0; transform: translate3d(86px,100px,97px) }
-  2% { opacity: 1; transform: translate3d(86px,100px,97px) }
-  9%,13.5% { opacity: 1; transform: translate3d(168px,130px,97px) }
-  18% { opacity: 1; transform: translate3d(276px,186px,97px) }
-  25%,33% { opacity: 1; transform: translate3d(286px,258px,97px) }
-  38%,80% { opacity: .3; transform: translate3d(700px,480px,12px) }
-  88%,100% { opacity: 1; transform: translate3d(438px,486px,97px) }
-}
-@keyframes hsAgent {
-  0% { opacity: 0; transform: translate3d(286px,258px,97px) }
-  5% { opacity: 1; transform: translate3d(286px,258px,97px) }
-  15%,22% { opacity: 1; transform: translate3d(362px,305px,97px) }
-  29% { transform: translate3d(440px,340px,97px) }
-  36% { transform: translate3d(448px,410px,97px) }
-  44%,49% { transform: translate3d(476px,435px,97px) }
-  55%,60% { transform: translate3d(545px,435px,97px) }
-  66%,88% { opacity: 1; transform: translate3d(536px,444px,97px) }
-  95%,100% { opacity: 1; transform: translate3d(516px,475px,97px) }
-}
+/* hsCam, hsBar and the two ride/lamp keyframe sets are GENERATED from the same
+   schedule the roads read, and shipped in a <style> tag by HeroScene.jsx.
+   They are deliberately not here: a hand-written copy is a second timeline. */
 
 /* ── map ──────────────────────────────────────────────────────────────────── */
 @keyframes dcDraw { from { stroke-dashoffset: 1000 } to { stroke-dashoffset: 0 } }
