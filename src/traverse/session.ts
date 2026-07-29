@@ -636,6 +636,13 @@ export class Session {
       this.recordRejection(affordanceId, 'GUARD_FAILED', opts.source, conditions);
       return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
     }
+    // EVERY source answers for the payload, deliberately — including the
+    // record-only sensor and the app's own 'user'/'system' fires, which the
+    // rules below DO exempt. A schema is the app's statement about its own
+    // door, so a fire that disagrees with it is drift worth a ledger row
+    // wherever it came from, and this gate has always been source-blind: it is
+    // where zod ran in 0.3.0, unchanged. Exempting a source here would quietly
+    // change what a published zod consumer already gets.
     if (aff.schema !== undefined) {
       const validation = validatePayload(aff.schema, opts.payload, this.#checkPayloadShape);
       if (!validation.ok) {

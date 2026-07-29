@@ -106,6 +106,52 @@ describe('checkJsonShape — extra keys', () => {
     const result = checkJsonShape(closed, { value: 'x', toString: 'shadowed' });
     expect(result.ok === false && result.issues).toContain("unexpected key 'toString'");
   });
+
+  /**
+   * `patternProperties` allows keys by REGEX, which this checker does not read.
+   * Beside it, `additionalProperties: false` no longer means "only the keys in
+   * properties" — so judging the closed rule refuses a payload the author's
+   * full schema accepts, the one error class this module calls the worse one.
+   */
+  it('stands the closed rule down beside patternProperties — the author allowed those keys', () => {
+    const withPattern = {
+      ...VALUE_SCHEMA,
+      patternProperties: { '^x-': { type: 'string' } },
+      additionalProperties: false,
+    };
+    expect(checkJsonShape(withPattern, { value: 'x', 'x-trace': 'abc' }).ok).toBe(true);
+    // And a key no pattern could match passes too: we cannot tell them apart,
+    // so we decline the whole rule rather than guess which side a key is on.
+    expect(checkJsonShape(withPattern, { value: 'x', note: 'extra' }).ok).toBe(true);
+  });
+
+  /**
+   * The obvious fix — putting `patternProperties` in UNJUDGED_KEYWORDS — passes
+   * the test above and fails this one: it would drop the whole level, so a
+   * planner's missing key and wrong type would stop being reported. Only the
+   * closed-object rule depends on knowing which names are allowed.
+   */
+  it('keeps judging required keys and types beside patternProperties — only that one rule stands down', () => {
+    const withPattern = {
+      ...VALUE_SCHEMA,
+      properties: { value: { type: 'string' }, count: { type: 'number' } },
+      patternProperties: { '^x-': { type: 'string' } },
+      additionalProperties: false,
+    };
+    const missing = checkJsonShape(withPattern, { 'x-trace': 'abc' });
+    expect(missing.ok === false && missing.issues).toContain("missing required 'value'");
+    const mistyped = checkJsonShape(withPattern, { value: 'x', count: 'three' });
+    expect(mistyped.ok === false && mistyped.issues).toContain("'count' should be number, not string");
+  });
+
+  it('caps the LENGTH of an unexpected key it echoes, not just how many', () => {
+    const closed = { ...VALUE_SCHEMA, additionalProperties: false };
+    const result = checkJsonShape(closed, { value: 'x', ['k'.repeat(100_000)]: 1 });
+    expect(result.ok).toBe(false);
+    // The caller chose that key name; the message it rides is ours to bound.
+    expect(result.ok === false && result.issues.length).toBeLessThan(300);
+    expect(result.ok === false && result.issues).toContain(`unexpected key '${'k'.repeat(40)}…'`);
+  });
 });
 
 describe('checkJsonShape — nesting', () => {
@@ -289,6 +335,15 @@ describe('describeReceivedShape() — keys and types, never values', () => {
   it('never carries a value into the string', () => {
     const rendered = describeReceivedShape({ token: 'sk-secret-42', note: 'buy milk' });
     expect(rendered).toBe('{ token: string, note: string }');
+  });
+
+  it('caps a key NAME as well as the key count — the caller chose that name', () => {
+    const rendered = describeReceivedShape({ ['k'.repeat(100_000)]: 1 });
+    expect(rendered).toBe(`{ ${'k'.repeat(40)}…: number }`);
+    // A real key is never touched: the cap is a ceiling, not a formatter.
+    expect(describeReceivedShape({ deliveryInstructionsForTheCourier: 'x' })).toBe(
+      '{ deliveryInstructionsForTheCourier: string }',
+    );
   });
 });
 

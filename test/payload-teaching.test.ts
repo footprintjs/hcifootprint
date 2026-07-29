@@ -152,6 +152,45 @@ describe('a plain JSON Schema is enforced at fire time', () => {
   });
 });
 
+/**
+ * The gate is SOURCE-BLIND, deliberately — unlike TOOL_DISABLED and
+ * NOT_MATERIALIZED below it, which exempt the record-only sensor. A schema is
+ * the app's statement about its own door, so a fire that disagrees with it is
+ * drift worth a ledger row whoever made it; and this is the position zod's
+ * gate already held in 0.3.0, so exempting a source here would quietly change
+ * what a published zod consumer gets today.
+ */
+describe('every source answers for the payload, not just the agent', () => {
+  it('refuses a record-only sensor fire whose payload contradicts the declaration', () => {
+    const { session } = wiredSession();
+    const result = session.fire('add-task', { source: 'user', payload: { name: 'add milk' }, invoke: false });
+    expect(result).toMatchObject({ ok: false, reason: 'PAYLOAD_INVALID', issues: TAUGHT_ISSUES });
+    // Observed motion becomes a ledger row instead of a transition: the app
+    // declared one shape and did another, and that disagreement IS the signal.
+    expect(firedRows(session)).toEqual([]);
+    expect(session.gaps()).toMatchObject([
+      { kind: 'fire-rejected', rejectionReason: 'PAYLOAD_INVALID', principal: 'user' },
+    ]);
+  });
+
+  it('lets the same record-only fire through when it matches, handler untouched', async () => {
+    const { session, seen } = wiredSession();
+    const result = session.fire('add-task', { source: 'user', payload: { value: 'add milk' }, invoke: false });
+    expect(result.ok).toBe(true);
+    await flush();
+    expect(seen).toEqual([]); // invoke:false — the browser already ran the app's own onClick
+    expect(firedRows(session)).toHaveLength(1);
+  });
+
+  it('is where zod already sat: a record-only zod fire is refused with the shape check OFF', () => {
+    const { session } = wiredSession({ checkPayloadShape: false });
+    expect(session.fire('search', { source: 'user', payload: { query: 7 }, invoke: false })).toMatchObject({
+      ok: false,
+      reason: 'PAYLOAD_INVALID',
+    });
+  });
+});
+
 describe('checkPayloadShape: false — the 0.3.0 pass-through, byte for byte', () => {
   it('accepts the wrong payload and hands it to the handler, exactly as before', async () => {
     const { session, seen } = wiredSession({ checkPayloadShape: false });

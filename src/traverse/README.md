@@ -48,14 +48,23 @@ a wrong one comes back as `PAYLOAD_INVALID` carrying what was expected.
 **Teachable, not complete** — and the name (`SessionOptions.checkPayloadShape`,
 default true) says so. It judges required keys, declared primitive types, closed
 objects, one level of nesting; `$ref`/`allOf`/`anyOf`/`oneOf`/`enum`/`format`/
-`pattern` it DECLINES to judge and passes. Declining is the same stance
-`#evalGuard` takes on an unevaluable key: what cannot be evaluated is never
-reported as false, because a wrong rejection blocks an action the app would have
-accepted and the caller has no appeal.
+`pattern` it DECLINES to judge and passes, and `patternProperties` stands the
+closed-object rule down (it allows keys by regex, which this checker does not
+evaluate). Declining is the same stance `#evalGuard` takes on an unevaluable
+key: what cannot be evaluated is never reported as false, because a wrong
+rejection blocks an action the app would have accepted and the caller has no
+appeal.
 
-Messages are built from KEY NAMES and TYPE NAMES only — never values. `issues`
-rides the result channel to the model and into the gap ledger, and the shape is
-what teaches the correction; the value would only leak.
+Messages are built from KEY NAMES and TYPE NAMES only — never values — and both
+the count and the length of the names shown are capped, because a received shape
+renders what the CALLER sent. `issues` rides `FireResult` to the caller and into
+the Mode B rejection a model reads; the gap ledger stores the rejection reason
+alone, never this string.
+
+The gate is source-blind: an agent fire, a `user`/`system` fire and the
+record-only sensor fire all answer for the payload. That is where zod already
+sat in 0.3.0 — a schema is the app's statement about its own door, and a fire
+that disagrees with it is drift worth a ledger row whoever made it.
 
 ## nav-session.ts — the D18 composition layer
 

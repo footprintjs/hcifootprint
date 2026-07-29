@@ -20,10 +20,12 @@
  * blocks an action the app would have accepted, and the caller has no appeal.
  *
  * VALUES NEVER APPEAR IN A MESSAGE. Every string built here is made of KEY
- * NAMES and TYPE NAMES only. `issues` rides the result channel to the model and
- * into the gap ledger, and payload values are runtime data (some of them under
- * keys the session redacts) — a shape teaches the correction; the value would
- * only leak.
+ * NAMES and TYPE NAMES only. `issues` rides FireResult to the caller and into
+ * the Mode B rejection a model reads (serve/modes.ts:420) — the gap ledger
+ * stores the rejection REASON alone, never this string (session.ts
+ * recordRejection). Payload values are runtime data, some of them under keys
+ * the session redacts: a shape teaches the correction; the value would only
+ * leak.
  */
 
 type JsonObject = Record<string, unknown>;
@@ -32,6 +34,14 @@ export type ShapeCheck = { ok: true } | { ok: false; issues: string };
 
 /** One cap for every key list a message can carry — a rejection teaches, it does not dump. */
 const MAX_LISTED_KEYS = 10;
+
+/**
+ * The longest a key name may render. The count cap above is not enough on its
+ * own: a RECEIVED shape names keys the caller chose, so one 100,000-character
+ * key would make a 100,000-character message and ride it to the model. Long
+ * enough that a real key is never touched.
+ */
+const MAX_KEY_CHARS = 40;
 
 /**
  * How many levels of object nesting this checker walks: the payload itself and
@@ -62,8 +72,34 @@ function typeName(value: unknown): string {
   return typeof value;
 }
 
+/**
+ * A key name as it appears in a message, length-capped. Applied to the names
+ * the PAYLOAD supplied — the author's own declared names are bounded by the
+ * schema they wrote, and truncating those would teach a key that does not exist.
+ */
+function showKey(key: string): string {
+  return key.length > MAX_KEY_CHARS ? `${key.slice(0, MAX_KEY_CHARS)}…` : key;
+}
+
 function declinesToJudge(schema: JsonObject): boolean {
   return UNJUDGED_KEYWORDS.some((keyword) => schema[keyword] !== undefined);
+}
+
+/**
+ * Is an unlisted key a defect at this level? Only where the author closed the
+ * object: an open object is JSON Schema's default and most authors never write
+ * the keyword — refusing extras there would reject on a rule nobody stated.
+ *
+ * `patternProperties` reopens it. It widens the allowed set BY REGEX, which
+ * this checker does not evaluate, so alongside it `additionalProperties: false`
+ * no longer means "only the keys in properties" — reading it that way refuses
+ * `{'x-trace': …}` against a schema whose author explicitly allowed `^x-`.
+ * Only THIS rule stands down: required keys and declared types mean the same
+ * thing with or without it (every applicable subschema must still hold), so
+ * unlike the UNJUDGED_KEYWORDS the rest of the level is judged as usual.
+ */
+function closesAgainstUnlistedKeys(schema: JsonObject): boolean {
+  return schema['additionalProperties'] === false && schema['patternProperties'] === undefined;
 }
 
 function requiredKeys(schema: JsonObject): string[] {
@@ -150,7 +186,7 @@ export function describeReceivedShape(payload: unknown): string {
   if (!isPlainObject(payload)) return typeName(payload);
   const keys = Object.keys(payload);
   if (keys.length === 0) return '{}';
-  const shown = keys.slice(0, MAX_LISTED_KEYS).map((key) => `${key}: ${typeName(payload[key])}`);
+  const shown = keys.slice(0, MAX_LISTED_KEYS).map((key) => `${showKey(key)}: ${typeName(payload[key])}`);
   if (keys.length > MAX_LISTED_KEYS) shown.push('…');
   return `{ ${shown.join(', ')} }`;
 }
@@ -219,13 +255,10 @@ function collectDefects(
     }
   }
 
-  // Unknown keys are a defect ONLY where the author closed the object. An open
-  // object is JSON Schema's default and most authors never write the keyword —
-  // refusing extras there would reject on a rule nobody stated.
-  if (schema['additionalProperties'] === false) {
+  if (closesAgainstUnlistedKeys(schema)) {
     const unexpected = [...given.keys()].filter((key) => !properties.has(key));
     if (unexpected.length > 0) {
-      const shown = unexpected.slice(0, MAX_LISTED_KEYS).map((key) => `'${path}${key}'`);
+      const shown = unexpected.slice(0, MAX_LISTED_KEYS).map((key) => `'${path}${showKey(key)}'`);
       if (unexpected.length > MAX_LISTED_KEYS) shown.push('…');
       defects.push(`${unexpected.length === 1 ? 'unexpected key' : 'unexpected keys'} ${shown.join(', ')}`);
     }
