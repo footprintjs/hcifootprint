@@ -105,7 +105,12 @@ const STEP_INPUT_SCHEMA = {
   type: 'object',
   properties: {
     step: { type: 'string', description: 'A step name taken from readySteps in a previous result.' },
-    input: { type: 'object', description: 'The step input. Each result states what the next step expects.' },
+    input: {
+      type: 'object',
+      description:
+        'The step input. Each result states what the next step expects. Match the shape in that step’s ' +
+        'expects field — an input that does not returns PAYLOAD_INVALID carrying what was expected.',
+    },
     confirm: { type: 'boolean', description: 'Required true to proceed with a high-effect step (after the human approves the receipts).' },
     decline: { type: 'boolean', description: 'Set true to record that the human refused a high-effect step (closes the ask; nothing fires).' },
     instance: {
@@ -434,6 +439,10 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       ...(edge.activation && edge.activation !== 'registered' && edge.activation !== 'synced'
         ? { activation: edge.activation }
         : {}),
+      // The input contract, BEFORE the model fires. Without it a do_action
+      // caller could only learn the shape by guessing wrong once — and for a
+      // plain JSON Schema (unenforced until 0.4.0) not even then.
+      ...expectsData(edge.schema),
     };
   }
 

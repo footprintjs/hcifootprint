@@ -1,0 +1,303 @@
+/**
+ * The shape checker, alone. It decides whether a fire is REFUSED, so its edges
+ * are the whole safety story: too lax and a planner's wrong key reaches the
+ * handler as undefined again; too strict and it refuses payloads the app would
+ * have accepted — the worse of the two, because a rejection has no appeal.
+ *
+ * Two properties are pinned everywhere below: what it DECLINES to judge, and
+ * the exact wording of what it does — the message IS the teaching channel, and
+ * the last test in this file is the friend's reported case, verbatim.
+ */
+import { describe, expect, it } from 'vitest';
+import { checkJsonShape, describeExpectedShape, describeReceivedShape } from '../src/traverse/payload-shape.js';
+
+/** The reported case: the handler reads {value}, the planner guessed {name}. */
+const VALUE_SCHEMA = {
+  type: 'object',
+  properties: { value: { type: 'string' } },
+  required: ['value'],
+};
+
+describe('checkJsonShape — the defects it can name', () => {
+  it('names a missing required key', () => {
+    const result = checkJsonShape(VALUE_SCHEMA, { other: 'x' });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.issues).toContain("missing required 'value'");
+  });
+
+  it('names a declared key holding the wrong primitive type', () => {
+    const schema = { type: 'object', properties: { count: { type: 'number' } } };
+    const result = checkJsonShape(schema, { count: '3' });
+    expect(result.ok === false && result.issues).toContain("'count' should be number, not string");
+  });
+
+  it('holds integer to whole numbers — a float is a real defect', () => {
+    const schema = { type: 'object', properties: { page: { type: 'integer' } } };
+    expect(checkJsonShape(schema, { page: 2 }).ok).toBe(true);
+    const result = checkJsonShape(schema, { page: 2.5 });
+    expect(result.ok === false && result.issues).toContain("'page' should be integer, not number");
+  });
+
+  it('tells an array from an object (typeof would call both "object")', () => {
+    const arraySchema = { type: 'object', properties: { tags: { type: 'array' } } };
+    expect(checkJsonShape(arraySchema, { tags: ['a'] }).ok).toBe(true);
+    expect(checkJsonShape(arraySchema, { tags: { 0: 'a' } }).ok).toBe(false);
+
+    const objectSchema = { type: 'object', properties: { user: { type: 'object' } } };
+    expect(checkJsonShape(objectSchema, { user: { id: 1 } }).ok).toBe(true);
+    const wrong = checkJsonShape(objectSchema, { user: ['id'] });
+    expect(wrong.ok === false && wrong.issues).toContain("'user' should be object, not array");
+  });
+
+  it('accepts null only where null is the declared type', () => {
+    const nullable = { type: 'object', properties: { clearedBy: { type: 'null' } } };
+    expect(checkJsonShape(nullable, { clearedBy: null }).ok).toBe(true);
+    expect(checkJsonShape(nullable, { clearedBy: 'someone' }).ok).toBe(false);
+    const stringy = { type: 'object', properties: { name: { type: 'string' } } };
+    const result = checkJsonShape(stringy, { name: null });
+    expect(result.ok === false && result.issues).toContain("'name' should be string, not null");
+  });
+
+  it('reports every defect it found, in one message', () => {
+    const schema = {
+      type: 'object',
+      properties: { value: { type: 'string' }, count: { type: 'number' } },
+      required: ['value'],
+    };
+    const result = checkJsonShape(schema, { count: 'three' });
+    expect(result.ok === false && result.issues).toBe(
+      "missing required 'value'; 'count' should be number, not string — " +
+        'expected { value: string, count?: number }, received { count: string }',
+    );
+  });
+
+  it('treats a required key holding undefined as missing (undefined is absent, library-wide)', () => {
+    const result = checkJsonShape(VALUE_SCHEMA, { value: undefined });
+    expect(result.ok === false && result.issues).toContain("missing required 'value'");
+    // …and says so honestly: the key WAS sent, it just carried nothing.
+    expect(result.ok === false && result.issues).toContain('received { value: undefined }');
+  });
+});
+
+describe('checkJsonShape — extra keys', () => {
+  it('passes extra keys by default: an open object is JSON Schema’s default', () => {
+    expect(checkJsonShape(VALUE_SCHEMA, { value: 'x', note: 'extra' }).ok).toBe(true);
+  });
+
+  it('refuses extra keys only where the author closed the object', () => {
+    const closed = { ...VALUE_SCHEMA, additionalProperties: false };
+    const result = checkJsonShape(closed, { value: 'x', note: 'extra' });
+    expect(result.ok === false && result.issues).toContain("unexpected key 'note'");
+  });
+
+  it('lists several unexpected keys in one defect, pluralized', () => {
+    const closed = { ...VALUE_SCHEMA, additionalProperties: false };
+    const result = checkJsonShape(closed, { value: 'x', a: 1, b: 2 });
+    expect(result.ok === false && result.issues).toContain("unexpected keys 'a', 'b'");
+  });
+
+  it('does not count an extra key holding undefined — it carries nothing', () => {
+    const closed = { ...VALUE_SCHEMA, additionalProperties: false };
+    expect(checkJsonShape(closed, { value: 'x', note: undefined }).ok).toBe(true);
+  });
+
+  it('is not fooled by a payload key that names an Object.prototype member', () => {
+    const closed = { ...VALUE_SCHEMA, additionalProperties: false };
+    const result = checkJsonShape(closed, { value: 'x', toString: 'shadowed' });
+    expect(result.ok === false && result.issues).toContain("unexpected key 'toString'");
+  });
+});
+
+describe('checkJsonShape — nesting', () => {
+  const nested = {
+    type: 'object',
+    properties: {
+      user: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+    },
+    required: ['user'],
+  };
+
+  it('walks one level into a declared object property', () => {
+    expect(checkJsonShape(nested, { user: { name: 'ada' } }).ok).toBe(true);
+    const result = checkJsonShape(nested, { user: {} });
+    expect(result.ok === false && result.issues).toContain("missing required 'user.name'");
+  });
+
+  it('names a nested type defect with its path', () => {
+    const result = checkJsonShape(nested, { user: { name: 7 } });
+    expect(result.ok === false && result.issues).toContain("'user.name' should be string, not number");
+  });
+
+  it('stops at depth 2 — a defect three levels down is not judged', () => {
+    const deep = {
+      type: 'object',
+      properties: {
+        user: {
+          type: 'object',
+          properties: {
+            address: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
+          },
+        },
+      },
+    };
+    // Level 3 ('city') is missing AND mistyped; both pass — out of the walk.
+    expect(checkJsonShape(deep, { user: { address: {} } }).ok).toBe(true);
+    expect(checkJsonShape(deep, { user: { address: { city: 42 } } }).ok).toBe(true);
+    // Level 2 is still judged, so the cap is a depth limit, not a switch-off.
+    const level2 = checkJsonShape(deep, { user: { address: 'Paris' } });
+    expect(level2.ok === false && level2.issues).toContain("'user.address' should be object, not string");
+  });
+});
+
+describe('checkJsonShape — a payload that is not an object', () => {
+  it('renders the bare type it received', () => {
+    const result = checkJsonShape(VALUE_SCHEMA, 'add milk');
+    expect(result.ok === false && result.issues).toBe('expected { value: string }, received string');
+  });
+
+  it('says the same for an array, a null and a number', () => {
+    expect(checkJsonShape(VALUE_SCHEMA, ['x']).ok === false).toBe(true);
+    expect((checkJsonShape(VALUE_SCHEMA, null) as { issues: string }).issues).toContain('received null');
+    expect((checkJsonShape(VALUE_SCHEMA, 42) as { issues: string }).issues).toContain('received number');
+  });
+
+  it('refuses an ABSENT payload when something was required', () => {
+    const result = checkJsonShape(VALUE_SCHEMA, undefined);
+    expect(result.ok === false && result.issues).toBe('expected { value: string }, received undefined');
+  });
+
+  it('accepts an absent payload when nothing was required — no key is missing from it', () => {
+    const optional = { type: 'object', properties: { note: { type: 'string' } } };
+    expect(checkJsonShape(optional, undefined).ok).toBe(true);
+  });
+});
+
+describe('checkJsonShape — what it declines to judge', () => {
+  it('passes anything under $ref: the real shape lives somewhere else', () => {
+    const schema = { type: 'object', $ref: '#/definitions/Task', required: ['value'] };
+    expect(checkJsonShape(schema, { nothing: 'like it' }).ok).toBe(true);
+  });
+
+  it('passes anything under anyOf/oneOf/allOf: a sibling type describes one branch of several', () => {
+    for (const keyword of ['anyOf', 'oneOf', 'allOf']) {
+      const schema = { type: 'object', [keyword]: [{ required: ['a'] }, { required: ['b'] }], required: ['a'] };
+      expect(checkJsonShape(schema, { b: 1 }).ok).toBe(true);
+    }
+  });
+
+  it('passes anything under enum/format/pattern: value constraints a shape check never sees', () => {
+    for (const keyword of ['enum', 'format', 'pattern']) {
+      const schema = { type: 'object', [keyword]: 'whatever', properties: { v: { type: 'string' } }, required: ['v'] };
+      expect(checkJsonShape(schema, {}).ok).toBe(true);
+    }
+  });
+
+  it('declines PER KEY: an undecidable property does not stop the rest of the object being judged', () => {
+    const schema = {
+      type: 'object',
+      properties: { mode: { type: 'string', enum: ['a', 'b'] }, count: { type: 'number' } },
+    };
+    expect(checkJsonShape(schema, { mode: 99 }).ok).toBe(true); // enum ⇒ 'mode' unjudged
+    const result = checkJsonShape(schema, { mode: 99, count: 'three' });
+    expect(result.ok === false && result.issues).toContain("'count' should be number, not string");
+    expect(result.ok === false && result.issues).not.toContain("'mode'");
+  });
+
+  it('passes an empty-properties schema for any object', () => {
+    expect(checkJsonShape({ type: 'object', properties: {} }, { anything: 1 }).ok).toBe(true);
+    expect(checkJsonShape({ type: 'object' }, { anything: 1 }).ok).toBe(true);
+  });
+
+  it('passes a schema that does not describe an object at all', () => {
+    expect(checkJsonShape({ type: 'string' }, 42).ok).toBe(true);
+    expect(checkJsonShape({ type: 'array', items: { type: 'string' } }, 'nope').ok).toBe(true);
+  });
+
+  it('passes a type union and an unknown type token', () => {
+    const union = { type: 'object', properties: { id: { type: ['string', 'number'] } } };
+    expect(checkJsonShape(union, { id: true }).ok).toBe(true);
+    const unknown = { type: 'object', properties: { id: { type: 'uuid' } } };
+    expect(checkJsonShape(unknown, { id: 7 }).ok).toBe(true);
+  });
+
+  it('passes when there is no schema object to read', () => {
+    expect(checkJsonShape(undefined, { anything: 1 }).ok).toBe(true);
+    expect(checkJsonShape('not a schema', { anything: 1 }).ok).toBe(true);
+  });
+});
+
+describe('describeExpectedShape() — the string a caller can type', () => {
+  it('marks optional keys with ?', () => {
+    const schema = {
+      type: 'object',
+      properties: { value: { type: 'string' }, note: { type: 'string' } },
+      required: ['value'],
+    };
+    expect(describeExpectedShape(schema)).toBe('{ value: string, note?: string }');
+  });
+
+  it('keeps the author’s declaration order', () => {
+    const schema = { type: 'object', properties: { b: { type: 'number' }, a: { type: 'string' } } };
+    expect(describeExpectedShape(schema)).toBe('{ b?: number, a?: string }');
+  });
+
+  it('renders a nested object flat — the full schema is already in expects', () => {
+    const schema = {
+      type: 'object',
+      properties: { user: { type: 'object', properties: { name: { type: 'string' } } } },
+    };
+    expect(describeExpectedShape(schema)).toBe('{ user?: object }');
+  });
+
+  it('says any for a property with no declared type', () => {
+    expect(describeExpectedShape({ type: 'object', properties: { v: { description: 'anything' } } })).toBe(
+      '{ v?: any }',
+    );
+  });
+
+  it('falls back to the bare declared type when there are no properties', () => {
+    expect(describeExpectedShape({ type: 'object' })).toBe('object');
+    expect(describeExpectedShape({ type: 'string' })).toBe('string');
+    expect(describeExpectedShape(undefined)).toBe('object');
+  });
+});
+
+describe('describeReceivedShape() — keys and types, never values', () => {
+  it('renders an object’s own keys with their runtime types', () => {
+    expect(describeReceivedShape({ name: 'add milk', count: 2, done: false })).toBe(
+      '{ name: string, count: number, done: boolean }',
+    );
+  });
+
+  it('renders a non-object as its bare type', () => {
+    expect(describeReceivedShape('add milk')).toBe('string');
+    expect(describeReceivedShape(['a'])).toBe('array');
+    expect(describeReceivedShape(null)).toBe('null');
+    expect(describeReceivedShape(undefined)).toBe('undefined');
+    expect(describeReceivedShape({})).toBe('{}');
+  });
+
+  it('caps at 10 keys and marks the truncation', () => {
+    const wide = Object.fromEntries(Array.from({ length: 14 }, (_, i) => [`k${i}`, i]));
+    const rendered = describeReceivedShape(wide);
+    expect(rendered).toContain('k0: number');
+    expect(rendered).toContain('k9: number');
+    expect(rendered).not.toContain('k10');
+    expect(rendered.endsWith(', … }')).toBe(true);
+  });
+
+  it('never carries a value into the string', () => {
+    const rendered = describeReceivedShape({ token: 'sk-secret-42', note: 'buy milk' });
+    expect(rendered).toBe('{ token: string, note: string }');
+  });
+});
+
+describe('the reported case, verbatim', () => {
+  it('teaches {value} to a planner that guessed {name}', () => {
+    const result = checkJsonShape(VALUE_SCHEMA, { name: 'add milk' });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.issues).toBe(
+      "missing required 'value' — expected { value: string }, received { name: string }",
+    );
+  });
+});

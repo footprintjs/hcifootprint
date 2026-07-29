@@ -241,6 +241,21 @@ export interface SessionOptions {
    * trusting position. Default false (fail-closed).
    */
   allowUnmaterializedFires?: boolean;
+  /**
+   * Check a plain JSON-Schema declaration against the payload at fire time.
+   * STRUCTURAL only — required keys, declared primitive types, closed objects —
+   * and never a full JSON-Schema validator: anything it cannot judge it passes
+   * (the name says exactly what it does, because claiming more would be a lie
+   * a caller only discovers in production).
+   *
+   * Default true. Declaring a schema is already the author's opt-in signal, and
+   * Mode B's published contract has always promised that "a wrong input returns
+   * a structured error RESULT carrying what was expected" (serve/modes.ts) — a
+   * promise a plain JSON Schema could not keep while nothing enforced it. Set
+   * false for the 0.3.0 pass-through. Zod and other parseable validators run
+   * either way; this flag governs only the plain-JSON-Schema branch.
+   */
+  checkPayloadShape?: boolean;
 }
 
 // ---------------------------------------------------------------------------

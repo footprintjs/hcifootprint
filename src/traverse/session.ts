@@ -32,6 +32,7 @@ import {
   evaluateFilter,
 } from 'footprintjs/advanced';
 import type { CommitBundle, ExecutionCounter, FilterCondition } from 'footprintjs/advanced';
+import { detectSchema } from 'footprintjs';
 import type { MCPToolDescription, ScopeRecorder, WhereFilter } from 'footprintjs';
 import { formatSlice, keysReadFromMap, sliceForKey } from 'footprintjs/trace';
 import type {
@@ -72,6 +73,7 @@ import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
 import type { SettlementLatch } from './settlement.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
+import { checkJsonShape } from './payload-shape.js';
 import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
 import type { ToolHandler } from '../registry/registry.js';
@@ -133,6 +135,8 @@ export class Session {
    * — fail closed, so a success-shaped no-op can never read as "it worked".
    */
   readonly #allowUnmaterialized: boolean;
+  /** Whether a plain JSON-Schema declaration is shape-checked at fire time. */
+  readonly #checkPayloadShape: boolean;
   /** Fingerprint of the served structure at the last coalesced flush. */
   #structureFingerprint = '';
   #structureFlushScheduled = false;
@@ -191,6 +195,7 @@ export class Session {
     this.#stateTap = opts.stateTap ?? opts.state !== undefined;
     this.#captureProduced = opts.captureProduced ?? true;
     this.#allowUnmaterialized = opts.allowUnmaterializedFires ?? false;
+    this.#checkPayloadShape = opts.checkPayloadShape ?? true;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
     this.#heap = new SharedMemory(undefined, initial);
@@ -632,7 +637,7 @@ export class Session {
       return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
     }
     if (aff.schema !== undefined) {
-      const validation = validatePayload(aff.schema, opts.payload);
+      const validation = validatePayload(aff.schema, opts.payload, this.#checkPayloadShape);
       if (!validation.ok) {
         this.recordRejection(affordanceId, 'PAYLOAD_INVALID', opts.source);
         return { ok: false, reason: 'PAYLOAD_INVALID', issues: validation.issues };
@@ -1884,7 +1889,16 @@ function cloneSafe<T>(value: T): T {
   }
 }
 
-function validatePayload(schema: unknown, payload: unknown): { ok: true } | { ok: false; issues: string } {
+/**
+ * The one gate a declared input schema gets. `checkShape` is passed in rather
+ * than read off the session because this stays module-private — the decision
+ * belongs to the session that owns the option, not to a free function.
+ */
+function validatePayload(
+  schema: unknown,
+  payload: unknown,
+  checkShape: boolean,
+): { ok: true } | { ok: false; issues: string } {
   const validator = schema as {
     safeParse?: (value: unknown) => { success: boolean; error?: unknown };
     parse?: (value: unknown) => unknown;
@@ -1905,6 +1919,14 @@ function validatePayload(schema: unknown, payload: unknown): { ok: true } | { ok
       return { ok: false, issues: String(error) };
     }
   }
-  // Plain JSON Schema: describes the payload to the LLM; v0 ships no JSON-Schema validator.
+  // Plain JSON Schema carries no validator of its own, so until now it only
+  // DESCRIBED the payload to the model and nothing checked the answer — a
+  // guessed key reached the handler as undefined. checkJsonShape judges the
+  // structural subset a planner actually gets wrong and passes the rest;
+  // detectSchema gates the branch so the duck-typing above stays the only path
+  // a zod/parseable validator ever takes.
+  if (checkShape && detectSchema(schema) === 'json-schema') {
+    return checkJsonShape(schema, payload);
+  }
   return { ok: true };
 }

@@ -36,6 +36,27 @@ declared writes observed?). They disagree honestly — a tapless handler
 completes `'performed'` with `effectVerified: 'unobservable'` — and neither is
 averaged into the other.
 
+## payload-shape.ts — the input contract, enforced
+
+A declared schema reached the model but not the door: `.safeParse`/`.parse`
+validators ran, a plain **JSON Schema** did not — it only described the payload,
+so a planner's guessed key arrived at the handler as `undefined`. This module is
+the structural check that closes it, and `expects` on every served action row
+(`serve/modes.ts`) is the other half: the shape is visible BEFORE the fire, and
+a wrong one comes back as `PAYLOAD_INVALID` carrying what was expected.
+
+**Teachable, not complete** — and the name (`SessionOptions.checkPayloadShape`,
+default true) says so. It judges required keys, declared primitive types, closed
+objects, one level of nesting; `$ref`/`allOf`/`anyOf`/`oneOf`/`enum`/`format`/
+`pattern` it DECLINES to judge and passes. Declining is the same stance
+`#evalGuard` takes on an unevaluable key: what cannot be evaluated is never
+reported as false, because a wrong rejection blocks an action the app would have
+accepted and the caller has no appeal.
+
+Messages are built from KEY NAMES and TYPE NAMES only — never values. `issues`
+rides the result channel to the model and into the gap ledger, and the shape is
+what teaches the correction; the value would only leak.
+
 ## nav-session.ts — the D18 composition layer
 
 `InteractionSession extends Session` and is where the independent layers meet: the

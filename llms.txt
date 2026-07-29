@@ -208,8 +208,9 @@ const result = port.call(name, args);           // route a tool_use; return `res
 ### The three call shapes
 
 - **`shop.whats_here` →** `{ ok: true, brief, actions: [{ action, does, highEffect?, guardUnevaluated?,
-  instances?, enumeration?, activation? }], skills: [{ skill, does, feasible, feasibilityUnknownFor? }],
-  youAreOn, version }`.
+  instances?, enumeration?, activation?, expects? }], skills: [{ skill, does, feasible,
+  feasibilityUnknownFor? }], youAreOn, version }`. `expects?` is that action's declared input contract
+  (absent when the action declares none) — the same shape a `PAYLOAD_INVALID` rejection teaches.
 - **`shop.skill.<id>` with no `step` →** opens the skill frame and returns `frameData`:
   `{ ok: true, skill, frame: 'open', judgment, readySteps: [...], laterSteps: [...], howToAct,
   awaitingState?, youAreOn, version }`.
