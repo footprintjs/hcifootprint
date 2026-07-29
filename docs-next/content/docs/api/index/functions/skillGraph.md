@@ -6,7 +6,7 @@ title: skillGraph
 
 > **skillGraph**(`id`, `opts?`): [`SkillGraphBuilder`](/api/index/classes/SkillGraphBuilder)
 
-Defined in: [src/graph/builder.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L43)
+Defined in: [src/graph/builder.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L44)
 
 hcifootprint — turn a web app's interaction surface into a typed,
 traversable skill graph an LLM can plan over.

@@ -18,7 +18,7 @@
  *               tool for N cards, never N tools).
  */
 import type { WhereFilter } from 'footprintjs';
-import type { Binding, CanonicalRole, SkillGraphSpec } from '../atom/types.js';
+import type { Binding, CanonicalRole, SkillGraphSpec, VerifyContract } from '../atom/types.js';
 // Type-only cycle with graph/sources/types.ts (it names PageNodeDef/JourneyDef,
 // we name GraphSource) — erased at build, so no runtime cycle exists.
 import type { GraphSource } from '../graph/sources/types.js';
@@ -36,14 +36,45 @@ export interface ToolDef {
   binding?: Binding;
   /** Availability guard over projected state (AND-composed with every ancestor `when`). */
   when?: WhereFilter;
+  /**
+   * Is this control currently CLICKABLE? Declarative disabledness — a different
+   * question from `when`, which decides whether the control is here at all. A
+   * failed `when` HIDES the tool; a false `enabledWhen` SERVES it as a greyed
+   * button (`enabled: false` on the edge) and refuses a fire as TOOL_DISABLED.
+   *
+   * Declare it from the same expression that renders `<button disabled={…}>` and
+   * an agent stops discovering the answer by clicking. Keys it cannot evaluate
+   * never disable anything — the library does not guess a control greyed out.
+   *
+   * NOT composed with ancestor `when`s: this is the control's own state, not
+   * its position in the tree.
+   */
+  enabledWhen?: WhereFilter;
   /** State keys this tool claims to change. */
   writes?: string[];
   /** Page this tool claims to navigate to (a top-level page id). */
   goTo?: string;
   /** Requires explicit confirmation (the high-effect gate). */
   confirm?: boolean;
-  /** Payload contract: Zod, JSON Schema, or any .safeParse/.parse validator. */
+  /**
+   * Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
+   * or the literal `'none'`, meaning "this control takes NO input". A caller
+   * that sends one anyway is refused with the shape it sent, and a blank
+   * payload is erased before it can reach the handler and override the app's
+   * own defaults.
+   *
+   * OMITTING `input` says something different: the library does not know the
+   * shape, so it advertises nothing rather than inventing an empty contract.
+   */
   input?: unknown;
+  /**
+   * The app's OWN check that firing this really did something — evaluated once,
+   * at settlement, and the only thing that can turn a handler that merely RAN
+   * into an honest refusal. Either a filter over projected state
+   * (`{ 'wizard.recipe': { ne: '' } }`) or a synchronous predicate whose closure
+   * may read whatever the app can see, the DOM included.
+   */
+  verify?: VerifyContract;
   role?: CanonicalRole;
 }
 

@@ -4,7 +4,7 @@ title: Page
 
 # Interface: Page
 
-Defined in: [src/atom/types.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L173)
+Defined in: [src/atom/types.ts:222](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L222)
 
 ## Extends
 
@@ -16,7 +16,7 @@ Defined in: [src/atom/types.ts:173](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **description?**: `string`
 
-Defined in: [src/atom/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L134)
+Defined in: [src/atom/types.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L176)
 
 #### Inherited from
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:134](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L174)
+Defined in: [src/atom/types.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L223)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/atom/types.ts:174](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **route?**: `string`
 
-Defined in: [src/atom/types.ts:133](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L133)
+Defined in: [src/atom/types.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L175)
 
 #### Inherited from
 

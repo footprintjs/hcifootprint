@@ -6,6 +6,6 @@ title: ServeResult
 
 > **ServeResult** = `Record`\<`string`, `unknown`\>
 
-Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L69)
+Defined in: [src/serve/modes.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L67)
 
 Results are plain data objects — serialize one as the tool_result body.

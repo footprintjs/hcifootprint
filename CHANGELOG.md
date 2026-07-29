@@ -2,6 +2,107 @@
 
 ## [Unreleased]
 
+### Added (grounding — the app's own record, and the app's own checks)
+- **`session.groundTruth({ sinceVersion?, maxAttempts? })` → `{ node, version, text }`,
+  and `facts` on every Mode B `whats_here` result.** The authoritative block: position,
+  then every ATTEMPT and how it came to rest, then any decision the human still owes and
+  any fire the app has not answered — under a header telling the model it outranks
+  anything said in the conversation. Reported by a production integration: with nothing
+  to check itself against, the model narrated an entire flow ("name set, recipe
+  selected") having called ZERO tools — its own prose had become its context.
+  `contextBrief()` could not have prevented it, and the reason is structural rather than
+  cosmetic: a REFUSED fire is a gap-ledger row, not a transition, so a narrative built
+  from transitions can never show a failed attempt. This merges BOTH ledgers, ordered by
+  cursor version (a proof, not a heuristic: a refusal never bumps the version and a
+  recorded fire bumps it immediately, so every row at version V sits inside the window
+  that ONE transition closed).
+  Nothing is rounded up: only a committed fire whose declared effect was observed earns
+  "DID happen"; a fire nobody could check says "ran, but the effect was unobservable";
+  a refusal, a rollback, a tour no-op and a failed verify all say "did NOT happen"; a
+  fire still out says "not yet known". With nothing attempted it states the
+  anti-narration line outright — *No actions have been performed in this app this
+  session.* — and behind a `sinceVersion` cursor that would be false it says the cursor's
+  own truth and counts what it hid instead.
+  Deliberately EXCLUDED: state values and payloads (the two-string-class invariant
+  extended to history), produced data, available actions and skills (options are
+  `whats_here`'s other half — facts are what happened, so the two stay non-overlapping
+  and both stay lean), 'reported' gap rows and all runtime free text, and any
+  interpretation. An id the graph does not have renders as a constant rather than
+  echoing a model's own invention back at it, the discipline `#nodeLabel` already
+  applies to off-graph page names.
+- **`verify` on a tool/affordance — the app's own answer to "did that actually
+  happen?"** Either a `WhereFilter` over projected state (`{ 'wizard.recipe': { ne: '' } }`)
+  or a SYNCHRONOUS predicate handed a DETACHED state snapshot, whose closure may read
+  whatever the app can (the DOM included). Reported by a production integration: a radio
+  fire returned `effectStatus: 'performed'` while nothing got selected, and a wizard's
+  next-button returned 'performed' while the button it clicked was DISABLED — the agent
+  looped five times, correctly, on the information it was given. Their workaround was
+  ~60 lines of before/after DOM signature comparison per action.
+  Evaluated AT SETTLEMENT, at exactly the three points a fire comes to rest as a success
+  (an attributed state report, a tapless handler completing, a synchronous commit whose
+  handler completed). Holds → nothing changes. Fails → the settlement routes through the
+  existing failure spine: `effectStatus: 'refused'` (an EXISTING word — none were
+  renamed), a structured `{ reason: 'VERIFY_FAILED', explanation, evidence }` on `error`,
+  a claims-only commit rolled back with the honest cursor walk-back, and an
+  evidence-backed commit STANDING while the settlement still refuses — both truths
+  carried, neither averaged.
+  `FireSettlement` gains `verified?: boolean | 'unevaluable'`, a THIRD axis beside
+  `effectStatus` (did anyone perform it) and `effectVerified` (did the declared write
+  keys appear). What cannot be checked never refuses: an unknown state key, or a
+  predicate that threw (isolated + warned), is `'unevaluable'`. A refusal needs proof —
+  one false conjunct proves a conjunction false whatever the unknown keys hold — while a
+  confirmation needs everything, because a wrong rejection blocks an action the app would
+  have accepted and the caller has no appeal.
+- **`enabledWhen` on a tool — declarative disabledness**, distinct from `when`: a failed
+  `when` HIDES the control, a false `enabledWhen` SERVES it carrying `enabled: false` (a
+  greyed button an agent can see) and refuses execution fires as `TOOL_DISABLED` — the
+  existing retriable arm. Declare it from the same expression that renders
+  `<button disabled={…}>`. `TOOL_DISABLED` now has FOUR wires reaching one refusal:
+  `enabled:` at registration, `handle.setEnabled`, a live store's `LiveAction.enabled`,
+  and this. Not composed with ancestor `when`s (it is the control's own state, not its
+  position in the tree), and it outranks a per-instance registration — a declaration
+  greys every row of a repeats container at once. Keys it cannot evaluate never disable
+  anything: the library does not guess a control shut.
+- **`input: 'none'` — the action that takes NO input**, accepted at all three authoring
+  doors (`skillGraph().affordance`, `buildNavigationGraph`, mount-declared tools), each
+  of which read the sentinel BEFORE `detectSchema` and each of which still refuses a
+  schema it cannot recognize. Reported by a production integration: a uniform
+  `{ value: string, required }` relay contract forced the model to send `value: ""` to
+  click-only controls, and that empty string reached the handler and OVERRODE authored
+  defaults, selecting nothing.
+  It compiles to an additive `Affordance.noInput` FLAG with `schema` left undefined —
+  deliberately not a synthetic empty JSON Schema, so MCP's no-params arm and the fire-time
+  shape gate stay byte-identical. The model is TOLD (`expects: 'none'`) before it can
+  guess; a payload sent anyway is refused `PAYLOAD_INVALID` (an existing arm) carrying the
+  shape it sent, so it never reaches the handler; and a BLANK payload (`undefined`, `''`,
+  `{}`, an object of undefined-valued keys) is accepted and ERASED — protocol residue is
+  not intent. An explicit `null` is not blank: it still answers for its shape. Exactly one
+  door: schema-bearing actions are untouched (`''` is a real value there — clearing a
+  field) and so are actions that declared no input at all (the library cannot know, so it
+  does not guess).
+- **`expects` on `available().edges` — parity with the wire.** The contract Mode B has
+  always served now rides the in-process surface too, from ONE shared derivation
+  (`src/traverse/expects.ts`): zod normalized, plain JSON Schema detached, a
+  non-serializable validator named in one authored sentence, `'none'` for an input-less
+  action. The field report is a port-direct consumer re-deriving that law by hand, and a
+  law duplicated at a consumer is drift by construction. The rendered form is cached by
+  schema identity and deep-frozen, because `available()` is hot — every refused fire calls
+  it for the gap row's context. `schema` (the LIVE validator) is unchanged beside it: the
+  residual asymmetry is stated, not hidden — `available()` serves both, a served result
+  carries only `expects`, and a live validator never crosses the wire.
+
+### Fixed
+- **`errorText` renders a refusal the library authored in its own words.** A structured
+  `{ reason, explanation }` value — the verify contract's — used to cross a tool result as
+  `'[object Object]'`, the one rendering that teaches nothing. The cap still applies: a
+  structured reason is not an escape hatch.
+- **`updateState` removes a pending from the queue BEFORE settling it**, on all four
+  attribution arms rather than two. A settlement now asks the verify contract, and a
+  refusal there re-enters the failure spine, which reads that queue to decide whether the
+  effect ever landed — a record still sitting in it would be read as one that never
+  settled, and the later `splice(indexOf(...))` would find it gone and cut an innocent
+  neighbour out at index -1.
+
 ### Added (settlement — the final truth now crosses the wire)
 - **`session.settlementOf(transitionId)` / `session.settlementIfKnown(transitionId)`.**
   `whenSettled` belongs to the one caller that called `fire()`; a promise cannot

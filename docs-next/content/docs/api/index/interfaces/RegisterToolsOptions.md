@@ -4,7 +4,7 @@ title: RegisterToolsOptions
 
 # Interface: RegisterToolsOptions
 
-Defined in: [src/traverse/session.ts:132](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L132)
+Defined in: [src/traverse/session.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L172)
 
 registerTools() input: one group per component/section, existing handlers by reference.
 
@@ -14,7 +14,7 @@ registerTools() input: one group per component/section, existing handlers by ref
 
 > **group**: `string`
 
-Defined in: [src/traverse/session.ts:133](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L133)
+Defined in: [src/traverse/session.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L173)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [src/traverse/session.ts:133](https://github.com/footprintjs/hcifoot
 
 > **tools**: `Record`\<`string`, [`ToolHandler`](/api/index/type-aliases/ToolHandler)\>
 
-Defined in: [src/traverse/session.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L134)
+Defined in: [src/traverse/session.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L174)

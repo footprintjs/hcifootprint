@@ -114,6 +114,48 @@ export interface Effect {
   navigatesTo?: string;
 }
 
+/**
+ * The app's OWN check that an action actually happened — declared once, next to
+ * the action, and evaluated at settlement.
+ *
+ * The library can observe that a handler ran to completion; it cannot observe
+ * that a radio got selected or that the button it clicked was live. Reported
+ * from the field: a fire returned `effectStatus: 'performed'` while nothing had
+ * been selected, and the agent looped — correctly, on what it was told. This is
+ * the one line that closes that gap.
+ *
+ * Two forms, one meaning ("this must hold once the action has settled"):
+ * - a serializable `WhereFilter` over projected state — evaluated by the
+ *   same evaluator (and the same honesty split) as every guard;
+ * - a synchronous predicate handed a DETACHED state snapshot, whose closure may
+ *   read whatever the app itself can see, the DOM included.
+ *
+ * A contract that does not hold turns the settlement's `effectStatus` into
+ * 'refused' (an existing word — nothing was renamed). A contract that cannot be
+ * evaluated — an unknown state key, a predicate that threw — never refuses:
+ * a wrong rejection blocks an action the app would have accepted, and the
+ * caller has no appeal.
+ */
+export type VerifyContract = WhereFilter | ((state: Record<string, unknown>) => boolean);
+
+/**
+ * Why a settlement said 'refused' when the app's own verify contract found
+ * nothing had happened. Rides {@link FireSettlement.error} — the same field a
+ * thrown handler's error rides, because to a caller both mean "the app did not
+ * do the thing", and one branch should read both.
+ */
+export interface VerifyFailure {
+  reason: 'VERIFY_FAILED';
+  /** An authored constant naming the contract — safe to show a model verbatim. */
+  explanation: string;
+  /**
+   * The conditions that did NOT hold (declarative form only). Absent for a
+   * predicate: it answers yes or no and hands over no conditions, so naming one
+   * would be a guess about code the library cannot see.
+   */
+  evidence?: FilterCondition[];
+}
+
 // ---------------------------------------------------------------------------
 // Authoring definitions (what skillGraph() accepts)
 // ---------------------------------------------------------------------------
@@ -151,8 +193,15 @@ export interface AffordanceDef {
    */
   guard?: WhereFilter;
   effect?: Effect;
-  /** Payload contract: Zod, JSON Schema, or any .safeParse/.parse validator. */
+  /**
+   * Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
+   * or the literal `'none'`, the author's explicit "this action takes NO
+   * input". OMITTING it is a different statement: absence means the library
+   * does not know the shape, so it never guesses one.
+   */
   schema?: unknown;
+  /** The app's own post-settlement check that the action really happened. */
+  verify?: VerifyContract;
   /** Marks edges that need server-side step-up/confirmation. Advisory client-side. */
   highEffect?: boolean;
   role?: CanonicalRole;
@@ -187,6 +236,26 @@ export interface Affordance {
   guard?: WhereFilter;
   effect?: Effect;
   schema?: unknown;
+  /**
+   * True when the author declared `'none'`: this action takes NO input, and a
+   * caller sending one is refused. Compiled as a FLAG with `schema` left
+   * undefined — deliberately not a synthetic empty schema, so every surface
+   * that branches on "no schema declared" (MCP's no-params arm, the fire-time
+   * shape gate) stays byte-identical to what it was.
+   */
+  noInput?: true;
+  /** The app's own post-settlement check that this action really happened. */
+  verify?: VerifyContract;
+  /**
+   * Declarative DISABLEDNESS — distinct from `guard`, which decides whether the
+   * edge exists here at all. A failed guard HIDES the edge; a false
+   * `enabledWhen` SERVES it carrying `enabled: false` (a greyed button an agent
+   * can see) and refuses an execution fire as TOOL_DISABLED. Authored via
+   * `ToolDef.enabledWhen`, ideally from the same expression that renders
+   * `<button disabled={…}>`. Keys it cannot evaluate never disable anything:
+   * the library does not guess a control greyed out.
+   */
+  enabledWhen?: WhereFilter;
   highEffect: boolean;
   role: CanonicalRole;
   /**
@@ -428,7 +497,29 @@ export interface AvailableEdge {
    * marker, instead of being silently hidden (D18 fix).
    */
   guardUnevaluated?: string[];
+  /**
+   * The LIVE validator, exactly as authored — an in-process convenience, and
+   * the reason `expects` exists beside it. Absent when nothing was declared.
+   */
   schema?: unknown;
+  /**
+   * What a caller must SEND, wire-shaped: zod normalized, a plain JSON Schema
+   * detached, a non-serializable validator named in one authored sentence, and
+   * the literal `'none'` for an action that takes no input. Absent means the
+   * library does not know the shape — never "send nothing".
+   *
+   * Identical to what Mode B's results have always served as `expects`, from
+   * one shared derivation, because a consumer reading available() directly was
+   * otherwise made to re-derive library law (which kinds serialize, which
+   * decline) by hand. The residual asymmetry is deliberate and stated: this
+   * surface carries BOTH the live validator and the wire contract; a served
+   * result carries only the wire contract. A live validator never crosses the
+   * wire — that is the firewall.
+   *
+   * Shared and deep-frozen: one rendered contract reaches every caller, the
+   * same stance `binding` takes above.
+   */
+  expects?: unknown;
   highEffect: boolean;
   binding?: Binding;
   /** See Affordance.descriptionSource. */
@@ -444,10 +535,13 @@ export interface AvailableEdge {
    */
   presence?: 'unknown';
   /**
-   * False when the registration site said the control is currently DISABLED
-   * (a grey button: on screen, not clickable). Served honestly with the
-   * marker — like a human seeing it — and firing it is a typed TOOL_DISABLED
-   * rejection. Set via ToolGroup.setEnabled / the `enabled` registration field.
+   * False when the app says the control is currently DISABLED (a grey button:
+   * on screen, not clickable). Served honestly with the marker — like a human
+   * seeing it — and firing it is a typed TOOL_DISABLED rejection.
+   *
+   * FOUR wires land here, so an app can say it wherever it already knows it:
+   * `enabled:` at registration, `handle.setEnabled(…)`, a live store's
+   * `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`.
    */
   enabled?: boolean;
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
@@ -529,8 +623,10 @@ export interface FireOptions {
  *                    runs, so at that instant this is the honest answer.
  * - `performed`    — our side ran to completion, or the app's state report
  *                    settled the record.
- * - `refused`      — the handler threw, returned a failure, or the app called
- *                    reject().
+ * - `refused`      — the handler threw, returned a failure, the app called
+ *                    reject(), OR the action's declared `verify` contract found
+ *                    that nothing happened. Four routes, one word: to a caller
+ *                    they all mean "the app did not do the thing".
  * - `unobservable` — nothing was bound to run, or tracking stopped
  *                    ('superseded'). The library cannot know, so it says so
  *                    rather than guessing 'performed'.
@@ -548,10 +644,25 @@ export interface FireSettlement {
   /**
    * Why it was refused, when a handler failure caused the refusal: the thrown
    * error, or the returned failure's `error` (else the returned object
-   * itself). Absent when the app itself declared the refusal via reject() —
-   * there is no error object there and inventing one would be a guess.
+   * itself) — or a {@link VerifyFailure} when the action's declared verify
+   * contract is what refused it. Absent when the app itself declared the
+   * refusal via reject() — there is no error object there and inventing one
+   * would be a guess.
    */
   error?: unknown;
+  /**
+   * What the action's declared {@link VerifyContract} said, once the fire came
+   * to rest: `true` it held, `false` it did not (and this settlement is
+   * 'refused' because of it), `'unevaluable'` the check could not be run —
+   * an unknown state key, or a predicate that threw. ABSENT when the action
+   * declares no verify at all: silence, never a passing grade.
+   *
+   * A THIRD axis, and deliberately not folded into either of the other two:
+   * `effectStatus` asks whether anyone performed it, `transition.effectVerified`
+   * asks whether the declared write KEYS appeared, and this asks whether the
+   * app's own condition holds. All three can disagree honestly.
+   */
+  verified?: boolean | 'unevaluable';
   /** The handler's return value, sanitized (parity with `Session.producedFor()`). */
   produced?: unknown;
 }
@@ -986,5 +1097,42 @@ export interface ContextBrief {
   node: string;
   version: number;
   frame: SkillFrame | null;
+  text: string;
+}
+
+// ---------------------------------------------------------------------------
+// Ground truth — the authoritative FACTS block (what HAPPENED, nothing else)
+// ---------------------------------------------------------------------------
+
+export interface GroundTruthOptions {
+  /** Only include attempts made at or after this cursor version ("since your last turn"). */
+  sinceVersion?: number;
+  /** Cap on rendered attempts (default 20); older ones collapse into an omitted count. */
+  maxAttempts?: number;
+}
+
+/**
+ * The authoritative record of what this session ACTUALLY did — position plus
+ * every attempt and how it came to rest, in words a model is told outrank the
+ * conversation.
+ *
+ * Deliberately separate from {@link ContextBrief}, which serves position +
+ * options + narrative. The field exposed a structural hole in that brief: a
+ * REFUSED fire is a gap-ledger row, not a transition, so failed attempts were
+ * invisible in it — and with nothing grounding the model, one integration
+ * watched it narrate an entire flow ("name set, recipe selected") having called
+ * ZERO tools. Its own prose had become its context. This block is the counter:
+ * every attempt, including the refused ones, in one authored channel.
+ *
+ * `text` carries AUTHORED constants and authored ids only. What it excludes is
+ * as deliberate as what it holds: no state values or payloads (the
+ * two-string-class invariant, extended to history), no produced data (that is
+ * the data channel), no available actions or skills (options are whats_here's
+ * job — facts are what happened, and the two stay non-overlapping so both stay
+ * lean), no runtime free text, and no interpretation — one line per occurrence.
+ */
+export interface GroundTruth {
+  node: string;
+  version: number;
   text: string;
 }

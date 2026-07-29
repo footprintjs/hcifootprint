@@ -4,7 +4,7 @@ title: ModalDef
 
 # Interface: ModalDef
 
-Defined in: [src/tree/types.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L71)
+Defined in: [src/tree/types.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L102)
 
 A container node: areas coexist (AND), tabs exclude (at most one shown), modals overlay.
 
@@ -18,7 +18,7 @@ A container node: areas coexist (AND), tabs exclude (at most one shown), modals 
 
 > `optional` **areas?**: `Record`\<`string`, [`NodeDef`](/api/index/interfaces/NodeDef)\>
 
-Defined in: [src/tree/types.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L56)
+Defined in: [src/tree/types.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L87)
 
 #### Inherited from
 
@@ -30,7 +30,7 @@ Defined in: [src/tree/types.ts:56](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **blocks?**: `boolean`
 
-Defined in: [src/tree/types.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L73)
+Defined in: [src/tree/types.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L104)
 
 Default true: a shown modal masks tools outside it. `false` = popover (coexists).
 
@@ -40,7 +40,7 @@ Default true: a shown modal masks tools outside it. `false` = popover (coexists)
 
 > `optional` **does?**: `string`
 
-Defined in: [src/tree/types.ts:53](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L53)
+Defined in: [src/tree/types.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L84)
 
 Optional authored description of the container itself.
 
@@ -54,7 +54,7 @@ Optional authored description of the container itself.
 
 > `optional` **instances?**: (`state`) => `string`[]
 
-Defined in: [src/tree/types.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L67)
+Defined in: [src/tree/types.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L98)
 
 L2 existence source for a repeats container: the COMPLETE instance set,
 from projected state (order #57 exists while scrolled out of view).
@@ -81,7 +81,7 @@ honestly marked enumeration:'mounted-window'.
 
 > `optional` **modals?**: `Record`\<`string`, `ModalDef`\>
 
-Defined in: [src/tree/types.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L58)
+Defined in: [src/tree/types.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L89)
 
 #### Inherited from
 
@@ -93,7 +93,7 @@ Defined in: [src/tree/types.ts:58](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **repeats?**: `boolean`
 
-Defined in: [src/tree/types.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L60)
+Defined in: [src/tree/types.ts:91](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L91)
 
 Template container: instances carry runtime keys (order cards, product tiles).
 
@@ -107,7 +107,7 @@ Template container: instances carry runtime keys (order cards, product tiles).
 
 > `optional` **tabs?**: `Record`\<`string`, [`NodeDef`](/api/index/interfaces/NodeDef)\>
 
-Defined in: [src/tree/types.ts:57](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L57)
+Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L88)
 
 #### Inherited from
 
@@ -119,7 +119,7 @@ Defined in: [src/tree/types.ts:57](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **tools?**: `Record`\<`string`, [`ToolDef`](/api/index/interfaces/ToolDef)\>
 
-Defined in: [src/tree/types.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L68)
+Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
 
 #### Inherited from
 
@@ -131,7 +131,7 @@ Defined in: [src/tree/types.ts:68](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **when?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L55)
+Defined in: [src/tree/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L86)
 
 Container guard: every descendant tool's guard is AND-narrowed by this.
 

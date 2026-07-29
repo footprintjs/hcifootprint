@@ -4,7 +4,7 @@ title: RegisterToolGroupOptions
 
 # Interface: RegisterToolGroupOptions
 
-Defined in: [src/traverse/nav-session.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L72)
+Defined in: [src/traverse/nav-session.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L73)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/traverse/nav-session.ts:72](https://github.com/footprintjs/hcif
 
 > `optional` **enabled?**: `Record`\<`string`, `boolean`\>
 
-Defined in: [src/traverse/nav-session.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L82)
+Defined in: [src/traverse/nav-session.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L83)
 
 Initial disabled state per tool (leaf name → enabled). Flip later via handle.setEnabled.
 
@@ -22,7 +22,7 @@ Initial disabled state per tool (leaf name → enabled). Flip later via handle.s
 
 > `optional` **handlers?**: `Record`\<`string`, [`ToolHandler`](/api/index/type-aliases/ToolHandler)\>
 
-Defined in: [src/traverse/nav-session.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L74)
+Defined in: [src/traverse/nav-session.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L75)
 
 Bind the app's EXISTING handlers (by reference) to tools declared on this node.
 
@@ -32,7 +32,7 @@ Bind the app's EXISTING handlers (by reference) to tools declared on this node.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/traverse/nav-session.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L78)
+Defined in: [src/traverse/nav-session.ts:79](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L79)
 
 Instance key when registering one card of a repeats container ('o-123').
 
@@ -42,7 +42,7 @@ Instance key when registering one card of a repeats container ('o-123').
 
 > `optional` **tools?**: `Record`\<`string`, [`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef)\>
 
-Defined in: [src/traverse/nav-session.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L76)
+Defined in: [src/traverse/nav-session.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L77)
 
 Declare new leaf tools here-and-now (the register-with-just-a-description path).
 
@@ -52,6 +52,6 @@ Declare new leaf tools here-and-now (the register-with-just-a-description path).
 
 > `optional` **visible?**: `boolean`
 
-Defined in: [src/traverse/nav-session.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L80)
+Defined in: [src/traverse/nav-session.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L81)
 
 Initial visibility signal (same wire as setVisible).

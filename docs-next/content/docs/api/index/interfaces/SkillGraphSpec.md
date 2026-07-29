@@ -4,7 +4,7 @@ title: SkillGraphSpec
 
 # Interface: SkillGraphSpec
 
-Defined in: [src/atom/types.ts:214](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L214)
+Defined in: [src/atom/types.ts:283](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L283)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:214](https://github.com/footprintjs/hcifootprint/
 
 > **affordances**: `Record`\<`string`, [`Affordance`](/api/index/interfaces/Affordance)\>
 
-Defined in: [src/atom/types.ts:218](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L218)
+Defined in: [src/atom/types.ts:287](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L287)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:218](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **description?**: `string`
 
-Defined in: [src/atom/types.ts:216](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L216)
+Defined in: [src/atom/types.ts:285](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L285)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:216](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:215](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L215)
+Defined in: [src/atom/types.ts:284](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L284)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/atom/types.ts:215](https://github.com/footprintjs/hcifootprint/
 
 > **pages**: `Record`\<`string`, [`Page`](/api/index/interfaces/Page)\>
 
-Defined in: [src/atom/types.ts:217](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L217)
+Defined in: [src/atom/types.ts:286](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L286)
 
 ***
 
@@ -44,4 +44,4 @@ Defined in: [src/atom/types.ts:217](https://github.com/footprintjs/hcifootprint/
 
 > **skills**: `Record`\<`string`, [`Skill`](/api/index/interfaces/Skill)\>
 
-Defined in: [src/atom/types.ts:219](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L219)
+Defined in: [src/atom/types.ts:288](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L288)

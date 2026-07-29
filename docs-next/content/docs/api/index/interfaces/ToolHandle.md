@@ -4,7 +4,7 @@ title: ToolHandle
 
 # Interface: ToolHandle
 
-Defined in: [src/atom/types.ts:330](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L330)
+Defined in: [src/atom/types.ts:399](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L399)
 
 The handle returned by registerTool — a single-tool ToolGroup.
 
@@ -14,7 +14,7 @@ The handle returned by registerTool — a single-tool ToolGroup.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:331](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L331)
+Defined in: [src/atom/types.ts:400](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L400)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:331](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:332](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L332)
+Defined in: [src/atom/types.ts:401](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L401)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/atom/types.ts:332](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **toolId**: `string`
 
-Defined in: [src/atom/types.ts:333](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L333)
+Defined in: [src/atom/types.ts:402](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L402)
 
 ## Methods
 
@@ -38,7 +38,7 @@ Defined in: [src/atom/types.ts:333](https://github.com/footprintjs/hcifootprint/
 
 > **setEnabled**(`enabled`): `void`
 
-Defined in: [src/atom/types.ts:335](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L335)
+Defined in: [src/atom/types.ts:404](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L404)
 
 Grey out / re-enable this tool.
 
@@ -58,7 +58,7 @@ Grey out / re-enable this tool.
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:336](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L336)
+Defined in: [src/atom/types.ts:405](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L405)
 
 #### Returns
 

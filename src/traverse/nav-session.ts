@@ -39,6 +39,7 @@ import type {
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
 import { SkillGraphValidationError, checkLiteralHref, composeGuards, validateGuardShape } from '../graph/guards.js';
+import { noInputFlag, schemaOf, takesNoInput } from './expects.js';
 import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
 import type { NavigationGraph, MapNode, ToolDef } from '../tree/types.js';
@@ -332,9 +333,35 @@ export class InteractionSession<Paths extends string = string> extends Session {
         `mount-declared tool '${qualifiedId}' goTo unknown page '${toolDef.goTo}'.`,
       );
     }
-    if (toolDef.input !== undefined && detectSchema(toolDef.input) === 'none') {
+    // The sentinel is read BEFORE detectSchema, which would otherwise judge the
+    // author's explicit "no input" an unrecognized schema and refuse it.
+    if (toolDef.input !== undefined && !takesNoInput(toolDef.input) && detectSchema(toolDef.input) === 'none') {
       throw new SkillGraphValidationError(
-        `mount-declared tool '${qualifiedId}' has an unrecognized input schema.`,
+        `mount-declared tool '${qualifiedId}' has an unrecognized input schema — pass a Zod schema, a ` +
+          `JSON Schema object, a validator with .safeParse/.parse, or the string 'none' for a tool that ` +
+          `takes no input.`,
+      );
+    }
+    if (toolDef.enabledWhen) {
+      if (Object.keys(toolDef.enabledWhen).length === 0) {
+        throw new SkillGraphValidationError(
+          `mount-declared tool '${qualifiedId}' has an empty enabledWhen {} — omit it.`,
+        );
+      }
+      validateGuardShape(
+        `mount-declared tool '${qualifiedId}' enabledWhen`,
+        toolDef.enabledWhen as Record<string, unknown>,
+      );
+    }
+    if (toolDef.verify && typeof toolDef.verify !== 'function') {
+      if (Object.keys(toolDef.verify).length === 0) {
+        throw new SkillGraphValidationError(
+          `mount-declared tool '${qualifiedId}' has an empty verify {} — it could only ever refuse. Omit it.`,
+        );
+      }
+      validateGuardShape(
+        `mount-declared tool '${qualifiedId}' verify`,
+        toolDef.verify as Record<string, unknown>,
       );
     }
     // Never-trap BUILD gate at the mount door too: authoring is authoring
@@ -366,7 +393,14 @@ export class InteractionSession<Paths extends string = string> extends Session {
               ...(toolDef.goTo ? { navigatesTo: toolDef.goTo } : {}),
             }
           : undefined,
-      schema: toolDef.input,
+      schema: schemaOf(toolDef.input),
+      ...noInputFlag(toolDef.input),
+      ...(toolDef.enabledWhen ? { enabledWhen: structuredClone(toolDef.enabledWhen) } : {}),
+      // A predicate stays by reference (it is code, like a validator); a
+      // declarative contract is cloned, so the overlay owns its bytes.
+      ...(toolDef.verify
+        ? { verify: typeof toolDef.verify === 'function' ? toolDef.verify : structuredClone(toolDef.verify) }
+        : {}),
       highEffect: toolDef.confirm ?? false,
       role: toolDef.role ?? (toolDef.goTo ? 'next' : 'action'),
       descriptionSource: 'registration',
@@ -712,8 +746,14 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * Instance-aware disabled gate: a per-row button registered disabled under
    * 'id[instance]' must block, matching how handlerFor resolves it. Falls back
    * to the base (non-instance) registration.
+   *
+   * The DECLARATION is asked first and outranks both: `enabledWhen` is a
+   * statement about the control itself, so it greys every row of a repeats
+   * container at once — an instance registered enabled cannot re-open a door
+   * the app has said is shut.
    */
   protected override isToolDisabled(affordanceId: string, opts: FireOptions): boolean {
+    if (this.declaredDisabled(affordanceId)) return true;
     if (opts.instance !== undefined) {
       const keyed = this.registry.isEnabled(this.#registryKey(affordanceId, opts.instance));
       if (keyed !== undefined) return keyed === false;
@@ -740,11 +780,27 @@ export class InteractionSession<Paths extends string = string> extends Session {
     return result;
   }
 
+  /**
+   * The tree knows one more true thing about position: WHERE inside the page
+   * the cursor rests. It rides the facts block's cursor section rather than its
+   * tail, because it is part of the same answer to "where am I".
+   */
+  protected override positionLines(): string[] {
+    const focus = this.#focusLine();
+    return focus === null ? super.positionLines() : [...super.positionLines(), focus];
+  }
+
+  /** 'Focus: <path>.' — or null when focus is just the page (nothing to add). */
+  #focusLine(): string | null {
+    return this.focus !== this.node ? `Focus: ${this.focus}.` : null;
+  }
+
   override contextBrief(opts?: ContextBriefOptions): ContextBrief {
     this.#driftCheck();
     const brief = super.contextBrief(opts);
     const lines: string[] = [];
-    if (this.focus !== this.node) lines.push(`Focus: ${this.focus}.`);
+    const focus = this.#focusLine();
+    if (focus !== null) lines.push(focus);
     const frontier = this.#presence
       .presentNodes()
       .filter((path) => this.#map.nodes[path]?.page === this.node)

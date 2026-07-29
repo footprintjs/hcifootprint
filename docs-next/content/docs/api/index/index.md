@@ -35,6 +35,8 @@ title: index
 - [FireOptions](/api/index/interfaces/FireOptions)
 - [FireSettlement](/api/index/interfaces/FireSettlement)
 - [GapRecord](/api/index/interfaces/GapRecord)
+- [GroundTruth](/api/index/interfaces/GroundTruth)
+- [GroundTruthOptions](/api/index/interfaces/GroundTruthOptions)
 - [InteractionSessionOptions](/api/index/interfaces/InteractionSessionOptions)
 - [JourneyDef](/api/index/interfaces/JourneyDef)
 - [JourneysSource](/api/index/interfaces/JourneysSource)
@@ -77,6 +79,7 @@ title: index
 - [ToolHandle](/api/index/interfaces/ToolHandle)
 - [TransitionRecord](/api/index/interfaces/TransitionRecord)
 - [UpdateOptions](/api/index/interfaces/UpdateOptions)
+- [VerifyFailure](/api/index/interfaces/VerifyFailure)
 
 ## Type Aliases
 
@@ -104,6 +107,7 @@ title: index
 - [ToolHandler](/api/index/type-aliases/ToolHandler)
 - [TrySkillPlanResult](/api/index/type-aliases/TrySkillPlanResult)
 - [UpdateResult](/api/index/type-aliases/UpdateResult)
+- [VerifyContract](/api/index/type-aliases/VerifyContract)
 
 ## Functions
 

@@ -6,7 +6,7 @@ title: EffectStatus
 
 > **EffectStatus** = `"pending"` \| `"performed"` \| `"refused"` \| `"unobservable"`
 
-Defined in: [src/atom/types.ts:538](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L538)
+Defined in: [src/atom/types.ts:634](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L634)
 
 What became of a fire's effect — the INVOCATION axis, deliberately separate
 from `TransitionRecord.effectVerified` (the STATE axis: were the declared
@@ -21,8 +21,10 @@ truths are carried; neither is averaged into the other.
                    runs, so at that instant this is the honest answer.
 - `performed`    — our side ran to completion, or the app's state report
                    settled the record.
-- `refused`      — the handler threw, returned a failure, or the app called
-                   reject().
+- `refused`      — the handler threw, returned a failure, the app called
+                   reject(), OR the action's declared `verify` contract found
+                   that nothing happened. Four routes, one word: to a caller
+                   they all mean "the app did not do the thing".
 - `unobservable` — nothing was bound to run, or tracking stopped
                    ('superseded'). The library cannot know, so it says so
                    rather than guessing 'performed'.

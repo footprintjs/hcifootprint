@@ -48,6 +48,35 @@ declared writes observed?). They disagree honestly: a tapless handler completes
 `'performed'` with `effectVerified: 'unobservable'`. Both truths are carried; neither is
 averaged.
 
+### `verify` — a handler that RAN is not an action that HAPPENED
+
+The library can see that your handler returned. It cannot see that a radio got selected, or
+that the button it clicked was live. Reported from a production integration: a radio fire came
+back `'performed'` while nothing was selected, and the agent looped five times — correctly, on
+what it was told. So the app declares the check itself, once, next to the action:
+
+```ts
+'pick-recipe': { does: 'Pick the recipe', verify: { recipe: { ne: '' } } },
+'next':        { does: 'Go on', verify: () => document.querySelector('.step-2') !== null },
+```
+
+Evaluated at **settlement** — the moment a fire would otherwise come to rest as a success. If
+it holds, nothing changes and the settlement carries `verified: true`. If it does not, the
+settlement is **`effectStatus: 'refused'`** (an existing word: a handler that threw and a
+handler that did nothing mean the same thing to an agent), the `error` carries the contract's
+own sentence with the failed conditions as evidence, and a claims-only commit rolls back —
+walking the cursor home if the action had claimed a navigation. A commit backed by a REAL
+state report **stands** while the settlement still refuses: both truths, neither averaged.
+
+The predicate form gets a **detached** state snapshot, and its closure may read whatever your
+app can (the DOM included) — the ~60 lines of before/after signature comparison the field
+wrote per action collapse to the one line your app already knows how to write.
+
+What it **cannot** check it never refuses on: an unknown state key, or a predicate that threw
+(isolated, warned) comes back `verified: 'unevaluable'`. A refusal needs proof; a confirmation
+needs everything. A wrong rejection blocks an action your app would have accepted, and the
+caller has no appeal.
+
 ### Asking later — `settlementOf`
 
 `whenSettled` belongs to the ONE caller that called `fire()`. Anyone else holding the
@@ -91,7 +120,34 @@ diverging.
 ## The input contract — advertised, then enforced
 
 Every served action row carries **`expects`** — the declared input contract, visible BEFORE
-the fire, for JSON Schema, Zod and non-serializable validators alike. And a plain JSON Schema
+the fire, for JSON Schema, Zod and non-serializable validators alike. Since 0.6.0
+`available().edges` carries the same field, from the same derivation: the `schema` on an edge
+is the LIVE validator (in-process convenience), `expects` is the wire-shaped contract, and a
+consumer reading the session directly no longer has to re-derive which kinds serialize and
+which decline. A live validator never crosses the wire — that is the firewall, not an
+oversight.
+
+### `input: 'none'` — the action that takes nothing
+
+A uniform `{ value: string, required }` relay contract forces a model to send `value: ""` to a
+click-only control — and in the field that empty string reached the handler and overrode the
+app's own authored default, selecting nothing. Declare the truth instead:
+
+```ts
+'like': { does: 'Like the open dress', input: 'none' },
+```
+
+The model is **told** (`expects: 'none'`) before it can guess. A payload sent anyway is refused
+`PAYLOAD_INVALID` with the shape it sent — *this action takes no input — omit the payload
+(received `{ value: string }`)* — so it never reaches the handler. A **blank** payload
+(`undefined`, `''`, `{}`, an object of undefined-valued keys) is accepted and erased: protocol
+residue is not intent. An explicit `null` is not blank — it still answers for its shape.
+
+Exactly this door. A schema-bearing action is untouched (`''` is a real value there — clearing
+a field), and an action that declares no `input` **at all** is untouched too: absence means the
+library does not know the shape, and it never guesses one.
+
+And a plain JSON Schema
 is now **enforced** at fire time (`checkPayloadShape`, default `true`) — before 0.4.0 only
 `.safeParse`/`.parse` validators ever ran, so a schema described the door while a guessed key
 sailed through it to arrive at the handler as `undefined`.
@@ -117,7 +173,15 @@ A refused `fire()` returns `{ ok: false, reason, ... }` — never a success-shap
 `PAYLOAD_INVALID` (with `issues`), `BLOCKED_BY_OVERLAY`, `NODE_NOT_VISIBLE`,
 `STILL_MOUNTING` (retriable), `INSTANCE_REQUIRED`, `INSTANCE_UNKNOWN`, `TOOL_DISABLED`
 (retriable), `NOT_MATERIALIZED` (declared but unbound — carries the declared `gesture`; see
-[Actuation](doc:actuation)). High-effect steps return `judgment: 'needs-confirm'` and never
+[Actuation](doc:actuation)).
+
+`TOOL_DISABLED` now has **four** wires reaching it, so an app can report a greyed-out control
+wherever it already knows: `enabled:` at registration, `handle.setEnabled(…)`, a live store's
+`LiveAction.enabled`, and the declarative **`enabledWhen`** on the action itself — ideally the
+same expression that renders `<button disabled={…}>`. A failed `when` HIDES a control; a false
+`enabledWhen` **serves** it carrying `enabled: false` (a greyed button an agent can see) and
+refuses execution fires. Keys it cannot evaluate never disable anything: the library does not
+guess a control shut. High-effect steps return `judgment: 'needs-confirm'` and never
 auto-cross — see [Receipts](doc:receipts).
 
 ## The gap ledger

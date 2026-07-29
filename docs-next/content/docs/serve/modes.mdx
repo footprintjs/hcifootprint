@@ -50,6 +50,33 @@ Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEf
 `do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
 promise deliberately does not.
 
+## `facts` — the authoritative block
+
+Every `whats_here` result also carries **`facts`**: the app's own record of what was
+*attempted* and how each attempt came to rest, under a header telling the model it outranks
+anything said in the conversation.
+
+It exists because of a reported failure with no library bug in it: given nothing to check
+itself against, a model narrated an entire flow — *name set, recipe selected* — having called
+**zero** tools. Its own prose had become its context.
+
+The friendly `brief` beside it could not have prevented that, and the reason is structural: a
+REFUSED fire is a gap-ledger row, not a transition, so a narrative built from transitions can
+never show a failed attempt. `facts` merges both ledgers and grades every outcome in flat
+words — *DID happen*, *ran, but the effect was unobservable*, *did NOT happen — … was refused:
+TOOL_DISABLED*, *not yet known* — then names any decision the human still owes and any fire the
+app has not answered. With nothing attempted it says so in one line: **No actions have been
+performed in this app this session.**
+
+Nothing is rounded up. Only a committed fire whose declared effect was actually observed earns
+*DID happen*; a fire nobody could check says so instead of borrowing the stronger word. It
+carries no state values, no payloads, no produced data and no available actions (options are
+this tool's other half — facts are what happened, so the two stay non-overlapping and both stay
+lean). `{ sinceVersion }` narrows it with the rest of the result, and an id the graph does not
+have renders as a constant rather than echoing a model's invention back at it.
+
+In process the same block is `session.groundTruth({ sinceVersion?, maxAttempts? })`.
+
 ## Did it work?
 
 `effectStatus` on a fire result is the truth **at return time**, and for anything your app

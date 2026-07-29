@@ -19,6 +19,7 @@ import type {
   SkillGraphSpec,
 } from '../atom/types.js';
 import { Session } from '../traverse/session.js';
+import { noInputFlag, schemaOf, takesNoInput } from '../traverse/expects.js';
 import { SkillGraphValidationError, checkLiteralHref, guardStateKeys, validateGuardShape } from './guards.js';
 
 export { SkillGraphValidationError } from './guards.js';
@@ -87,11 +88,22 @@ export class SkillGraphBuilder {
         `affordance '${id}' has on: [] — it would never be offered anywhere. List at least one page.`,
       );
     }
-    if (def.schema !== undefined && detectSchema(def.schema) === 'none') {
+    // The sentinel is read BEFORE detectSchema, which would otherwise judge the
+    // author's explicit "no input" an unrecognized schema and refuse it.
+    if (def.schema !== undefined && !takesNoInput(def.schema) && detectSchema(def.schema) === 'none') {
       throw new SkillGraphValidationError(
         `affordance '${id}' has an unrecognized schema — pass a Zod schema, a JSON Schema object, ` +
-          `or a validator with .safeParse/.parse.`,
+          `a validator with .safeParse/.parse, or the string 'none' for an affordance that takes no input.`,
       );
+    }
+    if (def.verify && typeof def.verify !== 'function') {
+      if (Object.keys(def.verify).length === 0) {
+        throw new SkillGraphValidationError(
+          `affordance '${id}' has an empty verify {} — footprint's evaluator deliberately NEVER matches ` +
+            `an empty filter, so it could only ever refuse. Omit 'verify' entirely.`,
+        );
+      }
+      this.#validateGuardShape(`affordance '${id}' verify`, def.verify as Record<string, unknown>);
     }
     // Never-trap BUILD gate, url half — the THIRD authoring door (the
     // compiler's compileTool and mount-declared tools are the other two):
@@ -156,7 +168,13 @@ export class SkillGraphBuilder {
         binding: structuredClone(def.binding),
         guard: def.guard ? structuredClone(def.guard) : undefined,
         effect: def.effect ? structuredClone(def.effect) : undefined,
-        schema: def.schema,
+        schema: schemaOf(def.schema),
+        ...noInputFlag(def.schema),
+        // A predicate stays by reference (it is code, like a validator); a
+        // declarative contract is cloned, so the compiled graph owns its bytes.
+        ...(def.verify
+          ? { verify: typeof def.verify === 'function' ? def.verify : structuredClone(def.verify) }
+          : {}),
         highEffect: def.highEffect ?? false,
         role: deriveRole(def),
       }) as Affordance;

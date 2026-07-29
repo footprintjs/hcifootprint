@@ -4,7 +4,7 @@ title: SessionOptions
 
 # Interface: SessionOptions
 
-Defined in: [src/atom/types.ts:226](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L226)
+Defined in: [src/atom/types.ts:295](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L295)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:226](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **allowUnmaterializedFires?**: `boolean`
 
-Defined in: [src/atom/types.ts:260](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L260)
+Defined in: [src/atom/types.ts:329](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L329)
 
 Let AGENT fires of declared-but-unbound tools proceed as honest no-ops
 (executed: false, materialized: false on the result) instead of the
@@ -27,7 +27,7 @@ trusting position. Default false (fail-closed).
 
 > `optional` **captureProduced?**: `boolean`
 
-Defined in: [src/atom/types.ts:251](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L251)
+Defined in: [src/atom/types.ts:320](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L320)
 
 Capture each handler's RETURN value onto its transition (sanitized+capped)
 as the "act → get data back" channel — TransitionRecord.produced. Default
@@ -40,7 +40,7 @@ internal and should never reach the agent).
 
 > `optional` **checkPayloadShape?**: `boolean`
 
-Defined in: [src/atom/types.ts:275](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L275)
+Defined in: [src/atom/types.ts:344](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L344)
 
 Check a plain JSON-Schema declaration against the payload at fire time.
 STRUCTURAL only — required keys, declared primitive types, closed objects —
@@ -61,7 +61,7 @@ either way; this flag governs only the plain-JSON-Schema branch.
 
 > `optional` **commitValues?**: `"full"` \| `"delta"`
 
-Defined in: [src/atom/types.ts:242](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L242)
+Defined in: [src/atom/types.ts:311](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L311)
 
 Commit-log value encoding (footprintjs dial). Default 'delta'.
 
@@ -71,7 +71,7 @@ Commit-log value encoding (footprintjs dial). Default 'delta'.
 
 > `optional` **navigate?**: (`href`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [src/atom/types.ts:287](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L287)
+Defined in: [src/atom/types.ts:356](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L356)
 
 The caller's OWN router navigation (e.g. `(href) => router.push(href)`).
 PRESENCE of this option is the opt-in: with it, an edge whose gesture
@@ -99,7 +99,7 @@ Without this option nothing changes — fail-closed, byte-identical.
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:228](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L228)
+Defined in: [src/atom/types.ts:297](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L297)
 
 Starting page id.
 
@@ -109,7 +109,7 @@ Starting page id.
 
 > `optional` **onWarn?**: (`message`) => `void`
 
-Defined in: [src/atom/types.ts:244](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L244)
+Defined in: [src/atom/types.ts:313](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L313)
 
 Dev-warning sink (StrictMode re-registrations, handler errors). Default console.warn.
 
@@ -129,7 +129,7 @@ Dev-warning sink (StrictMode re-registrations, handler errors). Default console.
 
 > `optional` **redactedKeys?**: `string`[]
 
-Defined in: [src/atom/types.ts:240](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L240)
+Defined in: [src/atom/types.ts:309](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L309)
 
 Keys stored as 'REDACTED' in the commit log while live state keeps raw values.
 
@@ -139,7 +139,7 @@ Keys stored as 'REDACTED' in the commit log while live state keeps raw values.
 
 > `optional` **state?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [src/atom/types.ts:230](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L230)
+Defined in: [src/atom/types.ts:299](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L299)
 
 Initial projected state (the lean snapshot guards read — not the whole app).
 
@@ -149,7 +149,7 @@ Initial projected state (the lean snapshot guards read — not the whole app).
 
 > `optional` **stateTap?**: `boolean`
 
-Defined in: [src/atom/types.ts:238](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L238)
+Defined in: [src/atom/types.ts:307](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L307)
 
 Whether this session receives updateState() reports (a router/store tap).
 Default: true when `state` was provided, false otherwise. Without a tap,

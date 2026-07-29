@@ -44,13 +44,27 @@ const session = graph.createSession(); // an InteractionSession
     the LLM reads, and it is a source-code literal, never runtime text (the injection
     firewall).
   - `when` — availability guard (a flat `WhereFilter`, see [Guards](doc:guards)),
-    AND-composed with every ancestor `when`.
+    AND-composed with every ancestor `when`. It answers *is this action here at all?* — a
+    failed guard HIDES the tool.
+  - `enabledWhen` — the other question: *is it clickable right now?* A false `enabledWhen`
+    **serves** the tool carrying `enabled: false` (a greyed button an agent can see) and
+    refuses execution fires as `TOOL_DISABLED` (retriable). Declare it from the same
+    expression that renders `<button disabled={…}>`. NOT composed with ancestor `when`s —
+    this is the control's own state, not its position in the tree. Keys it cannot evaluate
+    never disable anything.
   - `writes` — state keys this tool claims to change (verified at settlement).
+  - `verify` — the app's OWN check that firing really did something, asked at settlement: a
+    `WhereFilter` over projected state, or a synchronous `(state) => boolean` predicate handed
+    a detached snapshot (its closure may read the DOM). If it does not hold, the settlement is
+    `'refused'` rather than the `'performed'` a handler earns merely by returning
+    ([the settlement axes](doc:sessions)).
   - `goTo` — page id this tool claims to navigate to.
   - `confirm` — high-effect gate: requires explicit confirmation before firing
     ([receipts ride the ask](doc:receipts)).
-  - `input` — payload contract: Zod, plain JSON Schema, or any `.safeParse`/`.parse`
-    validator ([advertised and enforced](doc:sessions)).
+  - `input` — payload contract: Zod, plain JSON Schema, any `.safeParse`/`.parse` validator —
+    or the literal `'none'`, the explicit "this control takes NO input"
+    ([advertised and enforced](doc:sessions)). Omitting `input` means something different:
+    the library does not know the shape, so it advertises nothing.
   - `binding` — the gesture that reaches it on screen ([Actuation](doc:actuation)); optional —
     handlers don't need one.
 - `skills` — named multi-step flows: `does` (required planner text), `steps` (tool ids by

@@ -23,6 +23,7 @@ import type {
   SkillGraphSpec,
 } from '../atom/types.js';
 import { SkillGraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
+import { noInputFlag, schemaOf, takesNoInput } from '../traverse/expects.js';
 import { mergeSources } from '../graph/sources/merge.js';
 import { InteractionSession } from '../traverse/nav-session.js';
 import type { InteractionSessionOptions } from '../traverse/nav-session.js';
@@ -198,11 +199,21 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
         `tool '${qualifiedId}' goTo unknown page '${tool.goTo}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
       );
     }
-    if (tool.input !== undefined && detectSchema(tool.input) === 'none') {
+    // The sentinel is read BEFORE detectSchema, which would otherwise judge the
+    // author's explicit "no input" an unrecognized schema and refuse it.
+    if (tool.input !== undefined && !takesNoInput(tool.input) && detectSchema(tool.input) === 'none') {
       throw new SkillGraphValidationError(
         `tool '${qualifiedId}' has an unrecognized input schema — pass a Zod schema, a JSON Schema object, ` +
-          `or a validator with .safeParse/.parse.`,
+          `a validator with .safeParse/.parse, or the string 'none' for a tool that takes no input.`,
       );
+    }
+    if (tool.enabledWhen) {
+      rejectEmptyWhen(`tool '${qualifiedId}' enabledWhen`, tool.enabledWhen);
+      validateGuardShape(`tool '${qualifiedId}' enabledWhen`, tool.enabledWhen as Record<string, unknown>);
+    }
+    if (tool.verify && typeof tool.verify !== 'function') {
+      rejectEmptyWhen(`tool '${qualifiedId}' verify`, tool.verify);
+      validateGuardShape(`tool '${qualifiedId}' verify`, tool.verify as Record<string, unknown>);
     }
     // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
     // so it dies here — which also makes "a skill whose entry step's gesture
@@ -223,12 +234,19 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
         binding: tool.binding ? structuredClone(tool.binding) : undefined,
         guard,
         effect,
-        schema: tool.input,
+        schema: schemaOf(tool.input),
+        ...noInputFlag(tool.input),
+        ...(tool.enabledWhen ? { enabledWhen: structuredClone(tool.enabledWhen) } : {}),
+        // A predicate stays by reference (it is code, like a validator); a
+        // declarative contract is cloned, so the compiled graph owns its bytes.
+        ...(tool.verify
+          ? { verify: typeof tool.verify === 'function' ? tool.verify : structuredClone(tool.verify) }
+          : {}),
         highEffect: tool.confirm ?? false,
         role: deriveRole(tool),
         descriptionSource: 'declared',
       },
-      new Set(['schema']), // the live validator stays by reference — ROOT level only
+      new Set(['schema', 'verify']), // live references stay by reference — ROOT level only
     ) as Affordance;
   }
 

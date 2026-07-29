@@ -6,4 +6,4 @@ title: UpdateResult
 
 > **UpdateResult** = \{ `attributed`: `boolean`; `ok`: `true`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"UNCLONEABLE_DELTA"`; \} \| \{ `ok`: `false`; `pending`: `string`[]; `reason`: `"UNKNOWN_TRANSITION"`; \}
 
-Defined in: [src/atom/types.ts:629](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L629)
+Defined in: [src/atom/types.ts:740](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L740)

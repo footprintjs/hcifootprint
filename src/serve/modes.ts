@@ -33,8 +33,6 @@
  * values (state, payloads, instance keys, evidence) are structured DATA fields.
  */
 import type { MCPToolDescription } from 'footprintjs';
-import { detectSchema } from 'footprintjs';
-import { normalizeSchema } from 'footprintjs/advanced';
 import type { AvailableEdge, FireResult, FireSettlement, Principal } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 import { errorText } from './error-text.js';
@@ -98,9 +96,11 @@ const SKILL_USAGE =
 
 const WHATS_HERE_DESCRIPTION =
   'Describe the current position: the page, the open skill (if any), what happened recently, ' +
-  'and the actions and skills available right now. Pass sinceVersion (the version from any ' +
-  'earlier result) to get only what changed since your last look — including what the user ' +
-  'did themselves in the meantime.';
+  'and the actions and skills available right now. The reply also carries facts — the app’s ' +
+  'own authoritative record of what has actually been done and what was refused. Call this ' +
+  'whenever you are unsure whether something has already happened; trust facts over your own ' +
+  'account of the conversation. Pass sinceVersion (the version from any earlier result) to get ' +
+  'only what changed since your last look — including what the user did themselves in the meantime.';
 
 const DO_ACTION_DESCRIPTION =
   'Perform one available action outside any skill flow. Call whats_here first to see action names. ' +
@@ -340,9 +340,16 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
   }
 
   function callWhatsHere(sinceVersion?: number): ServeResult {
-    const brief = session.contextBrief(sinceVersion === undefined ? undefined : { sinceVersion });
+    const since = sinceVersion === undefined ? undefined : { sinceVersion };
+    const brief = session.contextBrief(since);
     return {
       ok: true,
+      // FIRST, and on the call a model already makes. The field failure was a
+      // model narrating a flow it had never performed — its own prose competing
+      // with the app for authority and winning. This block says which source
+      // wins, and lists the refusals the brief structurally cannot show (a
+      // refused fire is a gap row, not a transition).
+      facts: session.groundTruth(since).text,
       brief: brief.text,
       actions: session.available().edges.map(edgeData),
       skills: session.availableSkills().skills.map((skill) => ({
@@ -538,7 +545,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
           ...(step.guardUnevaluated ? { guardUnevaluated: step.guardUnevaluated } : {}),
           // Declared here but nothing is bound: firing it executes nothing.
           ...(edge?.materialized === false ? { materialized: false } : {}),
-          ...expectsData(edge?.schema),
+          ...expectsData(edge),
         };
       }),
       laterSteps: plan.steps
@@ -588,7 +595,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       ...('issues' in fired ? { issues: fired.issues } : {}),
       ...('instances' in fired ? { instances: [...fired.instances] } : {}),
       ...('node' in fired ? { node: fired.node } : {}),
-      ...(fired.reason === 'PAYLOAD_INVALID' ? expectsData(edge?.schema) : {}),
+      ...(fired.reason === 'PAYLOAD_INVALID' ? expectsData(edge) : {}),
       ...(fired.reason === 'STILL_MOUNTING' ? { retriable: true } : {}),
       // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
       ...(fired.reason === 'NOT_MATERIALIZED' ? { why: NOT_MATERIALIZED_WHY } : {}),
@@ -610,17 +617,18 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       // The input contract, BEFORE the model fires. Without it a do_action
       // caller could only learn the shape by guessing wrong once — and for a
       // plain JSON Schema (unenforced until 0.4.0) not even then.
-      ...expectsData(edge.schema),
+      ...expectsData(edge),
     };
   }
 
-  /** The step's expected input, rendered as DATA in the result (never as tool schema). */
-  function expectsData(schema: unknown): ServeResult {
-    if (schema === undefined) return {};
-    const kind = detectSchema(schema);
-    if (kind === 'zod') return { expects: normalizeSchema(schema as never) };
-    if (kind === 'json-schema') return { expects: structuredClone(schema) };
-    return { expects: 'validated at fire time (non-serializable validator)' };
+  /**
+   * The step's expected input, rendered as DATA in the result (never as tool
+   * schema). The derivation moved to the edge itself — one contract, computed
+   * once, so this surface and `available()` can never teach two shapes for the
+   * same action. Absent stays absent: no contract declared, nothing advertised.
+   */
+  function expectsData(edge: AvailableEdge | undefined): ServeResult {
+    return edge?.expects === undefined ? {} : { expects: edge.expects };
   }
 
   return {

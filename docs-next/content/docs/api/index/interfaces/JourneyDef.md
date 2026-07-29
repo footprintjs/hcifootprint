@@ -4,7 +4,7 @@ title: JourneyDef
 
 # Interface: JourneyDef
 
-Defined in: [src/tree/types.ts:91](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L91)
+Defined in: [src/tree/types.ts:122](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L122)
 
 A named multi-step flow, in the navigation graph's authoring vocabulary.
 
@@ -22,7 +22,7 @@ An app that already keeps a journey list feeds it in with `fromJourneys()`.
 
 > **does**: `string`
 
-Defined in: [src/tree/types.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L92)
+Defined in: [src/tree/types.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L123)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/tree/types.ts:92](https://github.com/footprintjs/hcifootprint/b
 
 > **steps**: `string`[]
 
-Defined in: [src/tree/types.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L94)
+Defined in: [src/tree/types.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L125)
 
 Steps by qualified path ('checkout.confirm-order.place-order') or unambiguous suffix ('place-order').
 
@@ -40,4 +40,4 @@ Steps by qualified path ('checkout.confirm-order.place-order') or unambiguous su
 
 > `optional` **when?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L95)
+Defined in: [src/tree/types.ts:126](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L126)

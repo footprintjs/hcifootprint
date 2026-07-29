@@ -4,7 +4,7 @@ title: Skill
 
 # Interface: Skill
 
-Defined in: [src/atom/types.ts:210](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L210)
+Defined in: [src/atom/types.ts:279](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L279)
 
 ## Extends
 
@@ -16,7 +16,7 @@ Defined in: [src/atom/types.ts:210](https://github.com/footprintjs/hcifootprint/
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L163)
+Defined in: [src/atom/types.ts:212](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L212)
 
 AUTHORED planner-facing text (same string class as affordance descriptions).
 
@@ -30,7 +30,7 @@ AUTHORED planner-facing text (same string class as affordance descriptions).
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:211](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L211)
+Defined in: [src/atom/types.ts:280](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L280)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/atom/types.ts:211](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **precondition?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L166)
+Defined in: [src/atom/types.ts:215](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L215)
 
 #### Inherited from
 
@@ -50,7 +50,7 @@ Defined in: [src/atom/types.ts:166](https://github.com/footprintjs/hcifootprint/
 
 > **steps**: `string`[]
 
-Defined in: [src/atom/types.ts:165](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L165)
+Defined in: [src/atom/types.ts:214](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L214)
 
 Affordance ids, in canonical order. v0: linear; step-DAG is roadmap.
 

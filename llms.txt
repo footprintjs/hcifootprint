@@ -56,11 +56,26 @@ Authoring vocabulary (all optional except where noted):
 - `tools` — leaf actions on a node. A tool's fields (source: `ToolDef`, `src/tree/types.ts`):
   - `does` (REQUIRED) — one authored sentence; it is BOTH your label and the tool description
     the LLM reads. It is a source-code literal, never runtime text (injection firewall).
-  - `when` — availability guard (a flat WhereFilter; see §5). AND-composed with every ancestor `when`.
+  - `when` — availability guard (a flat WhereFilter; see §4). AND-composed with every ancestor `when`.
+  - `enabledWhen` — is it CLICKABLE right now? A different question from `when`: a failed `when`
+    HIDES the tool, a false `enabledWhen` SERVES it greyed out (`enabled: false` on the edge) and
+    refuses a fire as `TOOL_DISABLED` (retriable). Declare it from the same expression that renders
+    `<button disabled={…}>`. NOT composed with ancestor `when`s. Keys it cannot evaluate never
+    disable anything — the library does not guess a control greyed out.
   - `writes` — state keys this tool claims to change (verified at settlement).
+  - `verify` — the app's OWN check that firing really did something, evaluated at settlement. Either
+    a WhereFilter over projected state (`{ 'wizard.recipe': { ne: '' } }`) or a SYNCHRONOUS predicate
+    `(state) => boolean` handed a DETACHED snapshot (its closure may read the app's own DOM). If it
+    does not hold, the settlement is `effectStatus: 'refused'` — an existing word — instead of the
+    'performed' a handler earns merely by returning. What it cannot evaluate (an unknown key, a
+    predicate that threw) is `verified: 'unevaluable'`, never a refusal.
   - `goTo` — page id this tool claims to navigate to.
   - `confirm` — high-effect gate: requires explicit confirmation before firing.
-  - `input` — payload contract (Zod, JSON Schema, or any `.safeParse`/`.parse` validator).
+  - `input` — payload contract (Zod, JSON Schema, any `.safeParse`/`.parse` validator) — or the
+    literal `'none'`, meaning this control takes NO input. A caller that sends one anyway is refused
+    `PAYLOAD_INVALID` with the shape it sent, and a blank payload (`undefined`, `''`, `{}`) is erased
+    before it can reach the handler and override the app's own defaults. OMITTING `input` says
+    something different: the library does not know the shape, so it advertises nothing.
   - `binding` — how to reach it on screen (ARIA role + name first); optional (handlers don't need it).
 - Root-level `tools` (multi-attach): a tool offered on several pages, each entry needs `on: string | string[]`.
 - `skills` — named multi-step flows. Fields (source: `JourneyDef`): `does` (REQUIRED planner text),
@@ -179,10 +194,23 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
 ### Reading + observing
 
 - `available()` → `AvailableSlice` `{ version, node, edges }`. Each edge carries `affordanceId`,
-  `description`, `role`, `highEffect`, guard `evidence`, and honesty stamps: `guardUnevaluated?`,
-  `activation?`, `presence?: 'unknown'`, `materialized?`, `enabled?`, `instances?`/`enumeration?`.
+  `description`, `role`, `highEffect`, guard `evidence`, the input contract (`schema?` = the LIVE
+  validator, in-process only; `expects?` = the same contract WIRE-shaped — zod normalized, JSON
+  Schema detached, a non-serializable validator named in one sentence, `'none'` for an input-less
+  action), and honesty stamps: `guardUnevaluated?`, `activation?`, `presence?: 'unknown'`,
+  `materialized?`, `enabled?`, `instances?`/`enumeration?`. `expects` is byte-for-byte what Mode B
+  serves, from one shared derivation — never re-derive it.
 - `availableSkills()`, `contextBrief(opts?)` (token-lean prompt context, authored strings only),
   `explain(id)`, `why(key)` (footprint backward causal slice).
+- `groundTruth(opts?)` → `{ node, version, text }` — the AUTHORITATIVE facts block: position, then
+  every ATTEMPT and how it came to rest, in plain words ("DID happen", "ran, but the effect was
+  unobservable", "did NOT happen — … was refused: TOOL_DISABLED", "not yet known"), then any
+  decision the human still owes and any fire the app has not answered. It merges BOTH ledgers, which
+  is why it exists: a refused fire is a gap row, NOT a transition, so `contextBrief()` structurally
+  cannot show failed attempts. With nothing attempted it says so outright — the anti-narration line
+  for a model that would otherwise fill the silence with its own prose. Options:
+  `{ sinceVersion?, maxAttempts? }` (default 20). Excludes state values, payloads, produced data,
+  available actions (that is `whats_here`'s job) and all interpretation.
 - `skillPlan(id)` → the derived dependency DAG with live per-step status; THROWS on an unknown id.
   `trySkillPlan(id)` is the same plan for an id you did not author (a model's, a URL's):
   `{ ok: true, plan }` or `{ ok: false, reason: 'UNKNOWN_SKILL', known }` — the identical failure
@@ -234,10 +262,15 @@ const result = port.call(name, args);           // route a tool_use; return `res
 
 ### The three call shapes
 
-- **`shop.whats_here` →** `{ ok: true, brief, actions: [{ action, does, highEffect?, guardUnevaluated?,
-  instances?, enumeration?, activation?, expects? }], skills: [{ skill, does, feasible,
-  feasibilityUnknownFor? }], youAreOn, version }`. `expects?` is that action's declared input contract
-  (absent when the action declares none) — the same shape a `PAYLOAD_INVALID` rejection teaches.
+- **`shop.whats_here` →** `{ ok: true, facts, brief, actions: [{ action, does, highEffect?,
+  guardUnevaluated?, instances?, enumeration?, activation?, expects? }], skills: [{ skill, does,
+  feasible, feasibilityUnknownFor? }], youAreOn, version }`. `expects?` is that action's declared
+  input contract (absent when the action declares none; `'none'` when it takes no input) — the same
+  shape a `PAYLOAD_INVALID` rejection teaches, and the same value `available()` serves.
+  **`facts`** is `groundTruth().text` (see §2): the app's own record of what was ATTEMPTED and how
+  each attempt came to rest, under a header declaring it authoritative over anything said in the
+  conversation. Trust it over your own memory of the turn — including refused fires, which the
+  `brief` cannot show. `{ sinceVersion }` narrows both.
 - **`shop.skill.<id>` with no `step` →** opens the skill frame and returns `frameData`:
   `{ ok: true, skill, frame: 'open', judgment, readySteps: [...], laterSteps: [...], howToAct,
   awaitingState?, youAreOn, version }`.
@@ -338,7 +371,9 @@ POLL, so it answers immediately, one of three ways:
 
 - settled — `{ ok: true, settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified, verified?,
   toNode?, error?, data? }`. `effectStatus` = did anyone perform it; `effectVerified` = were the declared
-  writes observed. `verified` is the boolean form and is ABSENT when the answer is not knowable (the string
+  writes observed. `'refused'` covers FOUR routes, one word: the handler threw, it returned a failure,
+  the app called `reject()`, or the action's declared `verify` contract found nothing happened — and in
+  that last case `error` carries the contract's own sentence. `verified` is the boolean form and is ABSENT when the answer is not knowable (the string
   `'unobservable'` would read as truthy). A settlement is a RECEIPT and first settlement wins, so the record
   can move afterwards (a server rejecting an already-reported order flips it to `'rolled-back'`); when the
   live record no longer agrees, `outcomeNow` rides ALONGSIDE `outcome` — never over it — with `howToAct`
@@ -368,9 +403,11 @@ unverified hop instead of silently diverging.
 
 `fire()` / Mode B `judgment: 'rejected'` carry one of (source: `FireResult`, `src/atom/types.ts`):
 `UNKNOWN_AFFORDANCE`, `STALE_CURSOR`, `NOT_ON_NODE`, `GUARD_FAILED` (with `evidence`),
-`PAYLOAD_INVALID` (with `issues`), `BLOCKED_BY_OVERLAY` (a shown modal masks the node),
+`PAYLOAD_INVALID` (with `issues` — a wrong shape, or ANY payload sent to an `input: 'none'` action),
+`BLOCKED_BY_OVERLAY` (a shown modal masks the node),
 `NODE_NOT_VISIBLE`, `STILL_MOUNTING` (RETRIABLE — mounts not arrived yet), `INSTANCE_REQUIRED`,
-`INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out), `NOT_MATERIALIZED` (declared but
+`INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out; four wires reach it: `enabled:` at registration,
+`handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`), `NOT_MATERIALIZED` (declared but
 unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with a
 tool group, or create the session with `allowUnmaterializedFires` for read-only touring). Every
 refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` and never auto-cross — ask the human, then
@@ -402,5 +439,7 @@ nothing registered), `presence: 'unknown'` (ambiguous mounted tabs), `materializ
 (declared but no handler wired — on a served edge, and on a fire result together with
 `executed: false` when the fire itself ran nothing), `toNodeClaimed: true` (the cursor moved on a
 declared `goTo` claim, unconfirmed), `effectVerified: 'unobservable'` (no report to check against),
-`enumeration: 'mounted-window'` (instance list is partial). App text and produced data ride a strict
+`verified: 'unevaluable'` (a declared `verify` contract could not be run — an unknown state key, or a
+predicate that threw; never read as a refusal), `enumeration: 'mounted-window'` (instance list is
+partial). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.

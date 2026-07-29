@@ -4,7 +4,7 @@ title: FireOptions
 
 # Interface: FireOptions
 
-Defined in: [src/atom/types.ts:492](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L492)
+Defined in: [src/atom/types.ts:586](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L586)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:492](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **expectedVersion?**: `number`
 
-Defined in: [src/atom/types.ts:506](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L506)
+Defined in: [src/atom/types.ts:600](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L600)
 
 Optimistic-concurrency token from available().version. If supplied and
 stale, fire() rejects with STALE_CURSOR — the agent must replan on a
@@ -24,7 +24,7 @@ fresh slice. Guards are ALSO re-evaluated at fire time regardless.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:509](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L509)
+Defined in: [src/atom/types.ts:603](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L603)
 
 Instance key for a tool on a repeats container (e.g. an order-card id).
 
@@ -34,7 +34,7 @@ Instance key for a tool on a repeats container (e.g. an order-card id).
 
 > `optional` **invoke?**: `boolean`
 
-Defined in: [src/atom/types.ts:515](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L515)
+Defined in: [src/atom/types.ts:609](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L609)
 
 Invoke the registered handler (default true when one exists). The DOM
 sensor passes false: the browser already runs the app's own onClick, so
@@ -46,7 +46,7 @@ the sensor's fire() is record-only.
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [src/atom/types.ts:507](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L507)
+Defined in: [src/atom/types.ts:601](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L601)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [src/atom/types.ts:507](https://github.com/footprintjs/hcifootprint/
 
 > **source**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:500](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L500)
+Defined in: [src/atom/types.ts:594](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L594)
 
 Who is acting. Required here on purpose — a typed caller should never
 leave provenance to an assumption. It is only ever assumed for a caller

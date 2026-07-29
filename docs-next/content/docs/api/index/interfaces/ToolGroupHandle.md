@@ -4,7 +4,7 @@ title: ToolGroupHandle
 
 # Interface: ToolGroupHandle
 
-Defined in: [src/traverse/nav-session.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L90)
+Defined in: [src/traverse/nav-session.ts:91](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L91)
 
 The handle returned by registerToolGroup — the group's IDENTITY (see
 ToolGroup). Hold it and call `unregister()` on unmount; `setEnabled(id, …)`
@@ -20,7 +20,7 @@ greys a tool out.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:320](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L320)
+Defined in: [src/atom/types.ts:389](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L389)
 
 Generated identity of this registration (for telemetry/debug — not caller-supplied).
 
@@ -34,7 +34,7 @@ Generated identity of this registration (for telemetry/debug — not caller-supp
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: [src/traverse/nav-session.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L92)
+Defined in: [src/traverse/nav-session.ts:93](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L93)
 
 Instance key, when this group registered one card of a repeats container.
 
@@ -44,7 +44,7 @@ Instance key, when this group registered one card of a repeats container.
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:322](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L322)
+Defined in: [src/atom/types.ts:391](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L391)
 
 The node path this group is registered on (tree API); undefined for the flat API.
 
@@ -58,7 +58,7 @@ The node path this group is registered on (tree API); undefined for the flat API
 
 > **setEnabled**(`toolId`, `enabled`): `void`
 
-Defined in: [src/atom/types.ts:324](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L324)
+Defined in: [src/atom/types.ts:393](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L393)
 
 Grey out / re-enable one tool in this group (a disabled button).
 
@@ -86,7 +86,7 @@ Grey out / re-enable one tool in this group (a disabled button).
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:326](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L326)
+Defined in: [src/atom/types.ts:395](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L395)
 
 Remove this group's registrations (call on unmount). Idempotent.
 

@@ -91,11 +91,21 @@ const graph = buildNavigationGraph('shop', {
       tools: {
         'search': { does: 'Search dresses by name or color' },
         'add-to-cart': { does: 'Add the open dress to the cart', when: { authenticated: { eq: true } } },
+        'like': { does: 'Like the open dress', input: 'none' },          // takes nothing — say so
       },
     },
     checkout: {
       modals: {
-        'confirm-order': { tools: { 'place-order': { does: 'Place the order', confirm: true } } },
+        'confirm-order': {
+          tools: {
+            'place-order': {
+              does: 'Place the order',
+              confirm: true,
+              enabledWhen: { paymentReady: { eq: true } },   // here, but greyed out until then
+              verify: { orderId: { ne: '' } },               // …and it only "happened" if this holds
+            },
+          },
+        },
       },
     },
   },
@@ -104,6 +114,15 @@ const graph = buildNavigationGraph('shop', {
   },
 });
 ```
+
+Four of those fields are the difference between a graph an agent can plan over and one it loops on:
+
+| field | the question it answers | what the agent gets |
+|---|---|---|
+| `when` | is this action **here**? | a failed guard hides it |
+| `enabledWhen` | is it **clickable**? | served greyed out (`enabled: false`), fires refuse `TOOL_DISABLED` |
+| `input: 'none'` | does it take an argument? | told `expects: 'none'` — and a payload sent anyway is refused |
+| `verify` | did firing it actually **do** it? | a settlement of `'refused'`, not `'performed'`, when it did not |
 
 D18 `buildNavigationGraph` is the canonical authoring surface; the v1 `skillGraph()` fluent builder
 remains as legacy sugar.
@@ -284,6 +303,13 @@ a block). Over a real MCP server the answer usually arrives without a second cal
 up to `settleWithinMs` (default 250) and folds the settled word, the produced data and any failure into the
 same result. In process, `session.settlementOf(transitionId)` is the same truth as a promise.
 
+**And the model is told which source wins.** Every `whats_here` result also carries **`facts`** — the app's
+own record of what was *attempted* and how each attempt came to rest, under a header saying it outranks
+anything said in the conversation. It exists because a model with nothing to check itself against will
+narrate a flow it never performed, and because the friendly `brief` structurally *cannot* show a refused
+fire (a refusal is a gap-ledger row, not a transition). With nothing attempted it says so in one flat line:
+*No actions have been performed in this app this session.* In process it is `session.groundTruth()`.
+
 **After a claimed navigation, re-`sync()`.** A fire whose edge declares `goTo` moves the session cursor on
 the *graph's claim* about your app, not on an observation — the result says so with `toNodeClaimed: true`
 (and `youAreOn` shows the claimed page). Confirm it from the router with `session.sync(realPage)` before
@@ -410,6 +436,7 @@ Two properties do most of the safety work:
 
 - **It says what it can't see.** Anything the runtime *derives* rather than *observes* is flagged — `activation: 'assumed'`, `presence: 'unknown'`, `guardUnevaluated`. Every refused action returns a *typed* reason (`BLOCKED_BY_OVERLAY`, `STILL_MOUNTING`, `GUARD_FAILED`, `NOT_MATERIALIZED`, …) and is logged, so the agent replans instead of hallucinating.
 - **It never reports a no-op as success.** An agent fire that nothing is bound to execute is refused (`NOT_MATERIALIZED`) rather than settling a transition your app never performed; a tour that opts in (`allowUnmaterializedFires`) gets `executed: false` + `materialized: false` on the result instead of a silent lie. (The guarantee keys off `source: 'agent'` — a serving port created with `skillsAsTools(session, { source: 'user' })` is declaring *app self-report*, which is never gated, so never hand a model a port with a non-agent source.)
+- **A handler that *ran* is not an action that *happened* — if you say so.** Add `verify:` to an action and the library asks your app, at settlement, whether it really did the thing: a filter over your state (`verify: { recipe: { ne: '' } }`) or a one-line predicate that reads whatever your app can see (`verify: () => radio.checked`). If it does not hold, the settlement is `'refused'` instead of `'performed'` — the same word a thrown handler earns, because to the agent they mean the same thing. What it *cannot* check (an unknown key, a predicate that threw) comes back `verified: 'unevaluable'` and never refuses: a wrong rejection blocks an action your app would have accepted, and the caller has no appeal.
 - **Untrusted content can never become instructions.** Page text, product names, and user content ride a strict *data* channel; only your authored strings reach the planner's *instruction* channel. It's a firewall against prompt injection — proven in the demo by a product literally named `IGNORE PREVIOUS INSTRUCTIONS…`, which renders as harmless data everywhere.
 
 Under the hood, every action lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit

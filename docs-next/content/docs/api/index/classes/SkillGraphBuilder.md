@@ -4,7 +4,7 @@ title: SkillGraphBuilder
 
 # Class: SkillGraphBuilder
 
-Defined in: [src/graph/builder.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L47)
+Defined in: [src/graph/builder.ts:48](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L48)
 
 hcifootprint — turn a web app's interaction surface into a typed,
 traversable skill graph an LLM can plan over.
@@ -42,7 +42,7 @@ session.why('cart');                        // footprint backward slice over the
 
 > **new SkillGraphBuilder**(`id`, `description?`): `SkillGraphBuilder`
 
-Defined in: [src/graph/builder.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L54)
+Defined in: [src/graph/builder.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L55)
 
 #### Parameters
 
@@ -64,7 +64,7 @@ Defined in: [src/graph/builder.ts:54](https://github.com/footprintjs/hcifootprin
 
 > **affordance**(`id`, `def`): `this`
 
-Defined in: [src/graph/builder.ts:66](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L66)
+Defined in: [src/graph/builder.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L67)
 
 #### Parameters
 
@@ -86,7 +86,7 @@ Defined in: [src/graph/builder.ts:66](https://github.com/footprintjs/hcifootprin
 
 > **build**(): [`SkillGraph`](/api/index/interfaces/SkillGraph)
 
-Defined in: [src/graph/builder.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L125)
+Defined in: [src/graph/builder.ts:137](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L137)
 
 #### Returns
 
@@ -98,7 +98,7 @@ Defined in: [src/graph/builder.ts:125](https://github.com/footprintjs/hcifootpri
 
 > **page**(`id`, `def?`): `this`
 
-Defined in: [src/graph/builder.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L60)
+Defined in: [src/graph/builder.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L61)
 
 #### Parameters
 
@@ -120,7 +120,7 @@ Defined in: [src/graph/builder.ts:60](https://github.com/footprintjs/hcifootprin
 
 > **skill**(`id`, `def`): `this`
 
-Defined in: [src/graph/builder.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L105)
+Defined in: [src/graph/builder.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L117)
 
 #### Parameters
 

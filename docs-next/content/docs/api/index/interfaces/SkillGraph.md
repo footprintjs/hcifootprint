@@ -4,7 +4,7 @@ title: SkillGraph
 
 # Interface: SkillGraph
 
-Defined in: [src/graph/builder.ts:26](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L26)
+Defined in: [src/graph/builder.ts:27](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L27)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/graph/builder.ts:26](https://github.com/footprintjs/hcifootprin
 
 > **spec**: [`SkillGraphSpec`](/api/index/interfaces/SkillGraphSpec)
 
-Defined in: [src/graph/builder.ts:27](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L27)
+Defined in: [src/graph/builder.ts:28](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L28)
 
 ## Methods
 
@@ -20,7 +20,7 @@ Defined in: [src/graph/builder.ts:27](https://github.com/footprintjs/hcifootprin
 
 > **createSession**(`opts`): [`Session`](/api/index/classes/Session)
 
-Defined in: [src/graph/builder.ts:28](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L28)
+Defined in: [src/graph/builder.ts:29](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L29)
 
 #### Parameters
 
@@ -38,7 +38,7 @@ Defined in: [src/graph/builder.ts:28](https://github.com/footprintjs/hcifootprin
 
 > **requiredStateKeys**(): `string`[]
 
-Defined in: [src/graph/builder.ts:40](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L40)
+Defined in: [src/graph/builder.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/builder.ts#L41)
 
 The sorted, deduped set of state keys every guard in this graph reads —
 across all affordance guards and skill preconditions, whether or not their

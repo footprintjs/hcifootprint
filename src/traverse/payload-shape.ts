@@ -192,6 +192,40 @@ export function describeReceivedShape(payload: unknown): string {
 }
 
 /**
+ * "Nothing was really sent."
+ *
+ * Blank is `undefined`, the empty string, and an object with no defined entries
+ * — `{}` and `{value: undefined}` alike, by the givenEntries law above. An
+ * explicit `null` is NOT blank: it is a value the caller chose, and it still has
+ * to answer for its shape (the same line `checkJsonShape` draws).
+ *
+ * The empty string is here for one concrete reason: a relay's uniform
+ * `{ value: string, required }` contract forces a model to send SOMETHING to a
+ * click-only control, and `''` is what it sends. That is protocol residue, not
+ * intent — but `{ value: '' }` is not blank, because there the caller named a
+ * key and the shape is the thing to teach.
+ */
+export function isBlankPayload(payload: unknown): boolean {
+  if (payload === undefined || payload === '') return true;
+  if (!isPlainObject(payload)) return false;
+  return givenEntries(payload).size === 0;
+}
+
+/**
+ * The gate for an action the author declared takes NO input. Blank passes (and
+ * normalizes to nothing at all); anything else is refused with the shape it
+ * sent, so one string teaches the correction — the payload never reaches the
+ * handler, where it used to override the app's own authored defaults.
+ */
+export function checkNoInput(payload: unknown): ShapeCheck {
+  if (isBlankPayload(payload)) return { ok: true };
+  return {
+    ok: false,
+    issues: `this action takes no input — omit the payload (received ${describeReceivedShape(payload)})`,
+  };
+}
+
+/**
  * Judge a payload against a plain JSON Schema, structurally.
  *
  * `{ ok: true }` means "nothing this checker understands is wrong" — which

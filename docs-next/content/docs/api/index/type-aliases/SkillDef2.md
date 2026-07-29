@@ -6,7 +6,7 @@ title: "~~Type Alias: SkillDef2~~"
 
 > **SkillDef2** = [`JourneyDef`](/api/index/interfaces/JourneyDef)
 
-Defined in: [src/tree/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L103)
+Defined in: [src/tree/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L134)
 
 ## Deprecated
 

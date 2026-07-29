@@ -120,6 +120,8 @@ export type {
   FrameStatus,
   GapReason,
   GapRecord,
+  GroundTruth,
+  GroundTruthOptions,
   ReportGapOptions,
   Page,
   PageDef,
@@ -140,4 +142,6 @@ export type {
   TrySkillPlanResult,
   UpdateOptions,
   UpdateResult,
+  VerifyContract,
+  VerifyFailure,
 } from './atom/types.js';

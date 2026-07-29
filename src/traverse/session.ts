@@ -54,6 +54,8 @@ import type {
   FireResult,
   FireSettlement,
   GapRecord,
+  GroundTruth,
+  GroundTruthOptions,
   PendingInfo,
   Principal,
   ReportGapOptions,
@@ -76,7 +78,9 @@ import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
 import type { SettlementLatch } from './settlement.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
-import { checkJsonShape } from './payload-shape.js';
+import { checkJsonShape, checkNoInput } from './payload-shape.js';
+import { expectsOf } from './expects.js';
+import { checkVerify, filterVerdict } from './verify.js';
 import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
 import type { ToolHandler } from '../registry/registry.js';
@@ -103,12 +107,48 @@ const DEFAULT_PRINCIPAL: Principal = 'agent';
 /** What `fire(id)` with no options at all is read as — shared, frozen, read-only. */
 export const UNATTRIBUTED_FIRE: FireOptions = Object.freeze({ source: DEFAULT_PRINCIPAL });
 
+/**
+ * The one sentence that makes the facts block a FLOOR rather than another
+ * opinion. A model weighs everything in its context; without being told which
+ * source wins, its own earlier prose competes with the app's record — and the
+ * field watched that competition be lost.
+ */
+const FACTS_HEADER =
+  'FACTS FROM THE APP (authoritative). Every line below is the app’s own record of what happened. ' +
+  'Where anything said in this conversation disagrees with it — including anything you or the user ' +
+  'stated was done — these lines are what actually happened; the conversation is a claim about them.';
+
+/** Said outright, because a silence here is exactly what a model fills with invention. */
+const NOTHING_ATTEMPTED = 'No actions have been performed in this app this session.';
+
+/** An id the graph does not have — caller-supplied text, kept out of the authored channel. */
+const UNKNOWN_ACTION = '(an action this app does not have)';
+
 /** The principal of a fire, tolerating a caller who omitted `source` entirely. */
 export function principalOf(opts: FireOptions): Principal {
   // The cast is the honest part: JS callers are not held to FireOptions, so
   // `source` really can be missing here even though the type says otherwise.
   return (opts as Partial<FireOptions>).source ?? DEFAULT_PRINCIPAL;
 }
+
+/**
+ * The two facts a settlement can carry BESIDE its status: why it was refused,
+ * and what the declared verify contract said. Both optional, both absent by
+ * default — a settlement never carries a field it did not earn.
+ */
+interface SettlementExtra {
+  error?: unknown;
+  verified?: boolean | 'unevaluable';
+}
+
+/**
+ * One attempt, as a REFERENCE into whichever ledger holds it — a refused fire
+ * or a recorded one. Kept unrendered so the facts block can order and slice
+ * before it spends a single string.
+ */
+type AttemptRow =
+  | { at: number; rank: 0; gap: GapRecord }
+  | { at: number; rank: 1; fired: TransitionRecord };
 
 interface PendingTransition {
   record: TransitionRecord;
@@ -409,9 +449,36 @@ export class Session {
    * Whether firing this tool should be refused as TOOL_DISABLED. Protected seam
    * so InteractionSession can consult the INSTANCE-keyed registration first —
    * a per-row disabled button ('id[instance]') must block, not just the base id.
+   *
+   * ANY wire saying "disabled" lands here: an app that greys a button knows it
+   * in one place, and whichever place that is — a registration field, a handle
+   * flip, a live store row, or the authored `enabledWhen` — should reach the
+   * agent as the same retriable refusal.
    */
   protected isToolDisabled(affordanceId: string, _opts: FireOptions): boolean {
-    return this.#registry.isEnabled(affordanceId) === false;
+    return this.declaredDisabled(affordanceId) || this.#registry.isEnabled(affordanceId) === false;
+  }
+
+  /**
+   * The DECLARATIVE half of disabledness: does the authored `enabledWhen` prove
+   * this control is currently greyed out? Protected because the tree layer's
+   * instance-aware override still has to ask it — a declaration disables every
+   * row of a repeats container at once.
+   */
+  protected declaredDisabled(affordanceId: string): boolean {
+    return this.#disabledByDeclaration(this.spec.affordances[affordanceId]);
+  }
+
+  /**
+   * `enabledWhen` under the same asymmetry `verify` uses: DISABLED needs proof
+   * (one false conjunct proves the conjunction false, whatever the unknown keys
+   * hold), and everything else serves the edge unmarked. A key missing from the
+   * state view can only ever weaken the answer toward enabled — the library
+   * refuses an action because the app said so, never because it could not look.
+   */
+  #disabledByDeclaration(aff: Affordance | undefined): boolean {
+    if (!aff?.enabledWhen) return false;
+    return filterVerdict(this.#evalGuard(aff.enabledWhen)) === 'failed';
   }
 
   /**
@@ -446,6 +513,10 @@ export class Session {
       if (!aff.on.includes(this.#node)) continue;
       const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
       if (!matched) continue;
+      // The wire-shaped input contract, derived once and cached per schema —
+      // so this hot path (every refused fire calls available() for its gap
+      // row's context) never re-normalizes a zod schema.
+      const expects = expectsOf(aff);
       edges.push({
         affordanceId: aff.id,
         description: aff.description,
@@ -455,12 +526,16 @@ export class Session {
         ...(flagMaterialized
           ? { materialized: this.#registry.isRegistered(aff.id) || this.#urlMaterialisable(aff) }
           : {}),
-        // A registered-but-disabled tool is served WITH the marker (a greyed
-        // button the agent can see), never silently hidden.
-        ...(this.#registry.isEnabled(aff.id) === false ? { enabled: false } : {}),
+        // A disabled tool is served WITH the marker (a greyed button the agent
+        // can see), never silently hidden — whether the registration site said
+        // so or the authored `enabledWhen` proves it.
+        ...(this.#registry.isEnabled(aff.id) === false || this.#disabledByDeclaration(aff)
+          ? { enabled: false }
+          : {}),
         evidence: conditions,
         ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
         schema: aff.schema,
+        ...(expects !== undefined ? { expects } : {}),
         highEffect: aff.highEffect,
         binding: aff.binding,
         ...(aff.descriptionSource === 'registration' ? { descriptionSource: 'registration' as const } : {}),
@@ -779,6 +854,31 @@ export class Session {
       this.recordRejection(affordanceId, 'GUARD_FAILED', source, conditions);
       return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
     }
+    // The input-less action's door, and the ONE place its law applies. An
+    // action the author declared `'none'` on takes nothing: a real payload is
+    // refused with the shape it sent (PAYLOAD_INVALID — an existing arm every
+    // 0.4/0.5 consumer already handles), and a BLANK one normalizes to nothing
+    // at all.
+    //
+    // Normalizing is the fix for the reported bug, not a convenience: a uniform
+    // { value: string, required } relay contract forces a model to send
+    // `value: ''` to a click-only control, and that empty string reached the
+    // handler and OVERRODE the app's own authored default — selecting nothing.
+    // Erasing it here means the payload can never reach the handler again.
+    //
+    // Exactly this door: a schema-bearing action is untouched ('' is a real
+    // value there — clearing a field), and an action that declared no input at
+    // all is untouched too, because the library cannot know and does not guess.
+    if (aff.noInput) {
+      const check = checkNoInput(opts.payload);
+      if (!check.ok) {
+        this.recordRejection(affordanceId, 'PAYLOAD_INVALID', source);
+        return { ok: false, reason: 'PAYLOAD_INVALID', issues: check.issues };
+      }
+      // Every downstream reader — the record, the handler — sees one normalized
+      // truth, because there is one object to read it from.
+      opts = { ...opts, payload: undefined };
+    }
     // EVERY source answers for the payload, deliberately — including the
     // record-only sensor and the app's own 'user'/'system' fires, which the
     // rules below DO exempt. A schema is the app's statement about its own
@@ -975,6 +1075,7 @@ export class Session {
     if (opts.invoke === false) return; // record-only (the DOM sensor's mode)
     const handler = this.handlerFor(affordanceId, opts);
     if (!handler) return;
+    const aff = this.spec.affordances[affordanceId];
     const pendingEntry = this.#pending.find((p) => p.record.id === record.id);
     if (pendingEntry) pendingEntry.handlerInFlight = true;
     void Promise.resolve()
@@ -1014,7 +1115,11 @@ export class Session {
           // writes) and its handler has now run to completion — the only event
           // that will ever answer the 'pending' this fire() returned. If a
           // state report already answered it, resolve-once keeps that answer.
-          this.#resolveEffect(record, 'performed');
+          //
+          // The verify contract matters MOST here: a click with no declared
+          // writes is precisely the fire that used to say 'performed' on the
+          // strength of a handler returning, while nothing on screen moved.
+          this.#comeToRest(record, aff);
           return;
         }
         if (entry.settleOnCompletion) {
@@ -1024,7 +1129,7 @@ export class Session {
           // Our side ran to completion, which is what 'performed' claims —
           // orthogonal to effectVerified, which stays honestly 'unobservable'
           // because no report exists to check the declared writes against.
-          this.#resolveEffect(entry.record, 'performed');
+          this.#comeToRest(entry.record, entry.affordance);
           return;
         }
         entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
@@ -1043,7 +1148,12 @@ export class Session {
    * that is no longer 'committed'), which is what lets both call sites use it
    * without coordinating.
    */
-  #handleHandlerFailure(record: TransitionRecord, reason: unknown): void {
+  #handleHandlerFailure(
+    record: TransitionRecord,
+    reason: unknown,
+    /** Stamped only by the verify route — the third axis, carried, never averaged in. */
+    verified?: false,
+  ): void {
     const index = this.#pending.findIndex((p) => p.record.id === record.id);
     if (index >= 0) {
       // Effect never landed: reject the pending so later deltas are not mis-attributed.
@@ -1069,7 +1179,50 @@ export class Session {
     // (the evidence-backed case above): the handler failed AND the effect
     // landed are both facts, and the settlement carries them side by side
     // rather than averaging them into one comfortable word.
-    this.#resolveEffect(record, 'refused', { error: reason });
+    this.#resolveEffect(record, 'refused', {
+      error: reason,
+      ...(verified !== undefined ? { verified } : {}),
+    });
+  }
+
+  /**
+   * THE LAST QUESTION A SETTLEMENT ASKS: now that this fire has come to rest,
+   * does the app's own {@link VerifyContract} agree that it happened?
+   *
+   * Called from exactly the three places a fire currently comes to rest as a
+   * SUCCESS — an attributed state report, a tapless handler completing, and a
+   * synchronous commit whose handler completed. Nowhere else, because nowhere
+   * else did anything run: a fire with nothing bound already settles
+   * 'unobservable', and re-asking there would only invent a verdict about an
+   * action nobody performed.
+   *
+   * A failure routes through the ordinary failure spine, so the rollback rules
+   * are the ones already written and tested: a claims-only commit rolls back
+   * (with the honest cursor walk-back a claimed navigation earned), and a
+   * commit backed by a REAL state report stands while the settlement still
+   * says 'refused' — both truths carried, neither averaged.
+   *
+   * Idempotent, like that spine: a report that settled this record from inside
+   * its own handler's synchronous portion has already asked and answered, and
+   * first settlement wins.
+   */
+  #comeToRest(record: TransitionRecord, aff: Affordance | undefined): void {
+    if (!this.#effectLatches.has(record.id)) return; // already at rest — nothing to answer
+    const check = checkVerify(
+      aff?.verify,
+      (filter) => this.#evalGuard(filter),
+      () => this.state(), // DETACHED: a predicate must never hold live state
+      (message) => this.#warn(message),
+    );
+    if (check.verdict === 'failed') {
+      this.#handleHandlerFailure(record, check.failure, false);
+      return;
+    }
+    this.#resolveEffect(
+      record,
+      'performed',
+      check.verdict === 'none' ? undefined : { verified: check.verdict === 'held' ? true : 'unevaluable' },
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -1107,15 +1260,19 @@ export class Session {
   #effectSnapshot(
     record: TransitionRecord,
     effectStatus: FireSettlement['effectStatus'],
-    failure?: { error: unknown },
+    extra?: SettlementExtra,
   ): FireSettlement {
     return {
       effectStatus,
       outcome: record.outcome,
       transition: this.#copyRecord(record),
       // Only handler-failure paths pass one: reject() refuses without an error
-      // object, and inventing one would be a guess.
-      ...(failure ? { error: failure.error } : {}),
+      // object, and inventing one would be a guess. Membership, not truthiness:
+      // a handler can genuinely fail with `undefined` as its reason, and the
+      // field must still say a reason was given.
+      ...(extra && 'error' in extra ? { error: extra.error } : {}),
+      // Absent unless a verify contract was declared AND asked (see #comeToRest).
+      ...(extra?.verified !== undefined ? { verified: extra.verified } : {}),
       // Parity with producedFor(): a fresh sanitized copy, never the record's own.
       ...(record.produced !== undefined ? { produced: sanitizeProduced(record.produced) } : {}),
     };
@@ -1129,11 +1286,11 @@ export class Session {
   #resolveEffect(
     record: TransitionRecord,
     effectStatus: FireSettlement['effectStatus'],
-    failure?: { error: unknown },
+    extra?: SettlementExtra,
   ): void {
     const latch = this.#effectLatches.get(record.id);
     if (!latch) return;
-    const snapshot = this.#effectSnapshot(record, effectStatus, failure);
+    const snapshot = this.#effectSnapshot(record, effectStatus, extra);
     // RETAINED BEFORE THE LATCH IS DROPPED. Between these two statements the
     // fire must never be answerable by neither door — and because the guard
     // above returns on an already-closed latch, first-settlement-wins governs
@@ -1334,11 +1491,17 @@ export class Session {
     if (!explicitStimulus && this.#pending.length > 0) {
       // Bare FIFO skips records whose handler is still in flight — the handler
       // has first claim on its own record (see #invokeHandler).
+      //
+      // OUT OF THE QUEUE FIRST, on every arm below as well as the two above: a
+      // settlement now asks the verify contract, and a refusal there re-enters
+      // the failure spine, which reads this very queue to decide whether the
+      // effect ever landed. A record still sitting in it would be read as one
+      // that never settled — and the later splice would find it gone and cut
+      // an innocent neighbour out at index -1.
       const index = this.#pending.findIndex((p) => !p.handlerInFlight);
       if (index >= 0) {
-        const pending = this.#pending[index];
+        const [pending] = this.#pending.splice(index, 1);
         this.#settleAttributed(pending, delta);
-        this.#pending.splice(index, 1);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
       // Every pending is handler-in-flight. If the delta covers exactly ONE
@@ -1352,8 +1515,8 @@ export class Session {
       });
       if (own.length === 1) {
         const pending = own[0];
-        this.#settleAttributed(pending, delta);
         this.#pending.splice(this.#pending.indexOf(pending), 1);
+        this.#settleAttributed(pending, delta);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
       // Ambiguous or non-matching: fall through to stimulus (never inference —
@@ -2019,6 +2182,167 @@ export class Session {
   }
 
   // -------------------------------------------------------------------------
+  // groundTruth — the authoritative FACTS block (what HAPPENED, nothing else)
+  // -------------------------------------------------------------------------
+
+  /**
+   * What this session ACTUALLY did, in words a model is told outrank the
+   * conversation: where it is, every attempt and how each came to rest, what a
+   * human is still deciding, and what the app has not answered yet.
+   *
+   * The sibling of {@link Session.contextBrief}, and separate from it on
+   * purpose. The brief serves position + options + narrative, and the field
+   * exposed a structural hole in that: a REFUSED fire is a gap-ledger row, not
+   * a transition, so failed attempts never appeared in it. With the failures
+   * invisible and nothing else grounding it, a model narrated an entire flow
+   * — "name set, recipe selected" — having called zero tools. Its own prose had
+   * become its context. This block merges BOTH ledgers so a refusal is as
+   * visible as a success, and states the anti-narration sentence outright when
+   * nothing has happened at all.
+   *
+   * Facts only. Options are whats_here's job, values and payloads belong to the
+   * data channel, and nothing here interprets: one line per occurrence.
+   */
+  groundTruth(opts?: GroundTruthOptions): GroundTruth {
+    const sinceVersion = opts?.sinceVersion;
+    const max = opts?.maxAttempts ?? 20;
+    // Walked ONCE and rendered LAST: the rows are cheap references, the lines
+    // are strings, and a long session must not build five thousand of them to
+    // print twenty.
+    const all = this.#attemptRows();
+    const attempts = sinceVersion === undefined ? all : all.filter((row) => row.at >= sinceVersion);
+    const omitted = Math.max(0, attempts.length - max);
+    const shown = attempts.slice(-max);
+
+    const lines: string[] = [FACTS_HEADER, ...this.positionLines()];
+    if (shown.length === 0) {
+      // THE anti-narration sentence — said plainly, because the failure it
+      // answers was a model filling a silence with its own prose.
+      //
+      // It claims the whole SESSION, so it is only said where that is true. A
+      // cursor that hides real earlier attempts gets the cursor's own sentence
+      // and their count instead: a block a model is told to trust above its own
+      // memory can never be the thing that denies what happened.
+      lines.push(
+        all.length > 0
+          ? `No actions have been performed since version ${sinceVersion} — ${all.length} earlier attempt(s) this session are not listed.`
+          : NOTHING_ATTEMPTED,
+      );
+    } else {
+      lines.push(
+        sinceVersion !== undefined
+          ? `Attempts since version ${sinceVersion} (now ${this.#version}):`
+          : `Attempts so far (version ${this.#version}):`,
+      );
+      if (omitted > 0) lines.push(`  … ${omitted} earlier attempt(s) omitted.`);
+      for (const row of shown) lines.push(`  • ${this.#attemptLine(row)}`);
+    }
+    for (const [affordanceId, askId] of this.#openAsks) {
+      lines.push(`Awaiting the human's decision: ${this.#actionLabel(affordanceId)} (${askId}).`);
+    }
+    const pend = this.pending();
+    if (pend.length > 0) {
+      lines.push(`Awaiting the app's report: ${pend.map((p) => this.#actionLabel(p.affordanceId)).join(', ')}.`);
+    }
+    return { node: this.#node, version: this.#version, text: lines.join('\n') };
+  }
+
+  /**
+   * WHERE the reader is — the cursor section of the facts block. Protected
+   * because the tree layer knows one more true thing about position (focus
+   * below the page level) and says it the same way contextBrief already does.
+   */
+  protected positionLines(): string[] {
+    return [`You are on: ${this.#nodeLabel(this.#node)}.`];
+  }
+
+  /**
+   * Every attempt, both ledgers merged — the transitions somebody fired and the
+   * gap rows for the fires this session refused.
+   *
+   * Ordered by CURSOR VERSION, not by timestamp, and that is a proof rather
+   * than a heuristic: a refusal never bumps the version, and a recorded fire
+   * bumps it immediately, so every row carrying version V happened inside the
+   * window that ONE transition closed — refusals first, the transition last.
+   * Timestamps could only tie at millisecond grain and invent an order.
+   *
+   * 'reported' and 'dead-end' gap rows are deliberately absent: the first is
+   * runtime free text, and neither is an attempt to act.
+   *
+   * References, not sentences — the caller slices first and renders after.
+   */
+  #attemptRows(): AttemptRow[] {
+    const rows: AttemptRow[] = [];
+    for (const gap of this.#gaps) {
+      if (gap.kind === 'fire-rejected') rows.push({ at: gap.version, rank: 0, gap });
+    }
+    for (const t of this.#transitions) {
+      if (t.cause.kind === 'fired') rows.push({ at: t.cursorVersion, rank: 1, fired: t });
+    }
+    rows.sort((a, b) => a.at - b.at || a.rank - b.rank);
+    return rows;
+  }
+
+  /** One attempt in plain words — a refused fire, or a recorded one. */
+  #attemptLine(row: AttemptRow): string {
+    return row.rank === 0 ? this.#refusedLine(row.gap) : this.#firedLine(row.fired);
+  }
+
+  /** A fire this session refused: it did not happen, and the reason is the typed one. */
+  #refusedLine(gap: GapRecord): string {
+    const who = gap.principal ?? 'someone';
+    const what = this.#actionLabel(gap.affordanceId);
+    // A commit gate's refusal, not a fire's — the ONE row that carries a skill.
+    // Saying "fired" about it would report an attempt that never happened,
+    // inside the block whose whole job is not doing that.
+    if (gap.skillId !== undefined) {
+      return `did NOT happen — ${who}'s attempt to start ${gap.skillId} was refused: ${gap.rejectionReason} (its first step is ${what})`;
+    }
+    return `did NOT happen — ${who}'s fire of ${what} was refused: ${gap.rejectionReason}`;
+  }
+
+  /**
+   * One recorded fire, in plain words. The leads are graded and never rounded
+   * up: only a committed fire whose DECLARED effect was observed earns "DID
+   * happen", and a fire nobody could check says so instead of borrowing the
+   * stronger word. That grading is what makes the block worth trusting.
+   */
+  #firedLine(t: TransitionRecord): string {
+    const { lead, note } = this.#attemptVerdict(t);
+    const notes = [note, ...(t.cause.inferred ? ['attributed by inference, not observed'] : [])];
+    return `${lead} — ${t.cause.principal} fired ${this.#actionLabel(t.cause.affordanceId)} (${notes.join('; ')})`;
+  }
+
+  #attemptVerdict(t: TransitionRecord): { lead: string; note: string } {
+    if (t.materialized === false) {
+      return { lead: 'did NOT happen', note: 'nothing in this app is wired to perform it, so nothing ran' };
+    }
+    if (t.outcome === 'pending') {
+      return { lead: 'not yet known', note: 'the app has not reported back yet' };
+    }
+    // The app's OWN check said no. It reads over the record's outcome because
+    // it can disagree with it: a commit backed by a real state report STANDS
+    // while the settlement refuses, and without this the facts block would say
+    // "DID happen" about an action the app itself had just denied.
+    if (this.#settlements.get(t.id)?.verified === false) {
+      return { lead: 'did NOT happen', note: "the app's own verify contract did not hold afterwards" };
+    }
+    if (t.outcome === 'rejected') return { lead: 'did NOT happen', note: 'the app refused it' };
+    if (t.outcome === 'rolled-back') return { lead: 'did NOT happen', note: 'it was rolled back' };
+    if (t.outcome === 'superseded') {
+      return { lead: 'ran, but the outcome was never observed', note: 'tracking of it stopped (superseded)' };
+    }
+    if (t.effectVerified === true) return { lead: 'DID happen', note: 'committed; declared effect observed' };
+    if (t.effectVerified === false) {
+      return { lead: 'ran, but the declared effect was NOT observed', note: 'committed' };
+    }
+    return {
+      lead: 'ran, but the effect was unobservable',
+      note: 'committed; nothing reported an effect to check it against',
+    };
+  }
+
+  // -------------------------------------------------------------------------
   // Internals
   // -------------------------------------------------------------------------
 
@@ -2182,7 +2506,9 @@ export class Session {
    */
   #settleAttributed(pending: PendingTransition, delta: Record<string, unknown>): void {
     this.#settle(pending.record, pending.affordance, delta);
-    this.#resolveEffect(pending.record, 'performed');
+    // AFTER the delta has landed, never before: a verify contract asks about
+    // the world the report just created.
+    this.#comeToRest(pending.record, pending.affordance);
   }
 
   #settle(
@@ -2281,6 +2607,17 @@ export class Session {
    */
   #nodeLabel(name: string): string {
     return Object.hasOwn(this.spec.pages, name) ? name : '(an unmapped location, off the authored graph)';
+  }
+
+  /**
+   * The same discipline for an ACTION id. A refused fire's id is whatever the
+   * caller sent — a model's guess, a relay's string — so an id this graph does
+   * not have renders as a constant instead of entering the authored channel.
+   * `hasOwn`, because 'constructor' is truthy on any plain object and would sail
+   * straight through a lookup.
+   */
+  #actionLabel(id: string | undefined): string {
+    return id !== undefined && Object.hasOwn(this.spec.affordances, id) ? id : UNKNOWN_ACTION;
   }
 
   /** One authored-strings-only line per transition for contextBrief(). */

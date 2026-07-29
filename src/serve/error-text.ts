@@ -20,6 +20,17 @@
 const MAX_LENGTH = 200;
 
 export function errorText(error: unknown): string {
+  // A refusal the LIBRARY authored — the verify contract's structured reason —
+  // already says what it means in words meant to be read. `String()` renders it
+  // '[object Object]', the one rendering that teaches nothing, so its own
+  // sentence is served instead. Only our shape qualifies: a plain object
+  // carrying BOTH a string `reason` and a string `explanation`.
+  if (typeof error === 'object' && error !== null) {
+    const structured = error as { reason?: unknown; explanation?: unknown };
+    if (typeof structured.reason === 'string' && typeof structured.explanation === 'string') {
+      return cap(structured.explanation);
+    }
+  }
   let text: string;
   try {
     text = String(error);
@@ -28,5 +39,9 @@ export function errorText(error: unknown): string {
     // implying the failure came with no reason at all.
     return '(an error that cannot be rendered as text)';
   }
+  return cap(text);
+}
+
+function cap(text: string): string {
   return text.length > MAX_LENGTH ? `${text.slice(0, MAX_LENGTH)}…` : text;
 }

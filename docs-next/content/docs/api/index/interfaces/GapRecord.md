@@ -4,7 +4,7 @@ title: GapRecord
 
 # Interface: GapRecord
 
-Defined in: [src/atom/types.ts:705](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L705)
+Defined in: [src/atom/types.ts:816](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L816)
 
 One row of unmet demand. Four kinds:
 - 'fire-rejected'      — an attempted action the session refused (unknown id,
@@ -48,7 +48,7 @@ export via onGap and drain, like the transition log.
 
 > `optional` **affordanceId?**: `string`
 
-Defined in: [src/atom/types.ts:730](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L730)
+Defined in: [src/atom/types.ts:841](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L841)
 
 The id the caller ASKED for — kept even when unknown (that is the signal).
 
@@ -58,7 +58,7 @@ The id the caller ASKED for — kept even when unknown (that is the signal).
 
 > **availableActions**: `string`[]
 
-Defined in: [src/atom/types.ts:715](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L715)
+Defined in: [src/atom/types.ts:826](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L826)
 
 Names only — what existed at that moment (token-lean, injection-safe).
 On a 'dead-end' row this is the whole payload and the whole point: these
@@ -70,7 +70,7 @@ are the actions the page OFFERS while none of them can act.
 
 > **availableSkills**: `string`[]
 
-Defined in: [src/atom/types.ts:716](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L716)
+Defined in: [src/atom/types.ts:827](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L827)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: [src/atom/types.ts:716](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **evidence?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:747](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L747)
+Defined in: [src/atom/types.ts:858](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L858)
 
 ***
 
@@ -86,7 +86,7 @@ Defined in: [src/atom/types.ts:747](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **gestureKind?**: `"element"` \| `"keychord"` \| `"programmatic"` \| `"url"` \| `"tab"`
 
-Defined in: [src/atom/types.ts:754](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L754)
+Defined in: [src/atom/types.ts:865](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L865)
 
 The refused edge's declared gesture KIND ('fire-rejected' and
 'unmaterialized-fire' rows) — the demand backlog now says WHICH wiring is
@@ -99,7 +99,7 @@ string only, never the binding object.
 
 > **kind**: `"fire-rejected"` \| `"reported"` \| `"unmaterialized-fire"` \| `"dead-end"`
 
-Defined in: [src/atom/types.ts:706](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L706)
+Defined in: [src/atom/types.ts:817](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L817)
 
 ***
 
@@ -107,7 +107,7 @@ Defined in: [src/atom/types.ts:706](https://github.com/footprintjs/hcifootprint/
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:708](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L708)
+Defined in: [src/atom/types.ts:819](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L819)
 
 ***
 
@@ -115,7 +115,7 @@ Defined in: [src/atom/types.ts:708](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:765](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L765)
+Defined in: [src/atom/types.ts:876](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L876)
 
 ***
 
@@ -123,7 +123,7 @@ Defined in: [src/atom/types.ts:765](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **offGraph?**: `true`
 
-Defined in: [src/atom/types.ts:727](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L727)
+Defined in: [src/atom/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L838)
 
 The cursor is resting on a node the graph has never heard of — the same
 fact [SyncResult](/api/index/type-aliases/SyncResult).offGraph reports, kept on the row so triage can
@@ -139,7 +139,7 @@ sync() the id the graph actually uses for that screen.
 
 > `optional` **principal?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:746](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L746)
+Defined in: [src/atom/types.ts:857](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L857)
 
 ***
 
@@ -147,7 +147,7 @@ Defined in: [src/atom/types.ts:746](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **reason?**: [`GapReason`](/api/index/type-aliases/GapReason)
 
-Defined in: [src/atom/types.ts:764](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L764)
+Defined in: [src/atom/types.ts:875](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L875)
 
 ***
 
@@ -155,7 +155,7 @@ Defined in: [src/atom/types.ts:764](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **rejectionReason?**: `"UNKNOWN_AFFORDANCE"` \| `"STALE_CURSOR"` \| `"NOT_ON_NODE"` \| `"GUARD_FAILED"` \| `"PAYLOAD_INVALID"` \| `"BLOCKED_BY_OVERLAY"` \| `"NODE_NOT_VISIBLE"` \| `"STILL_MOUNTING"` \| `"INSTANCE_REQUIRED"` \| `"INSTANCE_UNKNOWN"` \| `"TOOL_DISABLED"` \| `"NOT_MATERIALIZED"` \| `"ENTRY_NOT_MATERIALIZED"`
 
-Defined in: [src/atom/types.ts:731](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L731)
+Defined in: [src/atom/types.ts:842](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L842)
 
 ***
 
@@ -163,7 +163,7 @@ Defined in: [src/atom/types.ts:731](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **request?**: `string`
 
-Defined in: [src/atom/types.ts:763](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L763)
+Defined in: [src/atom/types.ts:874](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L874)
 
 The user's ask (runtime data; length-capped).
 
@@ -173,7 +173,7 @@ The user's ask (runtime data; length-capped).
 
 > `optional` **skillId?**: `string`
 
-Defined in: [src/atom/types.ts:760](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L760)
+Defined in: [src/atom/types.ts:871](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L871)
 
 The skill whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
 `affordanceId` on those rows is the entry STEP; this names the skill the
@@ -185,7 +185,7 @@ planner actually asked for.
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:707](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L707)
+Defined in: [src/atom/types.ts:818](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L818)
 
 ***
 
@@ -193,4 +193,4 @@ Defined in: [src/atom/types.ts:707](https://github.com/footprintjs/hcifootprint/
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:709](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L709)
+Defined in: [src/atom/types.ts:820](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L820)

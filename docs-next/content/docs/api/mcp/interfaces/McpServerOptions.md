@@ -16,7 +16,7 @@ Defined in: [src/serve/mcp-server.ts:35](https://github.com/footprintjs/hcifootp
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L44)
+Defined in: [src/serve/modes.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L42)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
@@ -66,7 +66,7 @@ is already holding would be the only thing dishonest here.
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L46)
+Defined in: [src/serve/modes.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L44)
 
 Principal stamped on fires made through this port. Default 'agent'.
 
