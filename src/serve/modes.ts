@@ -456,7 +456,7 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       };
     }
     const data = session.producedFor(transitionId);
-    const verified = settled.transition.effectVerified;
+    const writes = settled.transition.effectVerified;
     // A settlement is a RECEIPT of how the fire came to rest, and first
     // settlement wins — so the record can move on afterwards while the receipt
     // stands (a server rejecting an order the app already reported flips it to
@@ -473,20 +473,31 @@ export function skillsAsTools(session: Session, opts?: SkillToolsOptions): Skill
       ...(settled.transition.cause.affordanceId !== undefined
         ? { did: settled.transition.cause.affordanceId }
         : {}),
-      // The two axes, side by side, neither averaged into the other:
-      // effectStatus = did anyone perform it, effectVerified = were the
-      // declared writes observed.
+      // THREE axes, side by side, none averaged into another: effectStatus =
+      // did anyone perform it, effectVerified = were the declared writes
+      // observed, verifyHeld = did the app's OWN condition hold.
       effectStatus: settled.effectStatus,
       outcome: settled.outcome,
       // Only on disagreement — and with the one instruction that resolves it,
       // because a settled arm that points nowhere is how a model acts on a
       // receipt for an action the app has taken back.
       ...(moved ? { outcomeNow, howToAct: OUTCOME_MOVED_HOWTO } : {}),
-      ...(verified !== undefined ? { effectVerified: verified } : {}),
-      // The BOOLEAN form, present only when the answer is knowable. A model
-      // testing truthiness would read the string 'unobservable' as a verified
-      // write; absence cannot be misread that way.
-      ...(typeof verified === 'boolean' ? { verified } : {}),
+      ...(writes !== undefined ? { effectVerified: writes } : {}),
+      // The BOOLEAN form of the STATE axis, present only when the answer is
+      // knowable — a model testing truthiness would read the string
+      // 'unobservable' as an observed write, and absence cannot be misread that
+      // way. NAMED FOR ITS OWN AXIS: as plain `verified` it collided with the
+      // settlement's verify-contract verdict, and the collision was not
+      // theoretical — a fire whose declared write DID land while the app's own
+      // check answered no served `verified: true` beside an error sentence
+      // saying verification failed. One name, two questions, opposite answers,
+      // one payload.
+      ...(typeof writes === 'boolean' ? { writesObserved: writes } : {}),
+      // The CONTRACT axis, which never used to cross at all: in-process callers
+      // read it off the settlement, and a remote agent — the one this whole tool
+      // exists for — was left to infer it from `error` prose. Absent when the
+      // action declares no verify: silence, never a passing grade.
+      ...(settled.verifyHeld !== undefined ? { verifyHeld: settled.verifyHeld } : {}),
       ...(settled.transition.toNode !== undefined ? { toNode: settled.transition.toNode } : {}),
       // Capped TEXT: an app's error object never crosses a result whole.
       ...(settled.error !== undefined ? { error: errorText(settled.error) } : {}),

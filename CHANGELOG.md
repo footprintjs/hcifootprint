@@ -46,9 +46,11 @@
   a claims-only commit rolled back with the honest cursor walk-back, and an
   evidence-backed commit STANDING while the settlement still refuses — both truths
   carried, neither averaged.
-  `FireSettlement` gains `verified?: boolean | 'unevaluable'`, a THIRD axis beside
+  `FireSettlement` gains `verifyHeld?: boolean | 'unevaluable'`, a THIRD axis beside
   `effectStatus` (did anyone perform it) and `effectVerified` (did the declared write
-  keys appear). What cannot be checked never refuses: an unknown state key, or a
+  keys appear). Named for the DECLARATION that produced it, never the bare word
+  "verified": an axis a reader can attribute to the wrong question is one this library
+  treats as unreported. What cannot be checked never refuses: an unknown state key, or a
   predicate that threw (isolated + warned), is `'unevaluable'`. A refusal needs proof —
   one false conjunct proves a conjunction false whatever the unknown keys hold — while a
   confirmation needs everything, because a wrong rejection blocks an action the app would
@@ -92,6 +94,30 @@
   carries only `expects`, and a live validator never crosses the wire.
 
 ### Fixed
+- **One name never answers two questions: the settled truth's three axes are named
+  apart.** `did_it_work` served `verified` as the boolean form of `effectVerified` (the
+  STATE axis) while `FireSettlement.verified` meant the `verify` contract's verdict (the
+  CONTRACT axis) — and the two provably disagreed in one payload: a fire whose declared
+  write really landed while the app's own check answered no came back
+  `verified: true` beside an error sentence saying verification failed, in the exact
+  scenario `verify` was built for. The settlement's field is now `verifyHeld`, the wire's
+  boolean form is `writesObserved`, and `verifyHeld` **crosses the wire for the first
+  time** — the remote agent `did_it_work` exists for was previously left inferring the
+  app's own verdict from error prose. Both names were unpushed, so nothing released
+  changes.
+- **A self-referential input schema no longer kills `available()`.** The one-place
+  `expects` derivation deep-freezes its rendered contract, and its walk had no cycle
+  guard — so the ordinary JSON-Schema way to describe a tree (a node whose
+  `properties.child` is the node) compiled fine and then threw
+  `RangeError: Maximum call stack size exceeded` on the hot path every refused fire uses
+  for its gap row. The walk now carries a `WeakSet`; the schema is still frozen all the
+  way down, cycle included.
+- **The compiler's empty-filter refusal names the field the author actually wrote.**
+  One shared check serves `when`, `enabledWhen` and `verify`, and its sentence was
+  hard-coded to `when` — so an `enabledWhen: {}` author was told to *"Omit 'when'
+  entirely"*, a correction pointing at a field not in their graph. It now names the
+  field and what an empty one would cost (never offered / only ever disabled / only ever
+  refusing), matching what the fluent builder and the mount door already said.
 - **`errorText` renders a refusal the library authored in its own words.** A structured
   `{ reason, explanation }` value — the verify contract's — used to cross a tool result as
   `'[object Object]'`, the one rendering that teaches nothing. The cap still applies: a
@@ -127,15 +153,18 @@
   the writes really did land).
 - **`<graphId>.did_it_work` — a fifth fixed Mode B tool**, input `{ transitionId }`.
   A POLL, never a wait, so `SkillToolsPort.call` stays synchronous: **settled** →
-  `{ settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified, verified?,
-  toNode?, error?, data? }`; **still open** → `{ settled: false, judgment: 'still-pending',
+  `{ settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
+  writesObserved?, verifyHeld?, toNode?, error?, data? }`; **still open** → `{ settled: false, judgment: 'still-pending',
   did, howToAct }` — an honest answer that also tells the model not to repeat the
   action; **unknown** → `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...],
   awaitingSettlement: [...] }`, the `UpdateResult` vocabulary, refusing a wrong id BY
   NAME instead of soothing it
-  with a "still running" it cannot know. `verified` is the boolean form of
-  `effectVerified` and is ABSENT when the answer is not knowable — a model testing
-  truthiness would read the string `'unobservable'` as a verified write. A fire
+  with a "still running" it cannot know. All THREE axes cross, each under its own name:
+  `writesObserved` is the boolean form of `effectVerified`, ABSENT when the answer is not
+  knowable (a model testing truthiness would read the string `'unobservable'` as an
+  observed write), and `verifyHeld` carries the app's own contract verdict, absent when no
+  contract was declared. Neither is called `verified` — one word for two questions printed
+  `verified: true` beside an error sentence saying the app's own check had answered no. A fire
   result whose `effectStatus` is `'pending'` now carries an authored `howToSettle`
   pointer naming that tool (and only then: on a fire already at rest it would buy
   a wasted turn).

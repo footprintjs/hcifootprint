@@ -661,8 +661,17 @@ export interface FireSettlement {
    * `effectStatus` asks whether anyone performed it, `transition.effectVerified`
    * asks whether the declared write KEYS appeared, and this asks whether the
    * app's own condition holds. All three can disagree honestly.
+   *
+   * NAMED FOR THE DECLARATION THAT PRODUCED IT, not for the bare word
+   * "verified" — which is the ambiguity that let two of these three axes share
+   * one name on the wire and print opposite values in a single payload
+   * (`verified: true` beside "the app was asked whether this happened, and
+   * answered no"). A status a reader can attribute to the wrong question is a
+   * status this library treats as unreported, so no axis here is called
+   * `verified` alone: this one says which contract held, and the state axis
+   * crosses the wire as `writesObserved`.
    */
-  verified?: boolean | 'unevaluable';
+  verifyHeld?: boolean | 'unevaluable';
   /** The handler's return value, sanitized (parity with `Session.producedFor()`). */
   produced?: unknown;
 }

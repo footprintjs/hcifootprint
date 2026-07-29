@@ -26,6 +26,10 @@
  *   refused fire re-normalizes a zod schema, on the hottest path there is.
  * - 'a cached contract is frozen' — hand out a mutable shared object and one
  *   consumer's edit rewrites what every later caller is told.
+ * - 'a self-referential schema is walked ONCE' — drop the cycle guard and
+ *   available() dies with a RangeError on a schema the compiler accepted: the
+ *   ordinary way to describe a tree took down the hot path every refused fire
+ *   uses for its gap row.
  */
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -159,5 +163,32 @@ describe('expects — the shared helper', () => {
     expect(expectsOf({ noInput: true })).toBe('none');
     expect(expectsOf({})).toBeUndefined();
     expect(expectsOf(undefined)).toBeUndefined();
+  });
+
+  it('walks a SELF-REFERENTIAL schema once — a tree is not a stack overflow', () => {
+    // The ordinary JSON Schema way to say "a tree": a node whose child is the
+    // node. The compiler accepts it (a schema is a live reference there, never
+    // walked), so the walk had to survive it too.
+    const tree: Record<string, unknown> = { type: 'object', properties: {} };
+    (tree['properties'] as Record<string, unknown>)['child'] = tree;
+
+    const rendered = expectsOf({ schema: tree }) as Record<string, unknown>;
+    expect(Object.isFrozen(rendered)).toBe(true);
+    // Frozen ALL THE WAY DOWN, cycle included — the guard stops the walk, it
+    // does not exempt the node from the discipline.
+    const properties = rendered['properties'] as Record<string, unknown>;
+    expect(Object.isFrozen(properties)).toBe(true);
+    expect(Object.isFrozen(properties['child'])).toBe(true);
+  });
+
+  it('…and so does available(), the hot path a cyclic schema used to kill', () => {
+    const tree: Record<string, unknown> = { type: 'object', properties: {} };
+    (tree['properties'] as Record<string, unknown>)['child'] = tree;
+    const session = buildNavigationGraph('tree', {
+      pages: { editor: { tools: { move: { does: 'Move a node', input: tree } } } },
+    }).createSession({ node: 'editor', state: {}, onWarn: () => undefined });
+
+    expect(() => session.available()).not.toThrow();
+    expect(session.available().edges).toHaveLength(1);
   });
 });

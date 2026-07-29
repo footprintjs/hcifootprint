@@ -36,7 +36,7 @@
  *   a no-op fire earns a verdict about an action nobody performed.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
 import { VERIFY_FAILED_EXPLANATION, checkVerify, filterVerdict } from '../src/traverse/verify.js';
 import type {
   FireResult,
@@ -93,7 +93,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
     });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'performed', outcome: 'committed', verified: true });
+    expect(settled).toMatchObject({ effectStatus: 'performed', outcome: 'committed', verifyHeld: true });
     expect(settled.error).toBeUndefined();
   });
 
@@ -109,7 +109,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
 
     const fired = session.fire('setup.pick', { source: 'agent' });
     const settled = await settledOf(fired);
-    expect(settled).toMatchObject({ effectStatus: 'refused', outcome: 'rolled-back', verified: false });
+    expect(settled).toMatchObject({ effectStatus: 'refused', outcome: 'rolled-back', verifyHeld: false });
     const failure = settled.error as { reason: string; explanation: string; evidence: unknown[] };
     expect(failure.reason).toBe('VERIFY_FAILED');
     expect(failure.explanation).toBe(VERIFY_FAILED_EXPLANATION);
@@ -130,7 +130,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
     session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'refused', outcome: 'rolled-back', verified: false });
+    expect(settled).toMatchObject({ effectStatus: 'refused', outcome: 'rolled-back', verifyHeld: false });
   });
 
   it('fails on the attributed-report path — the settlement refuses while the COMMIT stands', async () => {
@@ -148,7 +148,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
     session.updateState({ recipe: 'sourdough' }); // a REAL report, attributed
     const settled = await settledOf(fired);
 
-    expect(settled).toMatchObject({ effectStatus: 'refused', verified: false, outcome: 'committed' });
+    expect(settled).toMatchObject({ effectStatus: 'refused', verifyHeld: false, outcome: 'committed' });
     expect(settled.transition.effectVerified).toBe(true); // the STATE axis is untouched
     expect(recordFor(session, fired)?.outcome).toBe('committed'); // the landed effect is NOT erased
     expect(session.state()['recipe']).toBe('sourdough');
@@ -185,7 +185,7 @@ describe('verify — what it cannot check, it does not judge', () => {
     session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'performed', verified: 'unevaluable' });
+    expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: 'unevaluable' });
     expect(settled.error).toBeUndefined();
   });
 
@@ -201,7 +201,7 @@ describe('verify — what it cannot check, it does not judge', () => {
     session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'refused', verified: false });
+    expect(settled).toMatchObject({ effectStatus: 'refused', verifyHeld: false });
   });
 
   it('no contract declared: the settlement carries no verdict at all', async () => {
@@ -214,7 +214,7 @@ describe('verify — what it cannot check, it does not judge', () => {
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled.effectStatus).toBe('performed');
     // Silence, not a passing grade: absent cannot be misread as "verified".
-    expect(settled).not.toHaveProperty('verified');
+    expect(settled).not.toHaveProperty('verifyHeld');
   });
 
   it('nothing ran, so nothing is verified — a tour fire keeps its honest word', async () => {
@@ -227,7 +227,7 @@ describe('verify — what it cannot check, it does not judge', () => {
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled.effectStatus).toBe('unobservable');
-    expect(settled).not.toHaveProperty('verified');
+    expect(settled).not.toHaveProperty('verifyHeld');
   });
 });
 
@@ -252,7 +252,7 @@ describe('verify — the predicate the app owns', () => {
     });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'performed', verified: true });
+    expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: true });
   });
 
   it('is handed a DETACHED snapshot — a predicate cannot reach the live state', async () => {
@@ -277,7 +277,7 @@ describe('verify — the predicate the app owns', () => {
     session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'performed', verified: 'unevaluable' });
+    expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: 'unevaluable' });
     expect(warn.mock.calls.flat().join(' ')).toContain('verify predicate threw');
   });
 
@@ -291,7 +291,7 @@ describe('verify — the predicate the app owns', () => {
     session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
-    expect(settled).toMatchObject({ effectStatus: 'performed', verified: 'unevaluable' });
+    expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: 'unevaluable' });
     expect(warn.mock.calls.flat().join(' ')).toContain('must answer synchronously');
   });
 });
@@ -321,6 +321,49 @@ describe('verify — the refusal crosses the wire as words, not [object Object]'
 
   it('the sentence fits the wire’s cap, so it is never chopped mid-clause', () => {
     expect(VERIFY_FAILED_EXPLANATION.length).toBeLessThanOrEqual(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The authoring doors — an empty contract, refused by its own name
+// ---------------------------------------------------------------------------
+
+describe('verify — an empty {} is refused at every door, in the author’s own word', () => {
+  it('the compiler names the field the author wrote, not the one it shares code with', () => {
+    // The compiler runs ONE empty-filter refusal for when/enabledWhen/verify.
+    // While its sentence was hard-coded to 'when', a `verify: {}` author was
+    // told to "Omit 'when' entirely" — a correction pointing at a field that is
+    // not in their graph. Every refusal teaches, or it is not worth throwing.
+    expect(() =>
+      buildNavigationGraph('wizard', {
+        pages: { setup: { tools: { pick: { does: 'Pick', verify: {} } } } },
+      }),
+    ).toThrow(/empty verify \{\}[\s\S]*Omit 'verify' entirely/);
+  });
+
+  it('and the other two doors already did — all three now say the same thing', () => {
+    // The fluent builder…
+    expect(() =>
+      skillGraph('wizard')
+        .page('setup')
+        .affordance('pick', {
+          description: 'Pick',
+          on: 'setup',
+          binding: { kind: 'element', locator: { role: 'button', name: 'Pick' } },
+          verify: {},
+        }),
+    ).toThrow(/empty verify/);
+    // …and the mount door.
+    const session = buildNavigationGraph('wizard', { pages: { setup: {} } }).createSession({
+      node: 'setup',
+      state: {},
+      onWarn: () => undefined,
+    });
+    expect(() =>
+      session.registerToolGroup('setup', {
+        tools: { bad: { does: 'Bad', verify: {}, handler: () => undefined } },
+      }),
+    ).toThrow(/empty verify/);
   });
 });
 

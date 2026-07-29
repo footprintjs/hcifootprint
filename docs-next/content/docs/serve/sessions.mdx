@@ -61,7 +61,7 @@ what it was told. So the app declares the check itself, once, next to the action
 ```
 
 Evaluated at **settlement** — the moment a fire would otherwise come to rest as a success. If
-it holds, nothing changes and the settlement carries `verified: true`. If it does not, the
+it holds, nothing changes and the settlement carries `verifyHeld: true`. If it does not, the
 settlement is **`effectStatus: 'refused'`** (an existing word: a handler that threw and a
 handler that did nothing mean the same thing to an agent), the `error` carries the contract's
 own sentence with the failed conditions as evidence, and a claims-only commit rolls back —
@@ -73,9 +73,14 @@ app can (the DOM included) — the ~60 lines of before/after signature compariso
 wrote per action collapse to the one line your app already knows how to write.
 
 What it **cannot** check it never refuses on: an unknown state key, or a predicate that threw
-(isolated, warned) comes back `verified: 'unevaluable'`. A refusal needs proof; a confirmation
+(isolated, warned) comes back `verifyHeld: 'unevaluable'`. A refusal needs proof; a confirmation
 needs everything. A wrong rejection blocks an action your app would have accepted, and the
 caller has no appeal.
+
+The field is named for the **declaration** that produced it, never the bare word *verified* —
+`effectStatus` asks whether anyone performed it, `effectVerified` asks whether the declared
+write keys appeared, and `verifyHeld` asks whether your own condition holds. All three can
+disagree honestly, so none of them may share a name.
 
 ### Asking later — `settlementOf`
 

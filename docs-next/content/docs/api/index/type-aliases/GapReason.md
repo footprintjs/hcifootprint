@@ -6,4 +6,4 @@ title: GapReason
 
 > **GapReason** = `"no-skill-matched"` \| `"guard-blocked"` \| `"needs-backend-data"` \| `"sensor-drift"` \| `"other"`
 
-Defined in: [src/atom/types.ts:771](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L771)
+Defined in: [src/atom/types.ts:780](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L780)

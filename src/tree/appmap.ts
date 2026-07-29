@@ -89,7 +89,7 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
     guardChain: WhereFilter[],
   ): void {
     if (nodeDef.when) {
-      rejectEmptyWhen(`node '${path}'`, nodeDef.when);
+      rejectEmptyFilter(`node '${path}'`, 'when', nodeDef.when);
       validateGuardShape(`node '${path}' when`, nodeDef.when as Record<string, unknown>);
     }
     if (nodeDef.repeats && kind === 'page') {
@@ -191,7 +191,7 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       );
     }
     if (tool.when) {
-      rejectEmptyWhen(`tool '${qualifiedId}'`, tool.when);
+      rejectEmptyFilter(`tool '${qualifiedId}'`, 'when', tool.when);
       validateGuardShape(`tool '${qualifiedId}' when`, tool.when as Record<string, unknown>);
     }
     if (tool.goTo && !Object.hasOwn(declaredPages, tool.goTo)) {
@@ -208,11 +208,11 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       );
     }
     if (tool.enabledWhen) {
-      rejectEmptyWhen(`tool '${qualifiedId}' enabledWhen`, tool.enabledWhen);
+      rejectEmptyFilter(`tool '${qualifiedId}'`, 'enabledWhen', tool.enabledWhen);
       validateGuardShape(`tool '${qualifiedId}' enabledWhen`, tool.enabledWhen as Record<string, unknown>);
     }
     if (tool.verify && typeof tool.verify !== 'function') {
-      rejectEmptyWhen(`tool '${qualifiedId}' verify`, tool.verify);
+      rejectEmptyFilter(`tool '${qualifiedId}'`, 'verify', tool.verify);
       validateGuardShape(`tool '${qualifiedId}' verify`, tool.verify as Record<string, unknown>);
     }
     // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
@@ -263,7 +263,7 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       throw new SkillGraphValidationError(`skill '${skillId}' needs at least one step.`);
     }
     if (skillDef.when) {
-      rejectEmptyWhen(`skill '${skillId}'`, skillDef.when);
+      rejectEmptyFilter(`skill '${skillId}'`, 'when', skillDef.when);
       validateGuardShape(`skill '${skillId}' when`, skillDef.when as Record<string, unknown>);
     }
     const steps = skillDef.steps.map((step) => resolveStep(skillId, step));
@@ -329,11 +329,32 @@ function deriveRole(tool: ToolDef): CanonicalRole {
   return 'action';
 }
 
-function rejectEmptyWhen(owner: string, when: WhereFilter): void {
-  if (Object.keys(when).length === 0) {
+/** What an empty filter would COST, per field — the half of the sentence that teaches. */
+const EMPTY_FILTER_COST = {
+  when: 'nothing it guards could ever be offered',
+  enabledWhen: 'the control could only ever be disabled',
+  verify: 'the action could only ever refuse',
+} as const;
+
+/**
+ * An empty filter, refused at the compiler door.
+ *
+ * `field` is a PARAMETER rather than the baked-in word 'when' because the
+ * correction has to name the author's own declaration: one shared sentence
+ * ending "Omit 'when' entirely instead" was raised for `enabledWhen` and
+ * `verify` too, sending a reader to delete a field that was not there. The
+ * other two authoring doors (the fluent builder, mount-declared tools) already
+ * name theirs; this makes all three teach the same correction.
+ */
+function rejectEmptyFilter(
+  owner: string,
+  field: keyof typeof EMPTY_FILTER_COST,
+  filter: WhereFilter,
+): void {
+  if (Object.keys(filter).length === 0) {
     throw new SkillGraphValidationError(
-      `${owner} has an empty when {} — footprint's evaluator deliberately NEVER matches an empty ` +
-        `filter (anti-vacuous-truth). Omit 'when' entirely instead.`,
+      `${owner} has an empty ${field} {} — footprint's evaluator deliberately NEVER matches an empty ` +
+        `filter (anti-vacuous-truth), so ${EMPTY_FILTER_COST[field]}. Omit '${field}' entirely instead.`,
     );
   }
 }

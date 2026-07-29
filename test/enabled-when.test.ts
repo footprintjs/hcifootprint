@@ -189,11 +189,15 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
   });
 
   it('the compiler refuses an empty or misspelt enabledWhen at build time', () => {
+    // NAMED BY ITS OWN FIELD, at this door as at the other two. The compiler
+    // shares one empty-filter refusal across when/enabledWhen/verify, and while
+    // the sentence was hard-coded to 'when' it told an `enabledWhen` author to
+    // "Omit 'when' entirely" — a correction naming a field they had not written.
     expect(() =>
       buildNavigationGraph('wizard', {
         pages: { setup: { tools: { go: { does: 'Go', enabledWhen: {} } } } },
       }),
-    ).toThrow(/empty when/);
+    ).toThrow(/empty enabledWhen \{\}[\s\S]*Omit 'enabledWhen' entirely/);
     // A misspelt operator: the types already refuse it, so the cast is what a
     // JS caller (or a config file) really hands in — and the runtime refuses it
     // there too, by name.

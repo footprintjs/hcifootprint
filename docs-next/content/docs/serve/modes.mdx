@@ -88,10 +88,15 @@ It is a **poll, not a wait** — `call()` is synchronous, so it answers in one o
 never blocks:
 
 - **settled** — `{ settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
-  verified?, toNode?, error?, data? }`. Two axes, side by side: `effectStatus` is *did anyone
-  perform it*, `effectVerified` is *were the declared writes observed*. `verified` is the
-  boolean form and is **absent** when the answer isn't knowable — a model testing truthiness
-  would otherwise read the string `'unobservable'` as a verified write.
+  writesObserved?, verifyHeld?, toNode?, error?, data? }`. Three axes, side by side, none
+  averaged into another: `effectStatus` is *did anyone perform it*, `effectVerified` is *were
+  the declared writes observed*, `verifyHeld` is *did the app's own [`verify` contract](doc:sessions)
+  hold* (absent when no contract was declared — silence, never a passing grade).
+  `writesObserved` is the boolean form of `effectVerified` and is **absent** when the answer
+  isn't knowable — a model testing truthiness would otherwise read the string
+  `'unobservable'` as an observed write. Each carries its own axis in its own name: as plain
+  `verified` the state axis collided with the contract's verdict and printed
+  `verified: true` beside an error saying the app had answered *no*.
 - **still pending** — `{ settled: false, judgment: 'still-pending', did, howToAct }`. Honest,
   immediate, and it tells the model not to repeat the action.
 - **unknown** — `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...], awaitingSettlement:

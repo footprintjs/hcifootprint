@@ -138,7 +138,7 @@ export function principalOf(opts: FireOptions): Principal {
  */
 interface SettlementExtra {
   error?: unknown;
-  verified?: boolean | 'unevaluable';
+  verifyHeld?: boolean | 'unevaluable';
 }
 
 /**
@@ -1152,7 +1152,7 @@ export class Session {
     record: TransitionRecord,
     reason: unknown,
     /** Stamped only by the verify route — the third axis, carried, never averaged in. */
-    verified?: false,
+    verifyHeld?: false,
   ): void {
     const index = this.#pending.findIndex((p) => p.record.id === record.id);
     if (index >= 0) {
@@ -1181,7 +1181,7 @@ export class Session {
     // rather than averaging them into one comfortable word.
     this.#resolveEffect(record, 'refused', {
       error: reason,
-      ...(verified !== undefined ? { verified } : {}),
+      ...(verifyHeld !== undefined ? { verifyHeld } : {}),
     });
   }
 
@@ -1221,7 +1221,7 @@ export class Session {
     this.#resolveEffect(
       record,
       'performed',
-      check.verdict === 'none' ? undefined : { verified: check.verdict === 'held' ? true : 'unevaluable' },
+      check.verdict === 'none' ? undefined : { verifyHeld: check.verdict === 'held' ? true : 'unevaluable' },
     );
   }
 
@@ -1272,7 +1272,7 @@ export class Session {
       // field must still say a reason was given.
       ...(extra && 'error' in extra ? { error: extra.error } : {}),
       // Absent unless a verify contract was declared AND asked (see #comeToRest).
-      ...(extra?.verified !== undefined ? { verified: extra.verified } : {}),
+      ...(extra?.verifyHeld !== undefined ? { verifyHeld: extra.verifyHeld } : {}),
       // Parity with producedFor(): a fresh sanitized copy, never the record's own.
       ...(record.produced !== undefined ? { produced: sanitizeProduced(record.produced) } : {}),
     };
@@ -2324,7 +2324,7 @@ export class Session {
     // it can disagree with it: a commit backed by a real state report STANDS
     // while the settlement refuses, and without this the facts block would say
     // "DID happen" about an action the app itself had just denied.
-    if (this.#settlements.get(t.id)?.verified === false) {
+    if (this.#settlements.get(t.id)?.verifyHeld === false) {
       return { lead: 'did NOT happen', note: "the app's own verify contract did not hold afterwards" };
     }
     if (t.outcome === 'rejected') return { lead: 'did NOT happen', note: 'the app refused it' };

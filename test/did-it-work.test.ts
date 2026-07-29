@@ -19,9 +19,15 @@
  *   reported failure mode, reproduced inside the library.
  * - 'the pointer rides ONLY the pending arm' — emit howToSettle unconditionally
  *   and the tour fire (already at rest) sends the model to poll for nothing.
- * - 'no boolean verified when the write was never observed' — emit `verified`
- *   for the 'unobservable' case and a model reading it gets a verified write
- *   nobody ever saw.
+ * - 'no boolean writesObserved when the write was never observed' — emit
+ *   `writesObserved` for the 'unobservable' case and a model reading it gets an
+ *   observed write nobody ever saw.
+ * - 'the three axes never share a name' — call the state axis's boolean form
+ *   `verified` again and it collides with the settlement's verify-contract
+ *   verdict: the payload prints `verified: true` beside an error saying the
+ *   app's own check answered no.
+ * - 'the contract axis crosses the wire' — drop `verifyHeld` and the remote
+ *   agent this tool exists for is left inferring it from error prose.
  * - 'names the live fire even when it declared no writes' — drop
  *   awaitingSettlement from the refusal and the wire says "nothing is live"
  *   about an action that is at that moment running.
@@ -66,8 +72,12 @@ function wiredPort(handlers?: Record<string, (input?: unknown) => unknown>) {
 }
 
 /** Fire through the wire and hand back the id the model would hold. */
-function fireThroughWire(port: SkillToolsPort, action: string): { result: ServeResult; id: string } {
-  const result = port.call('shop.do_action', { action });
+function fireThroughWire(
+  port: SkillToolsPort,
+  action: string,
+  graphId = 'shop',
+): { result: ServeResult; id: string } {
+  const result = port.call(`${graphId}.do_action`, { action });
   expect(result['ok']).toBe(true);
   return { result, id: result['transitionId'] as string };
 }
@@ -145,7 +155,7 @@ describe('did_it_work — still running, then settled', () => {
       effectStatus: 'performed', // the INVOCATION axis
       outcome: 'committed',
       effectVerified: true, // the STATE axis
-      verified: true,
+      writesObserved: true, // …and its boolean form, named for that axis
       data: [{ id: 'd6', name: 'Scarlet Cocktail Dress' }],
       youAreOn: 'catalog',
     });
@@ -178,7 +188,7 @@ describe('did_it_work — still running, then settled', () => {
     expect(poll['data']).toBeUndefined(); // a refusal is never planner-visible data
   });
 
-  it('no boolean `verified` when the declared write was never observed', () => {
+  it('no boolean `writesObserved` when the declared write was never observed', () => {
     // A tour session: nothing is bound, so nothing ran and nothing reported.
     const session = shopMap().createSession({
       node: 'catalog',
@@ -195,7 +205,92 @@ describe('did_it_work — still running, then settled', () => {
     const poll = port.call('shop.did_it_work', { transitionId: id });
     expect(poll).toMatchObject({ settled: true, effectStatus: 'unobservable' });
     expect(poll['effectVerified']).toBe('unobservable'); // the honest word survives
-    expect(poll).not.toHaveProperty('verified'); // …and nothing truthy stands in for it
+    expect(poll).not.toHaveProperty('writesObserved'); // …and nothing truthy stands in for it
+    expect(poll).not.toHaveProperty('verified'); // the ambiguous name is gone from the wire
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Three axes, three names — the collision, and the axis that never crossed
+// ---------------------------------------------------------------------------
+
+/** A wizard whose 'pick' both DECLARES a write and declares its own check. */
+function wizardPort(): { session: ReturnType<NavigationGraph['createSession']>; port: SkillToolsPort } {
+  const map = buildNavigationGraph('setup', {
+    pages: {
+      wizard: {
+        tools: {
+          pick: { does: 'Pick the recipe', writes: ['recipe'], verify: { chosen: { eq: true } } },
+        },
+      },
+    },
+  });
+  const session = map.createSession({
+    node: 'wizard',
+    state: { recipe: '', chosen: false },
+    onWarn: () => undefined,
+  });
+  session.registerToolGroup('wizard', { handlers: { pick: () => undefined } });
+  return { session, port: skillsAsTools(session) };
+}
+
+describe('did_it_work — three axes, three names', () => {
+  it('the app’s own check crosses the wire, and never wears the state axis’s name', async () => {
+    // THE COLLISION, reproduced: the declared write DID land (the state axis
+    // says true) while the app's own condition did NOT hold (the contract axis
+    // says false). Under one shared name `verified` the payload printed TRUE
+    // beside an error sentence saying verification failed — in the exact
+    // scenario the verify contract was built for.
+    const { session, port } = wizardPort();
+    const { id } = fireThroughWire(port, 'pick', 'setup');
+    session.updateState({ recipe: 'r1' }); // the app reports the declared write
+    await flush();
+
+    const poll = port.call('setup.did_it_work', { transitionId: id });
+    expect(poll).toMatchObject({
+      settled: true,
+      effectStatus: 'refused', // the INVOCATION axis: the contract refused it
+      effectVerified: true, // the STATE axis: the declared key really appeared
+      writesObserved: true, // …its boolean form, saying WHICH axis it answers
+      verifyHeld: false, // the CONTRACT axis: the app itself answered no
+    });
+    expect(poll).not.toHaveProperty('verified'); // no name means two questions
+    expect(String(poll['error'])).toContain('answered no');
+
+    // The wire and the in-process settlement now agree, field for field — the
+    // same word, the same value, whichever door a caller came through.
+    const inProcess = await session.settlementOf(id);
+    expect(inProcess.verifyHeld).toBe(false);
+    expect(poll['verifyHeld']).toBe(inProcess.verifyHeld);
+  });
+
+  it('an unevaluable check crosses as the WORD, never as a boolean', async () => {
+    // The honesty law on the wire: a check that could not be run is not a pass
+    // and not a failure, and the string says so where a boolean could not.
+    const map = buildNavigationGraph('setup', {
+      pages: {
+        wizard: { tools: { pick: { does: 'Pick', writes: ['recipe'], verify: { absent: { eq: 1 } } } } },
+      },
+    });
+    const session = map.createSession({ node: 'wizard', state: { recipe: '' }, onWarn: () => undefined });
+    session.registerToolGroup('wizard', { handlers: { pick: () => undefined } });
+    const port = skillsAsTools(session);
+    const { id } = fireThroughWire(port, 'pick', 'setup');
+    session.updateState({ recipe: 'r1' });
+    await flush();
+
+    expect(port.call('setup.did_it_work', { transitionId: id })).toMatchObject({
+      effectStatus: 'performed',
+      verifyHeld: 'unevaluable',
+    });
+  });
+
+  it('silence when no contract was declared — never a passing grade', async () => {
+    const { session, port } = wiredPort();
+    const { id } = fireThroughWire(port, 'add-to-cart');
+    session.updateState({ cart: ['d6'] });
+    await flush();
+    expect(port.call('shop.did_it_work', { transitionId: id })).not.toHaveProperty('verifyHeld');
   });
 });
 

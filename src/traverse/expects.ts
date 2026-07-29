@@ -98,9 +98,23 @@ function render(schema: unknown): unknown {
   return OPAQUE_VALIDATOR;
 }
 
-/** Freeze an object and every plain nested object/array (the compiled-spec discipline). */
-function deepFreeze<T>(value: T): T {
+/**
+ * Freeze an object and every plain nested object/array (the compiled-spec
+ * discipline).
+ *
+ * CYCLE-GUARDED, because the input is the AUTHOR's schema and a JSON Schema is
+ * routinely self-referential — a tree node whose `properties.child` is the node
+ * itself is the ordinary way to say "a tree". `structuredClone` above preserves
+ * that cycle faithfully, so an unguarded walk blew the stack with a RangeError
+ * on a schema the compiler had just accepted, and it did so inside `available()`
+ * — the hot path every refused fire calls for its gap row. The `seen` set is
+ * carried rather than inferred from `Object.isFrozen`: a caller may hand in a
+ * shallow-frozen object whose children still need the walk.
+ */
+function deepFreeze<T>(value: T, seen: WeakSet<object> = new WeakSet()): T {
   if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) deepFreeze(child);
+  if (seen.has(value)) return value; // already on this walk — the cycle stops here
+  seen.add(value);
+  for (const child of Object.values(value)) deepFreeze(child, seen);
   return Object.freeze(value);
 }

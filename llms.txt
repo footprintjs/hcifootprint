@@ -68,7 +68,7 @@ Authoring vocabulary (all optional except where noted):
     `(state) => boolean` handed a DETACHED snapshot (its closure may read the app's own DOM). If it
     does not hold, the settlement is `effectStatus: 'refused'` — an existing word — instead of the
     'performed' a handler earns merely by returning. What it cannot evaluate (an unknown key, a
-    predicate that threw) is `verified: 'unevaluable'`, never a refusal.
+    predicate that threw) is `verifyHeld: 'unevaluable'`, never a refusal.
   - `goTo` — page id this tool claims to navigate to.
   - `confirm` — high-effect gate: requires explicit confirmation before firing.
   - `input` — payload contract (Zod, JSON Schema, any `.safeParse`/`.parse` validator) — or the
@@ -369,12 +369,16 @@ truth AT RETURN TIME; for anything the app still has to do it is `'pending'` (no
 the result names the door out in `howToSettle`. Call `shop.did_it_work` with that `transitionId`. It is a
 POLL, so it answers immediately, one of three ways:
 
-- settled — `{ ok: true, settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified, verified?,
-  toNode?, error?, data? }`. `effectStatus` = did anyone perform it; `effectVerified` = were the declared
-  writes observed. `'refused'` covers FOUR routes, one word: the handler threw, it returned a failure,
-  the app called `reject()`, or the action's declared `verify` contract found nothing happened — and in
-  that last case `error` carries the contract's own sentence. `verified` is the boolean form and is ABSENT when the answer is not knowable (the string
-  `'unobservable'` would read as truthy). A settlement is a RECEIPT and first settlement wins, so the record
+- settled — `{ ok: true, settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
+  writesObserved?, verifyHeld?, toNode?, error?, data? }`. THREE axes, none averaged into another:
+  `effectStatus` = did anyone perform it; `effectVerified` = were the declared writes observed;
+  `verifyHeld` = did the app's OWN declared `verify` condition hold (absent when no contract was
+  declared — silence, never a passing grade). `'refused'` covers FOUR routes, one word: the handler
+  threw, it returned a failure, the app called `reject()`, or the `verify` contract found nothing
+  happened — and in that last case `error` carries the contract's own sentence. `writesObserved` is
+  the boolean form of `effectVerified` (named for its axis so it can never be read as the contract's
+  verdict) and is ABSENT when the answer is not knowable (the string `'unobservable'` would read as
+  truthy). A settlement is a RECEIPT and first settlement wins, so the record
   can move afterwards (a server rejecting an already-reported order flips it to `'rolled-back'`); when the
   live record no longer agrees, `outcomeNow` rides ALONGSIDE `outcome` — never over it — with `howToAct`
   saying to check `whats_here` before acting on the receipt.
@@ -439,7 +443,7 @@ nothing registered), `presence: 'unknown'` (ambiguous mounted tabs), `materializ
 (declared but no handler wired — on a served edge, and on a fire result together with
 `executed: false` when the fire itself ran nothing), `toNodeClaimed: true` (the cursor moved on a
 declared `goTo` claim, unconfirmed), `effectVerified: 'unobservable'` (no report to check against),
-`verified: 'unevaluable'` (a declared `verify` contract could not be run — an unknown state key, or a
+`verifyHeld: 'unevaluable'` (a declared `verify` contract could not be run — an unknown state key, or a
 predicate that threw; never read as a refusal), `enumeration: 'mounted-window'` (instance list is
 partial). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.

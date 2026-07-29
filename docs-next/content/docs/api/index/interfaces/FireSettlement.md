@@ -49,7 +49,7 @@ The record's outcome at the moment it came to rest.
 
 > `optional` **produced?**: `unknown`
 
-Defined in: [src/atom/types.ts:667](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L667)
+Defined in: [src/atom/types.ts:676](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L676)
 
 The handler's return value, sanitized (parity with `Session.producedFor()`).
 
@@ -65,11 +65,11 @@ A snapshot — never the live record, which may keep moving afterwards.
 
 ***
 
-### verified?
+### verifyHeld?
 
-> `optional` **verified?**: `boolean` \| `"unevaluable"`
+> `optional` **verifyHeld?**: `boolean` \| `"unevaluable"`
 
-Defined in: [src/atom/types.ts:665](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L665)
+Defined in: [src/atom/types.ts:674](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L674)
 
 What the action's declared [VerifyContract](/api/index/type-aliases/VerifyContract) said, once the fire came
 to rest: `true` it held, `false` it did not (and this settlement is
@@ -81,3 +81,12 @@ A THIRD axis, and deliberately not folded into either of the other two:
 `effectStatus` asks whether anyone performed it, `transition.effectVerified`
 asks whether the declared write KEYS appeared, and this asks whether the
 app's own condition holds. All three can disagree honestly.
+
+NAMED FOR THE DECLARATION THAT PRODUCED IT, not for the bare word
+"verified" — which is the ambiguity that let two of these three axes share
+one name on the wire and print opposite values in a single payload
+(`verified: true` beside "the app was asked whether this happened, and
+answered no"). A status a reader can attribute to the wrong question is a
+status this library treats as unreported, so no axis here is called
+`verified` alone: this one says which contract held, and the state axis
+crosses the wire as `writesObserved`.
