@@ -1,0 +1,95 @@
+---
+title: Graph sources & the merge order
+description: fromRoutes, fromJourneys and fromLiveStore turn the descriptions your app already owns into graph input — under one documented merge order, so nobody re-types anything.
+---
+
+An app already owns descriptions of itself: a **route table** its router navigates by, a set
+of **journeys** its team designs, often a **live store** of the actions currently on screen.
+Until sources existed, each had to be re-typed by hand into the graph definition — glue that
+drifts the moment either side edits. With sources, the graph **reads the owner's truth
+instead of copying it**.
+
+```ts twoslash
+import { buildNavigationGraph, fromRoutes, fromJourneys } from 'hcifootprint';
+
+const graph = buildNavigationGraph('onboarding', {
+  sources: [
+    fromRoutes({
+      welcome: '/',
+      account: { route: '/account', does: 'Create your account' },
+      confirm: '/confirm',
+    }),
+    fromJourneys({
+      signup: { does: 'Finish signing up', steps: ['create-account'] },
+    }),
+  ],
+  // hand-authored still works — what the route table cannot know: which actions live where
+  pages: {
+    account: { tools: { 'create-account': { does: 'Create the account' } } },
+  },
+});
+```
+
+## The merge order
+
+One sentence, printed here verbatim and enforced in code:
+
+> **Pages first (routes then hand-authored, hand-authored wins), journeys overlay second and
+> may only add, live actions attach last and only bind — nothing later in the order may
+> remove anything earlier.**
+
+The order is deterministic, and it is the reason a traveler can trust the floor under their
+feet: nothing that arrives later — a journey, a live store emission — can remove or hide a
+page action laid down earlier. That structural guarantee is one third of the
+[never-trap invariant](doc:actuation#the-never-trap-invariant).
+
+The refinements, each deliberate:
+
+- **Hand-authored wins per page id, with one courtesy** — a hand-authored page missing
+  `route` inherits the source's route (that IS the use case: the table owns the address, your
+  hand owns the actions). The same page declaring two DIFFERENT routes refuses loudly — two
+  names for one URL is drift made visible. Route equality is judged by the matcher's own
+  segment reading, never string bytes.
+- **A hand-authored skill wins over a same-id journey silently** — deterministic and
+  documented.
+- **Two sources of the SAME kind colliding on an id refuse loudly** — ambiguous authorship.
+- **A known kind with an unreadable payload fails closed** in the library's own voice.
+
+A definition without `sources` takes the identity path and compiles bit-for-bit as before —
+sources are additive by construction.
+
+## `fromRoutes` — pages are the spine
+
+Your route table becomes page nodes. Page names are **explicit** — the table's keys. This
+library does not guess a name from `/orders/:id`; the one refusal direction that is always
+safe is asking the author for the name.
+
+A route contributes a **page, never an action** — the spine is places, not gestures. Reaching
+a seeded page is the [url gesture](doc:actuation) derived from its route; pages seeded here
+are found again by `matchRoute` for the URLs their routes describe, because both sides share
+one segment law. And they join the same **typed node path union**:
+`registerToolGroup('account')` compiles when `account` came from `fromRoutes`, and a typo is
+still a compile error.
+
+## `fromJourneys` — skills overlay, and may only add
+
+A journey becomes a skill, in `SkillDef2`'s own vocabulary — `does` / `steps` / `when` — one
+authoring vocabulary, not a second dialect. Journeys compile through the existing skills
+pass, so an unknown or ambiguous step dies at build time in the builder's existing voice.
+Structurally, the output is skills-only: a journey **cannot** remove or hide a page action —
+overlay-may-only-add is not policed, it is impossible.
+
+## `fromLiveStore` — live actions attach last, and only bind
+
+The third source is a **runtime** source: the app's live action store — the smallest
+respectable contract, `subscribe` + `actions()`, the shape React itself blesses — drives the
+existing declare-then-bind wire per session. It contributes nothing at build; `createSession`
+attaches it, and it can only *bind*. The full story, including its error stance and the
+reconcile rules, is on [Live bindings](doc:live-bindings).
+
+## Leaf modules — the tree-shaking story
+
+Each source factory is its own leaf module: importing `fromRoutes` never drags `fromLiveStore`,
+the session machinery, or footprintjs into your bundle — `fromLiveStore` has **zero** value
+imports. The repo's own test suite bundles the shipped `dist/` and pins the numbers. See
+[Tree-shaking](doc:tree-shaking).

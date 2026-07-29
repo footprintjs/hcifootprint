@@ -1,0 +1,55 @@
+---
+title: Tree-shaking & packaging
+description: True-ESM, sideEffects false, leaf modules — importing one helper ships half a kilobyte, and the repo's own test suite bundles the shipped dist to keep it that way.
+---
+
+hcifootprint ships **true ESM only** (`"type": "module"`, no CJS build), built by plain `tsc`
+with no bundler — `dist/` mirrors `src/` one to one. Four entry points, each a real
+dependency boundary:
+
+| import | contents | extra deps |
+|---|---|---|
+| `hcifootprint` | the whole authoring + session + serving surface | none (zero-dependency core over footprintjs) |
+| `hcifootprint/mcp` | `mcpServer` | `@modelcontextprotocol/sdk` (optional peer) |
+| `hcifootprint/testing` | the drift harness (`testApp`, `lintGraph`, …) | none |
+| `hcifootprint/testing/lint` | static graph lint only — loads no engine code | none |
+
+## The load-bearing flag
+
+`"sideEffects": false` is in package.json, and it is **load-bearing, not decorative**: every
+module is import-time pure, which licenses a bundler to drop everything a barrel re-exports
+but your code never touches. Measured on the shipped package: importing `matchRoute` alone
+bundles to **510 B** with the flag honored versus **11,337 B** with annotations ignored —
+esbuild's own purity analysis cannot drop the re-export graph without it.
+
+The corollary is a rule for every future module: stay import-time pure (no module-scope
+registration, no top-level calls beyond literal containers), or the flag becomes a lie and
+bundlers silently drop a needed side effect.
+
+## Leaf modules — measured, then pinned
+
+The [graph sources](doc:graph-sources) are leaf modules by construction: `fromRoutes` and
+`fromJourneys` value-import only the shared authoring guards; `fromLiveStore` has **zero**
+value imports (it drives the session instance it is handed through a type-only port). The
+compiler at the merge point consumes sources structurally and never value-imports the
+factories — so a bundler includes only the sources you actually called.
+
+This is not an aspiration; it is a **pinned test** (`test/treeshake.test.ts`) that bundles
+the shipped `dist/` exactly the way a consumer's bundler would, and fails on any leak:
+
+- the source trio (`fromRoutes` + `fromJourneys` + `fromLiveStore`) bundled to **2,342 B**
+  on the day the ceilings were pinned (gate: ≤ 15 KB, and nothing outside `dist/index.js` +
+  `dist/graph/**` may contribute a byte);
+- `matchRoute` alone: **510 B** (gate: ≤ 1 KB);
+- forbidden in either bundle, by name: `dist/traverse/`, `dist/tree/`, `dist/serve/`,
+  `dist/presence/`, `dist/registry/`, and `node_modules/footprintjs`.
+
+For scale: a consumer of `buildNavigationGraph` — the full session machinery — pays roughly
+85 KB minified (≈ 26 KB gzip) under esbuild. The point of the leaf geometry is that a
+static-graph consumer, or an app that only wants `matchRoute`, never pays it.
+
+## What CI enforces
+
+`publint` and `@arethetypeswrong/cli --profile esm-only` gate every push (the package
+resolves cleanly, types match the ESM-only design), and the tree-shake suite runs inside
+`npm test` — a leaf gaining a value dependency fails the build before it ships.

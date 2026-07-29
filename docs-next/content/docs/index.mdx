@@ -1,0 +1,47 @@
+---
+title: What is hcifootprint?
+description: Turn a web app's interaction surface into a typed, traversable skill graph an LLM agent can plan over and act on — as the signed-in user, through the app's own buttons and handlers.
+---
+
+For decades we designed the interaction between a **human** and a **computer** — that's HCI.
+Now the human isn't alone: an **agent** joins their side, acting for them. Human **and**
+agent, working the computer as a team — that's **HACI**, and this library is the layer for it.
+
+An agent can already reach your app; the problem is *how* it operates one. Screenshots are
+slow and redone every turn, a DOM dump costs ~100k tokens and still guesses, and hard-coded
+selectors break on the next redesign. A returning human carries a mental model — where things
+are, what leads where, what they're allowed to do. Your app holds that same map. hcifootprint
+hands it to the agent as a typed **skill graph** the agent *traverses*, with a you-are-here
+pin so it only ever sees what is actually doable right now.
+
+The key idea, and the reason it's safe to adopt: **you are not opening your backend to an
+agent — you are letting it drive the frontend a human already can.** Auth and permissions are
+unchanged; the agent acts as the signed-in user, through your app's own handlers, and inherits
+exactly the capability envelope that user already has.
+
+## Where to go
+
+- **New here?** [Quick start](doc:quick-start) — author, connect, serve, in three steps that
+  run offline.
+- **Wiring an app?** [The navigation graph](doc:navigation-graph), then
+  [grow it from what your app already has](doc:graph-sources) — a route table, a journey
+  list, a live action store.
+- **Serving a model?** [Skills as tools](doc:modes) and [the MCP server](doc:mcp).
+- **Shipping?** [The drift harness](doc:testing) keeps the graph and the app agreeing in CI.
+- **API surface:** the [API Reference](/api) tab is generated from source on every build —
+  it cannot go stale.
+
+## Honest by construction
+
+Everything the runtime *derives* rather than *observes* is flagged — `guardUnevaluated`,
+`activation: 'assumed'`, `toNodeClaimed: true` — and every refused action returns a typed
+reason instead of a success-shaped no-op. That honesty calculus runs through every page of
+these docs; where a result is a claim, the docs say so.
+
+## Also on this site
+
+- The [story-deck home](https://footprintjs.github.io/hcifootprint/) — the pitch in three lenses.
+- [/llms.txt](/llms.txt) and [/llms-full.txt](/llms-full.txt) — this documentation as
+  machine-readable Markdown, generated from the same source so it can't drift. (The repo-root
+  [`llms.txt`](https://github.com/footprintjs/hcifootprint/blob/main/llms.txt) remains the
+  hand-curated agent front door.)

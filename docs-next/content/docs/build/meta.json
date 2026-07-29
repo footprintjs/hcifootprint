@@ -1,0 +1,13 @@
+{
+  "title": "Build",
+  "icon": "Hammer",
+  "pages": [
+    "navigation-graph",
+    "graph-sources",
+    "actuation",
+    "guards",
+    "skills",
+    "presence",
+    "live-bindings"
+  ]
+}

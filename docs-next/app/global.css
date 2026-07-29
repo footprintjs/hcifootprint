@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-twoslash/twoslash.css';
+
+/* Tailwind 4 needs to scan fumadocs-ui's compiled classes */
+@source '../node_modules/fumadocs-ui/dist/**/*.js';
+
+/* ============================================================
+   hcifootprint identity — the README's gold badge accent on a
+   clean neutral site. Gold is an ACCENT (active states, links),
+   never low-contrast yellow body text.
+   ============================================================ */
+:root {
+  /* readable brand gold on light (pure yellow text fails contrast on white) */
+  --color-fd-primary: #a67c00;
+}
+.dark {
+  /* the true badge gold reads fine on dark */
+  --color-fd-primary: #f5b301;
+}
+
+/* Wordmark: "haci" muted + "footprint" bold, flush — reads as one word. */
+.hf-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.hf-wordmark .lo {
+  color: var(--color-fd-muted-foreground);
+  font-weight: 500;
+}
+.hf-wordmark .hi {
+  color: var(--color-fd-foreground);
+}

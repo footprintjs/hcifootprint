@@ -1,0 +1,68 @@
+---
+title: The drift harness
+description: hcifootprint/testing catches graph↔app drift in dev and CI — static lint over the graph alone, and a browserless driver for your interaction logic.
+---
+
+The navigation graph is a **second artifact** you keep alongside the real app, so it
+**drifts** as the app changes: a button's disable rule moves, a page is removed, a handler
+starts writing different state. `hcifootprint/testing` catches that drift in dev and CI,
+before production. It adds zero dependencies, is tree-shakeable, and drives the **real
+session** (never a copy), in two layers.
+
+## 1. `lintGraph` / `checkGraph` — static, no test code
+
+Read the graph alone and report stale logic: a control gated on state nothing produces, a
+guard that can never be true, a skill that can never finish, a page nothing can reach. This
+is the cheap CI gate. It's **advisory by default** and only escalates to hard errors once you
+tell it the starting state — it never cries "dead" over a key it can't see.
+
+```ts
+import { lintGraph, checkGraph, expectNoStaleLogic } from 'hcifootprint/testing';
+
+lintGraph(graph);                            // → findings you can inspect
+expectNoStaleLogic(graph, { initialState }); // → throws in CI if the graph drifted
+
+// Or the one-call health verdict — findings grouped by drift type + a printable report:
+const health = checkGraph(graph, { initialState });
+if (!health.ok) { console.error(health.summary); process.exit(1); }
+```
+
+`checkGraph` is static and pure — import it from `hcifootprint/testing/lint` for a CI step
+that loads **no engine code at all** (see [Tree-shaking](doc:tree-shaking)).
+
+## 2. `testApp` — Playwright for your interaction logic, minus the browser
+
+Write mock handlers (one per action, returning a state change), then drive the graph as a
+**user** (clicking) or as the **agent** (the real Mode B tool path). The library's own
+honesty marker, `effectVerified`, flips false when a handler no longer does what the graph
+declares — that IS the behavioral-drift alarm. Report by default; pass `strict: true` to fail
+the instant drift appears.
+
+```ts
+import { testApp } from 'hcifootprint/testing';
+
+const app = testApp(graph, {
+  initialState: { cartCount: 0 },
+  resolvers: { 'add-to-cart': (_p, { state }) => ({ patch: { cartCount: state.cartCount + 1 } }) },
+});
+
+await app.user.fire('add-to-cart');                        // drive like a human
+app.expectState({ cartCount: 1 });
+await app.agent.skill('purchase', { step: 'go-to-cart' }); // drive like the LLM
+app.expectOn('cart');
+app.report();                                              // { ok, effectDrift, unevaluatedGuards, gaps }
+```
+
+## The honest boundary
+
+This tests interaction **logic** above the binding — guards, skills, navigation, effect
+claims, typed rejections. It does **not** verify pixels, the DOM, or that a binding resolves
+to a real element — that stays Playwright's job, and this complements it rather than
+replacing it. A green `lintGraph` proves the graph is internally consistent, **not** that the
+app works: it reasons about which state *keys* move, never their values, so a
+right-key/wrong-value bug is the harness's job (`effectVerified`), not the linter's. And a
+mock is a simulation — if it diverges from the real handler, the test is green while prod is
+broken. For full fidelity, pass `testApp({ session })` with your own wired session.
+
+Both entry points are documented in the [API Reference](/api) — the generator reads all four
+public entries, subpaths included.

@@ -1,0 +1,10 @@
+{
+  "title": "Reference",
+  "icon": "BookText",
+  "pages": [
+    "tree-shaking",
+    "testing",
+    "design-lineage",
+    "[API Reference](/api)"
+  ]
+}

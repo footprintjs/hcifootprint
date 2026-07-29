@@ -34,3 +34,62 @@ jobs:
       # checks in attw's default "strict" profile don't apply here and
       # would flag the ESM-only design as an error.
       - run: npx @arethetypeswrong/cli --pack --profile esm-only
+
+  # Docs build gate — builds the nested Fumadocs app (docs-next/). Two anti-drift
+  # layers ride this job:
+  #   • check:api — regenerates the committed API reference from source and
+  #     `git diff --exit-code`s it, so a changed export can never leave a stale
+  #     committed page. (Wired here FOR REAL — the generator's freshness contract
+  #     is this job, not a comment.)
+  #   • the Next build twoslash-compiles every ```ts twoslash guide snippet
+  #     against the BUILT library types, so a renamed API fails CI, not the reader.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      # Root deps carry typedoc for the API generator; `prepare` builds dist/,
+      # but the explicit build below is the load-bearing step (twoslash and the
+      # file:.. dep resolve the library's types from dist/) — never silently
+      # rely on an install hook for it.
+      - run: npm ci
+      - run: npm run build
+
+      - name: Install docs-next deps
+        working-directory: docs-next
+        run: npm ci
+
+      - name: Generated API reference is fresh
+        working-directory: docs-next
+        run: npm run check:api
+
+      - name: Build docs-next (twoslash-gates every code block)
+        working-directory: docs-next
+        run: npm run build
+
+  # Doc-links gate — every internal cross-reference in docs-next must resolve.
+  # Hand-written guides link by stable id (doc:<id>, resolved at build by
+  # docs-next/lib/remark-doc-links.mjs); this re-derives the id->route index
+  # from the filesystem and fails on any dead id, dead path, or stale #anchor —
+  # including the README's absolute links into the live site (the front-door
+  # gate). The same check runs inside `npm test` (test/docs/); this job is the
+  # fast, dependency-light mirror.
+  docs-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      # --ignore-scripts: the checker needs only github-slugger from the root
+      # devDependencies — skip the prepare build.
+      - run: npm ci --ignore-scripts
+      - run: node scripts/check-doc-links.mjs --strict

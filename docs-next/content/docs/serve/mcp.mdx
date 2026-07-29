@@ -1,0 +1,38 @@
+---
+title: The MCP server
+description: mcpServer(session) returns a standard @modelcontextprotocol/sdk Server — you pick the transport, and the SDK stays an optional peer imported only behind hcifootprint/mcp.
+---
+
+hcifootprint is not tied to any agent framework — [`tools()` + `call()`](doc:modes) bind to
+LangGraph, LangChain, or a raw Anthropic/OpenAI loop. To expose the same session as a **real
+MCP server** any client auto-discovers, there's a one-liner:
+
+```ts
+import { mcpServer } from 'hcifootprint/mcp';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const server = mcpServer(session);                 // tools/list + tools/call, wired to the session
+await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTTP transport
+```
+
+`mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the
+transport** and run it wherever your session lives.
+
+## The subpath is the dependency boundary
+
+The SDK is an **optional peer dependency**, imported only behind the `hcifootprint/mcp`
+subpath — the main entry never touches it, so the core stays zero-dependency and you pull the
+SDK in only if you use it. (The same pattern bounds `hcifootprint/testing` and
+`hcifootprint/testing/lint` — see [Tree-shaking](doc:tree-shaking).) All four entry points
+are documented in the [API Reference](/api).
+
+## Human-in-the-loop, portably
+
+Over MCP, a high-effect step returns `judgment: 'needs-confirm'` — with
+[receipts](doc:receipts) — and the host decides how to collect the approval before calling
+again with `confirm: true`. A portable human-in-the-loop that needs no framework-specific
+pause/resume: the gate is enforced at the session, so an agent can't fire a high-effect
+action without a real approval, whatever the host does.
+
+This cooperates with MCP rather than competing with it: the skill graph *is* the server, and
+any MCP host drives the same live session the human is clicking in.

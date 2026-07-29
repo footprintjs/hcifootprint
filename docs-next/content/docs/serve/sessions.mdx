@@ -1,0 +1,112 @@
+---
+title: Sessions & fire()
+description: fire() is synchronous and honest — effectStatus says what is known at return time, whenSettled resolves once with the final truth, and a declared input contract is advertised and enforced.
+---
+
+`graph.createSession(opts?)` returns an `InteractionSession`. Three calls report reality into
+it — `fire()` (an action), `updateState()` (a store tap), `sync()` (the router) — and every
+settled transition lands in a real [footprintjs](https://github.com/footprintjs/footPrint)
+commit log, which is why `session.why(key)` answers *"why is the app in this state?"* as a
+causal slice, not a guess.
+
+## fire() — two answers, because there are two truths
+
+`fire()` is synchronous, but the handler it invokes is always deferred. So the result carries
+**two** answers instead of averaging them:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', {
+  pages: { catalog: { tools: { 'add-to-cart': { does: 'Add to cart', writes: ['cartCount'] } } } },
+});
+const session = graph.createSession({ state: { cartCount: 0 } });
+session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => ({ added: true }) } });
+// ---cut---
+const fired = session.fire('catalog.add-to-cart', { source: 'user' });
+if (fired.ok) {
+  fired.effectStatus; // 'pending' | 'unobservable' — what is known AT RETURN TIME
+  void fired.whenSettled.then((settlement) => {
+    settlement.effectStatus; // 'performed' | 'refused' — the final truth, delivered once
+  });
+}
+```
+
+- **`effectStatus`** is the INVOCATION axis, read at return time. It is structurally never
+  `'performed'` there (the handler is always deferred): `'pending'` when something will run,
+  `'unobservable'` when nothing is bound.
+- **`whenSettled`** resolves ONCE with the final truth (`FireSettlement`: status, outcome, a
+  transition snapshot, error/produced) and NEVER rejects — fire-and-forget is the dominant
+  call pattern, and refusals arrive as data (`effectStatus: 'refused'`). A fire the app never
+  reports on stays unresolved — the honest mirror of pending.
+- A handler that reports failure by **returning `{ok: false}`** takes the throw's path: the
+  outcome flips to rejected/rolled-back, a claimed navigation walks home, and the failure
+  becomes the settlement's reason. The test is deliberately narrow (own property, strict
+  `=== false`), so a `fetch` Response stays data.
+
+`effectStatus` is deliberately separate from `effectVerified` (the STATE axis — were the
+declared writes observed?). They disagree honestly: a tapless handler completes
+`'performed'` with `effectVerified: 'unobservable'`. Both truths are carried; neither is
+averaged.
+
+## The settlement rule
+
+A step that declares `writes` does not settle synchronously when a state tap is wired —
+`fire()` returns `settlement: 'awaiting-state'` and the transition sits pending until the app
+reports the real delta via `updateState()`. Until then the fired step is excluded from
+`readySteps` (advertising it would tell the model to double-fire), and downstream steps that
+depend on its write are not ready yet.
+
+**Therefore an agent must re-read `whats_here` (or re-open the skill) after any write-step**
+— and **re-`sync()` after any claimed navigation**: a result carrying `toNodeClaimed: true`
+moved the cursor on the graph's declared `goTo` — a claim about your app, not an observation.
+Only `sync()` confirms it; a mismatch is reconciled and recorded instead of silently
+diverging.
+
+## The input contract — advertised, then enforced
+
+Every served action row carries **`expects`** — the declared input contract, visible BEFORE
+the fire, for JSON Schema, Zod and non-serializable validators alike. And a plain JSON Schema
+is now **enforced** at fire time (`checkPayloadShape`, default `true`) — before 0.4.0 only
+`.safeParse`/`.parse` validators ever ran, so a schema described the door while a guessed key
+sailed through it to arrive at the handler as `undefined`.
+
+The refusal **teaches**:
+`missing required 'value' — expected { value: string }, received { name: string }`.
+The rejection and the advertisement render the SAME shape string, so a
+planner correcting from either lands in the same place. Messages are built from key names and
+type names only — a payload **value** never enters a string bound for the model or the gap
+ledger.
+
+The checker is teachable, not complete: required keys, declared primitive types, closed
+objects, one level of nesting. What it cannot judge (`$ref`, `allOf`, `anyOf`, `oneOf`,
+`enum`, `format`, `pattern`) it declines to judge and passes — the same stance
+[`guardUnevaluated`](doc:guards) takes on an unevaluable key, because a wrong rejection
+blocks an action the app would have accepted and the caller has no appeal.
+`checkPayloadShape: false` restores the 0.3.0 pass-through byte for byte.
+
+## Typed rejections
+
+A refused `fire()` returns `{ ok: false, reason, ... }` — never a success-shaped no-op:
+`UNKNOWN_AFFORDANCE`, `STALE_CURSOR`, `NOT_ON_NODE`, `GUARD_FAILED` (with `evidence`),
+`PAYLOAD_INVALID` (with `issues`), `BLOCKED_BY_OVERLAY`, `NODE_NOT_VISIBLE`,
+`STILL_MOUNTING` (retriable), `INSTANCE_REQUIRED`, `INSTANCE_UNKNOWN`, `TOOL_DISABLED`
+(retriable), `NOT_MATERIALIZED` (declared but unbound — carries the declared `gesture`; see
+[Actuation](doc:actuation)). High-effect steps return `judgment: 'needs-confirm'` and never
+auto-cross — see [Receipts](doc:receipts).
+
+## The gap ledger
+
+Every refused fire (`kind: 'fire-rejected'`), every explicit `reportGap(...)`
+(`kind: 'reported'`), every allowed no-op tour fire (`kind: 'unmaterialized-fire'`), and
+every `ENTRY_NOT_MATERIALIZED` skill-commit refusal becomes a token-lean, name-only row —
+the ask, the position, what WAS available, and (for rejected/unmaterialized fires) the
+`gestureKind` that names WHICH wiring is missing. Cluster the rows and you have a
+demand-driven backlog:
+
+```ts
+session.gaps();                 // export the whole ledger to your analytics / triage
+session.onGap((row) => { /* stream rows live */ });
+```
+
+Rows are deliberately name-only — never descriptions, values or transcripts — so a batch
+triage LLM can cluster thousands of them cheaply.

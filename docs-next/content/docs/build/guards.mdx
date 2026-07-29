@@ -1,0 +1,48 @@
+---
+title: Guards
+description: A guard is a flat, serializable filter over your projected state — read this before writing a state projector.
+---
+
+A guard (`when:`) is a **flat** filter over your projected state — `key: { op: value }`,
+ANDed across keys. The operators are the ONLY eight: `eq, ne, gt, gte, lt, lte, in, notIn`
+(`in`/`notIn` take an array). There is **no `$or`, no nesting, no disjunction of any kind** —
+the filter is deliberately flat, so it stays serializable, explainable and diffable. An empty
+guard `{}` is rejected at build time.
+
+## The OR pattern — derive a boolean in your projector
+
+To express "A **or** B", compute the boolean in the state you report, then guard on that:
+
+```ts
+// "checkout is allowed when the cart has items OR a saved order exists"
+session.updateState({ canCheckout: cart.length > 0 || savedOrder != null });
+// then author:  when: { canCheckout: { eq: true } }
+```
+
+## Absent guard key ⇒ served, not hidden
+
+A guard key the projected state has **never contained** is not treated as false. The edge is
+served anyway, carrying a `guardUnevaluated` marker — the condition is flagged as taken on
+faith, with the app still the enforcer. A key that *is* present but fails its test hides the
+edge, as you'd expect.
+
+The reason: **absence of data must not masquerade as `false`.** That honesty is what lets one
+authored graph work before every key is wired — but it also means an under-seeded projector
+quietly turns real decisions into flagged guesses. (`undefined` is never stored: a report
+entry whose value is `undefined` is dropped, and a key somehow holding `undefined` is as
+unevaluable as an absent one — it rides `guardUnevaluated`, never sneaks past an operator.)
+
+## Seed every key — `requiredStateKeys()`
+
+```ts
+graph.requiredStateKeys(); // → sorted, deduped string[] of every guard key the graph reads
+```
+
+It covers all tool `when`s, container-node `when`s (they AND-compose into descendant tools),
+and skill preconditions — whether or not the node is currently mounted. Seed each of these
+keys in your state projector so guards decide instead of deferring. This is the one call that
+closes the guard-honesty loop.
+
+Container `when` AND-composes root→leaf into descendant tools; children can only narrow, and
+a contradictory ancestor/descendant pair dies at build time — see
+[The navigation graph](doc:navigation-graph).

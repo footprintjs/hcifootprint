@@ -1,0 +1,48 @@
+---
+title: Confirms & receipts
+description: A needs-confirm ask carries receipts — what will happen, why it's fireable, where the human is, and the recent trail — and both answers leave an auditable record.
+---
+
+High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate and are
+**never auto-crossed**. The agent must ask the human, then call again with `confirm: true`.
+
+## The ask carries receipts
+
+An empty "are you sure?" makes a human rubber-stamp. So the `needs-confirm` result carries a
+**`receipts`** object, assembled from what the session already knows — no new work, nothing
+for you to wire:
+
+```jsonc
+{ "judgment": "needs-confirm", "step": "checkout.place-order", "askId": "ask#1",
+  "receipts": {
+    "willDo":   { "does": "Place the order", "writes": ["orders"] },   // what happens (a claim, honesty-tagged)
+    "because":  [{ "key": "cartCount", "op": "gt", "actual": 2, "result": true }],  // the guard evidence
+    "youAreOn": "checkout", "version": 7,                              // where the human is
+    "recentSteps": [{ "what": "catalog.add-to-cart", "principal": "agent", "outcome": "committed" }]
+  },
+  "howToAct": "Show the human what this will do (see receipts)…" }
+```
+
+`because` is **structural guard evidence**, not a guessed rationale — the session *knows* why
+the edge is fireable, because [the guard](doc:guards) just evaluated. `willDo` is the
+authored claim (`does` + declared `writes`), honesty-tagged like every claim in the library.
+
+## Decisions leave a record
+
+- **Approve** → call again with `confirm: true`; the fire lands and its transition carries
+  `askId` back to the receipts the human saw.
+- **Decline** → call with `decline: true` (Mode B) or `session.declineConfirm(id)`; the
+  refusal is recorded instead of the ask dangling forever.
+
+`session.confirms()` returns the **ask → decision → fire** chain; `session.onConfirm(fn)`
+streams rows to your audit sink live. This journal is deliberately SEPARATE from the
+[gap ledger](doc:sessions#the-gap-ledger): a gated action is consented capability, not unmet
+demand.
+
+## Two ways to run the approval
+
+- **Over MCP** — the gate is just data in the result, and the host collects the yes.
+  Portable, framework-free. See [The MCP server](doc:mcp).
+- **In-process** — pause the agent's ReAct loop on a checkpoint, hand control to the human,
+  resume exactly where it stopped. The [dress-shop demo](doc:demos) implements this with
+  agentfootprint's pause/resume checkpointing.

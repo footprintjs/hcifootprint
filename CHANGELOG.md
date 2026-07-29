@@ -130,6 +130,26 @@ modules, so importing one never drags session machinery into a bundle.
   attach leaks nothing. (`LiveSource.attach` gains an optional second `warn`
   parameter; one-parameter implementations still satisfy the shape.)
 
+### Added (the docs site)
+- A documentation site at `https://footprintjs.github.io/hcifootprint/docs/` —
+  a nested Fumadocs app (`docs-next/`) assembled UNDER the storydeck home into
+  the one Pages artifact (the home's bytes are untouched; the deploy only ADDS
+  `docs/`). Guides cover the graph, sources + the merge order, actuation and
+  the never-trap invariant, guards, skills, presence, live bindings, serving
+  (Mode B, MCP, receipts), the 0.4.0 fire() honesty wave
+  (`effectStatus`/`whenSettled`/input contracts), the tree-shaking story with
+  the pinned probe numbers, and the demos.
+- Anti-drift, wired as gates rather than promised: the API reference is
+  GENERATED from all four public entry points (`.`, `./mcp`, `./testing`,
+  `./testing/lint`) on every build and freshness-checked in CI
+  (`check:api` — regen + `git diff --exit-code`); guide snippets are
+  twoslash-compiled against the built library types; every internal link and
+  the README's absolute site links are checked by
+  `scripts/check-doc-links.mjs --strict` in CI AND inside `npm test`
+  (`test/docs/`). `/llms.txt`, `/llms-full.txt` and per-page `/llms.mdx/*`
+  are generated from the same corpus, so they can't drift. `docs/design/d23-graph-sources.md`
+  joins the design lineage.
+
 ## [0.4.0] - 2026-07-29
 
 `fire()` now tells you what actually happened. Three workarounds the Hodgkin FE POC team

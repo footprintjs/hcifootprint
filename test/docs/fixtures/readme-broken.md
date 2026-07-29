@@ -1,0 +1,3 @@
+- https://footprintjs.github.io/hcifootprint/docs/missing-page
+- https://footprintjs.github.io/hcifootprint/mystery-export/thing
+- https://footprintjs.github.io/hcifootprint/docs/a#no-such-anchor

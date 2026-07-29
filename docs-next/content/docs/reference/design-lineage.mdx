@@ -1,0 +1,41 @@
+---
+title: Design lineage
+description: The numbered design documents that decided the library's load-bearing shapes — what each locked in, and where to read the full reasoning.
+---
+
+The library's shape was decided in numbered design documents, kept in the repo under
+[`docs/design/`](https://github.com/footprintjs/hcifootprint/tree/main/docs/design). Each doc
+records the constraint that forced the design, not just the winner — read them when you want
+to know *why* a surface is the way it is.
+
+## D18 — the navigation graph
+
+The canonical authoring surface: pages → areas / tabs / modals → tools, one `does` sentence
+with two readers, typed node paths, mount-time tool declaration, the presence sensor, and
+Mode B (`skillsAsTools`). Everything on [The navigation graph](doc:navigation-graph),
+[Presence](doc:presence) and [Skills as fixed tools](doc:modes) traces here.
+[Read D18](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/d18-navigation-graph.md).
+
+## D21 — confirm receipts
+
+The `needs-confirm` ask carries **receipts** — `willDo`, the guard evidence, the position,
+the recent trail — and both answers land in an auditable ask→decision→fire journal, separate
+from the gap ledger. The reasoning behind [Confirms &amp; receipts](doc:receipts).
+[Read D21](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/d21-confirm-receipts.md).
+
+## D22 — materialized fires
+
+An agent fire that would execute nothing is refused (`NOT_MATERIALIZED`) instead of settling
+a success-shaped no-op; tours opt in and get honest no-ops. The 0.3.0 behavior change that
+[the adoption ladder](doc:adoption-ladder) leans on.
+[Read D22](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/d22-materialized-fires.md).
+
+## D23 — graph sources
+
+The graph grows from what the app already has: `fromRoutes` / `fromJourneys` /
+`fromLiveStore`, ONE documented merge order, typed actuation on the edge (url / click / tab /
+programmatic), the `navigate` session option, and the never-trap invariant with its three
+gates. The reasoning behind [Graph sources](doc:graph-sources),
+[Actuation](doc:actuation) and [Live bindings](doc:live-bindings), including the tab-semantics
+decision and the tree-shake geometry with the measured probe numbers.
+[Read D23](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/d23-graph-sources.md).

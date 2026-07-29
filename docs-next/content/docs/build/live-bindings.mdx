@@ -1,0 +1,73 @@
+---
+title: Live bindings & fromLiveStore
+description: Components register what they have when they render — and if your app keeps a live action store, fromLiveStore does the subscribe-and-register bookkeeping for you.
+---
+
+## The wire: declare statically, bind at mount
+
+A tool needs only `does` to exist in the plannable spine; its handler arrives when the
+component that renders it mounts:
+
+```ts
+const group = session.registerToolGroup('catalog', {
+  handlers: { 'search': (input) => shop.search(input) }, // your function, by reference
+  // tools: { ... }   — or declare NEW leaf tools here-and-now
+  // instance: 'o-123' — one card of a repeats container
+});
+group.setEnabled('search', false); // greyed out → TOOL_DISABLED (retriable)
+group.unregister();                // on unmount — idempotent
+```
+
+You never invent a group name — the returned `ToolGroupHandle` IS the identity. Node paths
+are typed against the graph, [routes-source pages included](doc:graph-sources).
+
+## `fromLiveStore` — the third source
+
+If your app already keeps a live store of the actions on screen, you don't write that
+bookkeeping per component. `fromLiveStore(store)` accepts the smallest respectable store
+contract — `subscribe(onChange)` + `actions()`, the shape React itself blesses — and drives
+the wire above for you:
+
+```ts
+import { buildNavigationGraph, fromLiveStore } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  sources: [fromLiveStore(appActionStore)],
+  pages: { inbox: {}, settings: {} },   // the graph declares PLACES; actions arrive live
+});
+const session = graph.createSession();  // attaches the live source
+// later: session.detachSources();      // idempotent — releases everything it attached
+```
+
+Each published action is `{ node, name, instance?, enabled?, ...RegisteredToolDef }`, and
+`${node}.${name}` (+`instance`) is its **identity** across snapshots. The reconcile rules:
+
+- **new** → registered (an action for an already-declared tool BINDS silently — attach last,
+  only bind; a genuinely new one mount-declares);
+- **gone** → released;
+- **`enabled` flip** → flows to `TOOL_DISABLED`;
+- **unchanged** → never re-registered — a chatty store causes zero warnings and zero phantom
+  structure bumps.
+
+The direct door also works, without graph involvement:
+`const detach = fromLiveStore(store).attach(session)`.
+
+## The error stance — split by WHO is on the stack
+
+The FIRST read at attach is **loud**: an invalid action is an authoring error and dies at
+`createSession` — and the throw cleans up after itself (subscription and any
+already-registered bindings are released, so a failed attach leaks nothing). A LATER store
+emission runs inside the app's own notify loop, where a throw would abort the app's
+iteration over its other subscribers — those reconciles are **isolated**: a failure warns
+through the session's `onWarn` sink and leaves bindings as-is; the store's next emission
+simply retries.
+
+## What it does to the trace
+
+`fromLiveStore` rides `registerToolGroup`, so mounts land exactly like hand-written ones —
+structure-axis version bumps, coalescing, dormancy/drift telemetry all apply unchanged. No
+new record shapes. And it is a **zero-value-import leaf**: a static-graph consumer never
+bundles it — see [Tree-shaking](doc:tree-shaking).
+
+See it live in the [Live Desk demo](doc:demos): a support inbox whose graph declares places
+and not a single tool.

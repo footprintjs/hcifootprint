@@ -1,0 +1,115 @@
+---
+title: Quick start
+description: Author the graph, connect it to your running app, serve it to any LLM host — the first two steps run offline with no API key.
+---
+
+```bash
+npm install hcifootprint
+```
+
+Three steps. The first two run offline with no API key.
+
+## 1. Describe the app
+
+Describe the app as the tree you already picture — pages, the containers inside them, and the
+actions inside those. Each action needs one sentence; that sentence is both your label and the
+tool description the LLM reads.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: {
+      tools: {
+        'search': { does: 'Search dresses by name or color' },
+        'add-to-cart': {
+          does: 'Add the open dress to the cart',
+          when: { authenticated: { eq: true } },
+        },
+      },
+    },
+    checkout: {
+      modals: {
+        'confirm-order': {
+          tools: { 'place-order': { does: 'Place the order', confirm: true } },
+        },
+      },
+    },
+  },
+  skills: {
+    purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
+  },
+});
+```
+
+`buildNavigationGraph` validates and freezes the whole definition in one call — unknown
+`goTo` targets, guard-operator typos, ambiguous skill steps and contradictory guards all
+throw at build time, not at runtime. See [The navigation graph](doc:navigation-graph).
+
+If your app already owns a route table or a journey list, you don't have to re-type them:
+[the graph grows from sources](doc:graph-sources).
+
+## 2. Connect it
+
+Connect the graph to your running app through three ordinary wires. Components register what
+they have *when they render*; your existing functions bind by reference; the router owns the
+page.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: { tools: { 'search': { does: 'Search dresses by name or color' } } },
+    checkout: {},
+  },
+});
+declare const shop: { search: () => unknown };
+// ---cut---
+const session = graph.createSession();
+
+// when the component that renders the catalog mounts:
+const group = session.registerToolGroup('catalog', {
+  handlers: { 'search': () => shop.search() }, // your own function, by reference
+});
+group.setEnabled('search', false); // grey a button out; group.unregister() on unmount
+
+// your existing wires report reality:
+session.updateState({ authenticated: true }); // store tap → guards re-evaluate
+session.sync('checkout');                     // router change → the cursor moves
+```
+
+Node paths are **typed**: `registerToolGroup('catalog.filtr-rail')` is a compile error, not a
+silent no-op. Pages contributed by [`fromRoutes`](doc:graph-sources) are part of that same
+typed union.
+
+## 3. Serve it to the LLM
+
+Serve the session as a fixed set of MCP-shaped tools. The tool list never changes; what's
+doable *right now* arrives inside each tool result.
+
+```ts twoslash
+import { buildNavigationGraph, skillsAsTools } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', {
+  pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the open dress to the cart' } } } },
+  skills: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+});
+const session = graph.createSession();
+// ---cut---
+const port = skillsAsTools(session);
+
+const tools = port.tools();               // static tool array — one per skill + whats_here / do_action / why
+const result = port.call('shop.skill.purchase', {}); // → { readySteps, judgment, youAreOn, ... }
+```
+
+The agent plans over skills, sees only what's available at the current position, and acts
+through your own handlers — with the human able to approve high-effect steps. That's the whole
+integration: `tools()` + `call()` for any framework, or [a real MCP server](doc:mcp) as a
+one-liner.
+
+## Where next
+
+- [The adoption ladder](doc:adoption-ladder) — start in read-only guide mode; nothing can
+  touch your app.
+- [Guards](doc:guards) — read this before writing a state projector.
+- [Demos](doc:demos) — two runnable apps in this repo plus the dress-shop, none needing a key.

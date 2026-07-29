@@ -1,0 +1,64 @@
+---
+title: Demos
+description: Two runnable demo apps in the repo plus the three-commit dress shop — every one runs with no API key, no network, and behaves identically every time.
+---
+
+Every demo runs on a deterministic scripted model by default: **no API key, no network, and
+the same behaviour every time.** Pasting a key flips the same code path to a live model —
+nothing else changes.
+
+## In this repo — `demos/`
+
+### Onboarding wizard — the graph grows from what the app already had
+
+A five-page signup wizard whose skill graph is not typed out by hand: it is **grown** from
+the two descriptions the app already owned — a route table and a journey list — and its
+navigation has **no handlers at all** (the `navigate` session option carries every url
+gesture). The sources panel proves the sources are load-bearing by compiling throwaway
+graphs on the spot and diffing them.
+
+```bash
+cd demos/onboarding-wizard
+npm install
+npm run dev      # http://localhost:5173, no key needed
+npm run verify   # typecheck + tests + production build
+```
+
+The wiring it demonstrates: [Graph sources](doc:graph-sources) and
+[Actuation &amp; materialisation](doc:actuation).
+
+### Live Desk — the actions arrive from the app's own store
+
+A support inbox whose graph declares **places** — two pages, two tabs, a blocking compose
+modal, a repeating ticket row — and not a single tool. Every action arrives at runtime from
+the app's own action store, read in by `fromLiveStore`. Hide a control and its action stops
+existing. Reach for a gesture nobody wired and the refusal names the gesture — the backlog
+panel clusters it as a work item addressed to whoever owns that control.
+
+```bash
+cd demos/live-desk
+npm run build --prefix ../..   # the demo links hcifootprint from the repo root
+npm install
+npm run dev                    # http://localhost:5173, no key needed
+npm run verify                 # typecheck + tests + production build
+```
+
+The wiring it demonstrates: [Live bindings](doc:live-bindings) and the gesture words on
+refusals ([Actuation](doc:actuation)).
+
+## The dress shop — the pitch as a diff
+
+The [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) is a separate public
+repo that tells the story in three commits: (1) a plain store built with zero knowledge of
+any agent layer; (2) the agent layer — the declared graph plus three wires, with a `git diff`
+of the app's own code that is **empty**; (3) an assistant (agentfootprint + Claude) driving
+the same session with human-in-the-loop checkpointing on order placement.
+
+```bash
+git clone https://github.com/footprintjs/hcifootprint-demo && cd hcifootprint-demo/dress-shop
+npm install
+npm test          # commits 1+2: the app's tests + the integration proof (no API key)
+npm run chat      # commit 3: the assistant in your terminal (needs ANTHROPIC_API_KEY)
+npm run serve     # the storefront in a browser — click OR chat, same session
+npm run drift     # watch the drift harness catch a deliberately-drifted graph
+```

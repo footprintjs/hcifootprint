@@ -1,0 +1,56 @@
+---
+title: The adoption ladder
+description: Start in read-only guide mode with zero handlers, then register handlers, then serve an agent — one authored graph carries you the whole way.
+---
+
+You don't wire everything at once. Adoption is a ladder, and the first rung needs no handlers
+at all.
+
+## Phase 0 — guide mode (read-only)
+
+Wire only the two reporting calls: `sync()` when the router moves and `updateState()` when
+your store changes. Register nothing. The agent can now read the position and *plan* over the
+declared action space (`whats_here` / `available()`), but it acts on nothing — with no
+handlers bound, every offered edge is plannable-only. This rung is **zero-risk**: it cannot
+touch your app.
+
+The one rule used to be *never `fire()` an unregistered tool* — **0.3.0 enforces it for
+you.** An agent-sourced fire of a tool nothing is bound to is a typed `NOT_MATERIALIZED`
+rejection: it would execute nothing, so it is refused rather than returning a success-shaped
+no-op the model reads as "it worked". Since the actuation work landed, the refusal also
+carries the declared **gesture** — "this is a click on the checkout button", not "nothing is
+bound". See [Actuation &amp; materialisation](doc:actuation).
+
+Your app reporting its *own* motion — `fire(id, { source: 'user' })`, `source: 'system'`, or
+the record-only `invoke: false` sensor — is never gated: that motion really happened.
+
+Want the agent to walk the graph anyway — a tour, a plan preview, a guided demo? Opt in:
+
+```ts
+const session = graph.createSession({ node: 'catalog', allowUnmaterializedFires: true });
+```
+
+Fires then proceed as **honest no-ops**: the result carries `executed: false` and
+`materialized: false`, every served edge is stamped `materialized: false` before it is even
+offered, and each one lands an `unmaterialized-fire` row in the gap ledger — the binding your
+team has yet to build. Navigation claims still move the cursor (that is the tour) and say so
+with `toNodeClaimed: true`.
+
+## Phase 1 — register handlers
+
+As components mount, `registerToolGroup(path, { handlers })` binds your existing functions by
+reference, so firing runs the app's own code. Edges now report `materialized` (false = still
+declared-only, true = wired), and you watch the surface light up.
+
+Two shortcuts on this rung:
+
+- Pure navigations need no handler at all — hand the session your router's own `navigate`
+  function and url-gesture edges [materialise through it](doc:actuation).
+- If your app keeps a live action store, [`fromLiveStore`](doc:live-bindings) does the
+  subscribe-and-register bookkeeping for you.
+
+## Phase 2 — serve an agent (Mode B)
+
+`skillsAsTools(session)` hands your host a fixed MCP tool set; the agent plans over skills
+and acts through your handlers. One authored graph carried you the whole way — no rung forced
+you to maintain a second, stripped-down copy. See [Skills as fixed tools](doc:modes).

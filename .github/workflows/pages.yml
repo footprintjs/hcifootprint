@@ -1,10 +1,22 @@
 name: Deploy site to GitHub Pages
 
+# ONE Pages deployment per repo — this workflow ALWAYS builds BOTH apps and
+# uploads a single assembled artifact:
+#   site/       → the storydeck home  at /hcifootprint/          (Next 15 export)
+#   docs-next/  → the Fumadocs docs   at /hcifootprint/docs/     (Next 16 export)
+# The docs export is copied UNDER the home's out/ (out/docs). Each app exports
+# with its own basePath, so each keeps its _next/ under its own URL prefix —
+# zero collisions, and the home's bytes are untouched by the copy (it only ADDS
+# the docs/ subtree). Never add a second Pages workflow: a docs-only deploy
+# would DELETE the live home (one artifact per repo).
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
+      - 'docs-next/**'
+      - 'src/**' # the API reference is generated from source
+      - 'scripts/gen-fumadocs-api.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -22,9 +34,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: site
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,15 +41,45 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
+      # The library itself: docs-next's twoslash code-checks and the generated
+      # API reference both resolve against hcifootprint's built types (dist/).
+      # `prepare` builds on install, but the explicit build is load-bearing —
+      # never silently rely on an install hook.
+      - name: Install library deps (docs-next resolves hcifootprint via file:..)
+        run: npm ci
+      - name: Build library (dist types for twoslash + API gen)
+        run: npm run build
 
       # `storydeck` is a public github: dependency (ships source) — npm install resolves it directly,
       # so no sibling checkout is needed. `npm install` (not `npm ci`) works with or without a lockfile.
-      - name: Install dependencies
+      - name: Install home deps
+        working-directory: site
         run: npm install
 
-      - name: Build static export (next build → out/)
+      - name: Build the storydeck home (next build → site/out)
+        working-directory: site
         run: npm run build
+
+      - name: Install docs deps
+        working-directory: docs-next
+        run: npm ci
+
+      # Static export with the docs mount point. EXPORT=true flips next.config
+      # to output:'export'; NEXT_PUBLIC_BASE_PATH feeds both the router basePath
+      # and lib/site.ts asset() so every URL is correctly prefixed. These two
+      # values and the copy destination below move TOGETHER (see next.config.mjs
+      # "DEPLOY GEOMETRY").
+      - name: Build docs static export (next build → docs-next/out)
+        working-directory: docs-next
+        env:
+          EXPORT: 'true'
+          NEXT_PUBLIC_BASE_PATH: '/hcifootprint/docs'
+        run: npm run build
+
+      - name: Assemble ONE artifact — docs mounted under the home
+        run: cp -R docs-next/out site/out/docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

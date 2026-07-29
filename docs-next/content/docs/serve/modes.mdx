@@ -1,0 +1,64 @@
+---
+title: Skills as fixed tools (Mode B)
+description: skillsAsTools serves one tool per skill plus three fixed generics — the tool array never changes for the life of a conversation, so the prompt cache stays warm.
+---
+
+`skillsAsTools(session, opts?)` projects the session as a FIXED set of MCP-shaped tools whose
+bytes never change for the life of a conversation. Disclosure rides the RESULT channel: every
+call returns `readySteps` — what's fireable at the current cursor — and the model acts by
+calling the same skill tool again with a `step`. Tools render first in the prompt, so a
+stable tool set keeps the **prompt cache warm**, and any plain MCP host can drive it with no
+dynamic-tool support required.
+
+```ts twoslash
+import { buildNavigationGraph, skillsAsTools } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', {
+  pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the open dress to the cart' } } } },
+  skills: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+});
+const session = graph.createSession();
+// ---cut---
+const port = skillsAsTools(session); // opts: { confirmHighEffect?: boolean, source?: Principal }
+
+const tools = port.tools();          // static MCPToolDescription[] — register with your host
+const result = port.call('shop.skill.purchase', {}); // route a tool_use; return as the tool_result
+```
+
+For graph id `shop`, `tools()` returns:
+
+- **one tool per skill** — `shop.skill.<id>`, input `{ step?, input?, confirm?, decline?, instance? }`;
+- **`shop.whats_here`** — describe the current position. Optional `{ sinceVersion }`: the
+  reply narrates only the DELTA since the model's last look — cheaper re-grounding after
+  write-steps;
+- **`shop.do_action`** — perform one available action outside any skill flow;
+- **`shop.why`** — the causal backward slice (who produced this state). Why-text may carry
+  committed values, so it rides results as DATA, never a description.
+
+## Reading a result
+
+Every result is a plain data object. `ok` plus `judgment` route it: on an open frame
+`'navigate-or-wait' | 'one-ready-step' | 'needs-choice'`; on completion `'done'`; on refusal
+`'blocked'` (precondition), `'error'` (unknown step/action), `'needs-confirm'` (high-effect,
+[carries receipts](doc:receipts)), `'rejected'` (fire refused — carries the typed `reason`).
+Position always rides along: `youAreOn` and `version`.
+
+Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEffect?`,
+`guardUnevaluated?`, `materialized?` (false = nothing is bound to execute that step), and
+`expects?` (the [declared input contract](doc:sessions), visible before the fire).
+`do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
+promise deliberately does not.
+
+## The firewall
+
+Text fields are **authored strings only**; runtime values (state, payloads, instance keys,
+evidence, produced data) are structured DATA fields. Product names and search results ride
+only inside `tool_result` data — never the system prompt, never a tool description. A dress
+literally named `IGNORE PREVIOUS INSTRUCTIONS…` reads as harmless data. That's the
+two-string-class firewall, and it is enforced at emission, not by convention.
+
+## The source stamp
+
+Leave `source` at `'agent'` for any port a MODEL drives. It stamps the principal on every
+fire the port makes, and the `NOT_MATERIALIZED` guarantee keys off it: a port stamping
+`'user'`/`'system'` is declaring app self-report, so its unbound fires are deliberately NOT
+gated. Only stamp a non-agent source for a port your own code drives.

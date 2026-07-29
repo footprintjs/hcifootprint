@@ -41,6 +41,9 @@ npm install hcifootprint
 
 > **Agents:** read [`llms.txt`](llms.txt) — the entire API surface on one self-contained page.
 
+> **📚 Docs:** guides, the generated API reference, and machine-readable llms routes live at
+> [footprintjs.github.io/hcifootprint/docs](https://footprintjs.github.io/hcifootprint/docs/).
+
 ---
 
 ## Agents driving UIs are flying blind

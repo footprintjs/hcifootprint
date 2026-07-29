@@ -1,0 +1,86 @@
+---
+title: The navigation graph
+description: buildNavigationGraph turns the container tree you already picture — pages, areas, tabs, modals, tools — into a validated, frozen graph with typed node paths.
+---
+
+`buildNavigationGraph(id, def)` validates and freezes one object literal in a single call (no
+`.build()`). Node names in the literal become a **typed path union**, so a typo in a later
+`registerToolGroup('catalog.filtr-rail')` is a COMPILE error, not a silent no-op.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: {
+      areas: {
+        'filter-rail': { tools: { 'set-color': { does: 'Filter dresses by color' } } },
+      },
+      tools: {
+        'add-to-cart': {
+          does: 'Add the dress to the cart',
+          when: { authenticated: { eq: true } },
+        },
+      },
+    },
+  },
+  skills: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
+});
+const session = graph.createSession(); // an InteractionSession
+```
+
+## The authoring vocabulary
+
+- `pages` (required) — top-level route targets. Each page is a container node, and may declare
+  the `route` your router serves it at (read back by `matchRoute`, and the seed of the
+  [url gesture](doc:actuation)).
+- Container buckets inside any node — exactly three authored semantics, everything else is
+  descriptive:
+  - `areas` — coexist (AND);
+  - `tabs` — at most one shown (a prior, NOT a statechart);
+  - `modals` — overlay; a shown blocking modal masks sibling tools (`blocks: false` = popover).
+- `tools` — leaf actions. A tool's fields:
+  - `does` (required) — one authored sentence. It is BOTH your label and the tool description
+    the LLM reads, and it is a source-code literal, never runtime text (the injection
+    firewall).
+  - `when` — availability guard (a flat `WhereFilter`, see [Guards](doc:guards)),
+    AND-composed with every ancestor `when`.
+  - `writes` — state keys this tool claims to change (verified at settlement).
+  - `goTo` — page id this tool claims to navigate to.
+  - `confirm` — high-effect gate: requires explicit confirmation before firing
+    ([receipts ride the ask](doc:receipts)).
+  - `input` — payload contract: Zod, plain JSON Schema, or any `.safeParse`/`.parse`
+    validator ([advertised and enforced](doc:sessions)).
+  - `binding` — the gesture that reaches it on screen ([Actuation](doc:actuation)); optional —
+    handlers don't need one.
+- `skills` — named multi-step flows: `does` (required planner text), `steps` (tool ids by
+  qualified path or unambiguous suffix), `when` (precondition). See [Skills](doc:skills).
+- `repeats: true` on a container — a template: one parameterized tool for N cards, addressed
+  by `instance` keys.
+
+## Loud at build time
+
+All referential and shape mistakes throw at `buildNavigationGraph()` time, in one voice:
+an unknown `goTo` target, a guard-operator typo, an ambiguous or unknown skill step, a
+contradictory ancestor/descendant guard, an empty guard `{}` — and, since the actuation work,
+a **paramful url binding** (`/orders/:id`) that could never materialise. Container `when`
+AND-composes root→leaf; children can only narrow.
+
+Qualified dot paths are identity: `checkout.confirm-order.place-order`. Skills may reference
+steps by unambiguous suffix, resolved (or failed loudly) at build time.
+
+## What you get back
+
+A `NavigationGraph`: `{ id, spec, nodes, toolNodes, createSession(opts?), requiredStateKeys() }`.
+
+- `createSession()` → an `InteractionSession` — see [Sessions &amp; fire()](doc:sessions).
+- `requiredStateKeys()` → the sorted, deduped set of every state key your guards read — the
+  seeding checklist for your projector ([Guards](doc:guards)).
+
+Rather than authoring every page and skill by hand, the definition can also **grow from the
+descriptions your app already owns** — a route table, a journey list, a live action store.
+That's [Graph sources](doc:graph-sources).
+
+The v1 fluent `skillGraph()` builder still ships and works, but `buildNavigationGraph` is the
+canonical authoring surface — it adds the container tree, typed node paths and mount-time
+tool declaration. Prefer it for new work.

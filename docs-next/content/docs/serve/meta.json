@@ -1,0 +1,5 @@
+{
+  "title": "Serve",
+  "icon": "Plug",
+  "pages": ["sessions", "modes", "mcp", "receipts"]
+}
