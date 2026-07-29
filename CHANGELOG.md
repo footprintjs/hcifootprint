@@ -32,6 +32,13 @@ reads the owner's truth instead of copying it.
 - Typed node paths now include routes-source pages: `registerToolGroup('home')`
   compiles when `home` came from `fromRoutes`, and a typo is still a compile
   error.
+- `pages` is now OPTIONAL on `NavigationGraphDef` — a sources-only def (the
+  headline use case) no longer needs a `pages: {}` incantation to satisfy the
+  type. Nothing runtime changed: the build-time refusal always judged the
+  EFFECTIVE graph, so a def with neither pages nor sources still dies loudly
+  with "has no pages", and the typed-path guardrail still holds for
+  sources-only defs (the routes-source pages are the typed paths; a typo is
+  still a compile error).
 
 Non-breaking by construction: a def without `sources` takes the identity path
 and compiles bit-for-bit as before; `fromRoutes`/`fromJourneys` are leaf

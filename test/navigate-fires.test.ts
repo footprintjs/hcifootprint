@@ -14,7 +14,8 @@
  * and the NOT_MATERIALIZED refusal carried no gesture words.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph } from '../src/index.js';
+import { Session, buildNavigationGraph } from '../src/index.js';
+import type { SkillGraphSpec } from '../src/index.js';
 
 function shopDef() {
   return {
@@ -190,6 +191,47 @@ describe('the gap ledger says WHICH wiring is missing', () => {
       affordanceId: 'home.open-cart',
       gestureKind: 'url',
     });
+  });
+});
+
+describe('the raw-spec door — the belt behind the three authoring doors', () => {
+  it('a hand-built spec cannot smuggle a paramful url binding past materialisation', () => {
+    // Session is public and a compiled spec is plain data, so a spec can reach
+    // materialisation without EVER passing checkLiteralHref — the compiler,
+    // the mount door and the fluent door all gate it, but nothing forces a
+    // hand-built spec through any of them. gestureHref re-runs the literal
+    // law for exactly this door; this test is the mutation proof that the
+    // re-check is load-bearing: without it, the synthesized handler would
+    // hand the router '/orders/:id' VERBATIM — a guessed-param navigation
+    // laundered as ok:true / performed.
+    const spec: SkillGraphSpec = {
+      id: 'raw',
+      pages: { home: { id: 'home' } },
+      affordances: {
+        'open-order': {
+          id: 'open-order',
+          on: ['home'],
+          description: 'Open one order',
+          binding: { kind: 'url', href: '/orders/:id' },
+          highEffect: false,
+          role: 'action',
+        },
+      },
+      skills: {},
+    };
+    const seen: string[] = [];
+    const session = new Session(spec, { node: 'home', navigate: (href) => void seen.push(href) });
+
+    expect(session.fire('open-order', { source: 'agent' })).toMatchObject({
+      ok: false,
+      reason: 'NOT_MATERIALIZED',
+      gesture: { kind: 'url', href: '/orders/:id' },
+    });
+    expect(seen).toEqual([]); // the router was never handed a guess
+
+    // available() asks the SAME question through the same belt.
+    const edge = session.available().edges.find((e) => e.affordanceId === 'open-order');
+    expect(edge?.materialized).toBe(false);
   });
 });
 

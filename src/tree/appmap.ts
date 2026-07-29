@@ -56,6 +56,12 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
   if (!def.pages || Object.keys(def.pages).length === 0) {
     throw new SkillGraphValidationError(`buildNavigationGraph '${id}' has no pages — declare at least one.`);
   }
+  // The refusal above just proved the EFFECTIVE def has pages ('pages' is
+  // optional at the type level — a sources-only def is the headline use case,
+  // and mergeSources always materialises the key). Captured once because
+  // control-flow narrowing cannot follow `def.pages` into the nested
+  // compileTool below.
+  const declaredPages = def.pages;
 
   // Null-prototype containers: membership checks and lookups must never see
   // Object.prototype ('toString' as a skill step would otherwise resolve to a
@@ -67,7 +73,7 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
   const pages: Record<string, Page> = Object.create(null) as Record<string, Page>;
 
   // -- walk the tree ---------------------------------------------------------
-  for (const [pageId, pageDef] of Object.entries(def.pages)) {
+  for (const [pageId, pageDef] of Object.entries(declaredPages)) {
     checkSegment(`page '${pageId}'`, pageId);
     pages[pageId] = { id: pageId, route: pageDef.route, description: pageDef.does };
     walkNode(pageId, pageId, null, 'page', pageDef, []);
@@ -153,9 +159,9 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       throw new SkillGraphValidationError(`root tool '${name}' has on: [] — list at least one page.`);
     }
     for (const pageId of on) {
-      if (!Object.hasOwn(def.pages, pageId)) {
+      if (!Object.hasOwn(declaredPages, pageId)) {
         throw new SkillGraphValidationError(
-          `root tool '${name}' is offered on unknown page '${pageId}'. Known pages: ${Object.keys(def.pages).join(', ')}.`,
+          `root tool '${name}' is offered on unknown page '${pageId}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
         );
       }
     }
@@ -187,9 +193,9 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       rejectEmptyWhen(`tool '${qualifiedId}'`, tool.when);
       validateGuardShape(`tool '${qualifiedId}' when`, tool.when as Record<string, unknown>);
     }
-    if (tool.goTo && !Object.hasOwn(def.pages, tool.goTo)) {
+    if (tool.goTo && !Object.hasOwn(declaredPages, tool.goTo)) {
       throw new SkillGraphValidationError(
-        `tool '${qualifiedId}' goTo unknown page '${tool.goTo}'. Known pages: ${Object.keys(def.pages).join(', ')}.`,
+        `tool '${qualifiedId}' goTo unknown page '${tool.goTo}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
       );
     }
     if (tool.input !== undefined && detectSchema(tool.input) === 'none') {

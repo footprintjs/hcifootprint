@@ -50,3 +50,21 @@ sourcedSession.show('orders');
 // And a typo is still a COMPILE error, not a silent runtime no-op:
 // @ts-expect-error 'oders' is neither a declared page nor a source page
 sourcedSession.registerToolGroup('oders');
+
+// -- a sources-only def: `pages` may be OMITTED entirely ---------------------
+// Two mutation proofs ride the typecheck gate here: against required `pages`
+// this def literal fails to compile at all, and against a NodePathsOf whose
+// no-pages arm falls back to `string` the @ts-expect-error below is UNUSED
+// (the fallback absorbs the routes-source paths and disarms the guardrail) —
+// either regression fails `npm run typecheck`.
+const sourcesOnly = buildNavigationGraph('shop-sources-only', {
+  sources: [fromRoutes({ home: '/', cart: '/cart' })],
+});
+const sourcesOnlySession = sourcesOnly.createSession();
+
+// The routes-source pages are the ONLY typed paths, and they compile:
+sourcesOnlySession.registerToolGroup('home');
+sourcesOnlySession.show('cart');
+
+// @ts-expect-error 'hom' is not a page any source declared
+sourcesOnlySession.registerToolGroup('hom');

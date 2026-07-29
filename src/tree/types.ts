@@ -86,7 +86,15 @@ export interface SkillDef2 {
 
 export interface NavigationGraphDef {
   does?: string;
-  pages: Record<string, PageNodeDef>;
+  /**
+   * Hand-authored pages. Optional since sources exist: a def whose whole
+   * spine comes from `fromRoutes(...)` is the headline use case, and forcing
+   * `pages: {}` on it was one line of pure boilerplate. Requiredness lives
+   * where it means something — the build-time refusal judges the EFFECTIVE
+   * graph (hand pages + sources folded), so a def with neither still dies
+   * loudly with "has no pages".
+   */
+  pages?: Record<string, PageNodeDef>;
   /** Root-level multi-attach tools: offered on several PAGES at once. */
   tools?: Record<string, ToolDef & { on: string | string[] }>;
   skills?: Record<string, SkillDef2>;
@@ -141,7 +149,16 @@ export type NodePathsOf<Def> =
       ? P extends Record<string, unknown>
         ? { [K in keyof P & string]: K | ChildPaths<K, P[K]> }[keyof P & string]
         : string
-      : string)
+      : // No `pages` key at all. A sources-only LITERAL must contribute
+        // nothing here — its real paths are the routes-source pages the
+        // union's second arm adds; falling back to `string` would ABSORB that
+        // arm and silently disarm typo-checking for exactly the def the
+        // sources feature exists for. Only a def with neither key (a wide,
+        // annotated type — both properties optional) keeps `string`, the
+        // honest answer when no literal exists to read names from.
+        Def extends { sources: ReadonlyArray<unknown> }
+        ? never
+        : string)
   | (Def extends { sources: infer S } ? SourcePagePaths<S> : never);
 
 // ---------------------------------------------------------------------------

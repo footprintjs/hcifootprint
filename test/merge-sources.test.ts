@@ -254,4 +254,28 @@ describe('merge — the non-breaking edges', () => {
     buildNavigationGraph('shop', def);
     expect(JSON.stringify(def)).toBe(before);
   });
+
+  // `pages` went OPTIONAL for exactly this case. The runtime always tolerated
+  // absence (the refusal above judges the EFFECTIVE graph); the type demanded
+  // the key anyway, so a pure-fromRoutes TS consumer had to write `pages: {}`
+  // — one line of boilerplate on the headline use case. The mutation proof
+  // for this arm lives at the TYPECHECK gate: against pre-change types, both
+  // defs below fail `tsc -p tsconfig.test.json` with "missing 'pages'"
+  // (vitest transpiles without checking, so only the type gate can see it).
+  it('a sources-only def needs no pages key at all — same graph as writing `pages: {}`', () => {
+    const graph = buildNavigationGraph('shop', {
+      sources: [fromRoutes({ home: '/', cart: '/cart' })],
+    });
+    expect(Object.keys(graph.spec.pages)).toEqual(['home', 'cart']);
+    expect(graph.nodes.home.kind).toBe('page');
+    const incantation = buildNavigationGraph('shop', {
+      pages: {},
+      sources: [fromRoutes({ home: '/', cart: '/cart' })],
+    });
+    expect(JSON.stringify(graph.spec)).toBe(JSON.stringify(incantation.spec));
+  });
+
+  it('omitting pages does not weaken the refusal — a def with neither pages nor sources still dies loudly', () => {
+    expect(() => buildNavigationGraph('empty', {})).toThrow(/has no pages — declare at least one/);
+  });
 });

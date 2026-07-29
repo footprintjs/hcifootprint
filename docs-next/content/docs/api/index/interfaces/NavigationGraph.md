@@ -4,7 +4,7 @@ title: NavigationGraph<Paths>
 
 # Interface: NavigationGraph\<Paths\>
 
-Defined in: [src/tree/types.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L174)
+Defined in: [src/tree/types.ts:191](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L191)
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Defined in: [src/tree/types.ts:174](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/tree/types.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L175)
+Defined in: [src/tree/types.ts:192](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L192)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [src/tree/types.ts:175](https://github.com/footprintjs/hcifootprint/
 
 > **nodes**: `Record`\<`string`, [`MapNode`](/api/index/interfaces/MapNode)\>
 
-Defined in: [src/tree/types.ts:183](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L183)
+Defined in: [src/tree/types.ts:200](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L200)
 
 Every node by path — pages included.
 
@@ -36,7 +36,7 @@ Every node by path — pages included.
 
 > **spec**: [`SkillGraphSpec`](/api/index/interfaces/SkillGraphSpec)
 
-Defined in: [src/tree/types.ts:181](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L181)
+Defined in: [src/tree/types.ts:198](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L198)
 
 The flat projection: a Session-compatible SkillGraphSpec whose affordance
 ids are qualified dot paths and whose guards are the composed root→leaf
@@ -48,7 +48,7 @@ chains. A plain Session runs on it unchanged; InteractionSession adds the tree.
 
 > **toolNodes**: `Record`\<`string`, `string`[]\>
 
-Defined in: [src/tree/types.ts:185](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L185)
+Defined in: [src/tree/types.ts:202](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L202)
 
 Qualified tool id → the node path(s) it lives on (root tools list their pages).
 
@@ -58,7 +58,7 @@ Qualified tool id → the node path(s) it lives on (root tools list their pages)
 
 > **createSession**(`opts?`): [`InteractionSession`](/api/index/classes/InteractionSession)\<`Paths`\>
 
-Defined in: [src/tree/types.ts:187](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L187)
+Defined in: [src/tree/types.ts:204](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L204)
 
 Create a live interaction session; `Paths` carries the typed node paths through.
 
@@ -78,7 +78,7 @@ Create a live interaction session; `Paths` carries the typed node paths through.
 
 > **requiredStateKeys**(): `string`[]
 
-Defined in: [src/tree/types.ts:202](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L202)
+Defined in: [src/tree/types.ts:219](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L219)
 
 The sorted, deduped set of state keys every guard in this graph reads —
 across ALL tool `when`s, container-node `when`s, and skill preconditions,

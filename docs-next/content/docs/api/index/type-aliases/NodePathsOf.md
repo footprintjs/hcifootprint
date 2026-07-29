@@ -4,9 +4,9 @@ title: NodePathsOf<Def>
 
 # Type Alias: NodePathsOf\<Def\>
 
-> **NodePathsOf**\<`Def`\> = `Def` *extends* `object` ? `P` *extends* `Record`\<`string`, `unknown`\> ? \{ \[K in keyof P & string\]: K \| ChildPaths\<K, P\[K\]\> \}\[keyof `P` & `string`\] : `string` : `string` \| `Def` *extends* `object` ? `SourcePagePaths`\<`S`\> : `never`
+> **NodePathsOf**\<`Def`\> = `Def` *extends* `object` ? `P` *extends* `Record`\<`string`, `unknown`\> ? \{ \[K in keyof P & string\]: K \| ChildPaths\<K, P\[K\]\> \}\[keyof `P` & `string`\] : `string` : `Def` *extends* `object` ? `never` : `string` \| `Def` *extends* `object` ? `SourcePagePaths`\<`S`\> : `never`
 
-Defined in: [src/tree/types.ts:139](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L139)
+Defined in: [src/tree/types.ts:147](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L147)
 
 The union of every declared node path in a NavigationGraphDef literal — hand-authored pages and their children, plus routes-source pages.
 
