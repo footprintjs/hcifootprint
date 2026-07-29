@@ -22,10 +22,11 @@ import type {
   Skill,
   SkillGraphSpec,
 } from '../atom/types.js';
-import { SkillGraphValidationError, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
+import { SkillGraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
 import { mergeSources } from '../graph/sources/merge.js';
 import { InteractionSession } from '../traverse/nav-session.js';
 import type { InteractionSessionOptions } from '../traverse/nav-session.js';
+import type { LiveSource } from '../graph/sources/types.js';
 import type { NavigationGraph, NavigationGraphDef, NodePathsOf, MapNode, NodeDef, ToolDef } from './types.js';
 
 /**
@@ -43,6 +44,13 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
   // merged input. A def without sources takes the identity path — it compiles
   // bit-for-bit as it did before sources existed.
   const def: NavigationGraphDef = rawDef.sources && rawDef.sources.length > 0 ? mergeSources(rawDef) : rawDef;
+  // Live sources are HELD by the compiled graph (mergeSources validated them;
+  // they fold nothing statically — last in the order, bind-only): every
+  // createSession() below attaches each one to the new session, and the
+  // session's detachSources() releases them.
+  const liveSources: LiveSource[] = (rawDef.sources ?? []).filter(
+    (source): source is LiveSource => source?.kind === 'live',
+  );
   // The no-pages refusal judges the EFFECTIVE graph: a def whose only pages
   // come from fromRoutes(...) is a complete graph, not an empty one.
   if (!def.pages || Object.keys(def.pages).length === 0) {
@@ -190,6 +198,10 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
           `or a validator with .safeParse/.parse.`,
       );
     }
+    // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
+    // so it dies here — which also makes "a skill whose entry step's gesture
+    // is such a url" unconstructable, since every static tool passes this door.
+    if (tool.binding?.kind === 'url') checkLiteralHref(`tool '${qualifiedId}'`, tool.binding.href);
     const guard = composeGuards(qualifiedId, [...guardChain, ...(tool.when ? [tool.when] : [])]) as
       | WhereFilter
       | undefined;
@@ -270,7 +282,7 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
     spec,
     nodes: Object.freeze(nodes),
     toolNodes: Object.freeze(toolNodes),
-    createSession: (opts?: InteractionSessionOptions) => new InteractionSession(map, opts),
+    createSession: (opts?: InteractionSessionOptions) => new InteractionSession(map, opts, liveSources),
     // Tool guards already carry the COMPOSED ancestor chain, but a guard-bearing
     // container with no static descendant tool contributes keys only via its own
     // node.guard (composed into mount-declared tools at runtime) — so fold those in too.

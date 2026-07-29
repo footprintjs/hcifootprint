@@ -38,7 +38,8 @@ import type {
 } from '../atom/types.js';
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
-import { SkillGraphValidationError, composeGuards, validateGuardShape } from '../graph/guards.js';
+import { SkillGraphValidationError, checkLiteralHref, composeGuards, validateGuardShape } from '../graph/guards.js';
+import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
 import type { NavigationGraph, MapNode, ToolDef } from '../tree/types.js';
 import { Session } from './session.js';
@@ -117,8 +118,15 @@ export class InteractionSession<Paths extends string = string> extends Session {
   readonly #graceMs: number;
   /** Clock for the grace timers (injectable for deterministic staleness tests). */
   readonly #now: () => number;
+  /** Detach fns of the live sources createSession attached (drained by detachSources). */
+  readonly #sourceDetachers: Array<() => void> = [];
 
-  constructor(map: NavigationGraph, opts?: InteractionSessionOptions) {
+  constructor(
+    map: NavigationGraph,
+    opts?: InteractionSessionOptions,
+    /** Live graph sources to attach to THIS session (createSession passes the graph's). */
+    liveSources?: ReadonlyArray<LiveSource>,
+  ) {
     const node = opts?.node ?? Object.keys(map.spec.pages)[0];
     super(map.spec, { ...(opts ?? {}), node });
     this.#map = map;
@@ -128,6 +136,28 @@ export class InteractionSession<Paths extends string = string> extends Session {
     // Our fingerprint override reads the fields above — re-baseline now so the
     // first real mutation (not construction itself) is what flushes a row.
     this.resetStructureBaseline();
+    // Live sources attach AFTER the baseline, deliberately: their mounts must
+    // land exactly like hand-written registerToolGroup calls — structure rows,
+    // version bumps, dormancy clocks and all — never as silent construction.
+    for (const source of liveSources ?? []) {
+      this.#sourceDetachers.push(source.attach(this));
+    }
+  }
+
+  /**
+   * Release every live-source binding this session's graph attached (the
+   * counterpart of `sources: [fromLiveStore(...)]`). Idempotent: the ledger is
+   * drained on the first call. A source whose detach throws is isolated with a
+   * warning — consumer store code must never break the session (recorder rule).
+   */
+  detachSources(): void {
+    for (const detach of this.#sourceDetachers.splice(0)) {
+      try {
+        detach();
+      } catch (error) {
+        this.warn(`hcifootprint: a live source's detach threw: ${String(error)}`);
+      }
+    }
   }
 
   protected override get spec(): SkillGraphSpec {
@@ -304,6 +334,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
       throw new SkillGraphValidationError(
         `mount-declared tool '${qualifiedId}' has an unrecognized input schema.`,
       );
+    }
+    // Never-trap BUILD gate at the mount door too: authoring is authoring
+    // whether it happens in the def or at registration — same law, same words.
+    if (toolDef.binding?.kind === 'url') {
+      checkLiteralHref(`mount-declared tool '${qualifiedId}'`, toolDef.binding.href);
     }
     const existing = this.#dynamic.get(qualifiedId);
     if (existing && existing.length > 0) {
@@ -638,9 +673,12 @@ export class InteractionSession<Paths extends string = string> extends Session {
 
   protected override handlerFor(affordanceId: string, opts: FireOptions): ToolHandler | undefined {
     if (opts.instance !== undefined) {
+      // Instance-keyed registration first, then the base resolution — which is
+      // registry-then-url-synthesis, so the resolution ORDER stays one story
+      // everywhere: keyed handler > base handler > navigate-derived gesture.
       return (
         this.registry.handlerFor(this.#registryKey(affordanceId, opts.instance)) ??
-        this.registry.handlerFor(affordanceId)
+        super.handlerFor(affordanceId, opts)
       );
     }
     return super.handlerFor(affordanceId, opts);

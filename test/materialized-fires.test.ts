@@ -418,6 +418,9 @@ describe('the gate does not care what the affordance claims to do', () => {
       ok: false,
       reason: 'NOT_MATERIALIZED',
       affordanceId: 'save-draft',
+      // Since 0.4.x the refusal SAYS the declared gesture ("this is a click on
+      // B"), instead of the bare "nothing is bound" — exact-equal on purpose.
+      gesture: { kind: 'element', locator: { role: 'button', name: 'B' }, actuation: 'click' },
     });
     expect(s.transitions()).toHaveLength(0); // nothing was recorded as done
     expect(s.pending()).toEqual([]); // and nothing waits for a report

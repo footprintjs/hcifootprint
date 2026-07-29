@@ -10,8 +10,9 @@
  *    overlay second and may only add, live actions attach last and only bind —
  *    nothing later in the order may remove anything earlier."
  *
- * (Live sources arrive in a later release with their attach machinery; the
- * sentence already reserves their place — last, bind-only.)
+ * (A live source is validated here but contributes NOTHING to the static fold
+ * — its whole meaning is attach-time binding, last in the order; the compiler
+ * holds it and createSession attaches it per session.)
  *
  * The refusal stances, and why each direction is what it is:
  * - Hand-authored wins per page id, with ONE courtesy: a hand page missing
@@ -114,13 +115,22 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         }
         skills[skillId] = skill;
       }
+    } else if (source.kind === 'live') {
+      // Bind-only and attach-time: nothing to fold. Validated here anyway —
+      // the same fail-closed door every source passes — so a hand-crafted
+      // {kind:'live'} without attach() dies at build, not at createSession.
+      if (typeof source.attach !== 'function') {
+        throw new SkillGraphValidationError(
+          `sources[${index}] has kind 'live' but no attach() function — build it with fromLiveStore().`,
+        );
+      }
     } else {
       // Fail closed on a kind this build does not understand (a JS caller, or
       // a source object from a newer release) — silently dropping it would be
       // a graph quietly missing what the author declared.
       throw new SkillGraphValidationError(
         `sources[${index}] has unknown kind '${String((source as { kind?: unknown }).kind)}' — ` +
-          `this build understands 'routes' and 'journeys'.`,
+          `this build understands 'routes', 'journeys' and 'live'.`,
       );
     }
   }

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { skillGraph } from '../src/index.js';
-import { shop, initialState, okUpdate } from './fixture.js';
+import { shop, initialState, okUpdate, wire } from './fixture.js';
 import type { Session } from '../src/index.js';
 
 function loggedInAtCatalog(): Session {
@@ -13,6 +13,17 @@ function loggedInAtCatalog(): Session {
     node: 'catalog',
     state: { ...initialState, authenticated: true },
   });
+}
+
+/**
+ * Agent commits in this file wire the skill's ENTRY step first (the 0.3.0
+ * `wire` treatment, extended): since the 0.4.x never-trap gate, an agent
+ * commit whose entry step cannot materialise refuses ENTRY_NOT_MATERIALIZED
+ * instead of opening a frame that could never act.
+ */
+function commitReady(s: Session): Session {
+  wire(s, 'add-to-cart'); // purchase's entry step
+  return s;
 }
 
 describe('skillPlan() — the derived dependency DAG', () => {
@@ -53,7 +64,7 @@ describe('skillPlan() — the derived dependency DAG', () => {
 
 describe('commitSkill() / leaveSkill() — the frame lifecycle', () => {
   it('typed rejections: UNKNOWN_SKILL, PRECONDITION_FAILED, STALE_CURSOR, FRAME_ALREADY_OPEN', () => {
-    const s = shop().createSession({ node: 'catalog', state: initialState });
+    const s = commitReady(shop().createSession({ node: 'catalog', state: initialState }));
     expect(s.commitSkill('ghost', {})).toMatchObject({ ok: false, reason: 'UNKNOWN_SKILL', known: ['purchase'] });
     expect(s.commitSkill('purchase')).toMatchObject({
       ok: false,
@@ -70,7 +81,7 @@ describe('commitSkill() / leaveSkill() — the frame lifecycle', () => {
   });
 
   it('commit and leave both bump the version (the served world changed)', () => {
-    const s = loggedInAtCatalog();
+    const s = commitReady(loggedInAtCatalog());
     const v0 = s.version;
     const committed = s.commitSkill('purchase');
     expect(committed.ok).toBe(true);
@@ -92,6 +103,8 @@ describe('commitSkill() / leaveSkill() — the frame lifecycle', () => {
       .build();
 
     const cancelled = g.createSession({ node: 'a' });
+    // Entry wired (never-trap gate) but never FIRED — that is what cancels.
+    wire(cancelled, 'step-1');
     cancelled.commitSkill('one-step');
     expect(cancelled.leaveSkill()!.status).toBe('cancelled'); // nothing fired
 
@@ -119,7 +132,7 @@ describe('disclosure — toMCPTools() while a frame is open', () => {
     const before = s.toMCPTools().map((t) => t.name);
     expect(before).toContain('shop.open-help');
 
-    expect(s.commitSkill('purchase')).toMatchObject({ ok: true });
+    expect(commitReady(s).commitSkill('purchase')).toMatchObject({ ok: true });
     const during = s.toMCPTools().map((t) => t.name);
     expect(during).toContain('shop.proceed-to-checkout'); // frame step, fireable here
     expect(during).toContain('shop.go-home'); // role 'back' = always-served escape
@@ -136,7 +149,7 @@ describe('disclosure — toMCPTools() while a frame is open', () => {
       node: 'cart',
       state: { ...initialState, authenticated: true, cartCount: 1 },
     });
-    s.commitSkill('purchase');
+    commitReady(s).commitSkill('purchase');
     const leave = s.toMCPTools().find((t) => t.name === 'shop.leave-skill')!;
     expect(leave.description).toContain('Leave the current skill (purchase)');
     expect(leave.inputSchema).toEqual({ type: 'object', properties: {}, additionalProperties: false });
@@ -176,7 +189,7 @@ describe('demotion — the world invalidates the committed skill', () => {
       node: 'cart',
       state: { ...initialState, authenticated: true, cartCount: 2 },
     });
-    s.commitSkill('purchase');
+    commitReady(s).commitSkill('purchase');
     expect(s.toMCPTools().map((t) => t.name)).not.toContain('shop.open-help');
 
     const v = s.version;
@@ -189,7 +202,7 @@ describe('demotion — the world invalidates the committed skill', () => {
   });
 
   it('a step guard failing does NOT demote — that is normal DAG progress', () => {
-    const s = loggedInAtCatalog(); // cartCount 0: go-to-cart blocked, precondition holds
+    const s = commitReady(loggedInAtCatalog()); // cartCount 0: go-to-cart blocked, precondition holds
     s.commitSkill('purchase');
     okUpdate(s.updateState({ cartCount: 0 }, { stimulus: 'push' }));
     expect(s.skillFrame()).not.toBeNull();
@@ -218,6 +231,7 @@ describe('demotion — the world invalidates the committed skill', () => {
       })
       .build();
     const s = g.createSession({ node: 'a', state: { authenticated: true } });
+    wire(s, 'work'); // entry materialised — the never-trap gate lets the frame open
     s.commitSkill('work-skill');
     s.fire('logout', { source: 'user' }); // user logs out mid-skill
     okUpdate(s.updateState({ authenticated: false }));

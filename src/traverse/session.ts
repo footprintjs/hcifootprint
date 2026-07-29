@@ -35,11 +35,13 @@ import type { CommitBundle, ExecutionCounter, FilterCondition } from 'footprintj
 import { detectSchema } from 'footprintjs';
 import type { MCPToolDescription, ScopeRecorder, WhereFilter } from 'footprintjs';
 import { formatSlice, keysReadFromMap, sliceForKey } from 'footprintjs/trace';
+import { isParam, segmentsOf } from '../graph/route-match.js';
 import type {
   Affordance,
   AvailableEdge,
   AvailableSkill,
   AvailableSlice,
+  Binding,
   CommitSkillResult,
   ConfirmReceipts,
   ConfirmRecord,
@@ -138,6 +140,11 @@ export class Session {
   readonly #allowUnmaterialized: boolean;
   /** Whether a plain JSON-Schema declaration is shape-checked at fire time. */
   readonly #checkPayloadShape: boolean;
+  /**
+   * The caller's OWN router navigation, when provided (the opt-in that lets a
+   * url gesture materialise without a fake handler — see SessionOptions).
+   */
+  readonly #navigate?: (href: string) => void | Promise<void>;
   /** Fingerprint of the served structure at the last coalesced flush. */
   #structureFingerprint = '';
   #structureFlushScheduled = false;
@@ -197,6 +204,7 @@ export class Session {
     this.#captureProduced = opts.captureProduced ?? true;
     this.#allowUnmaterialized = opts.allowUnmaterializedFires ?? false;
     this.#checkPayloadShape = opts.checkPayloadShape ?? true;
+    this.#navigate = opts.navigate;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
     this.#heap = new SharedMemory(undefined, initial);
@@ -368,8 +376,11 @@ export class Session {
   available(): AvailableSlice {
     // A touring session (allowUnmaterializedFires) stamps the marker even with
     // an empty registry: every edge honestly says "nothing is bound here"
-    // BEFORE the agent fires it, instead of staying silent.
-    const flagMaterialized = this.#registry.hasAny() || this.#allowUnmaterialized;
+    // BEFORE the agent fires it, instead of staying silent. A session holding
+    // a navigate fn arms the flag for the same reason — materialisation is a
+    // meaningful question there even before any handler mounts.
+    const flagMaterialized =
+      this.#registry.hasAny() || this.#allowUnmaterialized || this.#navigate !== undefined;
     const edges: AvailableEdge[] = [];
     for (const aff of Object.values(this.spec.affordances)) {
       if (!aff.on.includes(this.#node)) continue;
@@ -379,7 +390,11 @@ export class Session {
         affordanceId: aff.id,
         description: aff.description,
         role: aff.role,
-        ...(flagMaterialized ? { materialized: this.#registry.isRegistered(aff.id) } : {}),
+        // The stamp mirrors the ONE materialisation question handlerFor
+        // answers: registered, OR url-materialisable through navigate.
+        ...(flagMaterialized
+          ? { materialized: this.#registry.isRegistered(aff.id) || this.#urlMaterialisable(aff) }
+          : {}),
         // A registered-but-disabled tool is served WITH the marker (a greyed
         // button the agent can see), never silently hidden.
         ...(this.#registry.isEnabled(aff.id) === false ? { enabled: false } : {}),
@@ -499,6 +514,10 @@ export class Session {
    * Commit to a skill: opens a frame so toMCPTools()/contextBrief() serve ONLY
    * that skill's currently-fireable steps plus escape tools — the token win
    * (skills for planning, tools on commit). One frame at a time in v0.
+   *
+   * Never-trap invariant: an agent commit whose entry step cannot materialise
+   * right now is refused ENTRY_NOT_MATERIALIZED instead of opening a frame
+   * that could never act (see the gate below).
    */
   commitSkill(
     skillId: string,
@@ -518,10 +537,36 @@ export class Session {
     if (!pre.matched) {
       return { ok: false, reason: 'PRECONDITION_FAILED', evidence: pre.conditions };
     }
+    const principal = opts?.source ?? 'agent';
+    // THE NEVER-TRAP COMMIT GATE (fifth refusal, after the existing four): a
+    // skill whose ENTRY step would answer an agent fire NOT_MATERIALIZED right
+    // now must never open its frame — the agent would stand in a narrowed room
+    // where the first thing it was promised cannot act. Same widened handlerFor
+    // question as fire(), one code path, never a second lookup. Only agent
+    // commits outside a tour gate here: a user drives the app itself, and a
+    // tour's fires are already honest no-ops. Registered-but-disabled entries
+    // pass (TOOL_DISABLED is retriable, not missing wiring). The refusal lands
+    // ONE gap row and touches no state — no transition, no commit bundle.
+    if (principal === 'agent' && !this.#allowUnmaterialized) {
+      const entryId = skill.steps[0];
+      const entry = this.spec.affordances[entryId];
+      if (this.handlerFor(entryId, { source: 'agent' }) === undefined) {
+        this.recordRejection(entryId, 'ENTRY_NOT_MATERIALIZED', principal, undefined, undefined, {
+          gestureKind: entry?.binding?.kind,
+          skillId,
+        });
+        return {
+          ok: false,
+          reason: 'ENTRY_NOT_MATERIALIZED',
+          affordanceId: entryId,
+          ...(entry?.binding ? { gesture: entry.binding } : {}),
+        };
+      }
+    }
     this.#frame = {
       skillId,
       status: 'open',
-      principal: opts?.source ?? 'agent',
+      principal,
       openedAt: Date.now(),
       openedAtVersion: this.#version,
       firedSteps: [],
@@ -697,12 +742,22 @@ export class Session {
     // nothing bound" — this is the same lookup, not a second one.)
     const handlerWillRun = opts.invoke !== false && !unmaterialized;
     if (honestNoOp && !this.#allowUnmaterialized) {
-      this.recordRejection(affordanceId, 'NOT_MATERIALIZED', opts.source);
-      return { ok: false, reason: 'NOT_MATERIALIZED', affordanceId };
+      this.recordRejection(affordanceId, 'NOT_MATERIALIZED', opts.source, undefined, undefined, {
+        gestureKind: aff.binding?.kind,
+      });
+      // The declared gesture rides the refusal: "this is a click on the
+      // checkout button", not "nothing is bound". The binding is deep-frozen
+      // spec data (the same object available() already serves) — safe to share.
+      return {
+        ok: false,
+        reason: 'NOT_MATERIALIZED',
+        affordanceId,
+        ...(aff.binding ? { gesture: aff.binding } : {}),
+      };
     }
     if (honestNoOp) {
       // Allowed tour fire: the binding the app team still has to build.
-      this.#recordUnmaterializedFire(affordanceId, opts.source);
+      this.#recordUnmaterializedFire(affordanceId, opts.source, aff.binding?.kind);
     }
     // Only ever present on the allowed-no-op path — absence means normal.
     const noOpMarks = honestNoOp ? ({ executed: false, materialized: false } as const) : {};
@@ -810,7 +865,11 @@ export class Session {
    * refused, so it is not a 'fire-rejected' row — it is the missing binding.
    * Same token-lean shape as every other gap row; exporters see it via onGap.
    */
-  #recordUnmaterializedFire(affordanceId: string, principal: Principal): void {
+  #recordUnmaterializedFire(
+    affordanceId: string,
+    principal: Principal,
+    gestureKind?: Binding['kind'],
+  ): void {
     this.#pushGap({
       kind: 'unmaterialized-fire',
       timestamp: Date.now(),
@@ -819,6 +878,9 @@ export class Session {
       ...this.#gapContext(),
       affordanceId,
       principal,
+      // The kind string only (token-lean): the backlog says WHICH wiring is
+      // missing — a click handler vs a navigate fn — without carrying objects.
+      ...(gestureKind !== undefined ? { gestureKind } : {}),
     });
   }
 
@@ -1332,6 +1394,8 @@ export class Session {
     principal: Principal,
     evidence?: FilterCondition[],
     precomputedActions?: string[],
+    /** Extra triage words for wiring-shaped refusals (which gesture; which skill asked). */
+    detail?: { gestureKind?: Binding['kind']; skillId?: string },
   ): void {
     this.#pushGap({
       kind: 'fire-rejected',
@@ -1346,6 +1410,8 @@ export class Session {
       // Copy the CONDITION OBJECTS too — the same objects ride FireResult.evidence,
       // and a caller annotating those must not rewrite the ledger.
       ...(evidence !== undefined ? { evidence: evidence.map((c) => ({ ...c })) } : {}),
+      ...(detail?.gestureKind !== undefined ? { gestureKind: detail.gestureKind } : {}),
+      ...(detail?.skillId !== undefined ? { skillId: detail.skillId } : {}),
     });
   }
 
@@ -1612,11 +1678,37 @@ export class Session {
   }
 
   /**
-   * Resolve the live handler for a fire. Protected seam: NavSession keys
-   * repeats-container handlers by instance ('cancel-order[o-123]').
+   * Resolve what would EXECUTE a fire — the one materialisation question,
+   * answered in one place. Protected seam: NavSession keys repeats-container
+   * handlers by instance ('cancel-order[o-123]'). Resolution order:
+   *
+   *   (a) a registry handler wins, byte-identical to before navigate existed;
+   *   (b) else, IF the session holds `navigate` AND the edge's gesture yields
+   *       a literal href (an explicit url binding, else the fully-literal
+   *       route of the page named by effect.navigatesTo), a SYNTHESIZED
+   *       handler `() => navigate(href)` — it rides the existing invocation
+   *       machinery, so resolve → 'performed' and throw → 'refused' with the
+   *       honest rollback, exactly like a registered handler;
+   *   (c) else undefined → agent fires refuse NOT_MATERIALIZED as always.
+   *
+   * click/tab/programmatic gestures NEVER synthesize — they are not addresses;
+   * for them navigate changes only the WORDS of the refusal (FireResult.gesture).
    */
   protected handlerFor(affordanceId: string, _opts: FireOptions): ToolHandler | undefined {
-    return this.#registry.handlerFor(affordanceId);
+    const registered = this.#registry.handlerFor(affordanceId);
+    if (registered) return registered;
+    const navigate = this.#navigate;
+    if (navigate === undefined) return undefined;
+    const aff = this.spec.affordances[affordanceId];
+    if (!aff) return undefined;
+    const href = gestureHref(aff, this.spec.pages);
+    if (href === undefined) return undefined;
+    return () => navigate(href);
+  }
+
+  /** Whether navigate could materialise this edge right now (the available() stamp's half of the question). */
+  #urlMaterialisable(aff: Affordance): boolean {
+    return this.#navigate !== undefined && gestureHref(aff, this.spec.pages) !== undefined;
   }
 
   /**
@@ -1889,6 +1981,38 @@ export class Session {
     }
     ctx.commit();
   }
+}
+
+/**
+ * The literal address an edge's GESTURE yields, or undefined when it yields
+ * none. Two ways to an address, one law:
+ * - a declared `url` binding IS the address (build already refused ':param'
+ *   segments, but the check re-runs here so a hand-built spec cannot smuggle
+ *   one past materialisation);
+ * - an edge with NO binding that claims `navigatesTo` a page whose route is
+ *   fully literal — pure navigation's natural gesture is the url, which is how
+ *   a fromRoutes page is reached without any hand-written tool.
+ * A declared click/tab/programmatic gesture yields NO address by definition:
+ * the author said HOW this edge is performed, and it is not by url — deriving
+ * one anyway would replace their gesture with a guess.
+ * Literal-ness is judged by the matcher's own segment law (segmentsOf/isParam)
+ * so routing, matching and materialisation can never disagree.
+ */
+function gestureHref(aff: Affordance, pages: SkillGraphSpec['pages']): string | undefined {
+  if (aff.binding) {
+    if (aff.binding.kind !== 'url') return undefined;
+    return fullyLiteral(aff.binding.href) ? aff.binding.href : undefined;
+  }
+  const target = aff.effect?.navigatesTo;
+  if (!target) return undefined;
+  const route = pages[target]?.route;
+  if (typeof route !== 'string') return undefined;
+  return fullyLiteral(route) ? route : undefined;
+}
+
+/** No segment is a ':param' — the address exists as bytes, nothing to guess. */
+function fullyLiteral(routeOrHref: string): boolean {
+  return !segmentsOf(routeOrHref).some(isParam);
 }
 
 /**

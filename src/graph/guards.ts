@@ -6,6 +6,7 @@
  * operators are ignored; denied keys never match). Authoring is where they
  * must die loudly.
  */
+import { isParam, segmentsOf } from './route-match.js';
 
 export const FILTER_OPERATORS = new Set(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn']);
 
@@ -47,6 +48,30 @@ export function checkSegment(owner: string, name: string): void {
   if (BAD_SEGMENT.test(name)) {
     throw new SkillGraphValidationError(
       `${owner}: '${name}' contains a reserved character (. [ ] # / |) — names become path identities.`,
+    );
+  }
+}
+
+/**
+ * The url-gesture half of the never-trap BUILD gate: a `url` binding whose
+ * href carries a ':param' segment can NEVER materialise — the library never
+ * guesses params, so no navigate function will ever be handed a filled-in
+ * address for it. Refused loudly at authoring (both doors: the compiler's
+ * compileTool and mount-declared tools), judged by the MATCHER's own segment
+ * law (segmentsOf/isParam) so what authoring refuses and what materialisation
+ * derives can never disagree. What cannot materialise YET (a handler arriving
+ * at mount) is deliberately NOT refused here — that is the commit gate's job.
+ */
+export function checkLiteralHref(owner: string, href: unknown): void {
+  if (typeof href !== 'string') {
+    throw new SkillGraphValidationError(
+      `${owner} declares a url binding whose href is not a string (got ${typeof href}).`,
+    );
+  }
+  if (segmentsOf(href).some(isParam)) {
+    throw new SkillGraphValidationError(
+      `${owner} declares a url binding with href '${href}' — a ':param' segment can never materialise ` +
+        `(the library never guesses params). Give the gesture a fully literal address, or bind a handler instead.`,
     );
   }
 }

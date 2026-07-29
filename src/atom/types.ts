@@ -80,11 +80,28 @@ export type Actuation = 'click' | 'type' | 'select' | 'hover' | 'drag' | 'press'
  * Activation descriptor. Generalized past "element selector" because keyboard
  * shortcuts have no element and canvas surfaces have no ARIA — those bind via
  * `keychord` and `programmatic` (the component publishes its own affordance).
+ * With `url` and `tab` the set covers the four gestures a routed web app
+ * actually performs: url | click (element) | tab | programmatic.
  */
 export type Binding =
   | { kind: 'element'; locator: ElementLocator; actuation?: Actuation }
   | { kind: 'keychord'; chord: string }
-  | { kind: 'programmatic'; provider: string };
+  | { kind: 'programmatic'; provider: string }
+  /**
+   * A literal address the app's OWN router can be handed (see
+   * `SessionOptions.navigate`). `href` must be FULLY literal — a ':param'
+   * segment is refused loudly at authoring, because the library never guesses
+   * params: an address either exists as bytes or the gesture does not exist.
+   */
+  | { kind: 'url'; href: string }
+  /**
+   * A tab switch to a sibling node path. Its own gesture, DESCRIPTIVE in v1:
+   * it materialises only via a registered handler, and it NEVER moves the page
+   * cursor — flipping a tab does not change the page you are on. After the
+   * app's handler flips tabs, the existing visibility wire (show/setVisible)
+   * reports the result; fire() itself never writes the PresenceIndex.
+   */
+  | { kind: 'tab'; target: string };
 
 // ---------------------------------------------------------------------------
 // Effect — a checkable claim, never a truth
@@ -256,6 +273,18 @@ export interface SessionOptions {
    * either way; this flag governs only the plain-JSON-Schema branch.
    */
   checkPayloadShape?: boolean;
+  /**
+   * The caller's OWN router navigation (e.g. `(href) => router.push(href)`).
+   * PRESENCE of this option is the opt-in: with it, an edge whose gesture
+   * yields a literal href — an explicit `url` binding, else the fully-literal
+   * route of the page it claims to navigate to — materialises through this
+   * function, so a pure URL navigation no longer needs a fake do-nothing
+   * handler to get past NOT_MATERIALIZED. Registered handlers still win, and
+   * the synthesized navigation rides the SAME invocation machinery: resolve →
+   * effectStatus 'performed'; throw → 'refused' with the honest rollback.
+   * Without this option nothing changes — fail-closed, byte-identical.
+   */
+  navigate?: (href: string) => void | Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -566,7 +595,18 @@ export type FireResult =
    *  a tool group, or opt the session into read-only touring via
    *  allowUnmaterializedFires). The app-self-report tier (source 'user'/'system'
    *  or invoke:false) is never gated — that motion really happened. */
-  | { ok: false; reason: 'NOT_MATERIALIZED'; affordanceId: string };
+  | {
+      ok: false;
+      reason: 'NOT_MATERIALIZED';
+      affordanceId: string;
+      /**
+       * The DECLARED gesture nothing is wired to perform — so the refusal says
+       * "this is a click on the checkout button", not "nothing is bound".
+       * Absent when the edge declared no binding (there the old words were
+       * already the whole truth).
+       */
+      gesture?: Binding;
+    };
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -666,9 +706,24 @@ export interface GapRecord {
     | 'INSTANCE_REQUIRED'
     | 'INSTANCE_UNKNOWN'
     | 'TOOL_DISABLED'
-    | 'NOT_MATERIALIZED';
+    | 'NOT_MATERIALIZED'
+    /** commitSkill refused: the skill's ENTRY step could not materialise (never-trap gate). */
+    | 'ENTRY_NOT_MATERIALIZED';
   principal?: Principal;
   evidence?: FilterCondition[];
+  /**
+   * The refused edge's declared gesture KIND ('fire-rejected' and
+   * 'unmaterialized-fire' rows) — the demand backlog now says WHICH wiring is
+   * missing (a click handler vs a navigate fn). Token-lean by design: the kind
+   * string only, never the binding object.
+   */
+  gestureKind?: Binding['kind'];
+  /**
+   * The skill whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
+   * `affordanceId` on those rows is the entry STEP; this names the skill the
+   * planner actually asked for.
+   */
+  skillId?: string;
   // reported rows:
   /** The user's ask (runtime data; length-capped). */
   request?: string;
@@ -865,7 +920,17 @@ export type CommitSkillResult =
   | { ok: false; reason: 'UNKNOWN_SKILL'; known: string[] }
   | { ok: false; reason: 'STALE_CURSOR'; version: number }
   | { ok: false; reason: 'PRECONDITION_FAILED'; evidence: FilterCondition[] }
-  | { ok: false; reason: 'FRAME_ALREADY_OPEN'; skillId: string };
+  | { ok: false; reason: 'FRAME_ALREADY_OPEN'; skillId: string }
+  /**
+   * The never-trap commit gate: the skill's ENTRY step would answer an agent
+   * fire NOT_MATERIALIZED right now, so the frame that could never act is
+   * never opened (an agent standing in a room where nothing it was promised
+   * works is a planning trap, even with the leave-skill escape). Fires only
+   * for agent commits outside a tour (allowUnmaterializedFires). `gesture`
+   * carries the entry step's declared binding, when it has one — the refusal
+   * names the wiring that is missing.
+   */
+  | { ok: false; reason: 'ENTRY_NOT_MATERIALIZED'; affordanceId: string; gesture?: Binding };
 
 // ---------------------------------------------------------------------------
 // Context brief — the traverse-path delta served to the LLM each chat turn

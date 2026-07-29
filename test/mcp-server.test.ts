@@ -69,7 +69,11 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
   });
 
   it('tools/call routes to the session — open a skill, get readySteps back as data', async () => {
-    const client = await connectClient(shopSession());
+    const session = shopSession();
+    // The agent acts on a WIRED app (0.4.x never-trap gate: an agent commit
+    // whose entry step cannot materialise refuses ENTRY_NOT_MATERIALIZED).
+    session.registerToolGroup('catalog', { handlers: { search: () => undefined } });
+    const client = await connectClient(session);
     const res = await client.callTool({ name: 'shop.skill.browse', arguments: {} });
     const payload = text(res);
     expect(payload['ok']).toBe(true);
@@ -90,6 +94,9 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     const session = shopSession();
     session.sync('checkout'); // place-order lives here
     session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    // purchase's ENTRY step must materialise for the agent commit to open the
+    // frame at all (0.4.x never-trap gate) — wire the app's side of it too.
+    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
     const client = await connectClient(session);
     await client.callTool({ name: 'shop.skill.purchase', arguments: {} });
     const res = await client.callTool({ name: 'shop.skill.purchase', arguments: { step: 'place-order' } });
@@ -115,11 +122,21 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
   it('an unbound agent fire surfaces NOT_MATERIALIZED over the server too', async () => {
     const session = shopSession(); // nothing registered: the tool is declared only
     const client = await connectClient(session);
-    await client.callTool({ name: 'shop.skill.browse', arguments: {} });
-    const res = text(await client.callTool({ name: 'shop.skill.browse', arguments: { step: 'search' } }));
+    // do_action is the door here: page actions stay reachable regardless of
+    // skill state (the never-trap SERVE stance), while a SKILL whose entry is
+    // unbound now refuses at commit — asserted right below.
+    const res = text(
+      await client.callTool({ name: 'shop.do_action', arguments: { action: 'search' } }),
+    );
     expect(res).toMatchObject({ ok: false, judgment: 'rejected', reason: 'NOT_MATERIALIZED' });
     expect(res['why']).toContain('Nothing in the app is wired');
     expect(session.state()['n']).toBe(0); // nothing moved
+
+    // The 0.4.x never-trap gate, over the wire: the frame that could never
+    // act is never opened, and the refusal names the entry step.
+    const committed = text(await client.callTool({ name: 'shop.skill.browse', arguments: {} }));
+    expect(committed).toMatchObject({ ok: false, reason: 'ENTRY_NOT_MATERIALIZED' });
+    expect(session.skillFrame()).toBeNull();
   });
 
   it('produced data (a handler return) travels IN the tool result over MCP', async () => {

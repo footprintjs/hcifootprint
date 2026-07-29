@@ -12,13 +12,15 @@
  *    overlay second and may only add, live actions attach last and only bind —
  *    nothing later in the order may remove anything earlier."
  *
- * This module is types only (erased at build). The union below carries the
- * STATIC members; live sources arrive in a later release WITH their attach
- * machinery — the order sentence above already reserves their place (last,
- * bind-only). A union member whose machinery does not exist yet would be a
- * typed lie, so the union grows when the machinery does.
+ * This module is types only (erased at build). Static sources (routes,
+ * journeys) contribute at BUILD time; the live source contributes at ATTACH
+ * time — createSession attaches it to each new session, exactly where the
+ * order sentence reserved its place (last, bind-only).
  */
 import type { PageNodeDef, SkillDef2 } from '../../tree/types.js';
+// Type-only imports from the session layer (erased at build): a source module
+// or a consumer importing these types never drags session machinery.
+import type { RegisteredToolDef, RegisterToolGroupOptions, ToolGroupHandle } from '../../traverse/nav-session.js';
 
 /**
  * A route table read as pages — the spine. `PageIds` carries the page names
@@ -37,5 +39,58 @@ export interface JourneysSource {
   readonly skills: Record<string, SkillDef2>;
 }
 
-/** Everything `def.sources` accepts today. Static members only — see the module header. */
-export type GraphSource = RoutesSource | JourneysSource;
+/**
+ * A runtime source: the app's live action store, attached per session. It
+ * contributes NOTHING at build (last in the merge order, bind-only — it can
+ * never remove or reshape what the static sources laid down); createSession
+ * calls `attach` on each new session, and `detachSources()` (or the returned
+ * detach) releases everything it registered.
+ */
+export interface LiveSource {
+  readonly kind: 'live';
+  /** Wire the store's actions onto a session; returns detach (idempotent). */
+  attach(session: LiveBindingPort): () => void;
+}
+
+/** Everything `def.sources` accepts. */
+export type GraphSource = RoutesSource | JourneysSource | LiveSource;
+
+/**
+ * One action a live store publishes: WHERE it lives (node, plus instance for a
+ * repeats card), WHAT it is (the RegisteredToolDef vocabulary mounts already
+ * speak — does/handler/when/writes/goTo/…), and whether it is currently
+ * clickable. `${node}.${name}` (+instance) is the action's IDENTITY across
+ * snapshots — same key means same action.
+ */
+export interface LiveAction extends RegisteredToolDef {
+  /** Node path the action lives on (a page or declared container). */
+  node: string;
+  /** Leaf tool name (same segment law as every authored name). */
+  name: string;
+  /** Instance key when the action belongs to one card of a repeats container. */
+  instance?: string;
+  /** False = on screen but greyed out (flows to TOOL_DISABLED). Default true. */
+  enabled?: boolean;
+}
+
+/**
+ * The smallest respectable store contract — subscribe + read-current, the
+ * shape React itself blesses (useSyncExternalStore). Any app store that can
+ * say "here are my actions now" and "something changed" satisfies it.
+ */
+export interface LiveActionStore {
+  subscribe(onChange: () => void): () => void;
+  actions(): LiveAction[];
+}
+
+/**
+ * What a live source needs from a session — structural and type-only, so
+ * fromLiveStore stays a zero-value-import leaf. InteractionSession satisfies
+ * it as-is: the declare-then-bind wire (registerToolGroup) plus the visibility
+ * wire (show/setVisible) an app may drive after its own handler flips tabs.
+ */
+export interface LiveBindingPort {
+  registerToolGroup(path: string, opts?: RegisterToolGroupOptions): ToolGroupHandle;
+  show(path: string): void;
+  setVisible(path: string, visible: boolean): void;
+}

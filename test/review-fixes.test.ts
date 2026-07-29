@@ -315,6 +315,10 @@ describe('Mode B — the panel’s serve-layer findings', () => {
       },
     });
     const session = map.createSession({ node: 'home', state: { authenticated: false } });
+    // Wire the entry step's handler: an agent commit with an unmaterialised
+    // entry refuses ENTRY_NOT_MATERIALIZED since the 0.4.x never-trap gate,
+    // and this test's story needs the 'looking' frame actually open.
+    session.registerToolGroup('home', { handlers: { browse: () => undefined } });
     const port = skillsAsTools(session);
     port.call('shop.skill.looking', {});
     const blocked = port.call('shop.skill.buying', {});
@@ -328,6 +332,9 @@ describe('Mode B — the panel’s serve-layer findings', () => {
       skills: { paying: { does: 'Pay flow', steps: ['pay'] } },
     });
     const session = map.createSession({ node: 'home', state: { vip: false } });
+    // Wire pay so the frame opens (0.4.x never-trap gate) — the story here is
+    // that a GUARD refusal keeps its honest judgment inside an open frame.
+    session.registerToolGroup('home', { handlers: { pay: () => undefined } });
     const port = skillsAsTools(session);
     port.call('shop.skill.paying', {});
     const rejected = port.call('shop.skill.paying', { step: 'pay' });

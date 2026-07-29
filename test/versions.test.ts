@@ -10,7 +10,7 @@
  * becomes world-motion in the trace.
  */
 import { describe, expect, it } from 'vitest';
-import { shop, initialState } from './fixture.js';
+import { shop, initialState, wire } from './fixture.js';
 
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -27,6 +27,7 @@ describe('version split — state × structure × total', () => {
 
   it('opening/leaving a skill frame bumps version AND structureVersion, never stateVersion', () => {
     const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
+    wire(s, 'add-to-cart'); // entry materialised (0.4.x never-trap commit gate)
     const v = { state: s.stateVersion, structure: s.structureVersion };
     s.commitSkill('purchase');
     expect(s.structureVersion).toBe(v.structure + 1);

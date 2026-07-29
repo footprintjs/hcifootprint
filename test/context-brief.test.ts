@@ -80,6 +80,7 @@ describe('contextBrief() — who did what since the last turn', () => {
       node: 'catalog',
       state: { ...initialState, authenticated: true },
     });
+    wire(s, 'add-to-cart'); // entry materialised (0.4.x never-trap commit gate)
     s.commitSkill('purchase');
     let brief = s.contextBrief();
     expect(brief.frame?.skillId).toBe('purchase');

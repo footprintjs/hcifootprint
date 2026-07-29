@@ -140,12 +140,24 @@ describe('merge — cross-source references become first-class', () => {
 
 describe('merge — fail closed on what this build cannot read', () => {
   it('an unknown source kind is refused, never silently dropped', () => {
+    // 'live' graduated from unknown to known in 0.4.x (fromLiveStore), so the
+    // exemplar of a kind this build cannot read moves to a genuinely unknown
+    // one — the intent of this test (fail closed, never drop) is unchanged.
+    expect(() =>
+      buildNavigationGraph('shop', {
+        pages: { catalog: {} },
+        sources: [{ kind: 'telemetry' } as never],
+      }),
+    ).toThrow(/sources\[0\] has unknown kind 'telemetry' — this build understands 'routes', 'journeys' and 'live'/);
+  });
+
+  it("a known 'live' kind without attach() is refused in the library's own voice", () => {
     expect(() =>
       buildNavigationGraph('shop', {
         pages: { catalog: {} },
         sources: [{ kind: 'live' } as never],
       }),
-    ).toThrow(/sources\[0\] has unknown kind 'live' — this build understands 'routes' and 'journeys'/);
+    ).toThrow(/sources\[0\] has kind 'live' but no attach\(\) function — build it with fromLiveStore\(\)/);
   });
 
   it('a non-object source is refused', () => {

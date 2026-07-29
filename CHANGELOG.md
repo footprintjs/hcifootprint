@@ -22,8 +22,7 @@ reads the owner's truth instead of copying it.
   under ONE documented merge order: **"Pages first (routes then hand-authored,
   hand-authored wins), journeys overlay second and may only add, live actions
   attach last and only bind — nothing later in the order may remove anything
-  earlier."** (Live sources arrive in a later release; the order already
-  reserves their place.) Hand-authored wins per page id with one courtesy — a
+  earlier."** Hand-authored wins per page id with one courtesy — a
   hand page missing `route` inherits the source's route; the same page
   declaring two DIFFERENT routes is refused loudly (drift made visible), with
   route equality judged by the matcher's own segment reading, never string
@@ -37,6 +36,68 @@ reads the owner's truth instead of copying it.
 Non-breaking by construction: a def without `sources` takes the identity path
 and compiles bit-for-bit as before; `fromRoutes`/`fromJourneys` are leaf
 modules, so importing one never drags session machinery into a bundle.
+
+### Added (typed actuation on the edge)
+- The `Binding` union gains its two missing gestures — the full set now covers
+  what a routed web app actually performs: **url | click (element) | tab |
+  programmatic**. `{ kind: 'url', href }` is a literal address the app's own
+  router can be handed; `{ kind: 'tab', target }` is a tab switch to a sibling
+  node path — its own gesture, descriptive in v1 (materialises only via a
+  registered handler, NEVER moves the page cursor, and `fire()` never writes
+  the PresenceIndex: the app reports the flip through the existing
+  `show()`/`setVisible()` wire).
+- A paramful url href (`/orders/:id`) is refused loudly at BOTH authoring
+  doors (the compiler and mount-declared tools): a `:param` segment can never
+  materialise, because this library does not guess params. Judged by the
+  matcher's own segment law, so authoring, routing and materialisation can
+  never disagree.
+- `SessionOptions.navigate` — hand the session your router's OWN navigation
+  (`(href) => router.push(href)`); presence of the option is the opt-in. An
+  edge whose gesture yields a literal href — an explicit url binding, else the
+  fully-literal route of the page named by `goTo`/`navigatesTo` — now
+  materialises through it: no more fake do-nothing handlers registered purely
+  to get navigations past NOT_MATERIALIZED. Registered handlers still win; the
+  synthesized navigation rides the same invocation machinery (resolve →
+  `effectStatus: 'performed'`; throw → `'refused'` with the honest rollback
+  and cursor walk-back); `toNode` stays a claim until `sync()` confirms.
+  `available()`'s `materialized` stamp mirrors the same widened question.
+- The words got honest too: a NOT_MATERIALIZED refusal now carries the
+  declared `gesture` ("this is a click on the checkout button", not "nothing
+  is bound"), and gap-ledger rows for `fire-rejected`/`unmaterialized-fire`
+  carry `gestureKind` — the demand backlog says WHICH wiring is missing (a
+  click handler vs a navigate fn), token-lean.
+
+### Added (live graph source)
+- `fromLiveStore(store)` — the third source: the app's live action store
+  (subscribe + read-current, the shape React itself blesses) drives the
+  existing declare-then-bind wire per session. Reconciled by identity key
+  `node.name`(+instance): new registers, gone releases, an `enabled` flip
+  flows to TOOL_DISABLED, and an UNCHANGED action is never re-registered — a
+  chatty store causes zero warnings and zero phantom structure bumps. An
+  action for an already-declared tool BINDS silently (attach last, only bind);
+  a genuinely new one mount-declares. Zero value imports — a static-graph
+  consumer never bundles it (proven by the new tree-shake test).
+- `InteractionSession.detachSources()` (idempotent) releases everything the
+  graph's live sources attached; the direct door
+  `fromLiveStore(store).attach(session)` returns its own detach.
+
+### Changed (behavior change, pre-1.0 minor — the never-trap invariant)
+- **`commitSkill()` gains one typed refusal, after its existing four:
+  `ENTRY_NOT_MATERIALIZED`.** An AGENT commit (the default source) outside a
+  tour session is refused when the skill's ENTRY step would answer an agent
+  fire NOT_MATERIALIZED right now — the frame that could never act is never
+  opened, so a planner is never invited into a narrowed room where the first
+  promised thing does nothing. Same treatment 0.3.0 gave NOT_MATERIALIZED:
+  fail-closed, typed, and one gap row (`rejectionReason:
+  'ENTRY_NOT_MATERIALIZED'` with the entry step, the new `skillId`, and
+  `gestureKind`) — no transition, no commit bundle, because nothing touched
+  state. **Upgrade note:** if your agent flow commits skills before the app's
+  handlers mount, either register the entry step's handler first (the same
+  wiring 0.3.0 asked of fires), pass the new `navigate` option when the entry
+  is a pure navigation, commit with `source: 'user'` for human-driven flows,
+  or create the session with `allowUnmaterializedFires` for touring. User
+  commits, tours, registered-but-disabled entries (retriable), and every
+  already-wired flow behave exactly as before.
 
 ## [0.4.0] - 2026-07-29
 

@@ -92,8 +92,9 @@ export interface NavigationGraphDef {
   skills?: Record<string, SkillDef2>;
   /**
    * Growable inputs the app ALREADY owns — fromRoutes(app.routes) seeds pages,
-   * fromJourneys(app.journeys) seeds skills — folded into this def BEFORE the
-   * compiler's walk, under ONE documented order:
+   * fromJourneys(app.journeys) seeds skills, fromLiveStore(app.actionStore)
+   * attaches live bindings per session. Static sources fold into this def
+   * BEFORE the compiler's walk, under ONE documented order:
    *
    *   "Pages first (routes then hand-authored, hand-authored wins), journeys
    *    overlay second and may only add, live actions attach last and only
