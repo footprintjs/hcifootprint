@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import HeroScene from './HeroScene';
+import HeroScene, { HeroCaption } from './HeroScene';
 import MapCanvas from './MapCanvas';
 import { BASE } from '../site.config';
 
@@ -283,6 +283,8 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
         >
           <HeroScene />
         </div>
+        {/* the relay in words, on the relay's own clock (see HeroScene) */}
+        <HeroCaption />
         <div className="hp-scrollcue">↓ SCROLL — THE OBJECT FLATTENS INTO THE MAP</div>
       </section>
 

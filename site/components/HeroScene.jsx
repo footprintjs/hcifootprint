@@ -15,6 +15,8 @@
  *   • when a mark pops                       → the moment its traveller arrives
  *                                              at that place
  *   • the camera lean-in, the gate bar       → read off the same schedule
+ *   • the caption under the stage            → in on a beat, out on the next
+ *                                              beat, both read off the schedule
  *
  * There is no second timeline to keep in step by hand, so the trail can no
  * longer drift away from the car. That is the whole point of this rewrite.
@@ -200,11 +202,40 @@ const CUE = {
   barDur: AGENT.road[8].t0 - GATE_AT, // the barrier is down for exactly the wait
 };
 
+/* ── the words ─────────────────────────────────────────────────────────────
+   One line under the stage that says what is happening while it happens.
+   Every caption comes IN on a beat the schedule already knows about and goes
+   OUT on the next one's — so a caption cannot describe a moment the travellers
+   are not in, and there is no second timeline to keep in step by hand. Short
+   beats get short lines; where a beat was too brief to read, the beats are
+   merged rather than flashed. */
+const SAY_FADE = 0.24; // in and out, the same quick dissolve for all of them
+const SAY = [
+  { at: HUMAN_START, tone: 'human', text: 'A human interacts, then navigates — every step recorded.' },
+  { at: BATON, tone: 'ink', text: 'The agent takes over — where the human stopped.' },
+  { at: CUE.form, tone: 'agent', text: 'It fills the form.' },
+  { at: CUE.legBC, tone: 'agent', text: 'Agent navigates. Same map, same rules.' },
+  { at: CUE.fieldA, tone: 'agent', text: 'Agent interacts — recorded, attributed.' },
+  { at: CUE.gate, tone: 'gate', text: 'A consequential step — it stops and asks.' },
+  // the last one holds: it is the sentence the still frame is left with
+  { at: CUE.approve, tone: 'ink', text: 'Approved. One journey, two travellers.' },
+];
+
 /* ── generated motion ──────────────────────────────────────────────────────
    The only CSS on this page that has to know the schedule. */
 const fade = (marks) => marks.map(([t, o]) => `  ${pctOf(t)} { opacity: ${o} }`).join('\n');
 
+/* one keyframe set per caption, cut at its own beat and at the next caption's:
+   the out-time is never written down, it is read off the line that follows. */
+const sayCSS = SAY.map((s, i) => {
+  const next = SAY[i + 1];
+  const marks = [[0, 0], [s.at, 0], [s.at + SAY_FADE, 1]];
+  marks.push(...(next ? [[next.at - SAY_FADE, 1], [next.at, 0], [TOTAL, 0]] : [[TOTAL, 1]]));
+  return `@keyframes hsSay${i} {\n${fade(marks)}\n}`;
+}).join('\n');
+
 const CSS = `
+${sayCSS}
 @keyframes hsRideH {
 ${HUMAN.body}
 }
@@ -381,6 +412,29 @@ function Traveller({ who, path, lamp, ride: rideName }) {
         )}
       </div>
     </div>
+  );
+}
+
+/* THE NARRATION LINE. It sits below the stage rather than on it — the plate is
+   rotated, scaled and shrunk on small screens, and words have to stay flat and
+   legible — but it runs on the hero's clock: the same --hd and --hpPlay the
+   stage is handed, so it freezes and settles exactly as the stage does, and its
+   beats are cut from the schedule above. Decorative: the story is also on the
+   page as ordinary prose, so nothing here needs announcing. */
+export function HeroCaption() {
+  return (
+    <p className="hp-hero-caption" aria-live="off">
+      {SAY.map((s, i) => (
+        <span
+          key={s.text}
+          className={PLAY}
+          data-tone={s.tone}
+          style={{ animation: `hsSay${i} ${TOTAL}s linear ${d(0)} both` }}
+        >
+          {s.text}
+        </span>
+      ))}
+    </p>
   );
 }
 

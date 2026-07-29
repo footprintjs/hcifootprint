@@ -153,6 +153,24 @@ html.dark {
 .hp-hero-side div:first-child { border-top: 1px solid var(--hp-rule); padding-top: 9px; }
 .hp-hero-side .gate { color: var(--hp-human); }
 .hp-hero-stage { display: flex; justify-content: center; align-items: center; margin: clamp(-10px, -1vh, 0) auto 0; width: 100%; max-width: 1180px; }
+/* the relay in words. Every caption sits in the same grid cell, so the line
+   reserves the height of the tallest one at whatever width it is read at, and
+   the swap cannot make the page below it jump. The timing is not here on
+   purpose: HeroScene.jsx cuts it from the same schedule the travellers ride. */
+.hp-hero-caption {
+  display: grid; justify-items: center; align-items: start;
+  margin: clamp(30px, 6vh, 74px) auto 0; max-width: 640px;
+  position: relative; z-index: 1;
+  font-family: var(--mono); font-weight: 500; font-size: 12px; letter-spacing: .08em; line-height: 1.5;
+  text-align: center; color: var(--hp-ink2);
+}
+.hp-hero-caption span { grid-area: 1 / 1; }
+/* whoever is driving owns the line: warm for the human, cool for the agent,
+   the gate's own colour while it asks, plain ink for the two shared moments */
+.hp-hero-caption span[data-tone='human'] { color: var(--hp-human); }
+.hp-hero-caption span[data-tone='agent'] { color: var(--hp-agent); }
+.hp-hero-caption span[data-tone='gate'] { color: var(--hp-gate); }
+.hp-hero-caption span[data-tone='ink'] { color: var(--hp-ink); }
 .hp-scrollcue { display: flex; justify-content: center; margin-top: clamp(14px, 2vh, 26px); font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--hp-ink2); text-align: center; }
 
 /* ── the sticky map + scene copy ──────────────────────────────────────────── */
@@ -340,7 +358,7 @@ html.dark {
    complete drawing, both trails, the gate answered, both marks on the last
    control. That end frame is the poster the design was built around. */
 @media (prefers-reduced-motion: reduce), (max-width: 760px) {
-  .hp-hero-stage { --hd: -20s; --hpPlay: paused; }
+  .hp-hero-stage, .hp-hero-caption { --hd: -20s; --hpPlay: paused; }
 }
 
 /* the toggle shows the theme it will switch TO */
@@ -350,11 +368,15 @@ html.dark .hp-theme .i-sun { display: block; }
 html.dark .hp-theme .i-moon { display: none; }
 .hp-num p .mono { font-family: var(--mono); }
 
-/* held at frame 0 until the object is first scrolled into view (see HomeClient) */
-.hp-hero-stage.is-waiting { --hpPlay: paused; }
+/* held at frame 0 until the object is first scrolled into view (see HomeClient).
+   The caption line is a sibling rather than a child — words must not be scaled
+   with the plate — so the same switch reaches it, one hop sideways: whatever
+   the stage is told to do, the line is told too. */
+.hp-hero-stage.is-waiting, .hp-hero-stage.is-waiting ~ .hp-hero-caption { --hpPlay: paused; }
 /* the plate is rotated in 3D, so it paints past the bottom of its own box —
-   the scroll cue needs clearance the layout box does not describe */
-.hp-scrollcue { margin-top: clamp(30px, 6vh, 74px); position: relative; z-index: 1; }
+   the first thing under it needs clearance the layout box does not describe.
+   That is now the caption (see .hp-hero-caption); the cue follows it normally. */
+.hp-scrollcue { position: relative; z-index: 1; }
 /* the agent's step markers are diamonds: the 45° turn has to live in the
    keyframe, because an animated transform replaces the element's own */
 @keyframes dcPopRot { from { opacity: 0; transform: rotate(45deg) scale(.2) } to { opacity: 1; transform: rotate(45deg) scale(1) } }
