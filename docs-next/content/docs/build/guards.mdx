@@ -32,6 +32,50 @@ quietly turns real decisions into flagged guesses. (`undefined` is never stored:
 entry whose value is `undefined` is dropped, and a key somehow holding `undefined` is as
 unevaluable as an absent one — it rides `guardUnevaluated`, never sneaks past an operator.)
 
+## `enabledWhen` — the other question
+
+`when` asks *is this action here at all?* `enabledWhen` asks *is it clickable right now?* They
+are different questions about the same control, and the difference is exactly the difference a
+human sees:
+
+| | a failed `when` | a false `enabledWhen` |
+|---|---|---|
+| on screen | **hidden** — the edge is not served | **served**, carrying `enabled: false` |
+| what a fire gets | `GUARD_FAILED`, with the evidence | `TOOL_DISABLED` — **retriable** |
+| composed with ancestor `when`s | yes, root→leaf | **no** — this is the control's own state, not its position |
+| what it is for | this action does not belong here yet | the button is on screen and greyed |
+
+Declare it from the same expression that renders `<button disabled={…}>` and an agent stops
+discovering the answer by clicking:
+
+```ts
+'next-to-review': { does: 'Go on to review', goTo: 'review',
+                    enabledWhen: { 'project.recipe': { ne: '' } } },
+```
+
+**Four wires reach one refusal.** An app that greys a button knows it in one place — so
+whichever place that is, it lands on the same typed, retriable `TOOL_DISABLED`:
+
+1. `enabled:` at registration;
+2. `handle.setEnabled(toolId, false)` on the group handle;
+3. a live store row's `LiveAction.enabled` ([`fromLiveStore`](doc:live-bindings));
+4. the declarative `enabledWhen` here.
+
+The declaration is asked **first** and outranks the other three: it is a statement about the
+control itself, so it greys every row of a repeats container at once, and an instance
+registered enabled cannot re-open a door the app has said is shut.
+
+**Disabled needs proof** — the same asymmetry [`verify`](doc:sessions#verify-proving-the-click-did-something)
+uses. One false conjunct proves the conjunction false whatever the unknown keys hold; anything
+else serves the edge unmarked. A key missing from the state view can only ever weaken the
+answer toward *enabled*: the library refuses an action because the app said so, never because
+it could not look.
+
+Where the marker shows up is worth stating plainly. `available().edges` carries
+`enabled: false` — that is the greyed button an in-process caller can see. Over the
+[Mode B wire](doc:modes) the same fact reaches a model as the `TOOL_DISABLED` refusal when it
+reaches for the control: typed, retriable, and it teaches at the moment of use.
+
 ## Seed every key — `requiredStateKeys()`
 
 ```ts

@@ -43,61 +43,123 @@ if (fired.ok) {
   becomes the settlement's reason. The test is deliberately narrow (own property, strict
   `=== false`), so a `fetch` Response stays data.
 
-`effectStatus` is deliberately separate from `effectVerified` (the STATE axis — were the
-declared writes observed?). They disagree honestly: a tapless handler completes
-`'performed'` with `effectVerified: 'unobservable'`. Both truths are carried; neither is
-averaged.
+### effectStatus is INVOCATION, not acceptance
 
-### `verify` — a handler that RAN is not an action that HAPPENED
+`effectStatus` answers *did anyone perform it* — it is about the invocation, never about
+whether the app accepted what was done. `effectVerified` is the STATE axis: *did the declared
+write keys appear in the settled delta?* They disagree honestly all the time, and pairing them
+is how you read a settlement:
+
+| `effectStatus` | `effectVerified` | what actually happened |
+|---|---|---|
+| `performed` | `true` | our side ran **and** every declared write key landed |
+| `performed` | `false` | it ran; the delta did **not** carry the keys it claimed — a drifted claim |
+| `performed` | `'unobservable'` | it ran; nothing could check it (no declared writes, or no state tap) |
+| `refused` | `true` | the handler failed **after** the app's real report landed — the commit stands, the refusal stands |
+| `refused` | `'unobservable'` | it failed before anything could be observed; a claims-only commit rolls back |
+| `unobservable` | `'unobservable'` | nothing was bound to run, or tracking stopped (`superseded`) |
+| `pending` | — | only ever on the synchronous `FireResult`: the handler is deferred, so this is the honest answer at return time |
+
+Those are the pairings you will actually meet, not a closed enumeration: the two are answers to
+different questions, so any value of one can in principle meet any value of the other — which
+is the whole reason they are two fields.
+
+**No word here changed meaning.** These are the same four `effectStatus` values 0.4/0.5
+consumers already branch on, and the same `effectVerified`; what is new is a third axis beside
+them (`verifyHeld`, below) and the discipline of never averaging any two of them into one
+comfortable word.
+
+### Verify: proving the click did something
 
 The library can see that your handler returned. It cannot see that a radio got selected, or
 that the button it clicked was live. Reported from a production integration: a radio fire came
-back `'performed'` while nothing was selected, and the agent looped five times — correctly, on
-what it was told. So the app declares the check itself, once, next to the action:
+back `'performed'` while nothing was selected, and a wizard's Next returned `'performed'` while
+the button it clicked was **disabled** — the agent looped five times, correctly, on what it was
+told. Their workaround was ~60 lines of before/after DOM-signature comparison per action.
+
+So the app declares the check itself, once, next to the action. Two forms, one meaning —
+*this must hold once the action has settled*:
 
 ```ts
-'pick-recipe': { does: 'Pick the recipe', verify: { recipe: { ne: '' } } },
+// DECLARATIVE — a filter over projected state, read by the same evaluator as every guard
+'pick-recipe': { does: 'Pick the recipe', verify: { 'project.recipe': { ne: '' } } },
+// PREDICATE — synchronous, handed a DETACHED snapshot; its closure may read the DOM
 'next':        { does: 'Go on', verify: () => document.querySelector('.step-2') !== null },
 ```
 
-Evaluated at **settlement** — the moment a fire would otherwise come to rest as a success. If
-it holds, nothing changes and the settlement carries `verifyHeld: true`. If it does not, the
-settlement is **`effectStatus: 'refused'`** (an existing word: a handler that threw and a
-handler that did nothing mean the same thing to an agent), the `error` carries the contract's
-own sentence with the failed conditions as evidence, and a claims-only commit rolls back —
-walking the cursor home if the action had claimed a navigation. A commit backed by a REAL
-state report **stands** while the settlement still refuses: both truths, neither averaged.
+**Where it is asked.** At settlement, and at exactly the three points a fire would otherwise
+come to rest as a success:
 
-The predicate form gets a **detached** state snapshot, and its closure may read whatever your
-app can (the DOM included) — the ~60 lines of before/after signature comparison the field
-wrote per action collapse to the one line your app already knows how to write.
+1. an **attributed state report** — asked *after* the delta lands, because the contract asks
+   about the world that report just created;
+2. a **tapless handler completing** — there the handler finishing is the settlement signal;
+3. a **synchronously-committed fire whose handler completed** — the click with no declared
+   writes, which is precisely the fire that used to earn `'performed'` on the strength of a
+   handler returning while nothing on screen moved.
+
+Nowhere else, because nowhere else did anything run: a fire with nothing bound already settles
+`'unobservable'`, and re-asking there would invent a verdict about an action nobody performed.
+
+**A refusal that teaches.** If the contract holds, nothing changes and the settlement carries
+`verifyHeld: true`. If it does not, the settlement is `effectStatus: 'refused'` — an existing
+word, because a handler that threw and a handler that did nothing mean the same thing to an
+agent — and `error` carries a structured `VerifyFailure`: an authored sentence safe to show a
+model verbatim,
+
+> This action declares a verify contract — a condition the app itself said must hold once the
+> action had settled. It did not hold: the app was asked whether this happened, and answered
+> no.
+
+plus, for the declarative form only, the conditions that did not hold as `evidence`. A
+predicate is opaque by construction — it answers yes or no and hands over no conditions, so
+naming one would be a guess about code the library cannot see. A claims-only commit rolls
+back, walking the cursor home if the action had claimed a navigation; a commit backed by a
+REAL state report **stands** while the settlement still refuses.
 
 What it **cannot** check it never refuses on: an unknown state key, or a predicate that threw
-(isolated, warned) comes back `verifyHeld: 'unevaluable'`. A refusal needs proof; a confirmation
-needs everything. A wrong rejection blocks an action your app would have accepted, and the
-caller has no appeal.
+(isolated, warned) comes back `verifyHeld: 'unevaluable'`. A predicate returning anything but
+`true`/`false` — a Promise, most dangerously, since a pending one is truthy — is unevaluable
+too. A refusal needs proof; a confirmation needs everything. A wrong rejection blocks an
+action your app would have accepted, and the caller has no appeal.
 
 The field is named for the **declaration** that produced it, never the bare word *verified* —
 `effectStatus` asks whether anyone performed it, `effectVerified` asks whether the declared
 write keys appeared, and `verifyHeld` asks whether your own condition holds. All three can
-disagree honestly, so none of them may share a name.
+disagree honestly, so none of them may share a name. Worked end to end in
+[Guarded journeys](doc:guarded-journeys).
 
 ### Asking later — `settlementOf`
 
-`whenSettled` belongs to the ONE caller that called `fire()`. Anyone else holding the
-transition id — a relay, a poll, a tool call three turns later — asks
-**`session.settlementOf(transitionId)`**: the same settlement, the same laws (one answer,
-first settlement wins, never rejects). `session.settlementIfKnown(transitionId)` is the same
-answer without waiting — `undefined` while the question is still open.
+`whenSettled` belongs to the ONE caller that called `fire()`, and **a promise cannot cross a
+wire**: a remote agent — or the relay in front of it — holds a transition id and nothing else.
+That was a real dead end in the field, patched downstream with a listener and a stopwatch. The
+answer is a door anyone holding the id can knock on:
 
-Both **throw synchronously** on an id that can never settle (unknown, or a stimulus/sync row),
-naming the fires that are live. That refusal is deliberate: a promise nobody will ever resolve
-is exactly how a mistyped id becomes a confident lie four seconds later.
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', { pages: { catalog: {} } });
+const session = graph.createSession();
+declare const transitionId: string;
+// ---cut---
+void session.settlementOf(transitionId);   // the same settlement, as a promise
+session.settlementIfKnown(transitionId);   // …or without waiting: undefined while open
+session.awaitingSettlement();              // every id an answer is still coming for
+```
 
-A fire the app never reports on keeps its promise **open** — `FireSettlement` excludes
-`'pending'` by construction, so a timed-out answer could only be a guessed `'unobservable'`.
-When you need an answer that cannot wait, use `awaitingSettlement()`, `settlementIfKnown()`,
-or Mode B's [`did_it_work`](doc:modes) tool.
+Same laws as `whenSettled`: one answer, first settlement wins, never rejects. And three more
+doors on the same truth — [`port.whenSettled(id)`](doc:modes) for a caller holding only the
+Mode B port, the [`did_it_work`](doc:modes) tool for a model, and
+[`mcpServer`](doc:mcp)'s fold, which usually settles it before the result even leaves.
+
+`settlementOf` and `settlementIfKnown` both **throw synchronously** on an id that can never
+settle (unknown, or a stimulus/sync row), naming the fires that are live. That refusal is
+deliberate: a promise nobody will ever resolve is exactly how a mistyped id becomes a
+confident lie four seconds later.
+
+A fire the app never reports on keeps its promise **open** — there is no timeout arm, because
+`FireSettlement` excludes `'pending'` by construction, so a timed-out answer could only be a
+guessed `'unobservable'`. Waiting honestly forever is the truthful shape; when you need an
+answer that cannot wait, ask a non-blocking door instead.
 
 ### What is still live — `awaitingSettlement`
 
@@ -180,14 +242,13 @@ A refused `fire()` returns `{ ok: false, reason, ... }` — never a success-shap
 (retriable), `NOT_MATERIALIZED` (declared but unbound — carries the declared `gesture`; see
 [Actuation](doc:actuation)).
 
-`TOOL_DISABLED` now has **four** wires reaching it, so an app can report a greyed-out control
+`TOOL_DISABLED` has **four** wires reaching it, so an app can report a greyed-out control
 wherever it already knows: `enabled:` at registration, `handle.setEnabled(…)`, a live store's
-`LiveAction.enabled`, and the declarative **`enabledWhen`** on the action itself — ideally the
-same expression that renders `<button disabled={…}>`. A failed `when` HIDES a control; a false
-`enabledWhen` **serves** it carrying `enabled: false` (a greyed button an agent can see) and
-refuses execution fires. Keys it cannot evaluate never disable anything: the library does not
-guess a control shut. High-effect steps return `judgment: 'needs-confirm'` and never
-auto-cross — see [Receipts](doc:receipts).
+`LiveAction.enabled`, and the declarative **`enabledWhen`** on the action itself. A failed
+`when` HIDES a control; a false `enabledWhen` **serves** it carrying `enabled: false` on
+`available().edges` and refuses execution fires — the full table is on
+[Guards](doc:guards#enabledwhen--the-other-question). High-effect steps return
+`judgment: 'needs-confirm'` and never auto-cross — see [Receipts](doc:receipts).
 
 ## The gap ledger
 

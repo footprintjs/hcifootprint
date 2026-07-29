@@ -40,6 +40,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "demo:chat": "tsx examples/dress-shop/chatbot.ts",
+    "example:wizard": "tsx examples/guarded-wizard/run.ts",
     "docs:api": "node scripts/gen-fumadocs-api.mjs",
     "docs:links": "node scripts/check-doc-links.mjs --strict"
   },

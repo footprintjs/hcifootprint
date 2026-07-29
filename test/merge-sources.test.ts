@@ -3,7 +3,8 @@
  *
  *   "Pages first (routes then hand-authored, hand-authored wins), journeys
  *    overlay second and may only add, live actions attach last and only bind —
- *    nothing later in the order may remove anything earlier."
+ *    nothing later in the order may remove anything earlier. Routes may also
+ *    contribute link tools; hand-authored tools win."
  *
  * Exercised through the PUBLIC door (buildNavigationGraph) on purpose: the
  * merge is a pre-pass the author never calls, so what must hold is what a

@@ -62,6 +62,51 @@ iteration over its other subscribers — those reconciles are **isolated**: a fa
 through the session's `onWarn` sink and leaves bindings as-is; the store's next emission
 simply retries.
 
+## Dead-end: a page where nothing can act
+
+Binding is what stands between a declared action and a real one — so the session watches for
+the room where that gap swallowed everything. When the cursor comes to rest on a page where an
+agent fire of **every** served action would refuse `NOT_MATERIALIZED` — no actions at all, or
+none of them registered, url-materialisable or instance-wired — it records a
+`kind: 'dead-end'` [gap row](doc:sessions#the-gap-ledger) and warns once.
+
+Nobody has to fire for the trap to exist, so nobody has to fire for it to be recorded. An
+agent that lands there gets a true-but-useless list of things it cannot do, and loops.
+
+**Once per (node, served structure).** The row is an observation, not a verdict, and it is
+deduped on the page plus the **served-structure fingerprint** — what is registered, what is
+visible, what is greyed — deliberately not the structure *version*, which also bumps when a
+skill frame opens or closes. Churn that cannot wire anything must not multiply rows for a page
+whose answer never moved; a page still dead after the next real wiring change is one new fact
+and earns one new row. A mount that fixes the page simply ends them.
+
+The warning always names the same **three** fixes:
+
+1. `registerToolGroup('<page>', …)` — wire what is on screen;
+2. pass `navigate: (href) => router.push(href)` to `createSession` so url gestures materialise;
+3. read the route table with
+   [`fromRoutes(routes, { crossLinks: true })`](doc:graph-sources#cross-links-making-pages-reachable)
+   so every page offers links to the others.
+
+The **sentence in front of them** does not: it names only the refusal that is actually true of
+that room — `NOT_MATERIALIZED` where actions are served but unwired, `GUARD_FAILED` where every
+authored action is hidden behind a closed guard *and* none of them is wired, and
+`UNKNOWN_AFFORDANCE`/`NOT_ON_NODE` where nothing is authored there at all. A dev warning that
+names the wrong refusal sends someone hunting the wrong bug.
+
+Two things it deliberately does **not** call a dead end. A **guard-closed** action is wired:
+its refusal is `GUARD_FAILED`, the next state report may open it, and calling it missing
+wiring would prescribe a fix already done. And an **off-graph** cursor — a page the graph has
+never heard of — is the *other* trap and a permanent one: no mount can add a door to a page
+that does not exist (`registerToolGroup` throws on an unknown node), so it gets its own
+sentence, its own `offGraph: true` on the row, and is asked exactly **once** for the session's
+life. Its cures are different too: author the page, or `sync()` the id the graph actually uses
+for that screen.
+
+The gate arms only where materialisation is a live question — something is registered
+somewhere, or the session holds a `navigate` — and never in a
+[tour session](doc:adoption-ladder), where nothing being bound is the entire point.
+
 ## What it does to the trace
 
 `fromLiveStore` rides `registerToolGroup`, so mounts land exactly like hand-written ones —

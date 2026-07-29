@@ -34,7 +34,7 @@ The merge order is one sentence, printed in the docs and enforced in code:
 
 > Pages first (routes then hand-authored, hand-authored wins), journeys overlay second and may only
 > add, live actions attach last and only bind — nothing later in the order may remove anything
-> earlier.
+> earlier. Routes may also contribute link tools; hand-authored tools win.
 
 The **sources panel** shows what that produced as a set difference over the compiled graph, and then
 proves the sources are load-bearing by compiling two throwaway graphs on the spot: the same

@@ -282,6 +282,55 @@ no runtime behaviour changed; it is named here so the compiler error is recognis
   instead of a `TypeError`. No default is invented: a flat graph's starting
   page is a real decision, so only the refusal's voice changed.
 
+### Documentation (the field's questions, answered where a reader looks)
+- **Two new pages.** [Ground truth](docs-next/content/docs/serve/grounding.mdx) —
+  the facts block's anatomy, the grading table, what it excludes and why, how to
+  inject it per turn, and the rule the field failure came down to: *never feed
+  the model its own prose as history*. [Guarded journeys](docs-next/content/docs/build/guarded-journeys.mdx)
+  — the wizard pattern as ONE reference implementation: guarded steps,
+  `enabledWhen` greying Next, `verify` proving each step, `crossLinks` as the
+  always-reachable spine, `groundTruth` read each turn. Both wired into the
+  sidebar (`build` after *skills*, `serve` after *receipts*).
+- **A runnable example the page is written from** — `examples/guarded-wizard`
+  (`npm run example:wizard`), following the demos convention: the transcript in
+  the docs is that run's output, pasted, never hand-authored. Its own suite
+  proves every claim the page makes, including the control case (the same wizard
+  without the spine records a dead-end row and names the three fixes).
+- **Cross-links** get their own section on Graph sources: the two option shapes
+  (`true` filters, a named subset refuses), the literal-address law, the merge
+  **phase 2.5** fold and why the source carries the REQUEST rather than finished
+  tools, and hand-authored-tools-win. The amended merge-order sentence now reads
+  identically in all seven live homes that quote it.
+- **The dead-end gap kind** is documented on Live bindings (the
+  once-per-(node, served-structure) dedup, the warning's three named fixes, why
+  a guard-closed action and an off-graph cursor are different animals), with a
+  paragraph on the adoption ladder: *a page where nothing can act now says so*.
+- **`verify`** is written up as "proving the click did something" — both forms,
+  the exact three settlement evaluation points, and the refusal's own teaching
+  sentence — beside a new **`effectStatus` × `effectVerified` pairing table**
+  stating outright that no word changed meaning. `enabledWhen` gets a
+  hidden-vs-greyed table on Guards, with the four disabledness wires that reach
+  one `TOOL_DISABLED`.
+- **The `whenSettled` wire limitation** is now stated where it bites (a promise
+  cannot cross a wire) together with the four doors that answer it —
+  `settlementOf` / `settlementIfKnown` / `port.whenSettled` / the `did_it_work`
+  tool — plus what `mcpServer`'s `settleWithinMs` fold **rewrites at the wire**,
+  field by field.
+- **`input: 'none'`** gets the three-statement table on The navigation graph
+  (schema / `'none'` / omitted), the blank-is-not-a-value rule and its exact
+  single door, the `PAYLOAD_INVALID` teaching text, and the note that a plain
+  JSON Schema is now enforced. **One `expects` law, every surface** documents the
+  four renderings and states the residual `schema`/`expects` asymmetry rather
+  than smoothing it over.
+- **A content drift gate** (`test/docs/content-drift.test.ts`): the merge-order
+  sentence must be identical in all seven homes, a quoted refusal must be the
+  string the library actually emits, and every page must be in its sidebar.
+  Design records under `docs/design/` are deliberately NOT gated — they are
+  dated records of what a numbered design decided, not living docs.
+- The demos page notes Vite's `node_modules/.vite` dep cache: after rebuilding
+  the library at the repo root, clear it (or `--force`) or the dev server keeps
+  serving the previous build.
+
 ## [0.5.0] - 2026-07-29
 
 **A real-world FE integration's ~350 lines of integration glue rewrites to 26 lines

@@ -20,18 +20,41 @@ transport** and run it wherever your session lives.
 
 ## Waiting, at the one boundary where it belongs
 
-A tool call is already an async turn, and the model is going to ask *"did it work?"* anyway.
-So when a call **fired** something, the server gives the app a moment — `settleWithinMs`,
-default 250 — and folds the settled truth into the **same** result: `effectStatus` becomes
-the final word, produced data lands on `data`, a failure lands on `error`.
+A promise cannot cross a wire. In process, `fire()` hands its caller `whenSettled` and the
+final truth arrives there; a **remote** agent gets a JSON result and nothing else — so with
+nothing more, a fire's `effectStatus` reaches it as `'pending'`: the honest answer at return
+time, and a useless one to act on. A production integration met exactly this and rebuilt the
+missing half by hand: a transition listener plus a four-second stopwatch, rewriting results on
+the relay's send path — machinery no consumer holding the port could reuse, and one that
+reported a confident guess when the id was wrong.
+
+This server closes it at the boundary where waiting already belongs. A tool call is an async
+turn, and the model is going to ask *"did it work?"* anyway — so when a call **fired**
+something, the server gives the app a moment (`settleWithinMs`, default 250) and folds the
+settled truth into the **same** result.
 
 ```ts
 const server = mcpServer(session, { settleWithinMs: 1000 }); // a slower backend
 ```
 
-Miss the ceiling and nothing is invented: `effectStatus: 'pending'` stands, and
-[`did_it_work`](doc:modes) is named as the next call. The ceiling decides **how long to
-wait**, never **what the answer is**.
+### What the fold rewrites
+
+Only a result that carries a `transitionId` — i.e. one that actually fired — is folded at
+all. When the settlement wins the race, the server touches at most four fields:
+
+| field | becomes |
+|---|---|
+| `effectStatus` | the **final** word (`performed` / `refused` / `unobservable`), replacing `'pending'` |
+| `data` | the handler's produced value, when there is one |
+| `error` | the failure, as capped **text** — an app's error object never crosses a result whole |
+| `howToSettle` | **deleted** — it pointed at `did_it_work`, and the model just got that answer |
+
+Everything else in the result is left exactly as the port built it.
+
+Miss the ceiling and nothing is invented: `effectStatus: 'pending'` stands, `howToSettle`
+stays, and [`did_it_work`](doc:modes) is named as the next call. The ceiling decides **how
+long to wait**, never **what the answer is** — and the id it waits on is the one the port just
+minted, never one a model typed.
 
 `0` is the **shortest** ceiling, not an off switch: the timer is a macrotask, so a settlement
 already in hand — or one a handler reports in the same microtask turn — still wins the race

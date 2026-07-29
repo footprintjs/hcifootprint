@@ -74,6 +74,11 @@ refusal now carries the declared `gesture` — *"this is a click on the checkout
 `gestureKind`, so the demand backlog says WHICH wiring is missing: a click handler vs a
 navigate fn. Token-lean by design: a kind string, never the binding object.
 
+**A gesture is not a payload.** The binding says how a control is *reached*; what it *takes*
+is the separate `input` contract — including the click-only control that takes nothing at
+all, declared `input: 'none'` and enforced at the door
+([the payload contract](doc:navigation-graph#input-the-payload-contract)).
+
 **Tab semantics (locked in v1):** a tab switch is its own gesture, and it is *descriptive* —
 it materialises only via a registered handler, it NEVER moves the page cursor (flipping a tab
 is not going somewhere), and `fire()` never writes presence. After the app's handler flips
@@ -108,9 +113,11 @@ Three gates enforce it:
   `NOT_MATERIALIZED` — no actions at all, or none of them registered, url-materialisable or
   instance-wired — the session records a `kind: 'dead-end'` gap row and warns once naming the
   three fixes (register a tool group, pass `navigate`, or add
-  [`crossLinks`](doc:graph-sources#crosslinks--how-an-agent-gets-from-one-page-to-another)).
+  [`crossLinks`](doc:graph-sources#cross-links-making-pages-reachable)).
   Nobody has to fire for the trap to exist, so nobody has to fire for it to be recorded. It
-  is an **observation, not a verdict**: at most one row per (page, `structureVersion`), armed
+  is an **observation, not a verdict**: at most one row per (page, served structure), armed
   only where materialisation is a live question (something is registered somewhere, or the
   session holds a `navigate`, and it is not a tour). A mount that fixes the page ends the
-  rows; a page still dead after the next structure change is one new fact, one new row.
+  rows; a page still dead after the next wiring change is one new fact, one new row. The
+  whole story, warnings included, is on
+  [Live bindings](doc:live-bindings#dead-end-a-page-where-nothing-can-act).

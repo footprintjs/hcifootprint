@@ -46,6 +46,33 @@ npm run verify                 # typecheck + tests + production build
 The wiring it demonstrates: [Live bindings](doc:live-bindings) and the gesture words on
 refusals ([Actuation](doc:actuation)).
 
+<Callout title="After rebuilding the library, clear Vite's dep cache">
+Both demos link `hcifootprint` from the repo root, and Vite **pre-bundles** linked
+dependencies into `node_modules/.vite`. That cache does not notice a fresh `npm run build` at
+the root, so the dev server can keep serving the previous build — a change that "did not take
+effect" when it did. Clear it:
+
+```bash
+rm -rf node_modules/.vite && npm run dev   # or: npm run dev -- --force
+```
+</Callout>
+
+## Runnable examples — `examples/`
+
+Smaller than a demo app and closer to a doc page: each one runs in plain node, prints a real
+transcript, and carries its own tests (Convention 2 — examples are integration tests).
+
+```bash
+npm run example:wizard                 # the guarded-journey transcript
+npx vitest run examples/guarded-wizard  # …and its proofs
+```
+
+`examples/guarded-wizard` is the source the [Guarded journeys](doc:guarded-journeys) page is
+written from: guarded steps, a greyed Next, a `verify` contract catching a handler that ran
+and did nothing, the cross-link spine, and the facts block. `examples/dress-shop` is the
+end-to-end mixed-initiative journey, plus a live Claude chatbot (`npm run demo:chat`, needs a
+key).
+
 ## The dress shop — the pitch as a diff
 
 The [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) is a separate public

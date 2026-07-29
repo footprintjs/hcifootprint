@@ -62,15 +62,61 @@ const session = graph.createSession(); // an InteractionSession
   - `confirm` — high-effect gate: requires explicit confirmation before firing
     ([receipts ride the ask](doc:receipts)).
   - `input` — payload contract: Zod, plain JSON Schema, any `.safeParse`/`.parse` validator —
-    or the literal `'none'`, the explicit "this control takes NO input"
-    ([advertised and enforced](doc:sessions)). Omitting `input` means something different:
-    the library does not know the shape, so it advertises nothing.
+    or the literal `'none'`. See [below](#input-the-payload-contract).
   - `binding` — the gesture that reaches it on screen ([Actuation](doc:actuation)); optional —
     handlers don't need one.
 - `skills` — named multi-step flows: `does` (required planner text), `steps` (tool ids by
   qualified path or unambiguous suffix), `when` (precondition). See [Skills](doc:skills).
 - `repeats: true` on a container — a template: one parameterized tool for N cards, addressed
   by `instance` keys.
+
+### `input`: the payload contract
+
+Three things a tool can say about what a caller must send, and they are three **different**
+statements:
+
+| you write | the contract | what a caller is told |
+|---|---|---|
+| `input: <schema>` | Zod, a plain JSON Schema, any `.safeParse`/`.parse` validator | the wire-shaped contract, as `expects` |
+| `input: 'none'` | this control takes **no** input | `expects: 'none'` |
+| *(omitted)* | the library does not know the shape | nothing — never "send nothing" |
+
+The third row is the one to read twice. **Absence is not a contract**: a tool with no `input`
+advertises nothing, because inventing an empty one would be the library guessing on your
+behalf.
+
+#### The blank-is-not-a-value rule, and its one door
+
+Reported from a production integration: a relay's uniform `{ value: string, required }`
+contract forced the model to send `value: ""` to click-only controls — and that empty string
+reached the handler, **overrode the app's own authored default**, and selected nothing.
+
+So `input: 'none'` does two things. The model is **told** before it can guess wrong; and a
+payload sent anyway is refused `PAYLOAD_INVALID` before the handler ever sees it, carrying the
+shape it sent so one string teaches the correction:
+
+```text
+this action takes no input — omit the payload (received { value: string })
+```
+
+A **blank** payload — `undefined`, `''`, `{}`, or an object whose every key holds `undefined`
+— is accepted and **erased**: protocol residue is not intent. An explicit `null` is *not*
+blank; the caller chose it, so it still answers for its shape.
+
+That erasure happens at **exactly this door and nowhere else**. A schema-bearing action is
+untouched (there `''` is a real value — clearing a field), and an action that declared no
+`input` at all is untouched too. One special case, stated, rather than a general rule about
+empty strings that would quietly rewrite payloads everywhere.
+
+#### A declared JSON Schema is now enforced
+
+A plain JSON Schema used to describe the door while nothing guarded it: only
+`.safeParse`/`.parse` validators ever ran, so a planner guessing `{name}` where the handler
+read `{value}` sailed through and the handler destructured `undefined`. Since 0.4.0 the
+fire-time check is on by default (`checkPayloadShape`), it is **structural and teachable, not
+complete**, and what it cannot judge it passes — the same stance the library takes on an
+unevaluable guard key. The full rules, and the `false` escape hatch that restores the 0.3.0
+pass-through byte for byte, are on [Sessions &amp; fire()](doc:sessions#the-input-contract--advertised-then-enforced).
 
 ## Loud at build time
 

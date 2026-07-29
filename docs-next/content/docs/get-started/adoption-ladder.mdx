@@ -42,6 +42,14 @@ As components mount, `registerToolGroup(path, { handlers })` binds your existing
 reference, so firing runs the app's own code. Edges now report `materialized` (false = still
 declared-only, true = wired), and you watch the surface light up.
 
+**A page where nothing can act now says so.** Once anything is wired, the session watches the
+room as well as the action: land the cursor on a page where every served action would refuse
+`NOT_MATERIALIZED` and you get a `dead-end` gap row and one dev warning naming the three
+fixes — before an agent discovers it by looping on a true-but-useless list of things it cannot
+do. It is an observation, not a verdict: a guard-closed action is wired and never counts, and
+a mount that fixes the page ends the rows. See
+[Dead-end](doc:live-bindings#dead-end-a-page-where-nothing-can-act).
+
 Two shortcuts on this rung:
 
 - Pure navigations need no handler at all — hand the session your router's own `navigate`

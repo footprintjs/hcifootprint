@@ -50,6 +50,37 @@ Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEf
 `do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
 promise deliberately does not.
 
+## One `expects` law, every surface
+
+`expects` is what a caller must **send**, wire-shaped. It used to be a Mode B result field
+only: `available().edges` served the raw `schema` — a live validator, useful in process,
+unusable over a wire — so a consumer driving the session directly had to re-derive the
+contract by hand, guessing which schema kinds serialize and which decline. A law duplicated at
+the consumer is drift by construction, so there is now **one derivation** behind both, and the
+same action can never advertise two shapes.
+
+Four renderings, and a deliberate fifth that is silence:
+
+| you declared | `expects` is |
+|---|---|
+| a **Zod** schema | the normalized JSON-Schema form of it |
+| a plain **JSON Schema** | a detached, deep-frozen clone — never a live reference into the spec |
+| any other `.safeParse`/`.parse` **validator** | one authored sentence: *validated at fire time (non-serializable validator)* |
+| `input: 'none'` | the literal `'none'` — [the action that takes nothing](doc:navigation-graph#input-the-payload-contract) |
+| *(nothing)* | **absent** — the library does not know the shape, and absence never means "send nothing" |
+
+It rides every surface that describes an action before or after the fact: `whats_here` action
+rows, a frame's `readySteps` rows, a `PAYLOAD_INVALID` rejection (so the correction arrives
+with the refusal), and `available().edges` in process. The rendered contract is computed once
+per schema object, cached and deep-frozen — `available()` is hot (every refused fire calls it
+for its gap row), and one frozen object is safe to share precisely because nobody can rewrite
+it.
+
+**The residual asymmetry is deliberate, so it is stated rather than smoothed over:**
+`available()` carries **both** the live `schema` and the wire-shaped `expects`; a served result
+carries **only** `expects`. A live validator never crosses the wire — that is the firewall, not
+an oversight.
+
 ## `facts` — the authoritative block
 
 Every `whats_here` result also carries **`facts`**: the app's own record of what was
@@ -75,7 +106,9 @@ this tool's other half — facts are what happened, so the two stay non-overlapp
 lean). `{ sinceVersion }` narrows it with the rest of the result, and an id the graph does not
 have renders as a constant rather than echoing a model's invention back at it.
 
-In process the same block is `session.groundTruth({ sinceVersion?, maxAttempts? })`.
+In process the same block is `session.groundTruth({ sinceVersion?, maxAttempts? })`. Its
+anatomy, the grading table, what it excludes and how to inject it per turn when you drive your
+own loop: [Ground truth](doc:grounding).
 
 ## Did it work?
 
