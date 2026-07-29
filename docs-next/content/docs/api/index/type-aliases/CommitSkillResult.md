@@ -6,7 +6,7 @@ title: CommitSkillResult
 
 > **CommitSkillResult** = \{ `frame`: [`SkillFrame`](/api/index/interfaces/SkillFrame); `ok`: `true`; `plan`: [`SkillPlan`](/api/index/interfaces/SkillPlan); `version`: `number`; \} \| \{ `known`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_SKILL"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"PRECONDITION_FAILED"`; \} \| \{ `ok`: `false`; `reason`: `"FRAME_ALREADY_OPEN"`; `skillId`: `string`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"ENTRY_NOT_MATERIALIZED"`; \}
 
-Defined in: [src/atom/types.ts:925](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L925)
+Defined in: [src/atom/types.ts:938](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L938)
 
 ## Union Members
 

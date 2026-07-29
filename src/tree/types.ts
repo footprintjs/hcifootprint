@@ -125,7 +125,8 @@ export interface NavigationGraphDef {
    *
    *   "Pages first (routes then hand-authored, hand-authored wins), journeys
    *    overlay second and may only add, live actions attach last and only
-   *    bind — nothing later in the order may remove anything earlier."
+   *    bind — nothing later in the order may remove anything earlier. Routes
+   *    may also contribute link tools; hand-authored tools win."
    *
    * Deterministic on purpose: nothing later in the order can remove anything
    * earlier, so a traveler can trust the floor under their feet. A def without

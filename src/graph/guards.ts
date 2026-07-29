@@ -53,6 +53,19 @@ export function checkSegment(owner: string, name: string): void {
 }
 
 /**
+ * "Every segment is bytes, none is a ':param'" — the literal-address law, in
+ * one predicate. An address either exists as bytes or the gesture does not
+ * exist: the library never guesses a param, so nothing downstream can ever
+ * hand a router a filled-in `/orders/:id`. Judged by the MATCHER's own segment
+ * reading (segmentsOf / isParam) so authoring, routing and materialisation can
+ * never disagree. Shared: the url-binding door below and fromRoutes' crossLinks
+ * ask the same question about the same kind of string.
+ */
+export function isLiteralRoute(routeOrHref: string): boolean {
+  return !segmentsOf(routeOrHref).some(isParam);
+}
+
+/**
  * The url-gesture half of the never-trap BUILD gate: a `url` binding whose
  * href carries a ':param' segment can NEVER materialise — the library never
  * guesses params, so no navigate function will ever be handed a filled-in
@@ -68,7 +81,7 @@ export function checkLiteralHref(owner: string, href: unknown): void {
       `${owner} declares a url binding whose href is not a string (got ${typeof href}).`,
     );
   }
-  if (segmentsOf(href).some(isParam)) {
+  if (!isLiteralRoute(href)) {
     throw new SkillGraphValidationError(
       `${owner} declares a url binding with href '${href}' — a ':param' segment can never materialise ` +
         `(the library never guesses params). Give the gesture a fully literal address, or bind a handler instead.`,

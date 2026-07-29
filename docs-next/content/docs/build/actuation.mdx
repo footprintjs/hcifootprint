@@ -103,3 +103,14 @@ Three gates enforce it:
   [Skills](doc:skills).
 - **Serve gate** — the [merge order](doc:graph-sources#the-merge-order) structurally cannot
   remove page actions, and the leave-skill escape stays guaranteed for frames that do open.
+- **Page gate** — the same law about the *room* rather than the frame. When the cursor comes
+  to rest on a page where an agent fire of every served action would refuse
+  `NOT_MATERIALIZED` — no actions at all, or none of them registered, url-materialisable or
+  instance-wired — the session records a `kind: 'dead-end'` gap row and warns once naming the
+  three fixes (register a tool group, pass `navigate`, or add
+  [`crossLinks`](doc:graph-sources#crosslinks--how-an-agent-gets-from-one-page-to-another)).
+  Nobody has to fire for the trap to exist, so nobody has to fire for it to be recorded. It
+  is an **observation, not a verdict**: at most one row per (page, `structureVersion`), armed
+  only where materialisation is a live question (something is registered somewhere, or the
+  session holds a `navigate`, and it is not a tour). A mount that fixes the page ends the
+  rows; a page still dead after the next structure change is one new fact, one new row.

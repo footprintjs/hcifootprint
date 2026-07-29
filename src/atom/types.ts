@@ -666,7 +666,7 @@ export type GapReason =
   | 'other';
 
 /**
- * One row of unmet demand. Three kinds:
+ * One row of unmet demand. Four kinds:
  * - 'fire-rejected'      — an attempted action the session refused (unknown id,
  *   failed guard, wrong page, stale plan, bad payload). Recorded automatically.
  * - 'reported'           — an ask no available action or skill could serve,
@@ -676,6 +676,15 @@ export type GapReason =
  *   binding, so nothing executed. Nothing was refused and nobody reported it —
  *   it is the binding still to build. Tour rows are the demand backlog for
  *   Phase-1 wiring: cluster them to see which handlers agents keep reaching for.
+ * - 'dead-end'           — THE PAGE-LEVEL NEVER-TRAP: the cursor came to rest
+ *   on a page where an agent fire of EVERY served action would refuse
+ *   NOT_MATERIALIZED (no actions at all, or none of them registered,
+ *   url-materialisable or instance-wired). Nobody has to fire to earn this row:
+ *   the trap is a property of the POSITION, and an agent that lands there will
+ *   loop on a true-but-useless "here is what is available". Recorded as an
+ *   observation, not a verdict — at most one row per (page, structureVersion),
+ *   so a mount that fixes the page ends the rows and a page still dead after
+ *   the next structure change is one NEW fact worth one new row.
  *
  * Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
  * never descriptions or transcripts — so a consumer's batch triage LLM can
@@ -691,11 +700,15 @@ export type GapReason =
  * export via onGap and drain, like the transition log.
  */
 export interface GapRecord {
-  kind: 'fire-rejected' | 'reported' | 'unmaterialized-fire';
+  kind: 'fire-rejected' | 'reported' | 'unmaterialized-fire' | 'dead-end';
   timestamp: number;
   node: string;
   version: number;
-  /** Names only — what existed at that moment (token-lean, injection-safe). */
+  /**
+   * Names only — what existed at that moment (token-lean, injection-safe).
+   * On a 'dead-end' row this is the whole payload and the whole point: these
+   * are the actions the page OFFERS while none of them can act.
+   */
   availableActions: string[];
   availableSkills: string[];
   // fire-rejected rows:

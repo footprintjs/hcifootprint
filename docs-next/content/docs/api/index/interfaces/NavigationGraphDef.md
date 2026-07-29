@@ -45,7 +45,7 @@ Named multi-step flows: the journeys this graph can be planned over.
 
 > `optional` **sources?**: readonly [`GraphSource`](/api/index/type-aliases/GraphSource)[]
 
-Defined in: [src/tree/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L134)
+Defined in: [src/tree/types.ts:135](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L135)
 
 Growable inputs the app ALREADY owns — fromRoutes(app.routes) seeds pages,
 fromJourneys(app.journeys) seeds skills, fromLiveStore(app.actionStore)
@@ -54,7 +54,8 @@ BEFORE the compiler's walk, under ONE documented order:
 
   "Pages first (routes then hand-authored, hand-authored wins), journeys
    overlay second and may only add, live actions attach last and only
-   bind — nothing later in the order may remove anything earlier."
+   bind — nothing later in the order may remove anything earlier. Routes
+   may also contribute link tools; hand-authored tools win."
 
 Deterministic on purpose: nothing later in the order can remove anything
 earlier, so a traveler can trust the floor under their feet. A def without

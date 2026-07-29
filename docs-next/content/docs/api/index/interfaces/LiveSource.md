@@ -4,7 +4,7 @@ title: LiveSource
 
 # Interface: LiveSource
 
-Defined in: [src/graph/sources/types.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L49)
+Defined in: [src/graph/sources/types.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L58)
 
 A runtime source: the app's live action store, attached per session. It
 contributes NOTHING at build (last in the merge order, bind-only — it can
@@ -18,7 +18,7 @@ detach) releases everything it registered.
 
 > `readonly` **kind**: `"live"`
 
-Defined in: [src/graph/sources/types.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L50)
+Defined in: [src/graph/sources/types.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L59)
 
 ## Methods
 
@@ -26,7 +26,7 @@ Defined in: [src/graph/sources/types.ts:50](https://github.com/footprintjs/hcifo
 
 > **attach**(`session`, `warn?`): () => `void`
 
-Defined in: [src/graph/sources/types.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L59)
+Defined in: [src/graph/sources/types.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L68)
 
 Wire the store's actions onto a session; returns detach (idempotent).
 `warn` is the session's dev-warning sink (createSession passes it) so a

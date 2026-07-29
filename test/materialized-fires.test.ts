@@ -267,7 +267,15 @@ describe('what the gate never touches', () => {
     expect(fired.executed).toBeUndefined();
     expect(fired.materialized).toBeUndefined();
     expect(fired.transition.materialized).toBeUndefined();
-    expect(s.gaps()).toHaveLength(0);
+    // The GATE ledgered nothing: no rejection row, no missing-binding row.
+    expect(s.gaps().filter((gap) => gap.kind !== 'dead-end')).toHaveLength(0);
+    // The one row that IS here is the page-level never-trap, and it is true:
+    // this fire's claimed navigation landed on 'checkout', which offers one
+    // action and has nothing wired to perform it. The fire succeeded; the
+    // ROOM it opened onto is the unmet demand.
+    expect(s.gaps()).toMatchObject([
+      { kind: 'dead-end', node: 'checkout', availableActions: ['checkout.place-order'] },
+    ]);
   });
 
   it('an INSTANCE-keyed handler satisfies the gate for that row', async () => {

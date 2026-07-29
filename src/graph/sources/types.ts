@@ -10,7 +10,8 @@
  *
  *   "Pages first (routes then hand-authored, hand-authored wins), journeys
  *    overlay second and may only add, live actions attach last and only bind —
- *    nothing later in the order may remove anything earlier."
+ *    nothing later in the order may remove anything earlier. Routes may also
+ *    contribute link tools; hand-authored tools win."
  *
  * This module is types only (erased at build). Static sources (routes,
  * journeys) contribute at BUILD time; the live source contributes at ATTACH
@@ -31,6 +32,14 @@ import type { RegisteredToolDef, RegisterToolGroupOptions, ToolGroupHandle } fro
 export interface RoutesSource<PageIds extends string = string> {
   readonly kind: 'routes';
   readonly pages: Record<PageIds, PageNodeDef>;
+  /**
+   * The crossLinks REQUEST this table was read with — `true` (every page whose
+   * route is fully literal) or the named subset. Snapshot DATA, not tools: the
+   * factory sees one route table, while the link's `on` list is "every page in
+   * the effective graph except the target". Only mergeSources knows that set,
+   * so it is the one place the request materialises.
+   */
+  readonly crossLinks?: true | readonly PageIds[];
 }
 
 /** A journey list read as skills — overlaid on the spine; may only add. */

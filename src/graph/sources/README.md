@@ -14,7 +14,7 @@ a bundler includes only the sources a consumer actually called.
 
 | factory | contributes | when |
 |---|---|---|
-| `fromRoutes(app.routes)` | pages — the spine | build (folded before the walk) |
+| `fromRoutes(app.routes)` | pages — the spine (plus link tools, if `crossLinks` asked) | build (folded before the walk) |
 | `fromJourneys(app.journeys)` | skills — the overlay | build (compiled by the existing skills pass) |
 | `fromLiveStore(app.actionStore)` | live bindings per node | attach (every `createSession()`); release via `detachSources()` |
 
@@ -22,7 +22,8 @@ a bundler includes only the sources a consumer actually called.
 
 > Pages first (routes then hand-authored, hand-authored wins), journeys overlay
 > second and may only add, live actions attach last and only bind — nothing
-> later in the order may remove anything earlier.
+> later in the order may remove anything earlier. Routes may also contribute
+> link tools; hand-authored tools win.
 
 Stances: one courtesy (a hand page missing `route` inherits the source's);
 different routes for one page refuse loudly (drift made visible); a hand skill
@@ -57,3 +58,17 @@ an edge with no binding whose `goTo` names a page with a fully-literal route
 materialises through the session's `navigate` option (see
 `SessionOptions.navigate` and `handlerFor` in traverse/session.ts). Paramful
 hrefs are refused at authoring — the library never guesses params.
+
+Which leaves the question the field asked: if a table contributes 28 places and
+zero gestures, what does an agent standing on one of them DO? `fromRoutes(app.routes,
+{ crossLinks: true })` answers it — every page whose route is fully literal
+becomes one root-level link tool (`go-to-<pageId>`, a `url` binding carrying the
+route, `goTo` making the claim) offered on every other page. Opt-in, because
+inventing 28 tools nobody asked for is the other way to be wrong; `true` FILTERS
+param routes (a blanket ask meets the literal-address law), while a named subset
+REFUSES an unknown name or a paramful one at the factory, where the author is
+looking. Materialisation lives in `merge.ts` phase 2.5, not in the factory: the
+link's `on` list is "every page in the EFFECTIVE graph except the target", a set
+only the merge can see — so the source carries the request, not finished tools.
+Nothing downstream changed: the links are ordinary root tools that ride
+`compileTool`, `gestureHref` and `handlerFor` exactly as a hand-written one does.

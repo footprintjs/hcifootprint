@@ -4,7 +4,7 @@ title: LiveActionStore
 
 # Interface: LiveActionStore
 
-Defined in: [src/graph/sources/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L88)
+Defined in: [src/graph/sources/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L97)
 
 The smallest respectable store contract — subscribe + read-current, the
 shape React itself blesses (useSyncExternalStore). Any app store that can
@@ -16,7 +16,7 @@ say "here are my actions now" and "something changed" satisfies it.
 
 > **actions**(): [`LiveAction`](/api/index/interfaces/LiveAction)[]
 
-Defined in: [src/graph/sources/types.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L90)
+Defined in: [src/graph/sources/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L99)
 
 #### Returns
 
@@ -28,7 +28,7 @@ Defined in: [src/graph/sources/types.ts:90](https://github.com/footprintjs/hcifo
 
 > **subscribe**(`onChange`): () => `void`
 
-Defined in: [src/graph/sources/types.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L89)
+Defined in: [src/graph/sources/types.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L98)
 
 #### Parameters
 

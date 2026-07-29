@@ -7,12 +7,18 @@
  *
  * A route contributes a PAGE, never an action: the spine is places, not
  * gestures. Reaching a page is actuation-layer work (a url gesture derived
- * from the route), which is why nothing here emits tools or bindings.
+ * from the route) — so by default nothing here emits tools or bindings, and
+ * `crossLinks` is the author's EXPLICIT ask for the one action a route table
+ * can honestly describe: "go to this address". Places with no way to get to
+ * them are not a map; an agent standing on a page whose only offered actions
+ * belong to that page will correctly answer "there is no action that takes you
+ * to X" and loop. Opt-in, because inventing 28 tools nobody asked for is the
+ * other way to be wrong.
  *
  * LEAF MODULE on purpose: value-imports only the shared authoring guards.
  * Importing fromRoutes must never drag session machinery into a bundle.
  */
-import { SkillGraphValidationError, checkSegment } from '../guards.js';
+import { SkillGraphValidationError, checkSegment, isLiteralRoute } from '../guards.js';
 import type { PageNodeDef } from '../../tree/types.js';
 import type { RoutesSource } from './types.js';
 
@@ -22,9 +28,25 @@ import type { RoutesSource } from './types.js';
  *
  * The `const` type parameter preserves the literal page names, so the compiled
  * graph's session methods accept them as typed node paths.
+ *
+ * `crossLinks` turns pages into navigation actions offered everywhere else:
+ * - `true` — every page in this table whose route is FULLY LITERAL. A blanket
+ *   ask meets the literal-address law as a documented FILTER: a ':param' page
+ *   is skipped, because the library never guesses what to put in the param and
+ *   a half-address is not an address.
+ * - a named subset — only those pages, and now every name is answered for: an
+ *   unknown name refuses, and a ':param' route refuses. An explicit ask earns
+ *   a loud refusal where a blanket one earns a filter.
+ *
+ * The option is recorded as the REQUEST, not as tools: which pages a link is
+ * offered ON is "every page in the effective graph except the target", and the
+ * effective graph (this table PLUS the def's hand-authored pages) is a set only
+ * mergeSources can see. This factory reads one table and refuses to pretend
+ * otherwise.
  */
 export function fromRoutes<const R extends Record<string, string | { route: string; does?: string }>>(
   routes: R,
+  options?: { crossLinks?: true | readonly (keyof R & string)[] },
 ): RoutesSource<keyof R & string> {
   // Null prototype: a page literally named '__proto__' must become a KEY,
   // not a prototype swap — same discipline as the compiler's containers.
@@ -48,5 +70,36 @@ export function fromRoutes<const R extends Record<string, string | { route: stri
     // editing their table after the fact must not change what was read.
     pages[pageId] = Object.freeze(does !== undefined ? { route, does } : { route });
   }
-  return Object.freeze({ kind: 'routes', pages: Object.freeze(pages) }) as RoutesSource<keyof R & string>;
+  const crossLinks = options?.crossLinks;
+  if (crossLinks !== undefined && crossLinks !== true) {
+    // Refused HERE for the same reason page names are: the author is looking
+    // at this call, not at a build three files away. Only the NAMED form is
+    // answered for — see the option's doc for why `true` filters instead.
+    for (const pageId of crossLinks) {
+      if (!Object.hasOwn(pages, pageId)) {
+        throw new SkillGraphValidationError(
+          `fromRoutes crossLinks names '${pageId}', which this route table does not declare. ` +
+            `Known pages: ${Object.keys(pages).join(', ')}.`,
+        );
+      }
+      const { route } = pages[pageId];
+      if (route !== undefined && !isLiteralRoute(route)) {
+        throw new SkillGraphValidationError(
+          `fromRoutes crossLinks names '${pageId}', whose route '${route}' has a ':param' segment — ` +
+            `a link to it could never be built (the library never guesses params). Drop it from crossLinks, ` +
+            `or author a tool that supplies the param.`,
+        );
+      }
+    }
+  }
+  return Object.freeze({
+    kind: 'routes',
+    pages: Object.freeze(pages),
+    // The REQUEST, snapshotted: a caller's array must not keep steering the
+    // graph after it was read (same law as the page table above). Absent when
+    // unasked, so a plain fromRoutes() source stays byte-identical.
+    ...(crossLinks !== undefined
+      ? { crossLinks: crossLinks === true ? true : Object.freeze([...crossLinks]) }
+      : {}),
+  }) as RoutesSource<keyof R & string>;
 }

@@ -210,6 +210,16 @@ export class Session {
   readonly #warn: (message: string) => void;
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
+  /**
+   * Dead-end rows already written, keyed `node@structureVersion` — the row is
+   * an observation of one position at one served structure, so re-observing
+   * the same pair says nothing new. A NEW structure version re-arms it: a
+   * mount may have fixed the page, and a page still dead afterwards is a new
+   * fact. Grows one entry per emitted row, the same class as the ledger itself.
+   */
+  readonly #deadEndSeen = new Set<string>();
+  /** Nodes already warned about (the #warnedOnce discipline): one per node, for the session's life. */
+  readonly #deadEndWarned = new Set<string>();
   /** The confirm journal: high-effect ask → decision → fire rows, oldest first. */
   readonly #confirms: ConfirmRecord[] = [];
   /** The one OPEN (unanswered) ask per affordance — so confirm/decline can close it. */
@@ -1352,6 +1362,8 @@ export class Session {
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++;
     this.#checkFrameAfterWorldChange();
+    // The cursor came to rest somewhere new: is there a way out of it?
+    this.#checkDeadEnd();
     return offGraph
       ? { changed: true, transition: record, node: this.#node, version: this.#version, offGraph: true }
       : { changed: true, transition: record, node: this.#node, version: this.#version };
@@ -1468,6 +1480,66 @@ export class Session {
       availableActions: this.available().edges.map((e) => e.affordanceId),
       availableSkills: Object.keys(this.spec.skills),
     };
+  }
+
+  /**
+   * THE PAGE-LEVEL NEVER-TRAP. The commit gate refuses a skill FRAME that
+   * opens onto an entry nothing can perform; this is the same law one level
+   * up, about the room itself. A page whose every served action would refuse
+   * NOT_MATERIALIZED is a room with no doors: the agent is told the truth
+   * ("here is what is available"), fires, is refused, re-reads the same true
+   * list, and loops — correctly, on the information it was given. Nobody has
+   * to fire for the trap to exist, so nobody has to fire for it to be recorded.
+   *
+   * ARMED only when materialisation is a live question — `(registry.hasAny()
+   * || navigate) && !allowUnmaterializedFires` — the same condition available()
+   * uses to stamp `materialized` and commitSkill's entry gate uses to run at
+   * all. A session nothing has ever registered on is not "trapped"; it is a
+   * graph being read. A tour's fires are honest no-ops by contract.
+   *
+   * THE QUESTION is couldMaterialise, per edge — the same widened resolution
+   * every other never-trap surface asks (registered, else navigate-derived,
+   * else instance-wired), so a registered-but-DISABLED action still counts as a
+   * door (TOOL_DISABLED is retriable, not missing wiring). It is asked over
+   * FULL capability, never the frame-narrowed slice, so an open skill frame can
+   * never manufacture a dead end.
+   *
+   * CALLED FROM WRITE PATHS ONLY — never from available(). recordRejection's
+   * own #gapContext calls available(), so a read-path emission would recurse
+   * through every refusal. The three writes where the cursor rests: sync()
+   * landing a page change, a fire()-claimed navigation settling, and the
+   * coalesced structure flush (where a mount may have just fixed — or just
+   * broken — the room).
+   */
+  #checkDeadEnd(): void {
+    if (this.#allowUnmaterialized) return;
+    if (!this.#registry.hasAny() && this.#navigate === undefined) return;
+    const seenKey = `${this.#node}@${this.#structureVersion}`;
+    if (this.#deadEndSeen.has(seenKey)) return;
+    // ONE available() pass answers both halves: the ids to test, and the row's
+    // own token-lean context (the standard base fields, names only).
+    const context = this.#gapContext();
+    if (context.availableActions.some((affordanceId) => this.couldMaterialise(affordanceId))) return;
+    // Marked BEFORE the push: a gap listener that drives the session back into
+    // this same position must find the question already answered.
+    this.#deadEndSeen.add(seenKey);
+    this.#pushGap({
+      kind: 'dead-end',
+      timestamp: Date.now(),
+      node: this.#node,
+      version: this.#version,
+      ...context,
+    });
+    if (this.#deadEndWarned.has(this.#node)) return;
+    this.#deadEndWarned.add(this.#node);
+    this.#warn(
+      `hcifootprint: page '${this.#node}' offers ${context.availableActions.length} action(s) and an agent ` +
+        `could perform NONE of them — every fire here would be refused NOT_MATERIALIZED, so an agent that ` +
+        `lands on this page can only loop. Three ways out: registerToolGroup('${this.#node}', …) to wire ` +
+        `what is on screen; pass navigate: (href) => router.push(href) to createSession so url gestures ` +
+        `materialise; or read the route table with fromRoutes(routes, { crossLinks: true }) so every page ` +
+        `offers links to the others. Recorded as a dead-end gap row.`,
+    );
   }
 
   #pushGap(row: GapRecord): void {
@@ -1803,6 +1875,9 @@ export class Session {
       this.#version++;
       this.#bumpStructure();
       this.#checkFrameAfterWorldChange();
+      // The served structure just changed under a stationary cursor — the one
+      // moment a page can become (or stop being) a room with no doors.
+      this.#checkDeadEnd();
     });
   }
 
@@ -1896,6 +1971,7 @@ export class Session {
       : declared && declared.length > 0
         ? declared.every((key) => deltaKeys.includes(key))
         : 'unobservable';
+    let cursorHopped = false;
     if (aff.effect?.navigatesTo) {
       // Declared target = expectation, flagged as a CLAIM; sync() records reality.
       record.toNode = aff.effect.navigatesTo;
@@ -1903,7 +1979,10 @@ export class Session {
       // The claim moves the LIVE cursor only if nothing else moved it since
       // this transition fired — a weaker claim must never clobber a newer
       // sync() observation that interleaved while the fire was pending.
-      if (this.#node === record.fromNode) this.#node = aff.effect.navigatesTo;
+      if (this.#node === record.fromNode && this.#node !== aff.effect.navigatesTo) {
+        this.#node = aff.effect.navigatesTo;
+        cursorHopped = true;
+      }
     } else {
       // A non-navigating affordance never moves the record's cursor — even if
       // an interleaved sync() moved the session's.
@@ -1922,6 +2001,8 @@ export class Session {
     }
     this.#emitTransition(record); // now committed — observers see the settled record
     this.#checkFrameAfterWorldChange();
+    // A claimed navigation just moved the cursor: same question as sync()'s.
+    if (cursorHopped) this.#checkDeadEnd();
   }
 
   /** The disclosure filter: full slice normally; frame steps + escape roles when a frame is open. */

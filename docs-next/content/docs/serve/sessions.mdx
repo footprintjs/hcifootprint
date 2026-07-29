@@ -97,8 +97,10 @@ auto-cross — see [Receipts](doc:receipts).
 ## The gap ledger
 
 Every refused fire (`kind: 'fire-rejected'`), every explicit `reportGap(...)`
-(`kind: 'reported'`), every allowed no-op tour fire (`kind: 'unmaterialized-fire'`), and
-every `ENTRY_NOT_MATERIALIZED` skill-commit refusal becomes a token-lean, name-only row —
+(`kind: 'reported'`), every allowed no-op tour fire (`kind: 'unmaterialized-fire'`), every
+`ENTRY_NOT_MATERIALIZED` skill-commit refusal, and every page the cursor rests on where
+nothing could be performed at all (`kind: 'dead-end'` — see the page gate in
+[Actuation](doc:actuation#the-never-trap-invariant)) becomes a token-lean, name-only row —
 the ask, the position, what WAS available, and (for rejected/unmaterialized fires) the
 `gestureKind` that names WHICH wiring is missing. Cluster the rows and you have a
 demand-driven backlog:

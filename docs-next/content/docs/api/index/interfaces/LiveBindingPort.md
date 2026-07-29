@@ -4,7 +4,7 @@ title: LiveBindingPort
 
 # Interface: LiveBindingPort
 
-Defined in: [src/graph/sources/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L99)
+Defined in: [src/graph/sources/types.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L108)
 
 What a live source needs from a session — structural and type-only, so
 fromLiveStore stays a zero-value-import leaf. InteractionSession satisfies
@@ -17,7 +17,7 @@ wire (show/setVisible) an app may drive after its own handler flips tabs.
 
 > **registerToolGroup**(`path`, `opts?`): [`ToolGroupHandle`](/api/index/interfaces/ToolGroupHandle)
 
-Defined in: [src/graph/sources/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L100)
+Defined in: [src/graph/sources/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L109)
 
 #### Parameters
 
@@ -39,7 +39,7 @@ Defined in: [src/graph/sources/types.ts:100](https://github.com/footprintjs/hcif
 
 > **setVisible**(`path`, `visible`): `void`
 
-Defined in: [src/graph/sources/types.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L102)
+Defined in: [src/graph/sources/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L111)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: [src/graph/sources/types.ts:102](https://github.com/footprintjs/hcif
 
 > **show**(`path`): `void`
 
-Defined in: [src/graph/sources/types.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L101)
+Defined in: [src/graph/sources/types.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L110)
 
 #### Parameters
 

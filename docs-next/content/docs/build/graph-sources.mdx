@@ -36,7 +36,7 @@ One sentence, printed here verbatim and enforced in code:
 
 > **Pages first (routes then hand-authored, hand-authored wins), journeys overlay second and
 > may only add, live actions attach last and only bind — nothing later in the order may
-> remove anything earlier.**
+> remove anything earlier. Routes may also contribute link tools; hand-authored tools win.**
 
 The order is deterministic, and it is the reason a traveler can trust the floor under their
 feet: nothing that arrives later — a journey, a live store emission — can remove or hide a
@@ -51,7 +51,8 @@ The refinements, each deliberate:
   names for one URL is drift made visible. Route equality is judged by the matcher's own
   segment reading, never string bytes.
 - **A hand-authored skill wins over a same-id journey silently** — deterministic and
-  documented.
+  documented. A hand-authored **tool** beats a same-id `crossLinks` link the same way, for
+  the same reason: overriding one generated link is ordinary use, not drift.
 - **Two sources of the SAME kind colliding on an id refuse loudly** — ambiguous authorship.
 - **A known kind with an unreadable payload fails closed** in the library's own voice.
 
@@ -70,6 +71,54 @@ are found again by `matchRoute` for the URLs their routes describe, because both
 one segment law. And they join the same **typed node path union**:
 `registerToolGroup('account')` compiles when `account` came from `fromRoutes`, and a typo is
 still a compile error.
+
+### `crossLinks` — how an agent gets from one page to another
+
+A spine of places with no way to walk between them is not a map. A table of 28 pages whose
+only actions live *on* those pages leaves an agent on the wizard page truthfully answering
+"there is no action that would take you to the Projects list" — and looping.
+
+`crossLinks` is the opt-in that turns pages into the one action a route can honestly
+describe: **go to this address**.
+
+```ts twoslash
+import { buildNavigationGraph, fromRoutes } from 'hcifootprint';
+
+const graph = buildNavigationGraph('app', {
+  sources: [
+    fromRoutes(
+      {
+        home: '/',
+        projects: { route: '/projects', does: 'the Projects list' },
+        wizard: '/projects/new',
+        project: '/projects/:id', // paramful — skipped by `true`
+      },
+      { crossLinks: true }, // or a named subset: ['projects']
+    ),
+  ],
+});
+
+// → go-to-home, go-to-projects, go-to-wizard: each a root-level tool with a
+//   `url` binding carrying the route, `goTo` making the claim, role 'next',
+//   offered on every page in the effective graph except its own target.
+graph.spec.affordances['go-to-projects'].binding;
+//                                       ^?
+```
+
+It is **opt-in** because inventing 28 tools nobody asked for is the other way to be wrong.
+The [literal-address law](doc:actuation) decides what can be linked, and the two forms take
+the two honest stances toward it:
+
+- `true` — every page whose route is **fully literal**. A `:param` route is skipped as a
+  documented **filter**: a blanket ask gets whatever is linkable.
+- a **named subset** — exactly those pages, and now every name is answered for. An unknown
+  name **refuses**; a `:param` route **refuses**. An explicit ask earns a loud refusal where
+  a blanket one earns a filter.
+
+The links then materialise through machinery that needed no changes: they are ordinary root
+tools, so the session's [`navigate` option](doc:actuation) synthesizes the navigation, a
+registered handler still wins, and without either the agent's fire refuses `NOT_MATERIALIZED`
+carrying `gestureKind: 'url'` — the gap ledger naming exactly which wire is missing.
 
 ## `fromJourneys` — skills overlay, and may only add
 

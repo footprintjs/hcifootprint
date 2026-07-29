@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### Added (reachability — a spine of places you can walk between)
+- **`fromRoutes(routes, { crossLinks })`.** A route table contributed 28 pages
+  and ZERO actions, so an agent on a wizard page truthfully answered "there is
+  no action that would take you to the Projects list" — and looped (reported by
+  a production integration, whose workaround was three hand-written nav tools
+  attached to all 28 pages). `crossLinks` is the opt-in that turns pages into
+  the one action a route can honestly describe: **go to this address**. Each
+  becomes an ordinary root-level tool — `go-to-<pageId>`, a `url` binding
+  carrying the route, `goTo` making the claim (role derives `next`) — offered on
+  every page in the effective graph except its own target. Opt-in, because
+  inventing 28 tools nobody asked for is the other way to be wrong. `true`
+  takes every page whose route is fully literal and **filters** `:param` ones (a
+  blanket ask meets the literal-address law); a named subset **refuses** an
+  unknown name or a paramful route at the factory, where the author is looking.
+  Hand-authored `tools` with the same id win silently (the journeys precedent).
+  Nothing downstream changed: the links ride `compileTool`, `gestureHref` and
+  `handlerFor` exactly as a hand-written tool does, so `navigate` materialises
+  them and without it a fire refuses `NOT_MATERIALIZED` carrying
+  `gestureKind: 'url'`.
+- **The never-trap invariant now covers the ROOM, not just the frame:
+  `kind: 'dead-end'` gap rows.** When the cursor comes to rest on a page where
+  an agent fire of every served action would refuse `NOT_MATERIALIZED` — no
+  actions at all, or none registered, url-materialisable or instance-wired — the
+  session records one row and warns once per page, naming all three fixes
+  (register a tool group, pass `navigate`, add `crossLinks`). Nobody has to fire
+  for the trap to exist, so nobody has to fire for it to be recorded. It is an
+  observation, not a verdict: at most one row per (page, `structureVersion`),
+  written from write paths only (a `sync()` page change, a fire()-claimed
+  navigation settling, the coalesced structure flush) and never from
+  `available()`. Armed only where materialisation is a live question —
+  something registered somewhere or a `navigate` in hand, and not a tour — so a
+  graph merely being read is never called a trap.
+
+### Changed (merge order — one sentence, amended in every home)
+- The documented merge order gains a clause: "…nothing later in the order may
+  remove anything earlier. **Routes may also contribute link tools;
+  hand-authored tools win.**"
+
 ### Changed (naming — non-breaking)
 - **`SkillDef2` is now `JourneyDef`.** A number-suffixed name has no business in
   a public surface; the digit only ever existed because `SkillDef` (the v1 flat

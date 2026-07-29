@@ -341,9 +341,11 @@ session.onGap((row) => { … });  // or stream rows live (sugar for session.on('
 Rows are deliberately structured and name-only — the ask plus lists of available action/skill names, never
 descriptions or transcripts — so a batch triage LLM can cluster thousands of them cheaply.
 
-Three kinds of row: `fire-rejected` (the session refused an action), `reported` (the agent filed an ask
-nothing could serve), and `unmaterialized-fire` (a touring session let an agent fire a tool nothing is bound
-to — the *binding* to build, clustered for free alongside the rest).
+Four kinds of row: `fire-rejected` (the session refused an action), `reported` (the agent filed an ask
+nothing could serve), `unmaterialized-fire` (a touring session let an agent fire a tool nothing is bound
+to — the *binding* to build, clustered for free alongside the rest), and `dead-end` (the cursor came to
+rest on a page where **every** offered action would refuse — a room with no doors, recorded before an
+agent has to loop in it).
 
 ---
 
