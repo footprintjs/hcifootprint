@@ -19,7 +19,7 @@ import type {
   SkillGraphSpec,
 } from '../atom/types.js';
 import { Session } from '../traverse/session.js';
-import { SkillGraphValidationError, guardStateKeys, validateGuardShape } from './guards.js';
+import { SkillGraphValidationError, checkLiteralHref, guardStateKeys, validateGuardShape } from './guards.js';
 
 export { SkillGraphValidationError } from './guards.js';
 
@@ -93,6 +93,11 @@ export class SkillGraphBuilder {
           `or a validator with .safeParse/.parse.`,
       );
     }
+    // Never-trap BUILD gate, url half — the THIRD authoring door (the
+    // compiler's compileTool and mount-declared tools are the other two):
+    // same law, same words. Without this check the fluent door silently
+    // authored a permanently-dead edge the other doors refuse loudly.
+    if (def.binding?.kind === 'url') checkLiteralHref(`affordance '${id}'`, def.binding.href);
     this.#affordances.set(id, def);
     return this;
   }

@@ -135,6 +135,80 @@ describe('who passes the gate — every arm that can actually act', () => {
   });
 });
 
+describe("the gate asks 'could the entry act AT ALL' — instance-keyed wiring counts", () => {
+  // A repeats container: one parameterized tool, wired per card under
+  // 'cancel-order[o-123]' — the seam the gate must not be blind to.
+  function ordersDef(): NavigationGraphDef {
+    return {
+      pages: {
+        orders: {
+          areas: {
+            'order-card': {
+              repeats: true,
+              instances: (state) => (state['orderIds'] as string[]) ?? [],
+              tools: {
+                'cancel-order': { does: 'Cancel this order' },
+                'track-order': { does: 'Track this order' },
+              },
+            },
+          },
+        },
+      },
+      skills: {
+        cancel: { does: 'Cancel an order', steps: ['cancel-order'] },
+        track: { does: 'Track an order', steps: ['track-order'] },
+      },
+    };
+  }
+
+  it('an entry wired ONLY per instance commits fine — the fire that follows carries the instance key', () => {
+    // MUTATION PROOF: before this fix the gate asked handlerFor with no
+    // instance, answered undefined, and refused this fully agent-drivable
+    // skill ENTRY_NOT_MATERIALIZED — a factually false refusal.
+    const session = buildNavigationGraph('shop', ordersDef()).createSession({
+      node: 'orders',
+      state: { orderIds: ['o-123'] },
+    });
+    session.registerToolGroup('orders.order-card', {
+      instance: 'o-123',
+      handlers: { 'cancel-order': () => undefined },
+    });
+    // Sanity: the entry really is agent-drivable right now…
+    expect(session.fire('orders.order-card.cancel-order', { source: 'agent', instance: 'o-123' }).ok).toBe(true);
+    // …so the frame must open.
+    expect(session.commitSkill('cancel', { source: 'agent' })).toMatchObject({ ok: true });
+  });
+
+  it('a repeats entry with NO wiring at all is still refused — the gate is widened, not weakened', () => {
+    const session = buildNavigationGraph('shop', ordersDef()).createSession({
+      node: 'orders',
+      state: { orderIds: ['o-123'] },
+    });
+    expect(session.commitSkill('cancel', { source: 'agent' })).toMatchObject({
+      ok: false,
+      reason: 'ENTRY_NOT_MATERIALIZED',
+      affordanceId: 'orders.order-card.cancel-order',
+    });
+  });
+
+  it("a SIBLING tool's instance keys never open a different entry's gate — the scan is per-affordance", () => {
+    const session = buildNavigationGraph('shop', ordersDef()).createSession({
+      node: 'orders',
+      state: { orderIds: ['o-123'] },
+    });
+    session.registerToolGroup('orders.order-card', {
+      instance: 'o-123',
+      handlers: { 'cancel-order': () => undefined },
+    });
+    // 'track' enters on track-order, which has no wiring under ANY key.
+    expect(session.commitSkill('track', { source: 'agent' })).toMatchObject({
+      ok: false,
+      reason: 'ENTRY_NOT_MATERIALIZED',
+      affordanceId: 'orders.order-card.track-order',
+    });
+  });
+});
+
 describe('the SERVE gate stays structural', () => {
   it('page actions remain reachable while a frame is open (escape guaranteed) — unchanged', () => {
     const session = buildNavigationGraph('shop', graphDef()).createSession({ node: 'catalog' });

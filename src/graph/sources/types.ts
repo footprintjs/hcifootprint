@@ -48,8 +48,15 @@ export interface JourneysSource {
  */
 export interface LiveSource {
   readonly kind: 'live';
-  /** Wire the store's actions onto a session; returns detach (idempotent). */
-  attach(session: LiveBindingPort): () => void;
+  /**
+   * Wire the store's actions onto a session; returns detach (idempotent).
+   * `warn` is the session's dev-warning sink (createSession passes it) so a
+   * post-attach reconcile failure can be reported WITHOUT throwing inside the
+   * app's own store-notify loop; a source without one falls back to the
+   * console. Optional and additive: a one-parameter implementation still
+   * satisfies this shape.
+   */
+  attach(session: LiveBindingPort, warn?: (message: string) => void): () => void;
 }
 
 /** Everything `def.sources` accepts. */

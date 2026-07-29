@@ -15,6 +15,13 @@
  * meaningless there). Consequence, stated: the handler bound at first sight
  * stays bound — to replace an action's behaviour, remove it and add it back.
  *
+ * Error stance, split by WHO is on the stack (the recorder rule, both ways):
+ * the FIRST read at attach is LOUD — an invalid action is an authoring error
+ * and dies at createSession, releasing anything half-attached — but a LATER
+ * store emission runs inside the app's own notify loop, where a throw would
+ * abort the app's iteration over its other subscribers. Those reconciles are
+ * isolated: a failure warns and leaves bindings as-is until the next emission.
+ *
  * LEAF MODULE with ZERO value imports: it drives the session INSTANCE it is
  * handed through the type-only LiveBindingPort, so importing fromLiveStore —
  * or bundling a static-graph consumer that never calls it — drags no session
@@ -79,11 +86,15 @@ export function fromLiveStore(store: LiveActionStore): LiveSource {
   return Object.freeze({
     kind: 'live' as const,
 
-    attach(session: LiveBindingPort): () => void {
+    attach(session: LiveBindingPort, warn?: (message: string) => void): () => void {
       // Each attach() owns its OWN ledger, so attach → detach → attach is a
       // clean rebuild and two sessions can share one store without crosstalk.
       const held = new Map<string, Held>();
       let detached = false;
+      // createSession hands the session's own warn sink; the direct door
+      // (attach called by hand) falls back to the console, same default as
+      // every other warn seam in the library.
+      const report = warn ?? ((message: string) => console.warn(message));
 
       const reconcile = (): void => {
         if (detached) return; // a late store emission after detach must not resurrect bindings
@@ -125,8 +136,34 @@ export function fromLiveStore(store: LiveActionStore): LiveSource {
 
       // Subscribe BEFORE the first read: a store that emits synchronously
       // during subscribe just runs an extra reconcile, which is idempotent.
-      const unsubscribe = store.subscribe(reconcile);
-      reconcile();
+      // The subscribed path is ISOLATED (module header, error stance): it runs
+      // inside the app's own notify loop, and a throw there would abort the
+      // app's iteration over its other subscribers — consumer store code must
+      // never be broken by ours. reconcile is idempotent by identity, so the
+      // next emission simply retries.
+      const unsubscribe = store.subscribe(() => {
+        try {
+          reconcile();
+        } catch (error) {
+          report(
+            `hcifootprint: a live store change could not be reconciled (bindings unchanged until the ` +
+              `store's next emission): ${String(error)}`,
+          );
+        }
+      });
+      try {
+        // The first read stays LOUD — an invalid action is an authoring error
+        // and should die at createSession, not degrade into a warning…
+        reconcile();
+      } catch (error) {
+        // …but a loud death must not leak: drop the subscription and release
+        // anything registered before the bad action, so the failed attach
+        // leaves neither a live listener nor half-mounted bindings behind.
+        unsubscribe();
+        for (const { handle } of held.values()) handle.unregister();
+        held.clear();
+        throw error;
+      }
 
       return () => {
         // Idempotent detach: the second call finds nothing to release.

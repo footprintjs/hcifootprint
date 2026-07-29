@@ -4,15 +4,17 @@
  *
  * The gate's one law: an href must be FULLY literal, because a ':param'
  * segment can never materialise (the library never guesses params). Judged by
- * the matcher's own segment reading (segmentsOf/isParam), refused at BOTH
- * authoring doors — the compiler's compileTool and mount-declared tools — in
- * the builder's existing SkillGraphValidationError voice.
+ * the matcher's own segment reading (segmentsOf/isParam), refused at ALL THREE
+ * authoring doors — the compiler's compileTool, mount-declared tools, and the
+ * fluent skillGraph().affordance() — in the builder's existing
+ * SkillGraphValidationError voice.
  *
  * Mutation proofs: before this change a `url` binding was not a Binding kind
- * at all, and a paramful href sailed through both doors unrefused.
+ * at all, and a paramful href sailed through both compiler doors unrefused;
+ * the fluent door stayed ungated until the review fix-back below.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph } from '../src/index.js';
+import { buildNavigationGraph, skillGraph } from '../src/index.js';
 import type { Binding } from '../src/index.js';
 
 describe('the url kind — authoring accepts literal addresses', () => {
@@ -79,6 +81,23 @@ describe('the never-trap BUILD gate — paramful hrefs die at authoring', () => 
         tools: { 'open-order': { does: 'Open one order', binding: { kind: 'url', href: '/orders/:id' } } },
       }),
     ).toThrow(/mount-declared tool 'home\.open-order' declares a url binding with href '\/orders\/:id'/);
+  });
+
+  it('the fluent door enforces the same law with the same words', () => {
+    // MUTATION PROOF: before this fix skillGraph().affordance() copied the
+    // binding unchecked — the same input the other two doors refuse loudly
+    // BUILT silently, handing the fluent-door author a permanently-dead edge
+    // (runtime honesty held, but the promised build error never came).
+    expect(() =>
+      skillGraph('shop')
+        .page('home')
+        .affordance('open-order', {
+          on: 'home',
+          description: 'Open one order',
+          binding: { kind: 'url', href: '/orders/:id' },
+        })
+        .build(),
+    ).toThrow(/affordance 'open-order' declares a url binding with href '\/orders\/:id' — a ':param' segment can never materialise/);
   });
 
   it('a non-string href from a JS caller fails closed in the library voice, not a downstream TypeError', () => {

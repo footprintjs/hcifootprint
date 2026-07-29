@@ -539,18 +539,21 @@ export class Session {
     }
     const principal = opts?.source ?? 'agent';
     // THE NEVER-TRAP COMMIT GATE (fifth refusal, after the existing four): a
-    // skill whose ENTRY step would answer an agent fire NOT_MATERIALIZED right
-    // now must never open its frame — the agent would stand in a narrowed room
-    // where the first thing it was promised cannot act. Same widened handlerFor
-    // question as fire(), one code path, never a second lookup. Only agent
-    // commits outside a tour gate here: a user drives the app itself, and a
-    // tour's fires are already honest no-ops. Registered-but-disabled entries
-    // pass (TOOL_DISABLED is retriable, not missing wiring). The refusal lands
-    // ONE gap row and touches no state — no transition, no commit bundle.
+    // skill whose ENTRY step could not act right now must never open its frame
+    // — the agent would stand in a narrowed room where the first thing it was
+    // promised cannot act. The question is couldMaterialise: handlerFor's
+    // widened resolution (registered, else navigate-derived) PLUS any
+    // instance-keyed wiring, because the gate refuses only frames that could
+    // NEVER act — a repeats entry bound per card CAN act (the fire that
+    // follows carries the instance key). Only agent commits outside a tour
+    // gate here: a user drives the app itself, and a tour's fires are already
+    // honest no-ops. Registered-but-disabled entries pass (TOOL_DISABLED is
+    // retriable, not missing wiring). The refusal lands ONE gap row and
+    // touches no state — no transition, no commit bundle.
     if (principal === 'agent' && !this.#allowUnmaterialized) {
       const entryId = skill.steps[0];
       const entry = this.spec.affordances[entryId];
-      if (this.handlerFor(entryId, { source: 'agent' }) === undefined) {
+      if (!this.couldMaterialise(entryId)) {
         this.recordRejection(entryId, 'ENTRY_NOT_MATERIALIZED', principal, undefined, undefined, {
           gestureKind: entry?.binding?.kind,
           skillId,
@@ -1709,6 +1712,19 @@ export class Session {
   /** Whether navigate could materialise this edge right now (the available() stamp's half of the question). */
   #urlMaterialisable(aff: Affordance): boolean {
     return this.#navigate !== undefined && gestureHref(aff, this.spec.pages) !== undefined;
+  }
+
+  /**
+   * The COMMIT gate's materialisation question — deliberately broader than one
+   * fire's. handlerFor answers "would THIS call execute?" and needs the
+   * caller's instance to say so; the never-trap gate asks "could this edge act
+   * AT ALL right now, for any caller?" — refusing an edge that CAN act is the
+   * false refusal the gate exists to prevent. The base session has no instance
+   * convention, so here the two questions coincide; NavSession widens this
+   * with its instance-keyed registrations ('cancel-order[o-123]').
+   */
+  protected couldMaterialise(affordanceId: string): boolean {
+    return this.handlerFor(affordanceId, { source: 'agent' }) !== undefined;
   }
 
   /**

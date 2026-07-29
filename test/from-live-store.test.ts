@@ -8,12 +8,14 @@
  * Mutation proofs: before this change the module did not exist, `sources`
  * refused kind 'live' as unknown, and InteractionSession had no detachSources.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildNavigationGraph, fromLiveStore } from '../src/index.js';
 import type { LiveAction, LiveActionStore } from '../src/index.js';
 
 /** A minimal subscribe+read-current store (the shape React itself blesses). */
-function fakeStore(initial: LiveAction[]): LiveActionStore & { set(next: LiveAction[]): void; emit(): void } {
+function fakeStore(
+  initial: LiveAction[],
+): LiveActionStore & { set(next: LiveAction[]): void; emit(): void; listenerCount(): number } {
   let current = initial;
   const listeners = new Set<() => void>();
   return {
@@ -21,6 +23,7 @@ function fakeStore(initial: LiveAction[]): LiveActionStore & { set(next: LiveAct
       listeners.add(onChange);
       return () => listeners.delete(onChange);
     },
+    listenerCount: () => listeners.size,
     // CHATTY on purpose: a fresh array of fresh objects on EVERY read — object
     // identity carries no information, exactly like a real app store.
     actions: () => current.map((action) => ({ ...action })),
@@ -198,5 +201,93 @@ describe('reconcile by identity — the chatty-store discipline', () => {
     if (!fired.ok) return;
     await fired.whenSettled;
     expect(cancelled).toEqual(['o-123']);
+  });
+});
+
+describe('error stance — loud at attach, isolated inside the notify loop', () => {
+  it("a LATER emission's bad action warns and never breaks the app's own subscribers", () => {
+    // MUTATION PROOF: before this fix the reconcile ran bare inside
+    // store.subscribe — the unknown-node throw propagated out of set() INTO
+    // app code and aborted the app's iteration over its other subscribers
+    // mid-loop. Consumer store code must never be broken by ours.
+    const warnings: string[] = [];
+    const store = fakeStore([{ node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined }]);
+    const session = ordersGraph(store, warnings);
+    let appSubscriberRan = false;
+    store.subscribe(() => {
+      appSubscriberRan = true; // the app's own listener, notified after ours
+    });
+
+    expect(() =>
+      store.set([
+        // 'refresh' stays in the snapshot (unchanged identity — kept as-is)…
+        { node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined },
+        // …and the bad newcomer throws mid-reconcile.
+        { node: 'ghost', name: 'boom', does: 'Bad', handler: () => undefined },
+      ]),
+    ).not.toThrow();
+
+    expect(appSubscriberRan).toBe(true); // the notify loop finished
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/could not be reconciled/);
+    expect(warnings[0]).toMatch(/unknown node 'ghost'/);
+    // The session itself is unharmed: the still-published action still fires.
+    expect(session.fire('orders.refresh', { source: 'agent' }).ok).toBe(true);
+  });
+
+  it('the next emission simply retries — a corrected store converges, warning only for the bad one', () => {
+    const warnings: string[] = [];
+    const store = fakeStore([{ node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined }]);
+    const session = ordersGraph(store, warnings);
+
+    store.set([
+      { node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined },
+      { node: 'ghost', name: 'boom', does: 'Bad', handler: () => undefined },
+    ]);
+    expect(warnings).toHaveLength(1);
+
+    store.set([
+      { node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined },
+      { node: 'orders', name: 'export', does: 'Export', handler: () => undefined },
+    ]);
+    expect(session.available().edges.some((e) => e.affordanceId === 'orders.export')).toBe(true);
+    expect(warnings).toHaveLength(1); // the good emission is silent
+  });
+
+  it('an invalid action at ATTACH still dies loudly at createSession — and the failed attach leaks no subscription', () => {
+    // MUTATION PROOF (leak half): before this fix the loud first-read throw
+    // left the store subscription registered forever, with no detach handle
+    // ever returned to release it.
+    const store = fakeStore([{ node: 'ghost', name: 'boom', does: 'Bad', handler: () => undefined }]);
+    expect(() => ordersGraph(store)).toThrow(/unknown node 'ghost'/);
+    expect(store.listenerCount()).toBe(0);
+  });
+
+  it('the direct door: a loud attach releases anything registered before the bad action', () => {
+    const session = ordersGraph(fakeStore([])); // a healthy session
+    const badStore = fakeStore([
+      { node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined },
+      { node: 'ghost', name: 'boom', does: 'Bad', handler: () => undefined },
+    ]);
+    expect(() => fromLiveStore(badStore).attach(session)).toThrow(/unknown node 'ghost'/);
+    expect(badStore.listenerCount()).toBe(0);
+    // 'refresh' registered before 'ghost' threw — the cleanup released it, so
+    // the session serves no orphan binding nothing can ever detach.
+    expect(session.available().edges.some((e) => e.affordanceId === 'orders.refresh')).toBe(false);
+  });
+
+  it('the direct door without a warn sink falls back to the console — same default as every warn seam', () => {
+    const session = ordersGraph(fakeStore([]));
+    const store = fakeStore([{ node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined }]);
+    const detach = fromLiveStore(store).attach(session);
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      store.set([{ node: 'ghost', name: 'boom', does: 'Bad', handler: () => undefined }]);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(String(spy.mock.calls[0][0])).toMatch(/could not be reconciled/);
+    } finally {
+      spy.mockRestore();
+      detach();
+    }
   });
 });

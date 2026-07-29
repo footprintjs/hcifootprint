@@ -46,11 +46,11 @@ modules, so importing one never drags session machinery into a bundle.
   registered handler, NEVER moves the page cursor, and `fire()` never writes
   the PresenceIndex: the app reports the flip through the existing
   `show()`/`setVisible()` wire).
-- A paramful url href (`/orders/:id`) is refused loudly at BOTH authoring
-  doors (the compiler and mount-declared tools): a `:param` segment can never
-  materialise, because this library does not guess params. Judged by the
-  matcher's own segment law, so authoring, routing and materialisation can
-  never disagree.
+- A paramful url href (`/orders/:id`) is refused loudly at ALL THREE authoring
+  doors (the compiler, mount-declared tools, and the fluent
+  `skillGraph().affordance()`): a `:param` segment can never materialise,
+  because this library does not guess params. Judged by the matcher's own
+  segment law, so authoring, routing and materialisation can never disagree.
 - `SessionOptions.navigate` — hand the session your router's OWN navigation
   (`(href) => router.push(href)`); presence of the option is the opt-in. An
   edge whose gesture yields a literal href — an explicit url binding, else the
@@ -84,10 +84,12 @@ modules, so importing one never drags session machinery into a bundle.
 ### Changed (behavior change, pre-1.0 minor — the never-trap invariant)
 - **`commitSkill()` gains one typed refusal, after its existing four:
   `ENTRY_NOT_MATERIALIZED`.** An AGENT commit (the default source) outside a
-  tour session is refused when the skill's ENTRY step would answer an agent
-  fire NOT_MATERIALIZED right now — the frame that could never act is never
-  opened, so a planner is never invited into a narrowed room where the first
-  promised thing does nothing. Same treatment 0.3.0 gave NOT_MATERIALIZED:
+  tour session is refused when the skill's ENTRY step could not act AT ALL
+  right now — no registered handler under any key (instance-keyed wiring on a
+  repeats container counts: the fire that follows carries the instance) and no
+  navigate-derived gesture — the frame that could never act is never opened,
+  so a planner is never invited into a narrowed room where the first promised
+  thing does nothing. Same treatment 0.3.0 gave NOT_MATERIALIZED:
   fail-closed, typed, and one gap row (`rejectionReason:
   'ENTRY_NOT_MATERIALIZED'` with the entry step, the new `skillId`, and
   `gestureKind`) — no transition, no commit bundle, because nothing touched
@@ -98,6 +100,35 @@ modules, so importing one never drags session machinery into a bundle.
   or create the session with `allowUnmaterializedFires` for touring. User
   commits, tours, registered-but-disabled entries (retriable), and every
   already-wired flow behave exactly as before.
+
+### Fixed (review fix-back, before release)
+- **The commit gate no longer falsely refuses an instance-wired entry.** As
+  first written the gate asked `handlerFor` with no instance, so a skill whose
+  entry is a repeats-container tool wired ONLY per card
+  (`'cancel-order[o-123]'`) was refused `ENTRY_NOT_MATERIALIZED` while the
+  very same entry fired `ok: true` with the instance key — an uncommittable
+  but fully agent-drivable skill, with a refusal reason that was factually
+  false. The gate's question is now `couldMaterialise` — "could the entry act
+  AT ALL right now, for any caller" — which counts instance-keyed wiring; an
+  entry with no wiring under ANY key is still refused, and a sibling tool's
+  instance keys never open a different entry's gate.
+- **The fluent door joins the url build gate.** `skillGraph().affordance()`
+  accepted a paramful url binding the other two authoring doors refuse
+  loudly, silently authoring a permanently-dead edge (runtime honesty held —
+  agent fires answered NOT_MATERIALIZED — but the promised build error never
+  came). Same `checkLiteralHref` law, same words, third door.
+- **`fromLiveStore` reconcile failures no longer break the app's own store.**
+  A bad action arriving in a LATER store emission threw out of our subscribe
+  callback INTO the app's notify loop, aborting its iteration over its other
+  subscribers. Post-attach reconciles are now isolated (recorder rule): a
+  failure warns through the session's own `onWarn` sink (console for the
+  direct `attach` door) and leaves bindings as-is until the store's next
+  emission, which simply retries. The FIRST read at attach stays LOUD — an
+  invalid action is an authoring error and dies at `createSession` — but the
+  loud throw now cleans up after itself: the subscription is released and any
+  bindings registered before the bad action are unregistered, so a failed
+  attach leaks nothing. (`LiveSource.attach` gains an optional second `warn`
+  parameter; one-parameter implementations still satisfy the shape.)
 
 ## [0.4.0] - 2026-07-29
 

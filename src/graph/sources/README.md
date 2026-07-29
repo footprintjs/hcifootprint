@@ -30,6 +30,17 @@ wins over a same-id journey silently (deterministic and documented); same-kind
 id collisions refuse (ambiguous authorship); unknown/unreadable source shapes
 fail closed in the library's own voice.
 
+## Error stance of the live source (split by WHO is on the stack)
+
+The FIRST read at attach is LOUD: an invalid action is an authoring error and
+dies at `createSession` — and the loud throw cleans up after itself (the store
+subscription and any bindings registered before the bad action are released,
+so a failed attach leaks nothing). A LATER store emission runs inside the
+app's own notify loop, where a throw would abort the app's iteration over its
+other subscribers — those reconciles are isolated (recorder rule): a failure
+warns through the session's `onWarn` sink (console on the direct `attach`
+door) and leaves bindings as-is; the store's next emission simply retries.
+
 ## Leaf modules by construction
 
 Each factory is its own module with at most the shared authoring guards as

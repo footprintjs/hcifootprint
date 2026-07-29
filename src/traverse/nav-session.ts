@@ -139,8 +139,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
     // Live sources attach AFTER the baseline, deliberately: their mounts must
     // land exactly like hand-written registerToolGroup calls — structure rows,
     // version bumps, dormancy clocks and all — never as silent construction.
+    // The session's own warn sink rides along so a post-attach reconcile
+    // failure surfaces where every other dev warning does.
     for (const source of liveSources ?? []) {
-      this.#sourceDetachers.push(source.attach(this));
+      this.#sourceDetachers.push(source.attach(this, (message) => this.warn(message)));
     }
   }
 
@@ -682,6 +684,21 @@ export class InteractionSession<Paths extends string = string> extends Session {
       );
     }
     return super.handlerFor(affordanceId, opts);
+  }
+
+  /**
+   * The commit gate's widening for repeats containers: an entry wired ONLY
+   * per instance ('cancel-order[o-123]') CAN act — the fire that follows
+   * carries the instance key — so its frame must open. Without this arm the
+   * gate asks handlerFor with no instance, answers undefined, and refuses a
+   * skill that is fully agent-drivable (a false ENTRY_NOT_MATERIALIZED).
+   * '[' is a reserved segment character (checkSegment), so the prefix scan
+   * can never claim another affordance's keys.
+   */
+  protected override couldMaterialise(affordanceId: string): boolean {
+    if (super.couldMaterialise(affordanceId)) return true;
+    const prefix = `${affordanceId}[`;
+    return this.registry.registrations().some((r) => r.affordanceId.startsWith(prefix));
   }
 
   /**
