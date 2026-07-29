@@ -11,7 +11,7 @@
  * pre-sources code, where `sources` was unknown and ignored.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, fromJourneys, fromRoutes } from '../src/index.js';
+import { SkillGraphValidationError, buildNavigationGraph, fromJourneys, fromRoutes } from '../src/index.js';
 
 describe('merge order — pages: routes then hand-authored, hand-authored wins', () => {
   it('page key order is routes-source order first, hand additions after (matchRoute tie-break + node order feed on it)', () => {
@@ -155,6 +155,50 @@ describe('merge — fail closed on what this build cannot read', () => {
         sources: [null as never],
       }),
     ).toThrow(/sources\[0\] is not a source object/);
+  });
+
+  // A KNOWN kind hand-crafted without its payload (JS caller territory —
+  // TypeScript and the factories make this unreachable) must die in the
+  // library's OWN voice, not a bare TypeError from Object.entries. The
+  // instanceof assertions are the mutation proof: pre-change code threw
+  // TypeError here, which is exactly the un-owned failure being closed.
+  it("a routes source with a MISSING pages payload is refused in the library's voice", () => {
+    const build = () =>
+      buildNavigationGraph('shop', {
+        pages: { catalog: {} },
+        sources: [{ kind: 'routes' } as never],
+      });
+    expect(build).toThrow(SkillGraphValidationError);
+    expect(build).toThrow(/sources\[0\] has kind 'routes' but its pages payload is missing or not a plain object/);
+  });
+
+  it("a journeys source with a MISSING skills payload is refused in the library's voice", () => {
+    const build = () =>
+      buildNavigationGraph('shop', {
+        pages: { catalog: {} },
+        sources: [{ kind: 'journeys' } as never],
+      });
+    expect(build).toThrow(SkillGraphValidationError);
+    expect(build).toThrow(/sources\[0\] has kind 'journeys' but its skills payload is missing or not a plain object/);
+  });
+
+  it('a PRIMITIVE payload is refused — Object.entries on a string would launder its index keys into page ids', () => {
+    // Pre-change, {pages: 'x'} silently produced a page literally named '0'.
+    expect(() =>
+      buildNavigationGraph('shop', {
+        pages: { catalog: {} },
+        sources: [{ kind: 'routes', pages: 'x' } as never],
+      }),
+    ).toThrow(/sources\[0\] has kind 'routes' but its pages payload is missing or not a plain object/);
+  });
+
+  it('an ARRAY payload is refused — indices are not skill ids, and the library never guesses', () => {
+    expect(() =>
+      buildNavigationGraph('shop', {
+        pages: { catalog: {} },
+        sources: [{ kind: 'journeys', skills: [{ does: 'Buy', steps: [] }] } as never],
+      }),
+    ).toThrow(/sources\[0\] has kind 'journeys' but its skills payload is missing or not a plain object/);
   });
 });
 

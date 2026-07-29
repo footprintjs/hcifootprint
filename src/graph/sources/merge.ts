@@ -40,6 +40,19 @@ import { SkillGraphValidationError } from '../guards.js';
 import { isParam, segmentsOf } from '../route-match.js';
 import type { NavigationGraphDef, PageNodeDef, SkillDef2 } from '../../tree/types.js';
 
+/**
+ * A payload the merge can read as id → definition: a plain non-array object.
+ * Unreachable from TypeScript (GraphSource requires the field) and from the
+ * factories (they always build a record) — but a JS caller hand-crafting a
+ * KNOWN kind must get the library's refusal, not a bare TypeError from
+ * Object.entries, and never a primitive's or an array's index keys laundered
+ * into ids ({kind:'routes', pages:'x'} would otherwise become a page named
+ * '0'). Same fail-closed direction as the unknown-kind arm below.
+ */
+function isRecordPayload(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /** Two route strings that mean one place under the matcher's segment law. */
 function sameRoute(a: string, b: string): boolean {
   const sa = segmentsOf(a);
@@ -71,6 +84,12 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
       throw new SkillGraphValidationError(`sources[${index}] is not a source object.`);
     }
     if (source.kind === 'routes') {
+      if (!isRecordPayload(source.pages)) {
+        throw new SkillGraphValidationError(
+          `sources[${index}] has kind 'routes' but its pages payload is missing or not a plain object — ` +
+            `build it with fromRoutes().`,
+        );
+      }
       for (const [pageId, page] of Object.entries<PageNodeDef>(source.pages)) {
         if (Object.hasOwn(pages, pageId)) {
           throw new SkillGraphValidationError(
@@ -80,6 +99,12 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         pages[pageId] = page;
       }
     } else if (source.kind === 'journeys') {
+      if (!isRecordPayload(source.skills)) {
+        throw new SkillGraphValidationError(
+          `sources[${index}] has kind 'journeys' but its skills payload is missing or not a plain object — ` +
+            `build it with fromJourneys().`,
+        );
+      }
       journeysContributed = true;
       for (const [skillId, skill] of Object.entries<SkillDef2>(source.skills)) {
         if (Object.hasOwn(skills, skillId)) {
