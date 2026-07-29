@@ -3,7 +3,7 @@ import './globals.css';
 import { StoryDeckProvider } from 'storydeck';
 import { BASE, SITE, CANONICAL, AUTHOR, AUTHOR_URL } from '../site.config';
 
-const TITLE = 'HACI Footprint — turn your web app into an agentic app';
+const TITLE = 'hcifootprint — put a map between your app and the agent';
 const DESC =
   "Turn a web app's interaction surface into a typed, traversable skill graph an LLM agent can plan over and act on — through your own buttons and handlers, as the signed-in user. The frontend sibling of footprintjs.";
 const OG_IMAGE = `${SITE}${BASE}/og.png`;

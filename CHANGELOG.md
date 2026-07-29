@@ -1,6 +1,56 @@
 # Changelog
 
-## [Unreleased]
+## [0.6.0] - 2026-07-29
+
+**A production integration's four remaining workarounds are now deletable** — the
+number this release is measured by.
+
+1. **The settlement relay** — a transition listener keyed by `transitionId`, a
+   four-second ceiling, and a rewrite on the relay's send path, all written because
+   `whenSettled` is a promise and a promise cannot cross a tool boundary. The settled
+   truth crosses it now: `settlementOf` / `settlementIfKnown` in process,
+   `port.whenSettled` for a relay holding only the port, and a `did_it_work` tool for
+   the remote agent — with a ceiling at the MCP boundary that decides how long to
+   wait and never what the answer is.
+2. **The ~60 lines of before/after DOM signature comparison per action** — written
+   because a radio fire returned `effectStatus: 'performed'` while nothing got
+   selected, and a wizard's Next returned 'performed' while the button it clicked was
+   DISABLED. Declare `verify` and the app's own checks outrank a handler that merely
+   returned; declare `enabledWhen` and a greyed button is served as greyed.
+3. **The three hand-written nav tools attached to all 28 pages** — written because a
+   route table contributed pages and ZERO actions, so an agent on a wizard page
+   truthfully answered that there was no action that would take you to the Projects
+   list, and looped. `fromRoutes(routes, { crossLinks: true })` turns each page into
+   the one action a route can honestly describe: **go to this address**.
+4. **The `value: ""` sent to click-only controls** — a uniform relay contract's empty
+   string that reached the handler and OVERRODE authored defaults. `input: 'none'` at
+   the authoring door, `expects: 'none'` on the wire, and a blank payload erased
+   rather than obeyed.
+
+Two failures nothing in the field had a workaround for. With nothing to check itself
+against, a model narrated an entire flow — *"name set, recipe selected"* — having
+called ZERO tools; its own prose had become its context. `groundTruth()` is the block
+that outranks the conversation, and a refused attempt (a gap-ledger row, never a
+transition) is finally visible in it. And **a room with no doors now names itself**: a
+`kind: 'dead-end'` row where an agent fire of every served action would refuse
+`NOT_MATERIALIZED`, recorded without anyone having to fire for the trap to exist —
+while a closed guard is NOT a missing door.
+
+**Nothing released breaks**, and the two changes that would have broken something were
+caught by the final review and made additive instead of shipped.
+`SkillToolsPort.whenSettled` is **optional** on the published interface — the first cut
+required it, which is a compile error in code that never asked for the feature — and
+the factory returns the new `SkillToolsPortWithSettlement`, where it is required, so a
+caller holding the factory's port never checks for a door the library always provides.
+`GapRecord.kind` gained a fourth value, `'dead-end'`, as a new FACT and never a
+relabelled old one: a released consumer's filter (`kind === 'fire-rejected'`,
+`rejectionReason !== undefined`) returns exactly the rows it always did. Both promises
+are pinned by `test/non-breaking.test.ts`, a type test as much as a runtime one. The
+one consumer shape a growing union does cost is an exhaustive `never` check over the
+old set, which is why the growth is now a stated contract on the type itself — read the
+kinds you know and let the rest fall through. `SkillDef2` remains as a deprecated alias
+for `JourneyDef`, so 0.5.0 code keeps compiling. See the two "Note for anyone…"
+sections below.
 
 ### Added (grounding — the app's own record, and the app's own checks)
 - **`session.groundTruth({ sinceVersion?, maxAttempts? })` → `{ node, version, text }`,
