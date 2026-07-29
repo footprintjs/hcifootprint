@@ -4,7 +4,7 @@ title: GapRecord
 
 # Interface: GapRecord
 
-Defined in: [src/atom/types.ts:702](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L702)
+Defined in: [src/atom/types.ts:705](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L705)
 
 One row of unmet demand. Four kinds:
 - 'fire-rejected'      — an attempted action the session refused (unknown id,
@@ -17,14 +17,17 @@ One row of unmet demand. Four kinds:
   it is the binding still to build. Tour rows are the demand backlog for
   Phase-1 wiring: cluster them to see which handlers agents keep reaching for.
 - 'dead-end'           — THE PAGE-LEVEL NEVER-TRAP: the cursor came to rest
-  on a page where an agent fire of EVERY served action would refuse
-  NOT_MATERIALIZED (no actions at all, or none of them registered,
-  url-materialisable or instance-wired). Nobody has to fire to earn this row:
-  the trap is a property of the POSITION, and an agent that lands there will
-  loop on a true-but-useless "here is what is available". Recorded as an
-  observation, not a verdict — at most one row per (page, structureVersion),
-  so a mount that fixes the page ends the rows and a page still dead after
-  the next structure change is one NEW fact worth one new row.
+  on a page where NOTHING the graph puts there could act — no action at all,
+  or none of them registered, url-materialisable or instance-wired. Nobody
+  has to fire to earn this row: the trap is a property of the POSITION, and
+  an agent that lands there will loop on a true-but-useless "here is what is
+  available". Recorded as an observation, not a verdict — at most one row per
+  (page, served structure), so a mount that fixes the page ends the rows and
+  a page still dead after the next WIRING change is one NEW fact worth one
+  new row. A guard-closed action does NOT earn a row: it is wired, its
+  refusal is GUARD_FAILED, and the next state report may open it — the same
+  retriable stance the gate takes on a registered-but-disabled action.
+  `offGraph: true` marks the other shape of trap (see below).
 
 Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
 never descriptions or transcripts — so a consumer's batch triage LLM can
@@ -45,7 +48,7 @@ export via onGap and drain, like the transition log.
 
 > `optional` **affordanceId?**: `string`
 
-Defined in: [src/atom/types.ts:716](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L716)
+Defined in: [src/atom/types.ts:730](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L730)
 
 The id the caller ASKED for — kept even when unknown (that is the signal).
 
@@ -55,7 +58,7 @@ The id the caller ASKED for — kept even when unknown (that is the signal).
 
 > **availableActions**: `string`[]
 
-Defined in: [src/atom/types.ts:712](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L712)
+Defined in: [src/atom/types.ts:715](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L715)
 
 Names only — what existed at that moment (token-lean, injection-safe).
 On a 'dead-end' row this is the whole payload and the whole point: these
@@ -67,7 +70,7 @@ are the actions the page OFFERS while none of them can act.
 
 > **availableSkills**: `string`[]
 
-Defined in: [src/atom/types.ts:713](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L713)
+Defined in: [src/atom/types.ts:716](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L716)
 
 ***
 
@@ -75,7 +78,7 @@ Defined in: [src/atom/types.ts:713](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **evidence?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:733](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L733)
+Defined in: [src/atom/types.ts:747](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L747)
 
 ***
 
@@ -83,7 +86,7 @@ Defined in: [src/atom/types.ts:733](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **gestureKind?**: `"element"` \| `"keychord"` \| `"programmatic"` \| `"url"` \| `"tab"`
 
-Defined in: [src/atom/types.ts:740](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L740)
+Defined in: [src/atom/types.ts:754](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L754)
 
 The refused edge's declared gesture KIND ('fire-rejected' and
 'unmaterialized-fire' rows) — the demand backlog now says WHICH wiring is
@@ -96,7 +99,7 @@ string only, never the binding object.
 
 > **kind**: `"fire-rejected"` \| `"reported"` \| `"unmaterialized-fire"` \| `"dead-end"`
 
-Defined in: [src/atom/types.ts:703](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L703)
+Defined in: [src/atom/types.ts:706](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L706)
 
 ***
 
@@ -104,7 +107,7 @@ Defined in: [src/atom/types.ts:703](https://github.com/footprintjs/hcifootprint/
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:705](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L705)
+Defined in: [src/atom/types.ts:708](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L708)
 
 ***
 
@@ -112,7 +115,23 @@ Defined in: [src/atom/types.ts:705](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:751](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L751)
+Defined in: [src/atom/types.ts:765](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L765)
+
+***
+
+### offGraph?
+
+> `optional` **offGraph?**: `true`
+
+Defined in: [src/atom/types.ts:727](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L727)
+
+The cursor is resting on a node the graph has never heard of — the same
+fact [SyncResult](/api/index/type-aliases/SyncResult).offGraph reports, kept on the row so triage can
+separate the two traps without re-deriving it. It is the PERMANENT one: no
+mount can add a door to an unauthored page (registerToolGroup throws on an
+unknown node), so it is recorded ONCE per node for the session's life
+rather than re-asked on every structure change. Cure: author the page, or
+sync() the id the graph actually uses for that screen.
 
 ***
 
@@ -120,7 +139,7 @@ Defined in: [src/atom/types.ts:751](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **principal?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:732](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L732)
+Defined in: [src/atom/types.ts:746](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L746)
 
 ***
 
@@ -128,7 +147,7 @@ Defined in: [src/atom/types.ts:732](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **reason?**: [`GapReason`](/api/index/type-aliases/GapReason)
 
-Defined in: [src/atom/types.ts:750](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L750)
+Defined in: [src/atom/types.ts:764](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L764)
 
 ***
 
@@ -136,7 +155,7 @@ Defined in: [src/atom/types.ts:750](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **rejectionReason?**: `"UNKNOWN_AFFORDANCE"` \| `"STALE_CURSOR"` \| `"NOT_ON_NODE"` \| `"GUARD_FAILED"` \| `"PAYLOAD_INVALID"` \| `"BLOCKED_BY_OVERLAY"` \| `"NODE_NOT_VISIBLE"` \| `"STILL_MOUNTING"` \| `"INSTANCE_REQUIRED"` \| `"INSTANCE_UNKNOWN"` \| `"TOOL_DISABLED"` \| `"NOT_MATERIALIZED"` \| `"ENTRY_NOT_MATERIALIZED"`
 
-Defined in: [src/atom/types.ts:717](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L717)
+Defined in: [src/atom/types.ts:731](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L731)
 
 ***
 
@@ -144,7 +163,7 @@ Defined in: [src/atom/types.ts:717](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **request?**: `string`
 
-Defined in: [src/atom/types.ts:749](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L749)
+Defined in: [src/atom/types.ts:763](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L763)
 
 The user's ask (runtime data; length-capped).
 
@@ -154,7 +173,7 @@ The user's ask (runtime data; length-capped).
 
 > `optional` **skillId?**: `string`
 
-Defined in: [src/atom/types.ts:746](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L746)
+Defined in: [src/atom/types.ts:760](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L760)
 
 The skill whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
 `affordanceId` on those rows is the entry STEP; this names the skill the
@@ -166,7 +185,7 @@ planner actually asked for.
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:704](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L704)
+Defined in: [src/atom/types.ts:707](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L707)
 
 ***
 
@@ -174,4 +193,4 @@ Defined in: [src/atom/types.ts:704](https://github.com/footprintjs/hcifootprint/
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:706](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L706)
+Defined in: [src/atom/types.ts:709](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L709)

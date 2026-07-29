@@ -16,7 +16,7 @@ Defined in: [src/traverse/session.ts:152](https://github.com/footprintjs/hcifoot
 
 > **new Session**(`spec`, `opts`): `Session`
 
-Defined in: [src/traverse/session.ts:234](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L234)
+Defined in: [src/traverse/session.ts:237](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L237)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [src/traverse/session.ts:234](https://github.com/footprintjs/hcifoot
 
 > **get** **graphId**(): `string`
 
-Defined in: [src/traverse/session.ts:276](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L276)
+Defined in: [src/traverse/session.ts:279](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L279)
 
 The compiled graph's id (namespaces MCP tool names).
 
@@ -56,7 +56,7 @@ The compiled graph's id (namespaces MCP tool names).
 
 > **get** **node**(): `string`
 
-Defined in: [src/traverse/session.ts:271](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L271)
+Defined in: [src/traverse/session.ts:274](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L274)
 
 ##### Returns
 
@@ -70,7 +70,7 @@ Defined in: [src/traverse/session.ts:271](https://github.com/footprintjs/hcifoot
 
 > **get** **stateVersion**(): `number`
 
-Defined in: [src/traverse/session.ts:291](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L291)
+Defined in: [src/traverse/session.ts:294](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L294)
 
 D18 version split — `version` stays the single total-order cursor; these
 two say WHAT moved. A scrolling list must never staleness-fail a plan the
@@ -89,7 +89,7 @@ subscribe to the axis they care about.
 
 > **get** **structureVersion**(): `number`
 
-Defined in: [src/traverse/session.ts:295](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L295)
+Defined in: [src/traverse/session.ts:298](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L298)
 
 ##### Returns
 
@@ -103,7 +103,7 @@ Defined in: [src/traverse/session.ts:295](https://github.com/footprintjs/hcifoot
 
 > **get** **version**(): `number`
 
-Defined in: [src/traverse/session.ts:281](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L281)
+Defined in: [src/traverse/session.ts:284](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L284)
 
 The one CAS/sinceVersion cursor: total order over ALL world motion.
 
@@ -117,7 +117,7 @@ The one CAS/sinceVersion cursor: total order over ALL world motion.
 
 > **available**(): [`AvailableSlice`](/api/index/interfaces/AvailableSlice)
 
-Defined in: [src/traverse/session.ts:420](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L420)
+Defined in: [src/traverse/session.ts:423](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L423)
 
 #### Returns
 
@@ -129,7 +129,7 @@ Defined in: [src/traverse/session.ts:420](https://github.com/footprintjs/hcifoot
 
 > **availableSkills**(): `object`
 
-Defined in: [src/traverse/session.ts:534](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L534)
+Defined in: [src/traverse/session.ts:537](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L537)
 
 Skill-level disclosure for the planning LLM (descriptions + feasibility, no tool detail).
 
@@ -155,7 +155,7 @@ Skill-level disclosure for the planning LLM (descriptions + feasibility, no tool
 
 > **commitLog**(): `CommitBundle`[]
 
-Defined in: [src/traverse/session.ts:1377](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1377)
+Defined in: [src/traverse/session.ts:1380](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1380)
 
 The footprintjs commit log: one bundle per SETTLED/stimulus/sync transition.
 
@@ -169,7 +169,7 @@ The footprintjs commit log: one bundle per SETTLED/stimulus/sync transition.
 
 > **commitSkill**(`skillId`, `opts?`): [`CommitSkillResult`](/api/index/type-aliases/CommitSkillResult)
 
-Defined in: [src/traverse/session.ts:566](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L566)
+Defined in: [src/traverse/session.ts:569](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L569)
 
 Commit to a skill: opens a frame so toMCPTools()/contextBrief() serve ONLY
 that skill's currently-fireable steps plus escape tools — the token win
@@ -205,7 +205,7 @@ that could never act (see the gate below).
 
 > **confirmAsk**(`affordanceId`, `opts?`): `object`
 
-Defined in: [src/traverse/session.ts:1580](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1580)
+Defined in: [src/traverse/session.ts:1654](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1654)
 
 Record a high-effect confirm ask and assemble its RECEIPTS from what the
 session already knows — the guard evidence that made the edge fireable, the
@@ -251,7 +251,7 @@ affordance. Never throws: an unknown affordance yields a minimal receipt
 
 > **confirms**(): [`ConfirmRecord`](/api/index/interfaces/ConfirmRecord)[]
 
-Defined in: [src/traverse/session.ts:1634](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1634)
+Defined in: [src/traverse/session.ts:1708](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1708)
 
 The confirm journal (DEEP copies): every high-effect ask and how it was
 answered — an auditable ask → decision → fire chain (join `transitionId`
@@ -268,7 +268,7 @@ audit sink like gaps(); it grows for the session's life.
 
 > **contextBrief**(`opts?`): [`ContextBrief`](/api/index/interfaces/ContextBrief)
 
-Defined in: [src/traverse/session.ts:1741](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1741)
+Defined in: [src/traverse/session.ts:1815](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1815)
 
 Token-lean, prompt-ready session context for the next chat turn: current
 position, the open frame, and who did what since `sinceVersion` (the
@@ -291,7 +291,7 @@ agent's last look). Built from AUTHORED strings and structural facts only
 
 > **declineConfirm**(`affordanceId`, `opts?`): [`ConfirmRecord`](/api/index/interfaces/ConfirmRecord)
 
-Defined in: [src/traverse/session.ts:1607](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1607)
+Defined in: [src/traverse/session.ts:1681](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1681)
 
 Close a high-effect ask as DECLINED — the human said no. Records the
 decision so the chain closes honestly instead of the ask dangling forever
@@ -330,7 +330,7 @@ is worth recording either way. Returns the row (a deep copy).
 
 > **explain**(`affordanceId`): [`Explanation`](/api/index/interfaces/Explanation)
 
-Defined in: [src/traverse/session.ts:513](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L513)
+Defined in: [src/traverse/session.ts:516](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L516)
 
 Why an affordance is (or is not) available right now — per-condition evidence.
 
@@ -350,7 +350,7 @@ Why an affordance is (or is not) available right now — per-condition evidence.
 
 > **fire**(`affordanceId`, `opts?`): [`FireResult`](/api/index/type-aliases/FireResult)
 
-Defined in: [src/traverse/session.ts:741](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L741)
+Defined in: [src/traverse/session.ts:744](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L744)
 
 Returned transition records are LIVE views — settlement updates them in
 place. `effectStatus` is the opposite: a reading taken at return time, and
@@ -383,7 +383,7 @@ action in the ledger under a human and disarm the never-trap gate below.
 
 > **frames**(): [`SkillFrame`](/api/index/interfaces/SkillFrame)[]
 
-Defined in: [src/traverse/session.ts:656](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L656)
+Defined in: [src/traverse/session.ts:659](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L659)
 
 Frame history: every closed frame (completed / cancelled / demoted), oldest first.
 
@@ -397,7 +397,7 @@ Frame history: every closed frame (completed / cancelled / demoted), oldest firs
 
 > **gaps**(): [`GapRecord`](/api/index/interfaces/GapRecord)[]
 
-Defined in: [src/traverse/session.ts:1440](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1440)
+Defined in: [src/traverse/session.ts:1443](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1443)
 
 The unmet-demand ledger (DEEP copies) — export it to your analytics/triage pipeline.
 
@@ -411,7 +411,7 @@ The unmet-demand ledger (DEEP copies) — export it to your analytics/triage pip
 
 > **leaveSkill**(`opts?`): [`SkillFrame`](/api/index/interfaces/SkillFrame) \| `null`
 
-Defined in: [src/traverse/session.ts:632](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L632)
+Defined in: [src/traverse/session.ts:635](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L635)
 
 Close the open frame. Default reason: 'completed' if every step was
 committed while the frame was open, else 'cancelled'. Returns the closed
@@ -435,7 +435,7 @@ frame, or null when none was open.
 
 > **on**\<`N`\>(`event`, `listener`): () => `void`
 
-Defined in: [src/traverse/session.ts:321](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L321)
+Defined in: [src/traverse/session.ts:324](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L324)
 
 Subscribe to a session event. Returns an unsubscribe function.
 
@@ -465,7 +465,7 @@ Subscribe to a session event. Returns an unsubscribe function.
 
 > **onConfirm**(`listener`): () => `void`
 
-Defined in: [src/traverse/session.ts:1639](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1639)
+Defined in: [src/traverse/session.ts:1713](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1713)
 
 Live export hook: fires once per new confirm row. Sugar for `on('confirm', …)`.
 
@@ -485,7 +485,7 @@ Live export hook: fires once per new confirm row. Sugar for `on('confirm', …)`
 
 > **onGap**(`listener`): () => `void`
 
-Defined in: [src/traverse/session.ts:1445](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1445)
+Defined in: [src/traverse/session.ts:1448](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1448)
 
 Live export hook: fires once per new gap row. Sugar for `on('gap', …)`.
 
@@ -505,7 +505,7 @@ Live export hook: fires once per new gap row. Sugar for `on('gap', …)`.
 
 > **pending**(): [`PendingInfo`](/api/index/interfaces/PendingInfo)[]
 
-Defined in: [src/traverse/session.ts:1287](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1287)
+Defined in: [src/traverse/session.ts:1290](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1290)
 
 Fired transitions still awaiting their state report (oldest first).
 
@@ -519,7 +519,7 @@ Fired transitions still awaiting their state report (oldest first).
 
 > **producedFor**(`transitionId`): `unknown`
 
-Defined in: [src/traverse/session.ts:1408](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1408)
+Defined in: [src/traverse/session.ts:1411](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1411)
 
 Data the given transition's handler RETURNED (search results, a looked-up
 record) — a fresh snapshot, safe to serialize into a tool result. Available
@@ -542,7 +542,7 @@ Returns undefined when the handler returned nothing (or capture is off).
 
 > **readsByStep**(): `ReadonlyMap`\<`string`, `string`[]\>
 
-Defined in: [src/traverse/session.ts:1398](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1398)
+Defined in: [src/traverse/session.ts:1401](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1401)
 
 runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup).
 
@@ -556,7 +556,7 @@ runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup).
 
 > **registerTools**(`opts`): [`RegisteredTools`](/api/index/interfaces/RegisteredTools)
 
-Defined in: [src/traverse/session.ts:486](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L486)
+Defined in: [src/traverse/session.ts:489](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L489)
 
 Register handlers on the FLAT graph (skillGraph — no node tree). Takes a
 caller `group` string; the tree API (InteractionSession.registerToolGroup)
@@ -579,7 +579,7 @@ invent a group name.
 
 > **reject**(`transitionId`, `opts?`): [`TransitionRecord`](/api/index/interfaces/TransitionRecord)
 
-Defined in: [src/traverse/session.ts:1302](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1302)
+Defined in: [src/traverse/session.ts:1305](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1305)
 
 The app rejected/rolled back a transition's effect (optimistic UI).
 Works on a PENDING transition (effect never landed → no bundle) and on an
@@ -609,7 +609,7 @@ via updateState — the commit log keeps both writes, honestly.
 
 > **reportGap**(`opts`): [`GapRecord`](/api/index/interfaces/GapRecord)
 
-Defined in: [src/traverse/session.ts:1423](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1423)
+Defined in: [src/traverse/session.ts:1426](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1426)
 
 Report an ask that no available action or skill could serve (typically
 called by the agent's report_gap tool before it apologizes). The row is
@@ -631,7 +631,7 @@ token-lean by design: the ask plus NAME lists, never descriptions.
 
 > **skillFrame**(): [`SkillFrame`](/api/index/interfaces/SkillFrame) \| `null`
 
-Defined in: [src/traverse/session.ts:651](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L651)
+Defined in: [src/traverse/session.ts:654](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L654)
 
 The open skill frame (snapshot), or null.
 
@@ -645,7 +645,7 @@ The open skill frame (snapshot), or null.
 
 > **skillPlan**(`skillId`): [`SkillPlan`](/api/index/interfaces/SkillPlan)
 
-Defined in: [src/traverse/session.ts:666](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L666)
+Defined in: [src/traverse/session.ts:669](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L669)
 
 The DERIVED intra-skill dependency DAG with live status. Dependencies are
 computed, never authored: step B depends on step A when A's declared
@@ -668,7 +668,7 @@ encode the ordering, so it cannot drift from the graph.
 
 > **state**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [src/traverse/session.ts:412](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L412)
+Defined in: [src/traverse/session.ts:415](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L415)
 
 Detached snapshot of the projected state (live state is immutable-after-swap; never hand out references).
 
@@ -682,7 +682,7 @@ Detached snapshot of the projected state (live state is immutable-after-swap; ne
 
 > **sync**(`observedNode`, `opts?`): [`SyncResult`](/api/index/type-aliases/SyncResult)
 
-Defined in: [src/traverse/session.ts:1339](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1339)
+Defined in: [src/traverse/session.ts:1342](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1342)
 
 The observed node is runtime input from the world, so an unauthored page
 is NOT an error: the cursor follows reality (off-graph), available()
@@ -714,7 +714,7 @@ honestly serves zero edges there, and the hop is still recorded.
 
 > **toMCPTools**(`opts?`): `MCPToolDescription`[]
 
-Defined in: [src/traverse/session.ts:1728](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1728)
+Defined in: [src/traverse/session.ts:1802](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1802)
 
 Per-edge MCP tool descriptors for the CURRENT slice. Regenerated per call
 — never cached. With a skill frame open, serves ONLY the frame's
@@ -739,7 +739,7 @@ synthetic leave-skill) — the on-demand disclosure contract.
 
 > **transitions**(): readonly [`TransitionRecord`](/api/index/interfaces/TransitionRecord)[]
 
-Defined in: [src/traverse/session.ts:1387](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1387)
+Defined in: [src/traverse/session.ts:1390](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1390)
 
 The interaction log. Settled/stimulus/sync rows join 1:1 to commitLog()
 bundles by TransitionRecord.id; pending and rejected/rolled-back rows
@@ -756,7 +756,7 @@ readonly [`TransitionRecord`](/api/index/interfaces/TransitionRecord)[]
 
 > **trySkillPlan**(`skillId`): [`TrySkillPlanResult`](/api/index/type-aliases/TrySkillPlanResult)
 
-Defined in: [src/traverse/session.ts:718](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L718)
+Defined in: [src/traverse/session.ts:721](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L721)
 
 skillPlan() for an id the caller did not author — a model's, a URL's, a
 config file's — answering with a value instead of a throw. Same plan; the
@@ -790,7 +790,7 @@ the honest "no such skill" this method exists to give.
 
 > **unregisterGroup**(`group`): `string`[]
 
-Defined in: [src/traverse/session.ts:506](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L506)
+Defined in: [src/traverse/session.ts:509](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L509)
 
 Remove every live binding currently owned by `group` (component unmount).
 
@@ -810,7 +810,7 @@ Remove every live binding currently owned by `group` (component unmount).
 
 > **updateState**(`delta`, `opts?`): [`UpdateResult`](/api/index/type-aliases/UpdateResult)
 
-Defined in: [src/traverse/session.ts:1133](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1133)
+Defined in: [src/traverse/session.ts:1136](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1136)
 
 Report a projected-state delta from the app (router/store tap).
 
@@ -851,7 +851,7 @@ a declared write reported as undefined counts as missing
 
 > **why**(`key`): `string`
 
-Defined in: [src/traverse/session.ts:1392](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1392)
+Defined in: [src/traverse/session.ts:1395](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L1395)
 
 "Why does this state key hold its value?" — footprint backward slice, formatted.
 

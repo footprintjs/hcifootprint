@@ -3,14 +3,13 @@
  *
  * The commit gate (never-trap.test.ts) refuses a skill FRAME that opens onto an
  * entry nothing can perform. This is the same law one level up, about the room
- * itself: a page where an agent fire of EVERY served action would refuse
- * NOT_MATERIALIZED is a room with no doors. The agent is told the truth, fires,
- * is refused, re-reads the same true list, and loops — correctly, on the
- * information it was given. Nobody has to fire for the trap to exist, so nobody
- * has to fire for it to be recorded.
+ * itself: a page where NOTHING the graph puts there could act is a room with no
+ * doors. The agent is told the truth, fires, is refused, re-reads the same true
+ * list, and loops — correctly, on the information it was given. Nobody has to
+ * fire for the trap to exist, so nobody has to fire for it to be recorded.
  *
- * The row is an OBSERVATION, not a verdict: one per (page, structureVersion),
- * re-asked whenever the served structure actually changes.
+ * The row is an OBSERVATION, not a verdict: one per (page, served structure),
+ * re-asked whenever the WIRING actually changes.
  *
  * Mutation proofs: before this change the gap ledger only ever grew from
  * something the caller DID (a refused fire, a tour no-op, a reported ask) — a
@@ -105,7 +104,7 @@ describe('the trap is recorded when the cursor comes to rest in it', () => {
   });
 });
 
-describe('one row per (page, structureVersion) — an observation, never a verdict', () => {
+describe('one row per (page, served structure) — an observation, never a verdict', () => {
   it('re-visiting the same page at the same served structure says nothing new', async () => {
     const session = await sessionWithHomeWired();
     session.sync('settings');
@@ -268,5 +267,206 @@ describe('the write-path rule and the one dev warning', () => {
     await tick();
     expect(deadEnds(session)).toHaveLength(2);
     expect(warnings).toHaveLength(1);
+  });
+});
+
+/**
+ * A landing OFF the graph is a different trap from a room with no doors, and
+ * the difference is load-bearing: sync() blesses it ("an unauthored page is NOT
+ * an error"), yet the generic warning's first cure — registerToolGroup(node) —
+ * THROWS for an unknown node, and no mount can ever change the answer.
+ */
+describe('off-graph is the other trap — named, and asked only once', () => {
+  it('the row carries offGraph, so triage separates "unwired" from "unauthored"', async () => {
+    const session = await sessionWithHomeWired();
+
+    const result = session.sync('/some/unknown/url');
+
+    expect(result.changed && result.offGraph).toBe(true); // sync already knew
+    expect(deadEnds(session)).toEqual([
+      {
+        kind: 'dead-end',
+        timestamp: expect.any(Number),
+        node: '/some/unknown/url',
+        version: expect.any(Number),
+        availableActions: [],
+        availableSkills: [],
+        offGraph: true,
+      },
+    ]);
+    // MUTATION PROOF that the flag is discriminating, not decorative: an
+    // on-graph dead end must NOT carry it.
+    session.sync('settings');
+    expect(deadEnds(session)[1].offGraph).toBeUndefined();
+  });
+
+  it('the warning never prescribes a call that throws', async () => {
+    const warnings: string[] = [];
+    const session = await sessionWithHomeWired({ onWarn: (message) => warnings.push(message) });
+
+    session.sync('nowhere');
+
+    expect(warnings[0]).toContain("'nowhere', which is NOT a page in this graph");
+    expect(warnings[0]).toContain('throws: the node is unknown');
+    // The generic sentence prescribed registration as fix #1. Proof it is wrong
+    // here — the library's own API refuses the node the warning would name:
+    expect(() => session.registerToolGroup('nowhere' as never, { handlers: {} })).toThrow(
+      /unknown node 'nowhere'/,
+    );
+    // ...and the NOT_MATERIALIZED claim is absent, because it is not the truth here.
+    expect(warnings[0]).not.toContain('NOT_MATERIALIZED');
+  });
+
+  it('asked ONCE for the session: no mount can author a page, so re-arming is spam', async () => {
+    const session = await sessionWithHomeWired();
+    session.sync('/some/unknown/url');
+    expect(deadEnds(session)).toHaveLength(1);
+
+    // Two unrelated mounts — real structure changes, on other pages.
+    const handle = session.registerToolGroup('home', { handlers: { wave: () => undefined } });
+    await tick();
+    handle.unregister();
+    session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    await tick();
+
+    // MUTATION PROOF that the churn was real: the same churn re-arms an
+    // ON-graph page (see the suite above), and the structure axis did move.
+    expect(session.structureVersion).toBeGreaterThan(0);
+    expect(deadEnds(session)).toHaveLength(1); // still one — the answer never changed
+  });
+});
+
+/**
+ * The gate asks couldMaterialise over FULL capability. available() has already
+ * dropped every guard-closed edge, so asking over IT calls a wired page dead:
+ * an empty-cart checkout, where `pay` sits registered behind cartCount > 0.
+ * That refusal is GUARD_FAILED — as retriable, and as wired, as the
+ * TOOL_DISABLED this gate already forgives.
+ */
+describe('a closed guard is not missing wiring', () => {
+  const checkoutDef: NavigationGraphDef = {
+    pages: {
+      home: { tools: { greet: { does: 'Say hello' } } },
+      checkout: { tools: { pay: { does: 'Pay now', when: { cartCount: { gt: 0 } } } } },
+    },
+  };
+
+  async function emptyCart(wirePay: boolean, onWarn: (m: string) => void = () => undefined) {
+    const session = buildNavigationGraph('app', checkoutDef).createSession({
+      node: 'home',
+      state: { cartCount: 0 },
+      onWarn,
+    });
+    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    if (wirePay) session.registerToolGroup('checkout', { handlers: { pay: () => undefined } });
+    await tick();
+    return session;
+  }
+
+  it('an empty-cart checkout is not a dead end — the door is built, the state is shut', async () => {
+    const session = await emptyCart(true);
+
+    session.sync('checkout');
+
+    expect(session.available().edges).toHaveLength(0); // nothing SERVED, honestly
+    expect(deadEnds(session)).toHaveLength(0); // ...but the room has a door
+    expect(session.fire('checkout.pay', { source: 'agent' })).toMatchObject({
+      reason: 'GUARD_FAILED', // not NOT_MATERIALIZED: this is state, not wiring
+    });
+  });
+
+  it('the state opens it, and no row was ever needed', async () => {
+    const session = await emptyCart(true);
+    session.sync('checkout');
+
+    session.updateState({ cartCount: 2 }, { stimulus: 'push' });
+
+    expect(session.fire('checkout.pay', { source: 'agent' }).ok).toBe(true);
+    expect(deadEnds(session)).toHaveLength(0);
+  });
+
+  it('MUTATION PROOF: the same closed guard with NO handler IS a dead end', async () => {
+    const warnings: string[] = [];
+    const session = await emptyCart(false, (message) => warnings.push(message));
+
+    session.sync('checkout');
+
+    // Guard-closed AND unwired: opening the guard would only reveal an action
+    // nothing can perform, so the wiring really is the unmet demand.
+    expect(deadEnds(session)).toMatchObject([{ node: 'checkout', availableActions: [] }]);
+    expect(warnings[0]).toContain('every one of the 1 authored here');
+    expect(warnings[0]).toContain('refused GUARD_FAILED');
+  });
+});
+
+/**
+ * "Every fire here would be refused NOT_MATERIALIZED" is TRUE only where actions
+ * are served-but-unwired. A dev warning that names the wrong refusal sends
+ * someone hunting the wrong bug, so each room states its own refusal.
+ */
+describe('the warning names only the refusal this room actually gives', () => {
+  it('a page with nothing authored says UNKNOWN_AFFORDANCE / NOT_ON_NODE — and means it', async () => {
+    const warnings: string[] = [];
+    const session = buildNavigationGraph('app', {
+      pages: { home: { tools: { greet: { does: 'Say hello' } } }, empty: {} },
+    }).createSession({ node: 'home', onWarn: (message) => warnings.push(message) });
+    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    await tick();
+
+    session.sync('empty');
+
+    expect(warnings[0]).toContain("page 'empty' has NO actions authored on it at all");
+    expect(warnings[0]).toContain('never NOT_MATERIALIZED');
+    // The sentence is checked against the fire path, not against itself:
+    expect(session.fire('empty.anything', { source: 'agent' })).toMatchObject({
+      reason: 'UNKNOWN_AFFORDANCE',
+    });
+    expect(session.fire('home.greet', { source: 'agent' })).toMatchObject({ reason: 'NOT_ON_NODE' });
+  });
+
+  it('the served-but-unwired room keeps the NOT_MATERIALIZED sentence — there it is the truth', async () => {
+    const warnings: string[] = [];
+    const session = await sessionWithHomeWired({ onWarn: (message) => warnings.push(message) });
+
+    session.sync('settings');
+
+    expect(warnings[0]).toContain('every fire here would be refused NOT_MATERIALIZED');
+    expect(session.fire('settings.save', { source: 'agent' })).toMatchObject({
+      reason: 'NOT_MATERIALIZED', // the sentence checked against the fire path
+    });
+  });
+});
+
+/**
+ * `structureVersion` also bumps for skill-frame open/close/demote — churn that
+ * cannot wire anything. Keying the dedup on it multiplied rows for a page whose
+ * answer never moved, so the key is the served-structure FINGERPRINT instead.
+ */
+describe('the re-arm axis is the wiring, not the version counter', () => {
+  it('skill-frame churn cannot wire anything, so it cannot write a second row', async () => {
+    const session = buildNavigationGraph('app', {
+      pages: {
+        home: { tools: { greet: { does: 'Say hello' }, wave: { does: 'Wave' } } },
+        settings: { tools: { save: { does: 'Save' } } },
+      },
+      skills: { tour: { does: 'A guided tour', steps: ['home.greet'] } },
+    }).createSession({ node: 'home', onWarn: () => undefined });
+    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    await tick();
+    session.sync('settings');
+    expect(deadEnds(session)).toHaveLength(1);
+
+    const before = session.structureVersion;
+    for (let i = 0; i < 3; i++) {
+      expect(session.commitSkill('tour', { source: 'agent' }).ok).toBe(true);
+      expect(session.leaveSkill()).not.toBeNull();
+      session.sync('home');
+      session.sync('settings');
+    }
+
+    // MUTATION PROOF that the old key would have re-armed: the counter moved
+    // six times over churn that touched no registration at all.
+    expect(session.structureVersion).toBe(before + 6);
+    expect(deadEnds(session)).toHaveLength(1);
   });
 });

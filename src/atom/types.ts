@@ -677,14 +677,17 @@ export type GapReason =
  *   it is the binding still to build. Tour rows are the demand backlog for
  *   Phase-1 wiring: cluster them to see which handlers agents keep reaching for.
  * - 'dead-end'           — THE PAGE-LEVEL NEVER-TRAP: the cursor came to rest
- *   on a page where an agent fire of EVERY served action would refuse
- *   NOT_MATERIALIZED (no actions at all, or none of them registered,
- *   url-materialisable or instance-wired). Nobody has to fire to earn this row:
- *   the trap is a property of the POSITION, and an agent that lands there will
- *   loop on a true-but-useless "here is what is available". Recorded as an
- *   observation, not a verdict — at most one row per (page, structureVersion),
- *   so a mount that fixes the page ends the rows and a page still dead after
- *   the next structure change is one NEW fact worth one new row.
+ *   on a page where NOTHING the graph puts there could act — no action at all,
+ *   or none of them registered, url-materialisable or instance-wired. Nobody
+ *   has to fire to earn this row: the trap is a property of the POSITION, and
+ *   an agent that lands there will loop on a true-but-useless "here is what is
+ *   available". Recorded as an observation, not a verdict — at most one row per
+ *   (page, served structure), so a mount that fixes the page ends the rows and
+ *   a page still dead after the next WIRING change is one NEW fact worth one
+ *   new row. A guard-closed action does NOT earn a row: it is wired, its
+ *   refusal is GUARD_FAILED, and the next state report may open it — the same
+ *   retriable stance the gate takes on a registered-but-disabled action.
+ *   `offGraph: true` marks the other shape of trap (see below).
  *
  * Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
  * never descriptions or transcripts — so a consumer's batch triage LLM can
@@ -711,6 +714,17 @@ export interface GapRecord {
    */
   availableActions: string[];
   availableSkills: string[];
+  // dead-end rows:
+  /**
+   * The cursor is resting on a node the graph has never heard of — the same
+   * fact {@link SyncResult}.offGraph reports, kept on the row so triage can
+   * separate the two traps without re-deriving it. It is the PERMANENT one: no
+   * mount can add a door to an unauthored page (registerToolGroup throws on an
+   * unknown node), so it is recorded ONCE per node for the session's life
+   * rather than re-asked on every structure change. Cure: author the page, or
+   * sync() the id the graph actually uses for that screen.
+   */
+  offGraph?: true;
   // fire-rejected rows:
   /** The id the caller ASKED for — kept even when unknown (that is the signal). */
   affordanceId?: string;

@@ -211,11 +211,14 @@ export class Session {
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
   /**
-   * Dead-end rows already written, keyed `node@structureVersion` — the row is
-   * an observation of one position at one served structure, so re-observing
-   * the same pair says nothing new. A NEW structure version re-arms it: a
-   * mount may have fixed the page, and a page still dead afterwards is a new
-   * fact. Grows one entry per emitted row, the same class as the ledger itself.
+   * Dead-end rows already written, keyed `node@structureFingerprint` — the row
+   * is an observation of one position at one served structure, so re-observing
+   * the same pair says nothing new. New WIRING re-arms it: a mount may have
+   * fixed the page, and a page still dead afterwards is a new fact. The
+   * fingerprint, not `structureVersion`, is the axis: that counter also bumps
+   * for skill-frame open/close/demote, which cannot wire anything. Off-graph
+   * nodes are keyed `off-graph:<node>` and never re-arm — nothing on screen can
+   * author a page. Grows one entry per emitted row, the ledger's own class.
    */
   readonly #deadEndSeen = new Set<string>();
   /** Nodes already warned about (the #warnedOnce discipline): one per node, for the session's life. */
@@ -1485,11 +1488,11 @@ export class Session {
   /**
    * THE PAGE-LEVEL NEVER-TRAP. The commit gate refuses a skill FRAME that
    * opens onto an entry nothing can perform; this is the same law one level
-   * up, about the room itself. A page whose every served action would refuse
-   * NOT_MATERIALIZED is a room with no doors: the agent is told the truth
-   * ("here is what is available"), fires, is refused, re-reads the same true
-   * list, and loops — correctly, on the information it was given. Nobody has
-   * to fire for the trap to exist, so nobody has to fire for it to be recorded.
+   * up, about the room itself. A page where NOTHING the graph puts there could
+   * act is a room with no doors: the agent is told the truth ("here is what is
+   * available"), fires, is refused, re-reads the same true list, and loops —
+   * correctly, on the information it was given. Nobody has to fire for the trap
+   * to exist, so nobody has to fire for it to be recorded.
    *
    * ARMED only when materialisation is a live question — `(registry.hasAny()
    * || navigate) && !allowUnmaterializedFires` — the same condition available()
@@ -1501,8 +1504,18 @@ export class Session {
    * every other never-trap surface asks (registered, else navigate-derived,
    * else instance-wired), so a registered-but-DISABLED action still counts as a
    * door (TOOL_DISABLED is retriable, not missing wiring). It is asked over
-   * FULL capability, never the frame-narrowed slice, so an open skill frame can
-   * never manufacture a dead end.
+   * FULL capability — every affordance the graph places on this page, NOT the
+   * available() slice, which two filters have already narrowed. The skill frame
+   * is one (so an open frame can never manufacture a dead end); the GUARD is
+   * the other, and it matters more: an empty-cart checkout serves zero edges
+   * while `pay` sits registered behind `cartCount > 0`. That page is wired. Its
+   * refusal is GUARD_FAILED, exactly as retriable as the TOOL_DISABLED this
+   * gate already forgives, and the next state report may open it — so calling
+   * it missing wiring would be a guessed status prescribing a fix already done.
+   *
+   * OFF-GRAPH is the OTHER trap and a permanent one: the graph has no page by
+   * this name, so nothing on screen can be wired to it and the first fix below
+   * would throw ('unknown node'). It gets its own sentence and is asked ONCE.
    *
    * CALLED FROM WRITE PATHS ONLY — never from available(). recordRejection's
    * own #gapContext calls available(), so a read-path emission would recurse
@@ -1514,31 +1527,92 @@ export class Session {
   #checkDeadEnd(): void {
     if (this.#allowUnmaterialized) return;
     if (!this.#registry.hasAny() && this.#navigate === undefined) return;
-    const seenKey = `${this.#node}@${this.#structureVersion}`;
+    const offGraph = this.spec.pages[this.#node] === undefined;
+    // Keyed on the served-structure FINGERPRINT, not the structure VERSION:
+    // that axis also bumps for skill-frame open/close/demote — churn that
+    // cannot wire anything, so re-arming on it multiplies rows for a page whose
+    // answer never moved. Re-ask when the WIRING changed, never when the
+    // disclosure filter did. Off-graph is keyed on the node alone: no structure
+    // change can author a page, so a second row would only ever be spam.
+    const seenKey = offGraph
+      ? `off-graph:${this.#node}`
+      : `${this.#node}@${this.structureFingerprint()}`;
     if (this.#deadEndSeen.has(seenKey)) return;
-    // ONE available() pass answers both halves: the ids to test, and the row's
-    // own token-lean context (the standard base fields, names only).
-    const context = this.#gapContext();
-    if (context.availableActions.some((affordanceId) => this.couldMaterialise(affordanceId))) return;
+    // Full capability, guards included — see THE QUESTION above. (An off-graph
+    // node holds no affordances at all, so this loop honestly finds no door.)
+    // The count is kept because it decides which refusal the warning may name:
+    // served-none-authored refuses UNKNOWN_AFFORDANCE, served-none-but-authored
+    // refuses GUARD_FAILED, and only served-and-unwired refuses NOT_MATERIALIZED.
+    let authored = 0;
+    for (const aff of Object.values(this.spec.affordances)) {
+      if (!aff.on.includes(this.#node)) continue;
+      if (this.couldMaterialise(aff.id)) return;
+      authored++;
+    }
     // Marked BEFORE the push: a gap listener that drives the session back into
     // this same position must find the question already answered.
     this.#deadEndSeen.add(seenKey);
+    const context = this.#gapContext();
     this.#pushGap({
       kind: 'dead-end',
       timestamp: Date.now(),
       node: this.#node,
       version: this.#version,
       ...context,
+      ...(offGraph ? { offGraph: true as const } : {}),
     });
     if (this.#deadEndWarned.has(this.#node)) return;
     this.#deadEndWarned.add(this.#node);
-    this.#warn(
-      `hcifootprint: page '${this.#node}' offers ${context.availableActions.length} action(s) and an agent ` +
-        `could perform NONE of them — every fire here would be refused NOT_MATERIALIZED, so an agent that ` +
-        `lands on this page can only loop. Three ways out: registerToolGroup('${this.#node}', …) to wire ` +
-        `what is on screen; pass navigate: (href) => router.push(href) to createSession so url gestures ` +
-        `materialise; or read the route table with fromRoutes(routes, { crossLinks: true }) so every page ` +
-        `offers links to the others. Recorded as a dead-end gap row.`,
+    this.#warn(this.#deadEndWarning(offGraph, context.availableActions.length, authored));
+  }
+
+  /**
+   * ONE sentence per KIND of dead end, because a dev warning that names the
+   * wrong refusal sends someone hunting the wrong bug. Every refusal teaches —
+   * but only what is TRUE of this room: 'every fire would be refused
+   * NOT_MATERIALIZED' holds ONLY where actions are served-but-unwired, and
+   * prescribing registerToolGroup for a page the graph never heard of hands the
+   * developer a call that throws.
+   */
+  #deadEndWarning(offGraph: boolean, served: number, authored: number): string {
+    if (offGraph) {
+      return (
+        `hcifootprint: the cursor is on '${this.#node}', which is NOT a page in this graph — an agent ` +
+        `standing here is served nothing, and no mount can change that (registerToolGroup('${this.#node}', …) ` +
+        `throws: the node is unknown). Two ways out: author the page — or add it to the route table you pass ` +
+        `to fromRoutes — so it has a name and actions; or sync() the id the graph uses for this screen (a raw ` +
+        `URL is not a node id unless a route table mapped it). Recorded as a dead-end gap row ONCE: no ` +
+        `structure change can change this answer.`
+      );
+    }
+    if (served > 0) {
+      return (
+        `hcifootprint: page '${this.#node}' offers ${served} action(s) and an agent could perform NONE of ` +
+        `them — every fire here would be refused NOT_MATERIALIZED, so an agent that lands on this page can ` +
+        `only loop. ${this.#deadEndFixes()}`
+      );
+    }
+    if (authored > 0) {
+      return (
+        `hcifootprint: page '${this.#node}' serves no actions — every one of the ${authored} authored here ` +
+        `is hidden by a closed guard AND none of them is wired, so a fire is refused GUARD_FAILED and ` +
+        `opening the guard would only reveal an action nothing can perform. ${this.#deadEndFixes()}`
+      );
+    }
+    return (
+      `hcifootprint: page '${this.#node}' has NO actions authored on it at all — an agent that lands here ` +
+      `has nothing it can even attempt (a fire is refused UNKNOWN_AFFORDANCE or NOT_ON_NODE, never ` +
+      `NOT_MATERIALIZED). ${this.#deadEndFixes()}`
+    );
+  }
+
+  /** The three cures, shared by every on-graph sentence (off-graph has its own). */
+  #deadEndFixes(): string {
+    return (
+      `Three ways out: registerToolGroup('${this.#node}', …) to wire what is on screen; pass ` +
+      `navigate: (href) => router.push(href) to createSession so url gestures materialise; or read the ` +
+      `route table with fromRoutes(routes, { crossLinks: true }) so every page offers links to the others. ` +
+      `Recorded as a dead-end gap row.`
     );
   }
 

@@ -4,7 +4,7 @@ title: ConfirmReceipts
 
 # Interface: ConfirmReceipts
 
-Defined in: [src/atom/types.ts:812](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L812)
+Defined in: [src/atom/types.ts:826](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L826)
 
 The "receipts" that ride a needs-confirm ask: everything the library ALREADY
 knows about a high-effect edge, assembled so the agent can SHOW the human
@@ -24,7 +24,7 @@ why an edge is fireable — the guard is the literal precondition — so
 
 > **because**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:820](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L820)
+Defined in: [src/atom/types.ts:834](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L834)
 
 Why this edge is fireable right now — the guard conditions that passed,
 one per condition (key/op/threshold/actual). Structural and KNOWN, not
@@ -36,7 +36,7 @@ scored. Empty for an unguarded (always-offered) edge.
 
 > `optional` **becauseUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:825](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L825)
+Defined in: [src/atom/types.ts:839](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L839)
 
 Guard keys taken on faith because the state view never held them — the
 same honesty marker the edge itself carries. Present only when non-empty.
@@ -47,7 +47,7 @@ same honesty marker the edge itself carries. Present only when non-empty.
 
 > **recentSteps**: [`ConfirmTrailStep`](/api/index/interfaces/ConfirmTrailStep)[]
 
-Defined in: [src/atom/types.ts:831](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L831)
+Defined in: [src/atom/types.ts:845](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L845)
 
 A compact tail of the session's fire journal — the trail that led here.
 
@@ -57,7 +57,7 @@ A compact tail of the session's fire journal — the trail that led here.
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:829](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L829)
+Defined in: [src/atom/types.ts:843](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L843)
 
 The cursor version the receipt was assembled at (a stale-plan check anchor).
 
@@ -67,7 +67,7 @@ The cursor version the receipt was assembled at (a stale-plan check anchor).
 
 > **willDo**: [`ConfirmWillDo`](/api/index/interfaces/ConfirmWillDo)
 
-Defined in: [src/atom/types.ts:814](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L814)
+Defined in: [src/atom/types.ts:828](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L828)
 
 What firing will do: authored words + declared, honesty-tagged effect.
 
@@ -77,6 +77,6 @@ What firing will do: authored words + declared, honesty-tagged effect.
 
 > **youAreOn**: `string`
 
-Defined in: [src/atom/types.ts:827](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L827)
+Defined in: [src/atom/types.ts:841](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L841)
 
 Where the human is, folded in so the receipt is a self-contained pack.
