@@ -1,12 +1,19 @@
 # Changelog
 
-## [Unreleased]
+## [0.5.0] - 2026-07-29
+
+**A real-world FE integration's ~350 lines of integration glue rewrites to 26 lines
+on this API** — the number this release is measured by.
 
 The graph now GROWS from what the app already has. An app owns descriptions of
 itself — a route table, a set of journeys — and until now each had to be
 re-typed by hand into the definition, where the copy drifts the moment either
 side edits. `buildNavigationGraph` accepts growable **sources**, and the graph
 reads the owner's truth instead of copying it.
+
+One behavior change to read before upgrading: **`commitSkill()` can now refuse
+`ENTRY_NOT_MATERIALIZED`** where 0.4.0 opened a skill frame whose first step could
+not act. See "Changed" below for the upgrade note.
 
 ### Added (static graph sources)
 - `fromRoutes(table)` — the app's route table becomes the page SPINE. Page
@@ -159,7 +166,7 @@ modules, so importing one never drags session machinery into a bundle.
 
 ## [0.4.0] - 2026-07-29
 
-`fire()` now tells you what actually happened. Three workarounds the Hodgkin FE POC team
+`fire()` now tells you what actually happened. Three workarounds a real-world FE integration
 had to write against 0.3.0 are deletable in this release:
 
 1. **The settlement timing guess** — the `setTimeout`/poll wrapper that existed because
@@ -258,7 +265,7 @@ had to write against 0.3.0 are deletable in this release:
   the gate can be misread as being about navigation; it is about actuation. A write-only click
   nothing is bound to is the same lie told without moving. Tests only.
 
-Reported by the Hodgkin FE POC team.
+Reported by a real-world FE integration.
 
 ## [0.3.0] - 2026-07-25
 
