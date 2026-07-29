@@ -4,7 +4,7 @@ title: ConfirmRecord
 
 # Interface: ConfirmRecord
 
-Defined in: [src/atom/types.ts:827](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L827)
+Defined in: [src/atom/types.ts:834](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L834)
 
 One row of the confirm journal: the auditable trail of high-effect asks and
 how they were answered. A needs-confirm ask lands an `'ask'` row (carrying
@@ -24,7 +24,7 @@ token-lean and injection-safe (ids + structural facts; the only free text,
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:831](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L831)
+Defined in: [src/atom/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L838)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [src/atom/types.ts:831](https://github.com/footprintjs/hcifootprint/
 
 > **askId**: `string`
 
-Defined in: [src/atom/types.ts:830](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L830)
+Defined in: [src/atom/types.ts:837](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L837)
 
 Links the ask → decision → fire rows of one high-effect gate.
 
@@ -42,7 +42,7 @@ Links the ask → decision → fire rows of one high-effect gate.
 
 > `optional` **by?**: `string`
 
-Defined in: [src/atom/types.ts:846](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L846)
+Defined in: [src/atom/types.ts:853](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L853)
 
 Who answered — an operator id, an email, your host's label. Optional.
 
@@ -52,7 +52,7 @@ Who answered — an operator id, an email, your host's label. Optional.
 
 > **kind**: `"ask"` \| `"approved"` \| `"declined"`
 
-Defined in: [src/atom/types.ts:828](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L828)
+Defined in: [src/atom/types.ts:835](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L835)
 
 ***
 
@@ -60,7 +60,7 @@ Defined in: [src/atom/types.ts:828](https://github.com/footprintjs/hcifootprint/
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:834](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L834)
+Defined in: [src/atom/types.ts:841](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L841)
 
 ***
 
@@ -68,7 +68,7 @@ Defined in: [src/atom/types.ts:834](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:848](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L848)
+Defined in: [src/atom/types.ts:855](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L855)
 
 Free-text note (length-capped). On a decline, typically why.
 
@@ -78,7 +78,7 @@ Free-text note (length-capped). On a decline, typically why.
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:837](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L837)
+Defined in: [src/atom/types.ts:844](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L844)
 
 Who asked ('ask'), or the principal that recorded the decision.
 
@@ -88,7 +88,7 @@ Who asked ('ask'), or the principal that recorded the decision.
 
 > `optional` **receipts?**: [`ConfirmReceipts`](/api/index/interfaces/ConfirmReceipts)
 
-Defined in: [src/atom/types.ts:840](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L840)
+Defined in: [src/atom/types.ts:847](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L847)
 
 The receipts that rode this ask (present on 'ask' rows).
 
@@ -98,7 +98,7 @@ The receipts that rode this ask (present on 'ask' rows).
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:833](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L833)
+Defined in: [src/atom/types.ts:840](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L840)
 
 Epoch milliseconds when the row was recorded.
 
@@ -108,7 +108,7 @@ Epoch milliseconds when the row was recorded.
 
 > `optional` **transitionId?**: `string`
 
-Defined in: [src/atom/types.ts:843](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L843)
+Defined in: [src/atom/types.ts:850](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L850)
 
 The TransitionRecord.id of the fire this approval authorized.
 
@@ -118,4 +118,4 @@ The TransitionRecord.id of the fire this approval authorized.
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:835](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L835)
+Defined in: [src/atom/types.ts:842](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L842)

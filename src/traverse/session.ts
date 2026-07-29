@@ -81,6 +81,35 @@ import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
 import type { ToolHandler } from '../registry/registry.js';
 
+/**
+ * Who an UNATTRIBUTED action is charged to.
+ *
+ * `FireOptions.source` is required in the types, so this only ever answers for
+ * a caller the types never reached — plain JS, or an options object built at
+ * runtime. It is not a new policy: `commitSkill()`, `confirmAsk()` and
+ * `skillsAsTools()` already publish exactly this assumption, and the session is
+ * documented as an agent's actuator — the app self-reporting its OWN motion is
+ * the side that says so ('user' / 'system').
+ *
+ * 'user' would be the unsafe direction and is deliberately NOT the default: it
+ * would write a human principal into the gap ledger and the commit log for a
+ * fire nobody attributed, AND it would disarm the never-trap gate in fire(),
+ * which refuses agent fires that could execute nothing. Guessing 'agent' can
+ * only over-apply that gate — a loud, typed, retriable refusal — never launder
+ * a machine action as a human one.
+ */
+const DEFAULT_PRINCIPAL: Principal = 'agent';
+
+/** What `fire(id)` with no options at all is read as — shared, frozen, read-only. */
+export const UNATTRIBUTED_FIRE: FireOptions = Object.freeze({ source: DEFAULT_PRINCIPAL });
+
+/** The principal of a fire, tolerating a caller who omitted `source` entirely. */
+export function principalOf(opts: FireOptions): Principal {
+  // The cast is the honest part: JS callers are not held to FireOptions, so
+  // `source` really can be missing here even though the type says otherwise.
+  return (opts as Partial<FireOptions>).source ?? DEFAULT_PRINCIPAL;
+}
+
 interface PendingTransition {
   record: TransitionRecord;
   affordance: Affordance;
@@ -193,9 +222,14 @@ export class Session {
   #groupSeq = 0;
 
   constructor(spec: SkillGraphSpec, opts: SessionOptions) {
-    if (!spec.pages[opts.node]) {
+    // `opts?.` where the type says the argument is required: a JS caller who
+    // wrote `createSession()` deserves this library's own sentence naming the
+    // pages it could have started on, not a TypeError from reading `.node` off
+    // undefined. There is no default to invent here — a flat graph's starting
+    // page is a real decision, so the refusal stays; only its voice changes.
+    if (!spec.pages[opts?.node]) {
       throw new Error(
-        `hcifootprint: unknown starting node '${opts.node}'. Known pages: ${Object.keys(spec.pages).join(', ')}.`,
+        `hcifootprint: unknown starting node '${opts?.node}'. Known pages: ${Object.keys(spec.pages).join(', ')}.`,
       );
     }
     this.#spec = spec;
@@ -687,26 +721,36 @@ export class Session {
    * place. `effectStatus` is the opposite: a reading taken at return time, and
    * because the handler is always deferred it can never say 'performed' here.
    * `whenSettled` carries the later truth, once, as a snapshot.
+   *
+   * `opts` is optional at RUNTIME and required in TypeScript: a JS caller's
+   * `fire('page.tool')` is answered instead of crashing on `opts.source`,
+   * while a typed caller is still made to name the principal. An omitted
+   * source reads as 'agent' — never 'user', which would file a machine's
+   * action in the ledger under a human and disarm the never-trap gate below.
    */
-  fire(affordanceId: string, opts: FireOptions): FireResult {
+  fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
+    // One reading of the principal for every gate, ledger row and cause below
+    // — an opts object built at runtime can arrive with `source` missing even
+    // though the default above covered the no-arguments call.
+    const source = principalOf(opts);
     const aff = this.spec.affordances[affordanceId];
     if (!aff) {
       const available = this.available().edges.map((e) => e.affordanceId);
-      this.recordRejection(affordanceId, 'UNKNOWN_AFFORDANCE', opts.source, undefined, available);
+      this.recordRejection(affordanceId, 'UNKNOWN_AFFORDANCE', source, undefined, available);
       return { ok: false, reason: 'UNKNOWN_AFFORDANCE', available };
     }
     if (opts.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
-      this.recordRejection(affordanceId, 'STALE_CURSOR', opts.source);
+      this.recordRejection(affordanceId, 'STALE_CURSOR', source);
       return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
     }
     if (!aff.on.includes(this.#node)) {
-      this.recordRejection(affordanceId, 'NOT_ON_NODE', opts.source);
+      this.recordRejection(affordanceId, 'NOT_ON_NODE', source);
       return { ok: false, reason: 'NOT_ON_NODE', node: this.#node };
     }
     // Guards are re-evaluated at fire time — plan-time guards are advisory.
     const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
     if (!matched) {
-      this.recordRejection(affordanceId, 'GUARD_FAILED', opts.source, conditions);
+      this.recordRejection(affordanceId, 'GUARD_FAILED', source, conditions);
       return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
     }
     // EVERY source answers for the payload, deliberately — including the
@@ -719,7 +763,7 @@ export class Session {
     if (aff.schema !== undefined) {
       const validation = validatePayload(aff.schema, opts.payload, this.#checkPayloadShape);
       if (!validation.ok) {
-        this.recordRejection(affordanceId, 'PAYLOAD_INVALID', opts.source);
+        this.recordRejection(affordanceId, 'PAYLOAD_INVALID', source);
         return { ok: false, reason: 'PAYLOAD_INVALID', issues: validation.issues };
       }
     }
@@ -728,7 +772,7 @@ export class Session {
     // whatever actually happened. Retriable: the app may enable it next tick.
     // Instance-aware via the protected seam (a disabled repeats-row button).
     if (opts.invoke !== false && this.isToolDisabled(affordanceId, opts)) {
-      this.recordRejection(affordanceId, 'TOOL_DISABLED', opts.source);
+      this.recordRejection(affordanceId, 'TOOL_DISABLED', source);
       return { ok: false, reason: 'TOOL_DISABLED', affordanceId };
     }
     // The session is an AGENT's only actuator: with nothing bound and invoke
@@ -739,13 +783,13 @@ export class Session {
     // greyed tool still says TOOL_DISABLED and a mounting one STILL_MOUNTING.
     const unmaterialized =
       opts.invoke !== false && this.handlerFor(affordanceId, opts) === undefined;
-    const honestNoOp = unmaterialized && opts.source === 'agent';
+    const honestNoOp = unmaterialized && source === 'agent';
     // The one question every settlement arm below asks: will OUR side actually
     // execute anything? (`unmaterialized` already answered "invoke wanted but
     // nothing bound" — this is the same lookup, not a second one.)
     const handlerWillRun = opts.invoke !== false && !unmaterialized;
     if (honestNoOp && !this.#allowUnmaterialized) {
-      this.recordRejection(affordanceId, 'NOT_MATERIALIZED', opts.source, undefined, undefined, {
+      this.recordRejection(affordanceId, 'NOT_MATERIALIZED', source, undefined, undefined, {
         gestureKind: aff.binding?.kind,
       });
       // The declared gesture rides the refusal: "this is a click on the
@@ -760,14 +804,14 @@ export class Session {
     }
     if (honestNoOp) {
       // Allowed tour fire: the binding the app team still has to build.
-      this.#recordUnmaterializedFire(affordanceId, opts.source, aff.binding?.kind);
+      this.#recordUnmaterializedFire(affordanceId, source, aff.binding?.kind);
     }
     // Only ever present on the allowed-no-op path — absence means normal.
     const noOpMarks = honestNoOp ? ({ executed: false, materialized: false } as const) : {};
 
     const record: TransitionRecord = {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
-      cause: { kind: 'fired', affordanceId, principal: opts.source },
+      cause: { kind: 'fired', affordanceId, principal: source },
       timestamp: Date.now(),
       payload: opts.payload,
       outcome: 'pending',
@@ -784,7 +828,7 @@ export class Session {
     // A confirmed high-effect fire closes its open ask: stamp askId on the
     // record and land the 'approved' decision BEFORE the first emit, so every
     // observer sees the fire already linked to the receipts it authorized.
-    this.#resolveOpenAsk(record, affordanceId, opts.source);
+    this.#resolveOpenAsk(record, affordanceId, source);
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 

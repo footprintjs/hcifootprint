@@ -15,6 +15,22 @@
   someone takes through the app, and `fromJourneys()` already spoke that word.
   `SkillDef2` remains as a deprecated type alias — 0.5.0 code keeps compiling.
 
+### Fixed
+- **`fire(affordanceId)` no longer crashes.** A JS caller who omitted the
+  options object hit a raw `TypeError` reading `opts.source` (found by a
+  production integration). `opts` is now optional at RUNTIME and still required
+  in TypeScript, so typed callers must keep naming the principal. An omitted
+  source reads as **`'agent'`** — the assumption `commitSkill()`, `confirmAsk()`
+  and `skillsAsTools()` already publish — and never as `'user'`: an
+  unattributed machine action must not enter the gap ledger or the commit log
+  as a human one, and defaulting to `'user'` would silently disarm the
+  never-trap gate (which refuses only agent fires that could execute nothing).
+  An options object built at runtime WITHOUT a `source` follows the same rule.
+- `createSession()` with no options (the v1 flat graph) now refuses in this
+  library's voice — `unknown starting node 'undefined'. Known pages: …` —
+  instead of a `TypeError`. No default is invented: a flat graph's starting
+  page is a real decision, so only the refusal's voice changed.
+
 ## [0.5.0] - 2026-07-29
 
 **A real-world FE integration's ~350 lines of integration glue rewrites to 26 lines

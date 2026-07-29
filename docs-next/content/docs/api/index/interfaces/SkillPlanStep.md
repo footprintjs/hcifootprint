@@ -4,7 +4,7 @@ title: SkillPlanStep
 
 # Interface: SkillPlanStep
 
-Defined in: [src/atom/types.ts:863](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L863)
+Defined in: [src/atom/types.ts:870](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L870)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:863](https://github.com/footprintjs/hcifootprint/
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:864](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L864)
+Defined in: [src/atom/types.ts:871](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L871)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:864](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **blockedOn?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:874](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L874)
+Defined in: [src/atom/types.ts:881](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L881)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:874](https://github.com/footprintjs/hcifootprint/
 
 > **dependsOn**: [`DependencyEdge`](/api/index/interfaces/DependencyEdge)[]
 
-Defined in: [src/atom/types.ts:872](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L872)
+Defined in: [src/atom/types.ts:879](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L879)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/atom/types.ts:872](https://github.com/footprintjs/hcifootprint/
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:865](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L865)
+Defined in: [src/atom/types.ts:872](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L872)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: [src/atom/types.ts:865](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:876](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L876)
+Defined in: [src/atom/types.ts:883](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L883)
 
 Guard keys absent from the state view — the step shows 'ready', taken on faith.
 
@@ -54,7 +54,7 @@ Guard keys absent from the state view — the step shows 'ready', taken on faith
 
 > **onNodes**: `string`[]
 
-Defined in: [src/atom/types.ts:873](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L873)
+Defined in: [src/atom/types.ts:880](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L880)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [src/atom/types.ts:873](https://github.com/footprintjs/hcifootprint/
 
 > **status**: [`StepStatus`](/api/index/type-aliases/StepStatus)
 
-Defined in: [src/atom/types.ts:871](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L871)
+Defined in: [src/atom/types.ts:878](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L878)
 
 'done' = committed while the current frame was open; 'blocked' = guard
 fails (see blockedOn); 'ready' = fireable here and now; 'off-node' =

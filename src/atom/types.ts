@@ -490,6 +490,13 @@ export interface Explanation {
 }
 
 export interface FireOptions {
+  /**
+   * Who is acting. Required here on purpose — a typed caller should never
+   * leave provenance to an assumption. It is only ever assumed for a caller
+   * the types never reached (plain JS): an omitted source reads as 'agent',
+   * the same assumption `commitSkill()` and `confirmAsk()` publish, never as
+   * 'user' — a machine action must not enter the ledger as a human one.
+   */
   source: Principal;
   /**
    * Optimistic-concurrency token from available().version. If supplied and

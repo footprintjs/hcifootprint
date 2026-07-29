@@ -42,7 +42,7 @@ import { SkillGraphValidationError, checkLiteralHref, composeGuards, validateGua
 import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
 import type { NavigationGraph, MapNode, ToolDef } from '../tree/types.js';
-import { Session } from './session.js';
+import { Session, UNATTRIBUTED_FIRE, principalOf } from './session.js';
 import type { ToolHandler } from '../registry/registry.js';
 
 export interface InteractionSessionOptions extends Omit<SessionOptions, 'node'> {
@@ -628,14 +628,21 @@ export class InteractionSession<Paths extends string = string> extends Session {
     return { ...base, edges };
   }
 
-  override fire(affordanceId: string, opts: FireOptions): FireResult {
+  /**
+   * The tree gates (visibility, overlay masking, instance keys, mounting) run
+   * BEFORE the base fire, so the same runtime-optional/type-required contract
+   * has to hold here too — otherwise `session.fire('page.tool')` from JS would
+   * still crash in this override, one frame before the one it was fixed in.
+   */
+  override fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
+    const source = principalOf(opts);
     const affordance = this.spec.affordances[affordanceId];
     if (affordance) {
       const path = this.#pathOnCurrentPage(affordanceId);
       if (path) {
         const gate = this.#gateNode(path);
         if (!gate.served) {
-          this.recordRejection(affordanceId, gate.reason, opts.source);
+          this.recordRejection(affordanceId, gate.reason, source);
           return gate.reason === 'BLOCKED_BY_OVERLAY'
             ? { ok: false, reason: 'BLOCKED_BY_OVERLAY', overlay: gate.overlay }
             : { ok: false, reason: 'NODE_NOT_VISIBLE', node: gate.node };
@@ -644,13 +651,13 @@ export class InteractionSession<Paths extends string = string> extends Session {
         if (node.repeats) {
           const existence = this.#instanceExistence(node);
           if (opts.instance === undefined) {
-            this.recordRejection(affordanceId, 'INSTANCE_REQUIRED', opts.source);
+            this.recordRejection(affordanceId, 'INSTANCE_REQUIRED', source);
             return { ok: false, reason: 'INSTANCE_REQUIRED', instances: existence.keys.slice(0, 50) };
           }
           // Membership against the FULL set — the render cap must never make
           // instance #51 unfireable.
           if (!existence.keys.includes(opts.instance)) {
-            this.recordRejection(affordanceId, 'INSTANCE_UNKNOWN', opts.source);
+            this.recordRejection(affordanceId, 'INSTANCE_UNKNOWN', source);
             return { ok: false, reason: 'INSTANCE_UNKNOWN', instances: existence.keys.slice(0, 50) };
           }
         }
@@ -662,7 +669,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
         ) {
           // The session runs on mounts, this node's have not arrived, and the
           // caller wanted execution: retriable, and never a fake GUARD_FAILED.
-          this.recordRejection(affordanceId, 'STILL_MOUNTING', opts.source);
+          this.recordRejection(affordanceId, 'STILL_MOUNTING', source);
           return { ok: false, reason: 'STILL_MOUNTING', node: path };
         }
         const result = super.fire(affordanceId, opts);
