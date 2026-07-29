@@ -149,7 +149,11 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
 - `sync(observedNode, opts?)` — reconcile the cursor when the world moved without an offered edge
   (back button, redirect, deep link). `opts`: `stimulus?`, `principal?`. An unauthored page is not an
   error — the cursor follows reality and `available()` honestly serves zero edges there
-  (`offGraph: true`).
+  (`offGraph: true`). `sync` takes a PAGE ID, not a URL: if your router speaks paths, translate with
+  `matchRoute(graph.spec.pages, location.pathname) ?? location.pathname` — it reads the `route` each
+  page already declared (literal segments + `:param`, trailing-slash / query / hash insensitive,
+  most-literal-segments wins) and returns `undefined` rather than guessing, which leaves an
+  unplaceable path on the existing off-graph behavior. Source: `src/graph/route-match.ts`.
 - **Stimulus** = world-initiated motion (`StimulusKind`: `'navigation' | 'timeout' | 'push' |
   'structure-swap' | 'unknown'`). It is not a standalone method on the session — you record it via
   the `stimulus` option on `updateState`/`sync`. When set, the delta is NEVER attributed to a pending
@@ -163,6 +167,10 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   `activation?`, `presence?: 'unknown'`, `materialized?`, `enabled?`, `instances?`/`enumeration?`.
 - `availableSkills()`, `contextBrief(opts?)` (token-lean prompt context, authored strings only),
   `explain(id)`, `why(key)` (footprint backward causal slice).
+- `skillPlan(id)` → the derived dependency DAG with live per-step status; THROWS on an unknown id.
+  `trySkillPlan(id)` is the same plan for an id you did not author (a model's, a URL's):
+  `{ ok: true, plan }` or `{ ok: false, reason: 'UNKNOWN_SKILL', known }` — the identical failure
+  shape `commitSkill()` returns.
 - Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
   unsubscribe fn. A throwing listener is isolated, never aborts the session.
 - Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire (`kind: 'fire-rejected'`), every

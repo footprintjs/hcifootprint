@@ -66,6 +66,7 @@ import type {
   SyncResult,
   ToolGroup,
   TransitionRecord,
+  TrySkillPlanResult,
   UpdateOptions,
   UpdateResult,
 } from '../atom/types.js';
@@ -603,6 +604,30 @@ export class Session {
       } as SkillPlanStep;
     });
     return { skillId, description: skill.description, steps };
+  }
+
+  /**
+   * skillPlan() for an id the caller did not author — a model's, a URL's, a
+   * config file's — answering with a value instead of a throw. Same plan; the
+   * failure arm is the UNKNOWN_SKILL shape commitSkill() already returns.
+   *
+   * skillPlan() keeps throwing, deliberately. Every caller inside the library
+   * passes an id the spec itself just yielded, and there an unknown id is a bug
+   * that should stop the program, not a branch someone forgets to write. This
+   * is the door for ids that arrive from outside, where not-a-skill is an
+   * ordinary answer.
+   *
+   * Membership is Object.hasOwn rather than a truthiness lookup BECAUSE the ids
+   * here are untrusted: `skills['constructor']` is truthy on any plain object,
+   * so a lookup would sail past the guard and fail downstream reading `.steps`
+   * off Object's constructor — a TypeError where the caller asked for exactly
+   * the honest "no such skill" this method exists to give.
+   */
+  trySkillPlan(skillId: string): TrySkillPlanResult {
+    if (!Object.hasOwn(this.spec.skills, skillId)) {
+      return { ok: false, reason: 'UNKNOWN_SKILL', known: Object.keys(this.spec.skills) };
+    }
+    return { ok: true, plan: this.skillPlan(skillId) };
   }
 
   // -------------------------------------------------------------------------
@@ -1828,7 +1853,21 @@ export class Session {
       // eslint-disable-next-line no-control-regex
       (key) => key.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60),
     );
-    return `${t.cause.principal} ${t.cause.stimulus} changed: ${keys.length > 0 ? keys.join(', ') : '(nothing)'}`;
+    // An empty key list is not a lost report, and '(nothing)' read like one —
+    // a reader (human or model) sees a row that changed nothing and goes
+    // looking for the bug. There isn't one: footprint commits NET changes, so a
+    // report whose values the state already holds commits no keys, and so does
+    // a report of undefined-valued keys, which this session reads as absent.
+    //
+    // The wording names no dial. `commitValues` looked like the culprit and is
+    // not: 'full' and 'delta' both produce an empty bundle here (they encode a
+    // commit, they do not decide what nets out), so blaming one of them would
+    // send the reader to the wrong knob — this brief is read to be believed.
+    const changed =
+      keys.length > 0
+        ? keys.join(', ')
+        : '(no observable change — same-value writes and undefined-valued keys net out before the commit)';
+    return `${t.cause.principal} ${t.cause.stimulus} changed: ${changed}`;
   }
 
   /** One transition = one fresh StageContext = one CommitBundle. */

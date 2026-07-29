@@ -13,3 +13,15 @@ This layer IS the enforcement spine — every shape mistake fails LOUDLY at buil
 - unrecognized payload schemas · reserved id `leave-skill`
 
 Compiled affordances are **cloned + deep-frozen** (post-build mutation of the author's objects cannot change what a session offers). `schema` is the one field kept by reference (validators hold functions); MCP emission clones it on the way out.
+
+## route-match.ts — the authored `route`, finally read back
+
+`PageDef.route` was authored and never read: it rode into the compiled page and nothing looked at it again, so an app whose router speaks `/orders/123` wrote the URL→page mapping a second time by hand. `matchRoute(graph.spec.pages, path)` reads it — literal segments and `:param`, trailing-slash and query/hash insensitive, most-literal-segments wins.
+
+It stays a **separate function the caller composes**, not a behaviour inside `sync()`:
+
+```ts
+session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname);
+```
+
+An unplaceable path returns `undefined` — never a nearest guess — and `sync()` records it off-graph exactly as before. Inside `sync()` that non-answer would have to be resolved silently, and a confidently wrong page is worse than an unmapped one: the cursor decides which guards run, which edges are served, and which plan the model gets.

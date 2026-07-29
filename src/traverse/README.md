@@ -66,6 +66,16 @@ record-only sensor fire all answer for the payload. That is where zod already
 sat in 0.3.0 — a schema is the app's statement about its own door, and a fire
 that disagrees with it is drift worth a ledger row whoever made it.
 
+## Answering with a value: `trySkillPlan()`
+
+`commitSkill()` returns `{ok:false, reason:'UNKNOWN_SKILL', known}` while
+`skillPlan()` threw, so a caller holding a model-supplied id handled the same
+question two ways. `trySkillPlan()` is the second door, returning that identical
+failure shape; `skillPlan()` keeps throwing for the internal callers that pass
+an id the spec just yielded, where an unknown one is a bug that should stop.
+Membership is `Object.hasOwn` — the ids arriving here are untrusted, and
+`skills['constructor']` is truthy on a plain object.
+
 ## nav-session.ts — the D18 composition layer
 
 `InteractionSession extends Session` and is where the independent layers meet: the

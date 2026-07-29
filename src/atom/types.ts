@@ -848,6 +848,18 @@ export interface SkillFrame {
   closedAtVersion?: number;
 }
 
+/**
+ * trySkillPlan()'s answer: the plan, or the unknown-id refusal as a VALUE.
+ *
+ * Its failure arm is CommitSkillResult's UNKNOWN_SKILL arm, field for field —
+ * same reason string, same `known` list. Two methods that answer the same
+ * question ("is this a skill?") must not teach a caller two shapes for the
+ * answer, or handling one of them is no preparation for the other.
+ */
+export type TrySkillPlanResult =
+  | { ok: true; plan: SkillPlan }
+  | { ok: false; reason: 'UNKNOWN_SKILL'; known: string[] };
+
 export type CommitSkillResult =
   | { ok: true; frame: SkillFrame; plan: SkillPlan; version: number }
   | { ok: false; reason: 'UNKNOWN_SKILL'; known: string[] }

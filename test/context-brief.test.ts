@@ -108,3 +108,51 @@ describe('contextBrief() — who did what since the last turn', () => {
     );
   });
 });
+
+/**
+ * A row that changed no keys is normal — footprint commits net changes — but it
+ * used to render as '(nothing)', which reads like a report the library lost.
+ * That sends the reader hunting a bug that isn't there; the line now says which
+ * ordinary thing happened.
+ */
+describe('contextBrief() — a report that changed nothing says so', () => {
+  const NO_CHANGE =
+    '(no observable change — same-value writes and undefined-valued keys net out before the commit)';
+
+  it('names the same-value case instead of leaving a blank', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(s.updateState({ cartCount: 0 }, { stimulus: 'push' })); // already 0
+
+    const text = s.contextBrief().text;
+    expect(text).toContain(`system push changed: ${NO_CHANGE}`);
+    expect(text).not.toContain('(nothing)');
+  });
+
+  it('covers the other way a bundle ends up empty: an undefined-valued report', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(s.updateState({ cart: undefined }, { stimulus: 'push' })); // read as absent
+
+    expect(s.contextBrief().text).toContain(NO_CHANGE);
+  });
+
+  it('still lists the key NAMES when something really changed', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(s.updateState({ cartCount: 1, notifications: 2 }, { stimulus: 'push' }));
+
+    const text = s.contextBrief().text;
+    expect(text).toContain('system push changed: cartCount, notifications');
+    expect(text).not.toContain(NO_CHANGE);
+  });
+
+  it("blames no dial, because commitValues is not the cause — 'full' nets out identically", () => {
+    // The obvious explanation for an empty bundle is the delta encoding, and it
+    // is wrong: commitValues chooses how a commit is ENCODED, not what survives
+    // the net-change filter. A message naming it would send a reader to a knob
+    // that changes nothing here.
+    for (const commitValues of ['delta', 'full'] as const) {
+      const s = shop().createSession({ node: 'catalog', state: initialState, commitValues });
+      okUpdate(s.updateState({ cartCount: 0 }, { stimulus: 'push' }));
+      expect(s.contextBrief().text).toContain(NO_CHANGE);
+    }
+  });
+});

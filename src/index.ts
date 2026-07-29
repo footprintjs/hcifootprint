@@ -31,6 +31,9 @@
  */
 export { skillGraph, SkillGraphBuilder, SkillGraphValidationError } from './graph/builder.js';
 export type { SkillGraph } from './graph/builder.js';
+// Authored routes, read back: URL path → page id, for the caller who owns sync()
+export { matchRoute } from './graph/route-match.js';
+export type { RoutedPages } from './graph/route-match.js';
 export { Session } from './traverse/session.js';
 export type { RegisteredTools, RegisterToolsOptions } from './traverse/session.js';
 // The navigation graph: buildNavigationGraph() authoring, InteractionSession runtime
@@ -116,6 +119,7 @@ export type {
   StimulusKind,
   SyncResult,
   TransitionRecord,
+  TrySkillPlanResult,
   UpdateOptions,
   UpdateResult,
 } from './atom/types.js';

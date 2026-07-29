@@ -364,3 +364,108 @@ describe('availability stamping', () => {
     expect(s.available().edges.every((e) => e.materialized === undefined)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 8. The gate is KIND-AGNOSTIC — a click is covered exactly like a navigation
+// ---------------------------------------------------------------------------
+
+/**
+ * The reported bug arrived as a goTo tool, and a reader could reasonably come
+ * away thinking the gate is about navigation — that it exists because the
+ * CURSOR moved on a claim. It is not. The check asks one question, about
+ * actuation: with `invoke` wanted and nothing bound, firing executes nothing.
+ * A write-only click that no handler answers is the same lie told without
+ * moving: the model is told the dress was added, and no cart anywhere changed.
+ *
+ * These pin that equivalence at the level a reader can check — same rejection,
+ * same ledger row, whatever the affordance claims to do — so a later change
+ * that branches the gate on effect kind fails here instead of shipping.
+ */
+describe('the gate does not care what the affordance claims to do', () => {
+  const clicky: Binding = { kind: 'element', locator: { role: 'button', name: 'B' }, actuation: 'click' };
+
+  function kindsGraph() {
+    return skillGraph('g')
+      .page('a')
+      .page('b')
+      .affordance('save-draft', {
+        on: 'a',
+        description: 'Save the draft',
+        binding: clicky,
+        effect: { writes: ['draft'] }, // writes only — the cursor never moves
+        role: 'action',
+      })
+      .affordance('open-b', {
+        on: 'a',
+        description: 'Open page b',
+        binding: clicky,
+        effect: { navigatesTo: 'b' }, // navigation only
+      })
+      .affordance('submit-and-go', {
+        on: 'a',
+        description: 'Submit and continue',
+        binding: clicky,
+        effect: { writes: ['order'], navigatesTo: 'b' }, // both
+      })
+      .affordance('open-help', { on: 'a', description: 'Open the help panel', binding: clicky }) // neither
+      .build();
+  }
+
+  it('refuses a write-only click with no handler, and ledgers it like any other', () => {
+    const s = kindsGraph().createSession({ node: 'a', state: { draft: null }, stateTap: true });
+
+    expect(s.fire('save-draft', { source: 'agent' })).toEqual({
+      ok: false,
+      reason: 'NOT_MATERIALIZED',
+      affordanceId: 'save-draft',
+    });
+    expect(s.transitions()).toHaveLength(0); // nothing was recorded as done
+    expect(s.pending()).toEqual([]); // and nothing waits for a report
+    expect(s.gaps()).toHaveLength(1);
+    expect(s.gaps()[0]).toMatchObject({
+      kind: 'fire-rejected',
+      rejectionReason: 'NOT_MATERIALIZED',
+      affordanceId: 'save-draft',
+      principal: 'agent',
+      node: 'a',
+    });
+  });
+
+  it('gives every effect kind the identical answer — that is the invariant', () => {
+    const s = kindsGraph().createSession({ node: 'a', state: { draft: null }, stateTap: true });
+    const ids = ['save-draft', 'open-b', 'submit-and-go', 'open-help'];
+
+    const rejections = ids.map((id) => s.fire(id, { source: 'agent' }));
+
+    expect(rejections.map((r) => (r.ok ? 'ok' : r.reason))).toEqual([
+      'NOT_MATERIALIZED',
+      'NOT_MATERIALIZED',
+      'NOT_MATERIALIZED',
+      'NOT_MATERIALIZED',
+    ]);
+    expect(s.node).toBe('a'); // no claim moved the cursor
+    expect(s.gaps().map((g) => g.rejectionReason)).toEqual(ids.map(() => 'NOT_MATERIALIZED'));
+  });
+
+  it('binding a handler for ONE kind does not unblock the others', () => {
+    // The lookup is per affordance, not per kind or per group: proof that the
+    // gate reads bindings and nothing else about the edge.
+    const s = kindsGraph().createSession({ node: 'a', state: { draft: null }, stateTap: true });
+    s.registerTools({ group: 'app', tools: { 'save-draft': () => undefined } });
+
+    expect(s.fire('save-draft', { source: 'agent' })).toMatchObject({ ok: true });
+    expect(s.fire('open-b', { source: 'agent' })).toMatchObject({ ok: false, reason: 'NOT_MATERIALIZED' });
+  });
+
+  it('the self-report tier passes for a write-only click, exactly as for a navigation', () => {
+    // invoke:false is the DOM sensor / external actuator: the click already
+    // happened, the session is only recording it. Nothing to execute, nothing
+    // to refuse — a rejection here would erase real motion from the log.
+    const s = kindsGraph().createSession({ node: 'a', state: { draft: null } });
+
+    expect(s.fire('save-draft', { source: 'agent', invoke: false })).toMatchObject({ ok: true });
+    expect(s.fire('open-b', { source: 'agent', invoke: false })).toMatchObject({ ok: true });
+    expect(s.transitions()).toHaveLength(2);
+    expect(s.gaps()).toEqual([]); // a recorded fact is not a gap
+  });
+});
