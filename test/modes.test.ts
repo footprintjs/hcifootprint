@@ -97,6 +97,24 @@ describe('disclosure in the result channel', () => {
     expect(step2['youAreOn']).toBe('checkout'); // navigation claim moved the cursor
   });
 
+  it('a high-effect step with confirm:true on the FIRST call crosses — and that is why requireHumanApproval exists', async () => {
+    // The name of the test below promises more than the sequence it exercises,
+    // so this is the missing case, stated honestly: with no session option, the
+    // default port takes `confirm: true` as permission and never asks. That is a
+    // recorded decision plus a convenience message, not enforced HITL — and the
+    // opt-in gate is what makes it enforceable (test/human-approval.test.ts).
+    const { session, port } = freshPort();
+    port.call('shop.skill.purchase', {});
+    port.call('shop.skill.purchase', { step: 'add-to-cart' });
+    session.updateState({ cart: ['dress'] });
+    port.call('shop.skill.purchase', { step: 'go-checkout' });
+
+    const crossed = port.call('shop.skill.purchase', { step: 'place-order', confirm: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(crossed['did']).toBe('checkout.place-order');
+    expect(session.confirms()).toHaveLength(0); // no ask ever landed, so no trace
+  });
+
   it('high-effect steps stop at needs-confirm and never auto-cross', () => {
     const { session, port } = freshPort();
     port.call('shop.skill.purchase', {});

@@ -38,6 +38,7 @@ import { formatSlice, keysReadFromMap, sliceForKey } from 'footprintjs/trace';
 import { isParam, segmentsOf } from '../graph/route-match.js';
 import type {
   Affordance,
+  ApprovalResult,
   AvailableEdge,
   AvailableSkill,
   AvailableSlice,
@@ -47,6 +48,7 @@ import type {
   ConfirmRecord,
   ConfirmTrailStep,
   ConfirmWillDo,
+  ConfirmWillUse,
   ContextBrief,
   ContextBriefOptions,
   Explanation,
@@ -56,6 +58,7 @@ import type {
   GapRecord,
   GroundTruth,
   GroundTruthOptions,
+  HumanApprovalPolicy,
   PendingInfo,
   Principal,
   ReportGapOptions,
@@ -77,6 +80,9 @@ import type {
 import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
 import type { SettlementLatch } from './settlement.js';
+import { checkApproval } from './approval-gate.js';
+import type { ApprovalVerdict, OpenAsk } from './approval-gate.js';
+import { normalizeInput, sameInput } from './same-input.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { expectsOf } from './expects.js';
@@ -214,6 +220,14 @@ export class Session {
    * url gesture materialise without a fake handler — see SessionOptions).
    */
   readonly #navigate?: (href: string) => void | Promise<void>;
+  /**
+   * The enforcement rules, when the session opted in — PRESENCE is the switch
+   * (SessionOptions.requireHumanApproval). Undefined means every gate below is
+   * skipped and the 0.6 path runs byte-identically.
+   */
+  readonly #humanApproval?: HumanApprovalPolicy;
+  /** The confirm chain's clock (injectable, so an expiring approval is testable). */
+  readonly #now: () => number;
   /** Fingerprint of the served structure at the last coalesced flush. */
   #structureFingerprint = '';
   #structureFlushScheduled = false;
@@ -278,9 +292,29 @@ export class Session {
   readonly #deadEndWarned = new Set<string>();
   /** The confirm journal: high-effect ask → decision → fire rows, oldest first. */
   readonly #confirms: ConfirmRecord[] = [];
-  /** The one OPEN (unanswered) ask per affordance — so confirm/decline can close it. */
-  readonly #openAsks = new Map<string, string>();
-  /** Monotonic counter for generated ask ids (never caller-supplied). */
+  /**
+   * Every ask this session has minted, by askId — open, approved or declined.
+   *
+   * ONE STRUCTURE, TWO POLICIES. In the default mode entries are deleted the
+   * moment they are answered (so at most one lives per affordance, exactly as
+   * before); under enforcement they STAY, because an approval must be spendable
+   * once and a decline must stay refusable for the session's life. A second map
+   * for the enforced mode would be a second path through the gate, and a second
+   * path is an escape.
+   */
+  readonly #openAsks = new Map<string, OpenAsk>();
+  /**
+   * The row that RECORDED each decision, by askId (and by grant id for a standing
+   * ALWAYS ALLOW). The gate reads the row rather than trusting the entry above:
+   * the entry is our bookkeeping, the row is what an auditor exports, and the
+   * principal that has to be 'user' lives on the row.
+   */
+  readonly #approvalRows = new Map<string, ConfirmRecord>();
+  /** Standing ALWAYS ALLOW grants that have not been revoked, oldest first. */
+  readonly #standingGrants: ConfirmRecord[] = [];
+  /** Refusals already warned about, keyed `affordanceId@reason` (the #warnedOnce discipline). */
+  readonly #approvalWarned = new Set<string>();
+  /** Monotonic counter behind every generated confirm id (never caller-supplied). */
   #askSeq = 0;
   /** Passive observer listeners, by event name (the recorder category, session grain). */
   readonly #listeners = new Map<SessionEventName, Set<(payload: unknown) => void>>();
@@ -305,6 +339,15 @@ export class Session {
     this.#allowUnmaterialized = opts.allowUnmaterializedFires ?? false;
     this.#checkPayloadShape = opts.checkPayloadShape ?? true;
     this.#navigate = opts.navigate;
+    // `true` is the plain policy (no staleness rules); an object is the policy
+    // itself. Absent stays absent — the presence of the field is the opt-in.
+    this.#humanApproval =
+      opts.requireHumanApproval === undefined || opts.requireHumanApproval === false
+        ? undefined
+        : opts.requireHumanApproval === true
+          ? {}
+          : opts.requireHumanApproval;
+    this.#now = opts.now ?? Date.now;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
     this.#heap = new SharedMemory(undefined, initial);
@@ -336,6 +379,17 @@ export class Session {
   /** The one CAS/sinceVersion cursor: total order over ALL world motion. */
   get version(): number {
     return this.#version;
+  }
+
+  /**
+   * Whether this session ENFORCES human approval on high-effect agent fires
+   * (SessionOptions.requireHumanApproval). Read by the serving layer so the
+   * instruction text it hands a model says what is actually true of this session
+   * — a tool description promising a gate that is off would be the same class of
+   * lie this option exists to remove.
+   */
+  get requiresHumanApproval(): boolean {
+    return this.#humanApproval !== undefined;
   }
 
   /**
@@ -905,8 +959,11 @@ export class Session {
     // wanted, firing would execute nothing — a success-shaped no-op. Fail closed
     // (the guardUnevaluated stance: never launder a claim as a fact). The app
     // self-reporting its OWN motion (source 'user'/'system', or invoke:false)
-    // is real motion and passes untouched. Last in the taxonomy order, so a
-    // greyed tool still says TOOL_DISABLED and a mounting one STILL_MOUNTING.
+    // is real motion and passes untouched. Last of the CAPABILITY refusals, so a
+    // greyed tool still says TOOL_DISABLED and a mounting one STILL_MOUNTING —
+    // and still ahead of the approval gate below, which is the AUTHORITY
+    // question: never send a human to approve an action that is guard-closed,
+    // mis-shaped, greyed out or wired to nothing.
     const unmaterialized =
       opts.invoke !== false && this.handlerFor(affordanceId, opts) === undefined;
     const honestNoOp = unmaterialized && source === 'agent';
@@ -927,6 +984,35 @@ export class Session {
         affordanceId,
         ...(aff.binding ? { gesture: aff.binding } : {}),
       };
+    }
+    // THE APPROVAL GATE (requireHumanApproval — opt-in, absent by default).
+    //
+    // Here, in base fire(), because this is the ONE chokepoint: #invokeHandler is
+    // the only thing that executes, and its four call sites are all below this
+    // line. InteractionSession gates the tree then delegates to super.fire, Mode
+    // B and the MCP server call fire(), the testing harness routes through the
+    // port — so every door inherits this one gate, and a DIRECT session.fire()
+    // is gated too. A gate in the serving layer alone could not bind that call,
+    // which is exactly the boundary an expert integrator tripped over.
+    //
+    // Keyed on the PRINCIPAL, not the door: an agent fire is gated wherever it
+    // comes from, while the app-self-report tier (source 'user'/'system', and the
+    // record-only sensor's invoke:false) passes — that motion really happened,
+    // and refusing it would be the library denying reality.
+    //
+    // BEFORE the tour arm below, and that is the non-obvious half. A gate placed
+    // after it would answer an unapproved high-effect fire with ok:true,
+    // executed:false and an 'unmaterialized-fire' row — so an agent could
+    // enumerate the high-effect doors by firing them and read success-shaped
+    // results back. It also keeps a refused fire from writing a demand row it
+    // never earned.
+    // Holds the ALLOWED verdict only — a refusal returns above, so nothing below
+    // has to re-ask whether the gate said yes.
+    let approval: Extract<ApprovalVerdict, { ok: true }> | undefined;
+    if (this.#humanApproval !== undefined && aff.highEffect && source === 'agent' && opts.invoke !== false) {
+      const verdict = this.#approvalVerdict(affordanceId, aff, opts);
+      if (!verdict.ok) return this.#refuseApproval(affordanceId, verdict, source);
+      approval = verdict;
     }
     if (honestNoOp) {
       // Allowed tour fire: the binding the app team still has to build.
@@ -951,10 +1037,17 @@ export class Session {
       // navigation — is a claim (the tour's honesty marker).
       ...(honestNoOp ? { materialized: false as const } : {}),
     };
-    // A confirmed high-effect fire closes its open ask: stamp askId on the
-    // record and land the 'approved' decision BEFORE the first emit, so every
-    // observer sees the fire already linked to the receipts it authorized.
-    this.#resolveOpenAsk(record, affordanceId, source);
+    // Link the fire to the decision that authorized it, BEFORE the first emit, so
+    // every observer sees the record already joined to its receipts.
+    //
+    // Two modes, and deliberately no overlap. Under enforcement the gate above
+    // already produced the verdict, so it SPENDS it: one yes, one fire. In the
+    // default mode the fire itself closes the ask as 'approved' — the 0.6
+    // behaviour, untouched. Under enforcement nothing else may write an approving
+    // row: `#resolveOpenAsk` would stamp the FIRING principal on a row named
+    // 'approved', which is the forgery this option exists to refuse.
+    if (approval !== undefined) this.#spendApproval(record, affordanceId, approval, source);
+    else if (this.#humanApproval === undefined) this.#resolveOpenAsk(record, affordanceId, source);
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 
@@ -1970,16 +2063,42 @@ export class Session {
    * affordance. Never throws: an unknown affordance yields a minimal receipt
    * (a serving layer relies on this mid-turn).
    */
-  confirmAsk(affordanceId: string, opts?: { source?: Principal }): { askId: string; receipts: ConfirmReceipts } {
+  confirmAsk(
+    affordanceId: string,
+    opts?: {
+      source?: Principal;
+      /**
+       * What the confirmed fire will SEND — recorded on the receipts as
+       * `willUse.input`, so the human approves an object and not just a verb.
+       * Optional: an ask told nothing shows nothing, and under enforcement a fire
+       * carrying an input the card never showed is refused.
+       */
+      input?: unknown;
+      /** Which row/instance the card is about (an order id). */
+      instance?: string;
+    },
+  ): { askId: string; receipts: ConfirmReceipts } {
     const principal: Principal = opts?.source ?? 'agent';
-    const receipts = this.#assembleReceipts(affordanceId);
-    const askId = this.#openAsks.get(affordanceId) ?? this.#mintAskId();
-    this.#openAsks.set(affordanceId, askId);
+    const aff = this.spec.affordances[affordanceId];
+    // ONE normalization for both sides of the later comparison — the reason a
+    // click-only control asked with input '' and fired with nothing still matches.
+    const input = normalizeInput(opts?.input, aff?.noInput === true);
+    const receipts = this.#assembleReceipts(affordanceId, this.#willUse(input, opts?.instance));
+    const askId = this.#reuseOrMintAsk(affordanceId, input, opts?.instance);
+    this.#openAsks.set(askId, {
+      askId,
+      affordanceId,
+      input,
+      ...(opts?.instance !== undefined ? { instance: opts.instance } : {}),
+      askedAtVersion: this.#version,
+      askedAtStateVersion: this.#stateVersion,
+      askedAt: this.#now(),
+    });
     this.#pushConfirm({
       kind: 'ask',
       askId,
       affordanceId,
-      timestamp: Date.now(),
+      timestamp: this.#now(),
       node: this.#node,
       version: this.#version,
       principal,
@@ -1987,6 +2106,73 @@ export class Session {
     });
     // Return a detached copy so a serving layer can serialize/annotate freely.
     return { askId, receipts: structuredClone(receipts) };
+  }
+
+  /**
+   * Reuse the open ask for this action, or mint a new id.
+   *
+   * DEFAULT MODE: one open ask per affordance — asking twice SUPERSEDES, exactly
+   * as 0.6 did. UNDER ENFORCEMENT only an IDENTICAL re-ask reuses, and that is a
+   * closed attack rather than a nicety: with supersede, the card on screen for
+   * ask#1 says input A, the agent re-asks the same id with input B, the human
+   * clicks Approve on the card they are looking at — and B fires. A differing
+   * input mints a NEW id, so the shown card can only ever authorize what it shows.
+   */
+  #reuseOrMintAsk(affordanceId: string, input: unknown, instance: string | undefined): string {
+    for (const ask of this.#openAsks.values()) {
+      if (ask.affordanceId !== affordanceId) continue;
+      // An answered ask is never re-opened: a decision is not a draft.
+      if (ask.answer !== undefined) continue;
+      if (this.#humanApproval === undefined) return ask.askId;
+      if (sameInput(input, ask.input) === 'same' && (instance ?? undefined) === (ask.instance ?? undefined)) {
+        return ask.askId; // an idempotent re-render of the same card
+      }
+    }
+    return this.#mintAskId();
+  }
+
+  /** The open (unanswered) asks for one action, oldest first. */
+  #openAsksFor(affordanceId: string): OpenAsk[] {
+    return [...this.#openAsks.values()].filter(
+      (ask) => ask.affordanceId === affordanceId && ask.answer === undefined,
+    );
+  }
+
+  /**
+   * The id of the ask this session is holding for exactly this action and input —
+   * the pointer a caller passes as {@link FireOptions.askId}, or hands to
+   * {@link Session.approveAsk}.
+   *
+   * It exists so the serving layer never has to re-derive the library's own
+   * identity rules (which values compare, which decline): normalization happens
+   * once, here, and the port and the gate can therefore never disagree about
+   * which card a fire belongs to. Under enforcement it matches on the input and
+   * instance; in the default mode it answers with the open ask for the action. A
+   * pure read — nothing is minted, nothing is recorded.
+   *
+   * PREFERENCE ORDER, and it exists so a refusal can still teach: a usable
+   * approval first, then a card the human has not answered, then an ALREADY
+   * ANSWERED one. Presenting a spent or declined pointer looks odd until you see
+   * what it buys — the gate answers APPROVAL_SPENT or APPROVAL_DECLINED instead
+   * of the blank "nobody approved this", so the caller learns that the yes was
+   * used, or that the person said no, rather than being sent to ask again.
+   */
+  openAskFor(affordanceId: string, opts?: { input?: unknown; instance?: string }): string | undefined {
+    const aff = this.spec.affordances[affordanceId];
+    const input = normalizeInput(opts?.input, aff?.noInput === true);
+    let unanswered: string | undefined;
+    let answered: string | undefined;
+    for (const ask of this.#openAsks.values()) {
+      if (ask.affordanceId !== affordanceId) continue;
+      if (this.#humanApproval !== undefined) {
+        if (sameInput(input, ask.input) !== 'same') continue;
+        if ((opts?.instance ?? undefined) !== (ask.instance ?? undefined)) continue;
+      }
+      if (ask.answer === 'approved' && ask.spent !== true) return ask.askId;
+      if (ask.answer === undefined) unanswered ??= ask.askId;
+      else answered = ask.askId; // the LATEST answered one — the freshest news
+    }
+    return unanswered ?? answered;
   }
 
   /**
@@ -2001,19 +2187,291 @@ export class Session {
     affordanceId: string,
     opts?: { by?: string; note?: string; principal?: Principal },
   ): ConfirmRecord {
-    const askId = this.#openAsks.get(affordanceId) ?? this.#mintAskId();
-    this.#openAsks.delete(affordanceId);
+    const principal: Principal = opts?.principal ?? 'user';
+    const open = this.#openAsksFor(affordanceId);
+    if (this.#humanApproval === undefined) {
+      const askId = open[0]?.askId ?? this.#mintAskId();
+      this.#openAsks.delete(askId);
+      return this.#pushDecline(askId, affordanceId, principal, opts);
+    }
+    // UNDER ENFORCEMENT a decline must be as unforgeable as an approval, or the
+    // gate is asymmetric in the attacker's favour twice over: an agent could
+    // manufacture "the human said no" to excuse inaction, and — worse — BURY a
+    // pending ask by declining it, so the card disappears and the person never
+    // sees the question.
+    //
+    // So a relayed decline (the port passes its own source, 'agent') is recorded
+    // as a REPORT and closes nothing: the ask stays open, groundTruth keeps
+    // saying "Awaiting the human's decision", and the human's card stays live.
+    if (principal !== 'user') {
+      const askId = open[0]?.askId ?? this.#mintAskId();
+      return this.#pushDecline(askId, affordanceId, principal, opts, true);
+    }
+    // The ordinary UI case: exactly one card is open, and this is the person
+    // answering it. Terminal and permanent — the entry keeps the answer so any
+    // later fire under that id refuses, and no approveAsk can overwrite it.
+    if (open.length === 1) return this.#answerAsk(open[0], 'declined', opts);
+    if (open.length > 1) {
+      // Ambiguity is the disease this option treats, so it is never resolved by
+      // picking one. `declineAsk(askId)` is the unambiguous door.
+      this.#warnOnceAboutApproval(
+        affordanceId,
+        'AMBIGUOUS_DECLINE',
+        `hcifootprint: ${open.length} asks are open for '${affordanceId}', so declineConfirm recorded the refusal without closing any of them. Call declineAsk(askId) with the ask the human answered.`,
+      );
+    }
+    // Zero open (a pre-emptive no) or several: the refusal is worth recording
+    // either way, and it closes nothing it cannot identify.
+    return this.#pushDecline(this.#mintAskId(), affordanceId, 'user', opts, true);
+  }
+
+  /** One 'declined' row, whoever it came from. */
+  #pushDecline(
+    askId: string,
+    affordanceId: string,
+    principal: Principal,
+    opts?: { by?: string; note?: string },
+    enforced?: true,
+  ): ConfirmRecord {
     const row: ConfirmRecord = {
       kind: 'declined',
       askId,
       affordanceId,
-      timestamp: Date.now(),
+      timestamp: this.#now(),
       node: this.#node,
       version: this.#version,
-      principal: opts?.principal ?? 'user',
+      principal,
       ...(opts?.by !== undefined ? { by: opts.by } : {}),
       ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+      ...(enforced ? { enforced, stateVersion: this.#stateVersion } : {}),
     };
+    this.#pushConfirm(row);
+    return structuredClone(row);
+  }
+
+  // -------------------------------------------------------------------------
+  // The human-side doors — the ONLY writers of an approval the gate honours
+  // -------------------------------------------------------------------------
+
+  /**
+   * RECORD THE HUMAN'S ALLOW — wire your Approve button to this.
+   *
+   * Writes an `'approved'` row with `principal: 'user'` BEFORE any fire, and the
+   * fire that spends it must present its `askId`. That ordering is the whole
+   * change: the row named 'approved' used to be minted by the very fire it
+   * claimed to authorize, stamped with that fire's own principal.
+   *
+   * SINGLE-USE, on purpose: one yes authorizes one action. A second fire under the
+   * same askId refuses APPROVAL_SPENT, and the spend lands its own `'used'` row —
+   * so an auditor can count approvals against executions.
+   *
+   * NO `principal` PARAMETER, and that is the unforgeable shape rather than an
+   * omission. `declineConfirm` takes one safely (a decline never authorizes); an
+   * approval must be one thing only, so this door stamps `'user'` unconditionally
+   * and there is no argument to lie with.
+   *
+   * `by` is REQUIRED: an approval whose decider is unknown is exactly the
+   * claim-as-fact this closes. It is a string YOUR host supplies — the library
+   * proves a human-principal row exists, never that a particular person
+   * authenticated.
+   */
+  approveAsk(askId: string, opts: { by: string; note?: string }): ApprovalResult {
+    const guard = this.#approvalDoorGuard(opts);
+    if (guard) return guard;
+    const ask = this.#openAsks.get(askId);
+    if (!ask) {
+      return this.#doorRefusal(
+        'UNKNOWN_ASK',
+        `hcifootprint: no ask '${askId}' in this session. Ask ids are per-session — pass the id that came back from confirmAsk (or rode the needs-confirm result) in THIS session.`,
+      );
+    }
+    if (ask.answer !== undefined) {
+      return this.#doorRefusal(
+        'ASK_ALREADY_ANSWERED',
+        `hcifootprint: ask '${askId}' was already ${ask.answer}. A decision is never overwritten — ask again for a fresh one.`,
+      );
+    }
+    return { ok: true, record: this.#answerAsk(ask, 'approved', opts) };
+  }
+
+  /**
+   * RECORD THE HUMAN'S NO for one ask — the unambiguous twin of
+   * {@link Session.approveAsk}, keyed by askId because several asks for the same
+   * action can be open at once under enforcement.
+   *
+   * Terminal and permanent: a fire naming this askId refuses APPROVAL_DECLINED for
+   * the session's life, and `approveAsk` on it returns ASK_ALREADY_ANSWERED.
+   * Nothing here ever deletes a row — a re-ask after a no mints a NEW askId, so
+   * an agent grinding a person toward yes leaves a countable trail.
+   */
+  declineAsk(askId: string, opts: { by: string; note?: string }): ApprovalResult {
+    const guard = this.#approvalDoorGuard(opts);
+    if (guard) return guard;
+    const ask = this.#openAsks.get(askId);
+    if (!ask) {
+      return this.#doorRefusal('UNKNOWN_ASK', `hcifootprint: no ask '${askId}' in this session.`);
+    }
+    if (ask.answer !== undefined) {
+      return this.#doorRefusal(
+        'ASK_ALREADY_ANSWERED',
+        `hcifootprint: ask '${askId}' was already ${ask.answer}. A decision is never overwritten.`,
+      );
+    }
+    return { ok: true, record: this.#answerAsk(ask, 'declined', opts) };
+  }
+
+  /**
+   * RECORD A DURABLE ALWAYS ALLOW — a scoped standing policy, not an approval of
+   * one action. Every fire it authorizes lands its own `'used'` row, so the
+   * journal shows how many times the standing yes was exercised. That visible
+   * count is the auditable price of a durable grant, and it is not optional.
+   *
+   * SCOPED TO THE ACTION (plus an optional instance) and deliberately NOT to the
+   * input — a grant that required identical inputs would be indistinguishable
+   * from a single ALLOW and therefore useless. Tell the human the truth in those
+   * words: "always allow Add to cart — any item, for the next hour." A reader who
+   * assumes ALWAYS ALLOW inherits ALLOW's input binding has been misled by us.
+   *
+   * A durable grant with no off switch is a permanent hole, so
+   * {@link Session.revokeAlwaysApprove} ships with it rather than after it.
+   */
+  alwaysApprove(
+    affordanceId: string,
+    opts: { by: string; note?: string; instance?: string; expiresInMs?: number },
+  ): ApprovalResult {
+    const guard = this.#approvalDoorGuard(opts);
+    if (guard) return guard;
+    const row: ConfirmRecord = {
+      kind: 'always-approved',
+      // Its own id family, so an auditor reading a 'used' row can see at a glance
+      // whether a standing policy or a single yes authorized the fire.
+      askId: this.#mintGrantId(),
+      affordanceId,
+      timestamp: this.#now(),
+      node: this.#node,
+      version: this.#version,
+      stateVersion: this.#stateVersion,
+      principal: 'user',
+      by: opts.by,
+      ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+      ...(opts.instance !== undefined ? { scopeInstance: opts.instance } : {}),
+      ...(opts.expiresInMs !== undefined ? { expiresAt: this.#now() + opts.expiresInMs } : {}),
+      enforced: true,
+    };
+    this.#standingGrants.push(row);
+    this.#approvalRows.set(row.askId, row);
+    this.#pushConfirm(row);
+    return { ok: true, record: structuredClone(row) };
+  }
+
+  /**
+   * WITHDRAW a standing grant. It stops authorizing immediately, and each grant
+   * withdrawn lands its own `'revoked'` row carrying that grant's id.
+   *
+   * Omitting `instance` revokes EVERY grant for the action, instance-scoped ones
+   * included. Revocation over-reaches on purpose: the failure mode of a too-broad
+   * revoke is one extra trip past the human, and the failure mode of a too-narrow
+   * one is a hole the person believed they had closed.
+   */
+  revokeAlwaysApprove(
+    affordanceId: string,
+    opts: { by: string; note?: string; instance?: string },
+  ): ApprovalResult {
+    const guard = this.#approvalDoorGuard(opts);
+    if (guard) return guard;
+    const matching = this.#standingGrants.filter(
+      (grant) =>
+        grant.affordanceId === affordanceId &&
+        (opts.instance === undefined || grant.scopeInstance === opts.instance),
+    );
+    if (matching.length === 0) {
+      return this.#doorRefusal(
+        'UNKNOWN_ASK',
+        `hcifootprint: no standing approval for '${affordanceId}' in this session, so there is nothing to withdraw.`,
+      );
+    }
+    let last: ConfirmRecord | undefined;
+    for (const grant of matching) {
+      this.#standingGrants.splice(this.#standingGrants.indexOf(grant), 1);
+      this.#approvalRows.delete(grant.askId);
+      last = {
+        kind: 'revoked',
+        askId: grant.askId,
+        affordanceId,
+        timestamp: this.#now(),
+        node: this.#node,
+        version: this.#version,
+        stateVersion: this.#stateVersion,
+        principal: 'user',
+        by: opts.by,
+        ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+        ...(grant.scopeInstance !== undefined ? { scopeInstance: grant.scopeInstance } : {}),
+        enforced: true,
+      };
+      this.#pushConfirm(last);
+    }
+    return { ok: true, record: structuredClone(last!) };
+  }
+
+  /**
+   * The two things every human-side door refuses before it looks at anything else.
+   *
+   * NOT_ENFORCED is not pedantry: a method that records a row nothing reads is
+   * exactly the "recorded decision plus a convenience message" this change exists
+   * to stop shipping. The door exists only where it is load-bearing, which is also
+   * why the default path stays byte-identical.
+   */
+  #approvalDoorGuard(opts: { by?: string }): ApprovalResult | undefined {
+    if (this.#humanApproval === undefined) {
+      return this.#doorRefusal(
+        'NOT_ENFORCED',
+        'hcifootprint: create the session with requireHumanApproval to make an approval enforceable. Without it fire() does not consult the confirm journal, so this row would authorize nothing.',
+      );
+    }
+    if (typeof opts.by !== 'string' || opts.by.trim() === '') {
+      return this.#doorRefusal(
+        'NEEDS_DECIDER',
+        'hcifootprint: pass by — who decided (an operator id, an email, your own label). An approval whose decider is unknown is the claim-as-fact this option refuses.',
+      );
+    }
+    return undefined;
+  }
+
+  #doorRefusal(
+    reason: 'UNKNOWN_ASK' | 'ASK_ALREADY_ANSWERED' | 'NEEDS_DECIDER' | 'NOT_ENFORCED',
+    explanation: string,
+  ): ApprovalResult {
+    return { ok: false, reason, explanation };
+  }
+
+  /** Answer one ask and record the decision. The entry KEEPS the answer, forever. */
+  #answerAsk(
+    ask: OpenAsk,
+    answer: 'approved' | 'declined',
+    opts?: { by?: string; note?: string },
+  ): ConfirmRecord {
+    ask.answer = answer;
+    ask.answeredAt = this.#now();
+    if (opts?.by !== undefined) ask.answeredBy = opts.by;
+    const row: ConfirmRecord = {
+      kind: answer,
+      askId: ask.askId,
+      affordanceId: ask.affordanceId,
+      timestamp: this.#now(),
+      node: this.#node,
+      version: this.#version,
+      // Stamped ALWAYS, enforced only when asked — the honest question a strict
+      // host can implement any rule it likes from ("did the app's state change
+      // since the human looked?").
+      stateVersion: this.#stateVersion,
+      // The door has no principal argument, so this cannot be anything else. And
+      // NO transitionId: nothing has fired yet, which is the whole point.
+      principal: 'user',
+      ...(opts?.by !== undefined ? { by: opts.by } : {}),
+      ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+      enforced: true,
+    };
+    this.#approvalRows.set(ask.askId, row);
     this.#pushConfirm(row);
     return structuredClone(row);
   }
@@ -2033,17 +2491,22 @@ export class Session {
     return this.on('confirm', listener);
   }
 
-  /** Close an open ask as APPROVED when a matching fire lands (called from fire()). */
+  /**
+   * Close an open ask as APPROVED when a matching fire lands (called from fire()).
+   * THE DEFAULT PATH ONLY: under enforcement the gate owns the outcome, because
+   * this stamps the FIRING principal on a row named 'approved' — an audit trail,
+   * never an authorization.
+   */
   #resolveOpenAsk(record: TransitionRecord, affordanceId: string, source: Principal): void {
-    const askId = this.#openAsks.get(affordanceId);
+    const askId = this.#openAsksFor(affordanceId)[0]?.askId;
     if (askId === undefined) return;
-    this.#openAsks.delete(affordanceId);
+    this.#openAsks.delete(askId);
     record.askId = askId;
     this.#pushConfirm({
       kind: 'approved',
       askId,
       affordanceId,
-      timestamp: Date.now(),
+      timestamp: this.#now(),
       node: this.#node,
       version: this.#version,
       principal: source,
@@ -2051,8 +2514,140 @@ export class Session {
     });
   }
 
+  /** Ask the gate whether a recorded human decision authorizes this fire. */
+  #approvalVerdict(affordanceId: string, aff: Affordance, opts: FireOptions): ApprovalVerdict {
+    return checkApproval({
+      ...(opts.askId !== undefined ? { askId: opts.askId } : {}),
+      affordanceId,
+      ...(opts.instance !== undefined ? { instance: opts.instance } : {}),
+      // The same helper the ask used — parity is what keeps a click-only control
+      // from refusing its own legitimate approval.
+      input: normalizeInput(opts.payload, aff.noInput === true),
+      openAsks: this.#openAsks,
+      rowFor: (askId) => this.#approvalRows.get(askId),
+      standingGrants: this.#standingGrants,
+      stateVersion: this.#stateVersion,
+      now: this.#now(),
+      rules: this.#humanApproval ?? {},
+    });
+  }
+
+  /**
+   * A crossing attempt with no valid yes: BOTH ledgers, always, never deduped.
+   *
+   * The gap row is not optional. groundTruth()'s FACTS block reads only
+   * 'fire-rejected' rows, so a refusal that skipped it would be INVISIBLE in the
+   * block a model is told to trust over its own account — which is the structural
+   * hole groundTruth shipped to close. The confirm row is not optional either:
+   * the journal is the stream the docs point an auditor at, and a gate whose
+   * failed crossings are recorded somewhere else is a gate you can only audit if
+   * you already know to look elsewhere.
+   *
+   * The WARNING is deduped once per (action, reason); the ROWS never are. A
+   * repeated forgery is new information.
+   */
+  #refuseApproval(
+    affordanceId: string,
+    verdict: Extract<ApprovalVerdict, { ok: false }>,
+    source: Principal,
+  ): FireResult {
+    this.recordRejection(affordanceId, verdict.reason, source);
+    this.#pushConfirm({
+      kind: 'refused',
+      // The pointer the caller PRESENTED, so the row joins what it was trying to
+      // use. With none presented the row gets its own id from the same counter —
+      // never a recycled ask id, which would join a refusal to an innocent ask.
+      askId: verdict.askId ?? this.#mintRefusalId(),
+      affordanceId,
+      timestamp: this.#now(),
+      node: this.#node,
+      version: this.#version,
+      stateVersion: this.#stateVersion,
+      principal: source,
+      rejectionReason: verdict.reason,
+      enforced: true,
+    });
+    this.#warnOnceAboutApproval(
+      affordanceId,
+      verdict.reason,
+      `hcifootprint: refused a high-effect fire of '${affordanceId}' — ${verdict.reason}. This session runs with requireHumanApproval, so only an approval it recorded from a person can cross that gate.`,
+    );
+    switch (verdict.reason) {
+      case 'APPROVAL_MISMATCH':
+        return { ok: false, reason: verdict.reason, affordanceId, askId: verdict.askId, differs: verdict.differs };
+      case 'APPROVAL_REQUIRED':
+        return {
+          ok: false,
+          reason: verdict.reason,
+          affordanceId,
+          ...(verdict.askId !== undefined ? { askId: verdict.askId } : {}),
+        };
+      default:
+        return { ok: false, reason: verdict.reason, affordanceId, askId: verdict.askId };
+    }
+  }
+
+  /** One dev warning per (action, reason) for the session's life. */
+  #warnOnceAboutApproval(affordanceId: string, reason: string, message: string): void {
+    const key = `${affordanceId}@${reason}`;
+    if (this.#approvalWarned.has(key)) return;
+    this.#approvalWarned.add(key);
+    this.#warn(message);
+  }
+
+  /**
+   * SPEND the verdict the gate produced: link the fire to its decision and record
+   * the exercise.
+   *
+   * The 'used' row is its own row, never a mutation of the 'approved' one. The
+   * journal is append-only and rows are handed to listeners as deep copies at push
+   * time, so rewriting a pushed row would rewrite history nobody re-reads — and an
+   * auditor holding only confirms() must be able to count approvals against
+   * executions. Two rows, one yes, one spend, and a double-spend attempt shows up
+   * as a 'refused' row rather than as an absence.
+   */
+  #spendApproval(
+    record: TransitionRecord,
+    affordanceId: string,
+    verdict: Extract<ApprovalVerdict, { ok: true }>,
+    source: Principal,
+  ): void {
+    record.askId = verdict.askId;
+    // A standing grant is never consumed — that is what durable means. Only a
+    // single ALLOW is spent, and the next fire under it refuses APPROVAL_SPENT.
+    if (verdict.via === 'approved') {
+      const ask = this.#openAsks.get(verdict.askId);
+      if (ask) ask.spent = true;
+    }
+    this.#pushConfirm({
+      kind: 'used',
+      askId: verdict.askId,
+      affordanceId,
+      timestamp: this.#now(),
+      node: this.#node,
+      version: this.#version,
+      stateVersion: this.#stateVersion,
+      // The principal that ACTED, not the one that approved — the approving row
+      // holds that, and folding them together would lose which is which.
+      principal: source,
+      transitionId: record.id,
+      enforced: true,
+    });
+  }
+
+  /** What the card will SEND — bounded exactly like every other captured value. */
+  #willUse(input: unknown, instance?: string): ConfirmWillUse | undefined {
+    const shown: ConfirmWillUse = {
+      ...(input !== undefined ? { input: sanitizeProduced(input) } : {}),
+      ...(instance !== undefined ? { instance } : {}),
+    };
+    // Absent stays absent: an ask told nothing shows nothing, rather than an empty
+    // object a reader would take for "this action sends nothing".
+    return Object.keys(shown).length > 0 ? shown : undefined;
+  }
+
   /** Assemble the receipts pack from live state — no new capture, all reads. */
-  #assembleReceipts(affordanceId: string): ConfirmReceipts {
+  #assembleReceipts(affordanceId: string, willUse?: ConfirmWillUse): ConfirmReceipts {
     const aff = this.spec.affordances[affordanceId];
     const { conditions, unevaluable } = aff
       ? this.#evalGuard(aff.guard)
@@ -2074,6 +2669,9 @@ export class Session {
       // a consumer annotating a receipt must never rewrite the trace.
       because: conditions.map((c) => ({ ...c })),
       ...(unevaluable.length > 0 ? { becauseUnevaluated: [...unevaluable] } : {}),
+      // The one runtime value in the pack, and the reason the approval can bind to
+      // an object rather than only to a verb.
+      ...(willUse !== undefined ? { willUse } : {}),
       youAreOn: this.#node,
       version: this.#version,
       recentSteps: this.#recentTrail(),
@@ -2092,8 +2690,22 @@ export class Session {
     }));
   }
 
+  /**
+   * Three id families, ONE counter — so every id is unique across all of them and
+   * an auditor can read what a row is from its prefix alone: `ask#N` is a question
+   * put to a human, `grant#N` a standing policy, `refusal#N` a crossing attempt
+   * that presented no pointer at all. Never caller-supplied.
+   */
   #mintAskId(): string {
     return `ask#${(this.#askSeq += 1)}`;
+  }
+
+  #mintGrantId(): string {
+    return `grant#${(this.#askSeq += 1)}`;
+  }
+
+  #mintRefusalId(): string {
+    return `refusal#${(this.#askSeq += 1)}`;
   }
 
   #pushConfirm(row: ConfirmRecord): void {
@@ -2237,8 +2849,24 @@ export class Session {
       if (omitted > 0) lines.push(`  … ${omitted} earlier attempt(s) omitted.`);
       for (const row of shown) lines.push(`  • ${this.#attemptLine(row)}`);
     }
-    for (const [affordanceId, askId] of this.#openAsks) {
-      lines.push(`Awaiting the human's decision: ${this.#actionLabel(affordanceId)} (${askId}).`);
+    // Three states, three authored lines, every one routed through #actionLabel so
+    // an id the graph does not have renders as a constant.
+    //
+    // The two answered lines exist because marking an ask ANSWERED would otherwise
+    // silence the awaiting line in exactly the window that matters most: a
+    // recorded human approval that nothing has acted on yet, and a no the agent
+    // might quietly re-ask around. `by` and `note` are deliberately NOT rendered —
+    // they are caller-supplied runtime strings, and this block carries structural
+    // facts only. `by` is the AUDIT field; facts gets the fact.
+    for (const ask of this.#openAsks.values()) {
+      const what = this.#actionLabel(ask.affordanceId);
+      if (ask.answer === undefined) {
+        lines.push(`Awaiting the human's decision: ${what} (${ask.askId}).`);
+      } else if (ask.answer === 'approved' && ask.spent !== true) {
+        lines.push(`Approved by the human, not yet done: ${what} (${ask.askId}).`);
+      } else if (ask.answer === 'declined') {
+        lines.push(`The human declined: ${what} (${ask.askId}).`);
+      }
     }
     const pend = this.pending();
     if (pend.length > 0) {

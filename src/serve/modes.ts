@@ -149,6 +149,48 @@ const NOT_MATERIALIZED_WHY =
   'Tell the human it is not available; the app team can register a tool group to wire it, ' +
   'or create the session with allowUnmaterializedFires for read-only touring.';
 
+// The five requireHumanApproval refusals, in the NOT_MATERIALIZED_WHY shape: name
+// what happened, name the next move, name the option. Every one is a fixed
+// authored sentence (the two-string-class invariant above) — a refusal that
+// interpolated the payload it rejected would leak the value it was protecting.
+const APPROVAL_REQUIRED_WHY =
+  'No human has approved this action. confirm: true is your request to proceed, not the human’s ' +
+  'answer — this session was created with requireHumanApproval, so only an approval the app ' +
+  'recorded from a person can cross this gate. Show the human the receipts and wait; if you were ' +
+  'never given a way to collect a yes, tell the human that and stop.';
+
+const APPROVAL_SPENT_WHY =
+  'That approval was already used by an earlier action. One yes authorizes one action, on purpose. ' +
+  'Ask again if this needs to happen a second time — and tell the human it is the second time.';
+
+const APPROVAL_MISMATCH_WHY =
+  'The human approved something different from what you just sent (see differs). An approval covers ' +
+  'what was on the card and nothing else. Ask again for THIS input; do not reuse the earlier approval.';
+
+const APPROVAL_UNCOMPARABLE_WHY =
+  ' This input also contains a value the library cannot compare faithfully, so it will not guess ' +
+  'that they match.';
+
+const APPROVAL_STALE_WHY =
+  'The human’s approval is too old for this session’s rules, or the app’s state changed after they ' +
+  'said yes. Show them the current receipts and ask again.';
+
+const APPROVAL_DECLINED_WHY =
+  'The human said no to this. Do not ask again about the same thing — tell them it was not done, and ' +
+  'move on or ask about something different.';
+
+// The `confirm` argument's description, in the two modes it can honestly have.
+// The second is served only by a session that really does enforce, so the
+// instruction a model reads is true of the app it is holding — a description
+// promising a gate that is off would be the same class of lie this option removes.
+const CONFIRM_DESCRIPTION =
+  'Required true to proceed with a high-effect step (after the human approves the receipts).';
+
+const CONFIRM_DESCRIPTION_ENFORCED =
+  'Required true to proceed with a high-effect step, AFTER a human has approved it in the app. This ' +
+  'app enforces that: your setting true is a request to proceed, and it does not by itself authorize ' +
+  'anything — a step with no approval on record is refused. Show the human the receipts and wait.';
+
 // The three true things about a name this position cannot serve but the app
 // DOES have. One of them is always the case, and the session already knows
 // which — see notHereData below for why the refusal now says it.
@@ -175,7 +217,7 @@ const STEP_INPUT_SCHEMA = {
         'The step input. Each result states what the next step expects. Match the shape in that step’s ' +
         'expects field — an input that does not returns PAYLOAD_INVALID carrying what was expected.',
     },
-    confirm: { type: 'boolean', description: 'Required true to proceed with a high-effect step (after the human approves the receipts).' },
+    confirm: { type: 'boolean', description: CONFIRM_DESCRIPTION },
     decline: { type: 'boolean', description: 'Set true to record that the human refused a high-effect step (closes the ask; nothing fires).' },
     instance: {
       type: 'string',
@@ -192,6 +234,32 @@ export function skillsAsTools(
   const confirmHighEffect = opts?.confirmHighEffect ?? true;
   const source: Principal = opts?.source ?? 'agent';
   const graphId = session.graphId;
+  /**
+   * Whether the SESSION refuses a high-effect fire with no recorded human
+   * approval. Read once: the mode is fixed for the session's life, so the tool
+   * array is still frozen once and serves identical bytes every turn — the
+   * invariant is about a turn-to-turn CHANGE, and there is none.
+   */
+  const enforcing = session.requiresHumanApproval;
+  /**
+   * Under enforcement the port ALWAYS asks for a high-effect edge, whatever
+   * `confirmHighEffect` says. Fail-closed and usable: silently honouring `false`
+   * would leave every high-effect fire refused with no ask ever landing, which is
+   * a dead app rather than a safe one.
+   */
+  const askBeforeHighEffect = confirmHighEffect || enforcing;
+  /** The step schema, with the confirm argument described mode-honestly. */
+  function stepSchema(): typeof STEP_INPUT_SCHEMA {
+    const schema = structuredClone(STEP_INPUT_SCHEMA);
+    if (enforcing) schema.properties.confirm.description = CONFIRM_DESCRIPTION_ENFORCED;
+    return schema;
+  }
+
+  /** The arguments do_action shares with a skill step — everything but `step`. */
+  function sharedStepProperties(): Record<string, unknown> {
+    const { step: _step, ...shared } = stepSchema().properties;
+    return shared;
+  }
 
   // Skills are declared-only data: the tool array derived from them is static
   // BY CONSTRUCTION — freeze it once, serve identical bytes every turn.
@@ -220,7 +288,7 @@ export function skillsAsTools(
         ({
           name: sanitizeName(`${graphId}.skill.${skill.id}`),
           description: skill.description + SKILL_USAGE,
-          inputSchema: structuredClone(STEP_INPUT_SCHEMA),
+          inputSchema: stepSchema(),
         }) as MCPToolDescription,
     ),
     {
@@ -256,10 +324,9 @@ export function skillsAsTools(
         type: 'object',
         properties: {
           action: { type: 'string', description: 'An action name from whats_here.' },
-          input: structuredClone(STEP_INPUT_SCHEMA.properties.input),
-          confirm: structuredClone(STEP_INPUT_SCHEMA.properties.confirm),
-          decline: structuredClone(STEP_INPUT_SCHEMA.properties.decline),
-          instance: structuredClone(STEP_INPUT_SCHEMA.properties.instance),
+          // The four shared arguments, taken from the SAME rendered schema a skill
+          // step serves — so the two doors can never describe confirm differently.
+          ...sharedStepProperties(),
         },
         required: ['action'],
         additionalProperties: false,
@@ -340,33 +407,43 @@ export function skillsAsTools(
       };
     }
     const edge = edgeById().get(stepId);
-    if (confirmHighEffect && edge?.highEffect && args.confirm !== true) {
+    if (askBeforeHighEffect && edge?.highEffect && args.confirm !== true) {
       // The human refused: record the decline (closes the ask) and do NOT fire.
       if (args.decline === true) {
         const declined = session.declineConfirm(stepId, { principal: source });
-        return { ok: false, judgment: 'declined', skill: skillId, step: stepId, askId: declined.askId, ...positionData() };
+        return {
+          ok: false,
+          judgment: 'declined',
+          skill: skillId,
+          step: stepId,
+          askId: declined.askId,
+          ...relayedDeclineData(declined),
+          ...positionData(),
+        };
       }
       // First look at a high-effect step: land the ask + assemble the receipts
       // the agent shows the human. confirm: true on the next call fires it.
-      const { askId, receipts } = session.confirmAsk(stepId, { source });
+      const asked = askData(stepId, args);
       return {
         ok: false,
         judgment: 'needs-confirm',
         skill: skillId,
         step: stepId,
         does: edge.description,
-        askId,
-        receipts,
-        howToAct:
-          'Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.',
+        ...asked,
         ...positionData(),
       };
     }
-    const fired = session.fire(stepId, { source, payload: args.input, instance: args.instance });
+    const fired = session.fire(stepId, fireOptions(stepId, args));
     // frameData FIRST: on a rejected fire, fireData's judgment ('rejected')
     // must win over the frame's ('needs-choice'); on success fireData carries
     // no judgment and the frame's stands.
-    return { skill: skillId, ...frameData(skillId), ...fireData(fired, stepId, edge), ...positionData() };
+    return {
+      skill: skillId,
+      ...frameData(skillId),
+      ...fireData(fired, stepId, edge, args),
+      ...positionData(),
+    };
   }
 
   function resolveStep(skillId: string, step: string): string | null {
@@ -416,26 +493,29 @@ export function skillsAsTools(
       };
     }
     const edge = matches[0];
-    if (confirmHighEffect && edge.highEffect && args.confirm !== true) {
+    if (askBeforeHighEffect && edge.highEffect && args.confirm !== true) {
       if (args.decline === true) {
         const declined = session.declineConfirm(edge.affordanceId, { principal: source });
-        return { ok: false, judgment: 'declined', action: edge.affordanceId, askId: declined.askId, ...positionData() };
+        return {
+          ok: false,
+          judgment: 'declined',
+          action: edge.affordanceId,
+          askId: declined.askId,
+          ...relayedDeclineData(declined),
+          ...positionData(),
+        };
       }
-      const { askId, receipts } = session.confirmAsk(edge.affordanceId, { source });
       return {
         ok: false,
         judgment: 'needs-confirm',
         action: edge.affordanceId,
         does: edge.description,
-        askId,
-        receipts,
-        howToAct:
-          'Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.',
+        ...askData(edge.affordanceId, args),
         ...positionData(),
       };
     }
-    const fired = session.fire(edge.affordanceId, { source, payload: args.input, instance: args.instance });
-    return { ...fireData(fired, edge.affordanceId, edge), ...positionData() };
+    const fired = session.fire(edge.affordanceId, fireOptions(edge.affordanceId, args));
+    return { ...fireData(fired, edge.affordanceId, edge, args), ...positionData() };
   }
 
   /**
@@ -650,7 +730,71 @@ export function skillsAsTools(
     };
   }
 
-  function fireData(fired: FireResult, id: string, edge: AvailableEdge | undefined): ServeResult {
+  /** The step/action arguments the confirm chain reads, from either door. */
+  type ConfirmArgs = { input?: unknown; instance?: string };
+
+  /**
+   * Land the ask and assemble the card. The INPUT and INSTANCE go with it, so the
+   * receipts say what this fire will send — a human approves an object, not just a
+   * verb, and under enforcement that is what the approval binds to.
+   */
+  function askData(affordanceId: string, args: ConfirmArgs): ServeResult {
+    const { askId, receipts } = session.confirmAsk(affordanceId, {
+      source,
+      input: args.input,
+      ...(args.instance !== undefined ? { instance: args.instance } : {}),
+    });
+    return {
+      askId,
+      receipts,
+      howToAct: enforcing
+        ? 'Show the human what this will do (see receipts) and let THEM approve it in the app — then call again with confirm: true. Your confirm: true alone will be refused, because this app requires an approval it recorded from a person. Send decline: true to report that they refused.'
+        : 'Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.',
+    };
+  }
+
+  /**
+   * The options one served fire carries — including the POINTER to the recorded
+   * decision, when this session enforces one.
+   *
+   * The model never handles the pointer: it is looked up here, from the ask this
+   * port already minted for exactly this action and input. So no model-facing
+   * schema property is added, `additionalProperties: false` is untouched, and the
+   * tool array stays byte-identical every turn. Two doors (this one and
+   * FireOptions.askId for an app driving its own Approve button), one gate.
+   */
+  function fireOptions(affordanceId: string, args: ConfirmArgs): Parameters<Session['fire']>[1] {
+    const askId = enforcing
+      ? session.openAskFor(affordanceId, { input: args.input, ...(args.instance !== undefined ? { instance: args.instance } : {}) })
+      : undefined;
+    return {
+      source,
+      payload: args.input,
+      ...(args.instance !== undefined ? { instance: args.instance } : {}),
+      ...(askId !== undefined ? { askId } : {}),
+    };
+  }
+
+  /**
+   * An agent-relayed decline under enforcement closes NOTHING — so the result says
+   * so, rather than letting the model read 'declined' as "the question is gone".
+   * Without this sentence an agent could believe it had buried the human's card.
+   */
+  function relayedDeclineData(declined: { principal: Principal }): ServeResult {
+    return enforcing && declined.principal !== 'user'
+      ? {
+          recordedAs: 'your-report',
+          why: 'Recorded as your report, not as the human’s decision — the ask is still open. A human’s no arrives through the app’s own Decline control.',
+        }
+      : {};
+  }
+
+  function fireData(
+    fired: FireResult,
+    id: string,
+    edge: AvailableEdge | undefined,
+    args?: ConfirmArgs,
+  ): ServeResult {
     if (fired.ok) {
       return {
         ok: true,
@@ -681,6 +825,22 @@ export function skillsAsTools(
         ...(fired.transition.toNodeClaimed ? { toNodeClaimed: true } : {}),
       };
     }
+    // A high-effect fire with no approval on record is answered with THE ASK,
+    // again — carrying fresh receipts. Enforcement is not a wall the agent
+    // bounces off blindly: its only useful next move is to get the human, and
+    // this port already knows how to hand it the card. The refusal is still in
+    // both ledgers, and `facts` still says the fire did NOT happen.
+    if (fired.reason === 'APPROVAL_REQUIRED' && args !== undefined) {
+      return {
+        ok: false,
+        judgment: 'needs-confirm',
+        did: id,
+        reason: fired.reason,
+        why: APPROVAL_REQUIRED_WHY,
+        ...(edge ? { does: edge.description } : {}),
+        ...askData(id, args),
+      };
+    }
     return {
       ok: false,
       judgment: 'rejected',
@@ -690,11 +850,37 @@ export function skillsAsTools(
       ...('issues' in fired ? { issues: fired.issues } : {}),
       ...('instances' in fired ? { instances: [...fired.instances] } : {}),
       ...('node' in fired ? { node: fired.node } : {}),
+      ...('askId' in fired && fired.askId !== undefined ? { askId: fired.askId } : {}),
+      ...('differs' in fired ? { differs: fired.differs } : {}),
       ...(fired.reason === 'PAYLOAD_INVALID' ? expectsData(edge) : {}),
       ...(fired.reason === 'STILL_MOUNTING' ? { retriable: true } : {}),
       // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
       ...(fired.reason === 'NOT_MATERIALIZED' ? { why: NOT_MATERIALIZED_WHY } : {}),
+      ...approvalWhy(fired),
     };
+  }
+
+  /** The authored teaching sentence for one approval refusal, by reason. */
+  function approvalWhy(fired: Extract<FireResult, { ok: false }>): ServeResult {
+    switch (fired.reason) {
+      case 'APPROVAL_REQUIRED':
+        return { why: APPROVAL_REQUIRED_WHY };
+      case 'APPROVAL_SPENT':
+        return { why: APPROVAL_SPENT_WHY };
+      case 'APPROVAL_MISMATCH':
+        return {
+          why:
+            fired.differs === 'cannot-judge'
+              ? APPROVAL_MISMATCH_WHY + APPROVAL_UNCOMPARABLE_WHY
+              : APPROVAL_MISMATCH_WHY,
+        };
+      case 'APPROVAL_STALE':
+        return { why: APPROVAL_STALE_WHY };
+      case 'APPROVAL_DECLINED':
+        return { why: APPROVAL_DECLINED_WHY };
+      default:
+        return {};
+    }
   }
 
   function edgeData(edge: AvailableEdge): ServeResult {

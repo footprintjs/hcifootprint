@@ -27,7 +27,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
-import type { GapRecord, ServeResult, SkillToolsPort, SkillToolsPortWithSettlement } from '../src/index.js';
+import type { ConfirmRecord, GapRecord, ServeResult, SkillToolsPort, SkillToolsPortWithSettlement } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -106,5 +106,58 @@ describe('a gap-ledger consumer that knows only the kinds of its own release', (
     expect(deadEnd.rejectionReason).toBeUndefined();
     expect(deadEnd.affordanceId).toBeUndefined();
     expect(gaps.filter((gap) => gap.rejectionReason !== undefined)).toHaveLength(1);
+  });
+});
+
+describe('a confirm-journal consumer that knows only the three kinds of its own release', () => {
+  /** An enforcing session run to the end: ask, approval, spend, and a replay. */
+  function everyKind(): ConfirmRecord[] {
+    const session = buildNavigationGraph('shop', {
+      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
+    }).createSession({ node: 'checkout', state: {}, requireHumanApproval: true, onWarn: () => undefined });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 1 } });
+    session.approveAsk(askId, { by: 'alice@ops' });
+    session.fire('checkout.place-order', { source: 'agent', payload: { total: 1 }, askId }); // → 'used'
+    session.fire('checkout.place-order', { source: 'agent', payload: { total: 1 }, askId }); // → 'refused'
+    session.alwaysApprove('checkout.place-order', { by: 'alice@ops' });
+    session.revokeAlwaysApprove('checkout.place-order', { by: 'alice@ops' });
+    return session.confirms();
+  }
+
+  it('sees exactly its own rows — four new kinds add facts, they do not relabel old ones', () => {
+    const rows = everyKind();
+    expect(rows.map((row) => row.kind)).toEqual([
+      'ask',
+      'approved',
+      'used',
+      'refused',
+      'always-approved',
+      'revoked',
+    ]);
+
+    // The 0.6-era reader, unchanged: "an approval is a row whose kind is
+    // 'approved'". It must still return exactly one row, and that row must still
+    // be about the same gate.
+    const approvals = rows.filter((row) => row.kind === 'approved');
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0]).toMatchObject({ affordanceId: 'checkout.place-order', askId: 'ask#1' });
+    expect(rows.filter((row) => row.kind === 'ask')).toHaveLength(1);
+    expect(rows.filter((row) => row.kind === 'declined')).toHaveLength(0);
+  });
+
+  it('the new kinds never carry an old kind’s fields, so an old query cannot pick them up', () => {
+    const rows = everyKind();
+    // A 0.6 consumer joining approvals to the commit log keys on transitionId. A
+    // 'used' row carries one — it IS a spend — but it is not named 'approved', so
+    // the join returns the spend as its own fact rather than as a second approval.
+    expect(rows.find((row) => row.kind === 'always-approved')!.transitionId).toBeUndefined();
+    expect(rows.find((row) => row.kind === 'revoked')!.transitionId).toBeUndefined();
+    expect(rows.find((row) => row.kind === 'refused')!.transitionId).toBeUndefined();
+    // And a durable grant can never be miscounted as a single yes — the whole
+    // reason it is a new KIND and not a field on 'approved'.
+    expect(rows.filter((row) => row.kind === 'approved').map((row) => row.askId)).toEqual(['ask#1']);
+    expect(rows.find((row) => row.kind === 'always-approved')!.askId).toMatch(/^grant#/);
   });
 });

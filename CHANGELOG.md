@@ -1,5 +1,75 @@
 # Changelog
 
+## [Unreleased]
+
+### `requireHumanApproval` — Approve stops being something the agent can claim
+
+A production integration reported it, and it verified at source:
+`fire('p.submit', { source: 'agent', confirm: true })` executed with an EMPTY confirm
+journal. `confirm: true` was the AGENT asserting that approval happened — a boolean
+in the model's own tool arguments, tied to no recorded decision — so a model that
+skipped the ask was indistinguishable from one that got a yes. Two structural facts
+underneath it: nothing in the library could RECORD a human approval (the only writer
+of an `'approved'` row was `fire()` itself, stamping the FIRING principal on the row
+that claimed to authorize it), and a direct in-process `session.fire()` ignored
+`confirm` entirely — a real trust boundary, documented nowhere.
+
+**New, opt-in:** `createSession({ requireHumanApproval: true })`. A high-effect AGENT
+fire is then refused unless it carries `FireOptions.askId` — a pointer to a journal row
+your own Approve control recorded — or a standing grant covers it. The proof is never a
+boolean the model sets; `confirm` is deliberately absent from `FireOptions` and will
+stay absent.
+
+- **The missing half of the chain**: `approveAsk(askId, { by })`, `declineAsk(...)`,
+  `alwaysApprove(id, { by, instance?, expiresInMs? })`, `revokeAlwaysApprove(...)` —
+  each stamping `principal: 'user'` with **no argument to override it**, each requiring
+  `by`, each returning a typed `ApprovalResult` instead of throwing (they run in click
+  handlers), each answering `NOT_ENFORCED` on a session without the option.
+- **One yes, one fire.** An ALLOW is single-use; the spend appends its own `'used'` row
+  so an auditor can count approvals against executions, and a replay is `APPROVAL_SPENT`.
+- **The approval binds to the receipts.** `confirmAsk(id, { input, instance })` puts what
+  will be sent on the card (`ConfirmReceipts.willUse`), and a fire carrying anything else
+  is `APPROVAL_MISMATCH`. Exact structural equality, key-order-independent; anything the
+  receipts cannot hold faithfully is refused rather than guessed.
+- **ALWAYS ALLOW is a policy row**, scoped to the action (+ optional instance) and
+  deliberately not to the input — and revocable, because a durable grant with no off
+  switch is a permanent hole.
+- **The decline is unforgeable too**: an agent-relayed `decline: true` is recorded as the
+  agent's report and closes NOTHING, so a model cannot manufacture a human no or bury the
+  pending card. A human no is terminal for its askId; a re-ask mints a new one, so nagging
+  is countable.
+- Every refused crossing lands in **both** ledgers — a `'fire-rejected'` gap row (so
+  `groundTruth()` says *"did NOT happen … was refused: APPROVAL_REQUIRED"*) and a
+  `'refused'` confirm row. Rows are never deduplicated; only the dev warning is.
+
+**Nothing changes without the option** — default behaviour is byte-identical, pinned by
+`test/human-approval-default-unchanged.test.ts`.
+
+#### Note for anyone switching exhaustively on `FireResult` or `ConfirmRecord.kind`
+
+Both unions widen. `FireResult` gains `APPROVAL_REQUIRED`, `APPROVAL_SPENT`,
+`APPROVAL_MISMATCH`, `APPROVAL_STALE` and `APPROVAL_DECLINED` (and
+`GapRecord.rejectionReason` the same five); `ConfirmRecord.kind` gains
+`'always-approved'`, `'used'`, `'refused'` and `'revoked'`. As always, a new value is a
+new fact and never an old one relabelled — read the ones you know and let the rest fall
+through. A durable grant is a new KIND rather than a `scope` field on `'approved'`
+precisely so an older filter cannot silently miscount it as a one-time yes. The growth
+paragraph missing from `FireResult`, `GapRecord.rejectionReason` and `ConfirmRecord.kind`
+is now on each type, which the 0.6.0 notes had already promised.
+
+**Triage note:** the five `APPROVAL_*` gap rows are SECURITY rows, not missing capability.
+Route them to your audit sink, never to a "what to build next" query.
+
+**And the honest limits, in the docs rather than in a footnote.** The gate proves a row of
+the right kind, from the right principal, for this action and this input, exists and has
+not been spent. It does not prove a particular person authenticated (`by` is your string),
+and it cannot verify that your app keeps `approveAsk` out of the model's reach — the option
+moves approval onto a channel the model does not write *by a convention you uphold*, not by
+a proof the library can offer. It keys on the PRINCIPAL, so a direct
+`fire(id, { source: 'agent' })` IS gated while the app-self-report tier (`'user'`,
+`'system'`, `invoke: false`) is not: hand a model a port built with `source: 'user'` and
+you have disarmed this gate. See [D24](docs/design/d24-enforced-approval.md).
+
 ## [0.6.0] - 2026-07-29
 
 **A production integration's four remaining workarounds are now deletable** — the

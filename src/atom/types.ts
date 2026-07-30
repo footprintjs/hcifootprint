@@ -354,6 +354,60 @@ export interface SessionOptions {
    * Without this option nothing changes — fail-closed, byte-identical.
    */
   navigate?: (href: string) => void | Promise<void>;
+  /**
+   * REQUIRE A RECORDED HUMAN APPROVAL before an agent may fire a high-effect
+   * action. Off by default; with it on, a high-effect agent fire is refused
+   * unless it carries {@link FireOptions.askId} — a pointer to a confirm-journal
+   * row a person's own Approve control recorded ({@link Session.approveAsk}),
+   * or a standing ALWAYS ALLOW ({@link Session.alwaysApprove}).
+   *
+   * WHAT IT FIXES. `confirm: true` was the AGENT asserting that a human
+   * approved: a boolean in the model's own tool arguments, tied to nothing. A
+   * model that never asked was indistinguishable from one that got a yes. With
+   * this option the proof is a POINTER to a decision a person recorded, so "the
+   * model asked politely" stops being part of the security model.
+   *
+   * WHAT IT DOES NOT PROVE. That a particular person authenticated — `by` is a
+   * string your host supplies — and not that your own wiring keeps the approval
+   * door out of the model's reach. It proves that a row of the right kind, from
+   * the right principal, for this action and this input, exists and has not
+   * already been spent.
+   *
+   * Pass `true` for the plain policy, or a {@link HumanApprovalPolicy} to also
+   * refuse a yes that has gone stale. Without this option nothing changes —
+   * fail-closed, byte-identical.
+   */
+  requireHumanApproval?: boolean | HumanApprovalPolicy;
+  /**
+   * The clock the confirm chain reads (epoch ms). Defaults to `Date.now`. Inject
+   * a controllable clock to test an expiring approval without real waits — the
+   * same option name and default the tree layer already uses for its grace
+   * timers (traverse/nav-session.ts), so the two never disagree.
+   */
+  now?: () => number;
+}
+
+/**
+ * How strict {@link SessionOptions.requireHumanApproval} is about a yes given a
+ * while ago, or in a world that has since moved on.
+ *
+ * BOTH RULES DEFAULT OFF, and that is a deliberate honesty position rather than
+ * laziness. The library records the stamps ALWAYS — every enforced row carries
+ * its timestamp and the state version the human decided at — but whether a stamp
+ * is DISQUALIFYING is a product decision it cannot make for you: approving a
+ * refund may legitimately take four minutes, and in a live-tapped app the state
+ * version moves on almost every report. Recording a fact you can act on, while
+ * refusing to guess the threshold, is the same stance the guard evidence takes.
+ */
+export interface HumanApprovalPolicy {
+  /** Refuse an approval the human gave longer ago than this. Default: no time limit. */
+  expiresAfterMs?: number;
+  /**
+   * Refuse an approval given before the app's state moved on. Compares
+   * `stateVersion` — not `version`, which also bumps on served-structure changes
+   * and on the fire itself. Default false.
+   */
+  refuseWhenWorldMoved?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -607,6 +661,23 @@ export interface FireOptions {
    * the sensor's fire() is record-only.
    */
   invoke?: boolean;
+  /**
+   * The confirm-journal row that authorizes this fire — read only when the
+   * session was created with {@link SessionOptions.requireHumanApproval}. Pass
+   * the `askId` your Approve control approved (the one that came back from
+   * `confirmAsk`, or rode the needs-confirm result).
+   *
+   * A POINTER, NEVER A SECRET. Ask ids are a per-session counter ('ask#1') and
+   * are already handed to the model — guessing one is worthless, because the gate
+   * requires a row for that id written by a door the model cannot write. Do not
+   * treat it as a capability token; treat it as a citation.
+   *
+   * AND NEVER A BOOLEAN. There is deliberately no `confirm` field here, and there
+   * will not be one: a boolean the caller controls is not evidence, so the door
+   * has no slot for one. `confirm: true` survives at the served boundary as what
+   * it honestly always was — the agent asking to proceed now.
+   */
+  askId?: string;
 }
 
 /**
@@ -676,6 +747,19 @@ export interface FireSettlement {
   produced?: unknown;
 }
 
+/**
+ * What became of one fire — the success arm, or one typed refusal.
+ *
+ * The REFUSAL SET GROWS, and a consumer should be written for that. 0.6.0 added
+ * `NOT_MATERIALIZED`; this release adds the five `APPROVAL_*` words, because the
+ * library can now refuse a high-effect fire no human approved. What never
+ * happens is a reason CHANGING meaning: every value keeps exactly what it had,
+ * and a new one is always a new fact, never an old one relabelled. So read the
+ * reasons you know (`if (!fired.ok && fired.reason === 'GUARD_FAILED') …`) and
+ * let the rest fall through as "refused, and here is the word" — an exhaustive
+ * `never` check over today's set is the one consumer shape a future reason will
+ * stop compiling, and adding the case is the whole fix.
+ */
 export type FireResult =
   | {
       ok: true;
@@ -733,7 +817,25 @@ export type FireResult =
        * already the whole truth).
        */
       gesture?: Binding;
-    };
+    }
+  // --- requireHumanApproval refusals (opt-in; see SessionOptions) -----------
+  /** No recorded human approval authorizes this high-effect fire. `askId` echoes
+   *  the pointer that was presented, when one was and it named nothing usable. */
+  | { ok: false; reason: 'APPROVAL_REQUIRED'; affordanceId: string; askId?: string }
+  /** That approval was already spent by an earlier fire. One yes, one action. */
+  | { ok: false; reason: 'APPROVAL_SPENT'; affordanceId: string; askId: string }
+  /** The human approved something else — `differs` names which join failed. */
+  | {
+      ok: false;
+      reason: 'APPROVAL_MISMATCH';
+      affordanceId: string;
+      askId: string;
+      differs: 'action' | 'input' | 'instance' | 'both' | 'cannot-judge';
+    }
+  /** The yes is older than this session's rules allow, or predates a state change. */
+  | { ok: false; reason: 'APPROVAL_STALE'; affordanceId: string; askId: string }
+  /** The human said no to this ask. Terminal for that askId, for the session's life. */
+  | { ok: false; reason: 'APPROVAL_DECLINED'; affordanceId: string; askId: string };
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -828,6 +930,11 @@ export type GapReason =
  * Triage notes: rows with rejectionReason 'STALE_CURSOR' are usually
  * optimistic-concurrency retries that SUCCEEDED on replan — filter or
  * down-weight them; they are cursor-protocol events, not missing capability.
+ * The five 'APPROVAL_*' reasons are SECURITY rows, not demand: the capability
+ * exists and was refused because no recorded human approval authorized it
+ * (SessionOptions.requireHumanApproval). Route them to your audit sink, never to
+ * a "what to build next" query — a triage model that reads a blocked forgery as
+ * a feature request will propose building the hole back in.
  * `availableActions` lists full capability at that position (not narrowed by
  * any open skill frame). The ledger grows unbounded for the session's life —
  * export via onGap and drain, like the transition log.
@@ -858,6 +965,15 @@ export interface GapRecord {
   // fire-rejected rows:
   /** The id the caller ASKED for — kept even when unknown (that is the signal). */
   affordanceId?: string;
+  /**
+   * WHY the fire was refused — the same word {@link FireResult} returned.
+   *
+   * This list GROWS with the refusals the gate can make (this release adds the
+   * five `APPROVAL_*` words), and never re-points an existing one at a new
+   * meaning. Read the reasons you know; treat the rest as "refused, reason
+   * recorded". See the triage notes above for which of them are security rows
+   * rather than missing capability.
+   */
   rejectionReason?:
     | 'UNKNOWN_AFFORDANCE'
     | 'STALE_CURSOR'
@@ -872,7 +988,13 @@ export interface GapRecord {
     | 'TOOL_DISABLED'
     | 'NOT_MATERIALIZED'
     /** commitSkill refused: the skill's ENTRY step could not materialise (never-trap gate). */
-    | 'ENTRY_NOT_MATERIALIZED';
+    | 'ENTRY_NOT_MATERIALIZED'
+    // requireHumanApproval refusals — SECURITY rows, not missing capability.
+    | 'APPROVAL_REQUIRED'
+    | 'APPROVAL_SPENT'
+    | 'APPROVAL_MISMATCH'
+    | 'APPROVAL_STALE'
+    | 'APPROVAL_DECLINED';
   principal?: Principal;
   evidence?: FilterCondition[];
   /**
@@ -930,6 +1052,37 @@ export interface ConfirmWillDo {
   effectUnverifiable?: boolean;
 }
 
+/**
+ * WHAT THIS FIRE WILL SEND — the input on the ask card, so the human approves an
+ * object and not just a verb.
+ *
+ * The one RUNTIME value in the receipts pack, and it is here because sharpening
+ * the gate required it: a human approved the affordance AND the input they were
+ * shown, so the input has to be in the pack the serving layer relays to the
+ * person. Allowed by the serve layer's own two-string-class rule — runtime values
+ * ride structured DATA fields (serve/modes.ts), never authored prose.
+ *
+ * NOT a digest. The gate recomputes the comparison from these values at fire
+ * time, so there is one source of truth and nothing that can fall out of sync —
+ * and an auditor holding an exported journal can recompute the same comparison.
+ *
+ * A NEW EXPOSURE SURFACE, said plainly: the input now rides the receipts to the
+ * model, to the human, and into the journal export. That is the point of it. An
+ * input carrying a secret is therefore in the receipts pack — `redactedKeys`
+ * governs state keys, never payloads, exactly as it never governed
+ * `TransitionRecord.payload`.
+ *
+ * Bounded like every other captured value (depth/breadth/length caps). An input
+ * too large to hold faithfully is still shown truncated — and the gate then
+ * refuses to judge a match against it rather than comparing two truncations.
+ */
+export interface ConfirmWillUse {
+  /** The payload the confirmed fire will carry. Absent for an input-less action. */
+  input?: unknown;
+  /** The row/instance the card is about (an order id), when the action takes one. */
+  instance?: string;
+}
+
 /** One compact row of the run-so-far trail — authored/structural facts only. */
 export interface ConfirmTrailStep {
   /** The affordance id (fired rows) or a `stimulus:<kind>` label — never runtime text. */
@@ -967,6 +1120,14 @@ export interface ConfirmReceipts {
    * same honesty marker the edge itself carries. Present only when non-empty.
    */
   becauseUnevaluated?: string[];
+  /**
+   * What this fire will SEND — the input and instance on the card. Present when
+   * the ask was told them (the serving layer passes them; a bare `confirmAsk`
+   * with no input has nothing to show). Under
+   * {@link SessionOptions.requireHumanApproval} this is what the approval BINDS
+   * to: a later fire carrying anything else is refused.
+   */
+  willUse?: ConfirmWillUse;
   /** Where the human is, folded in so the receipt is a self-contained pack. */
   youAreOn: string;
   /** The cursor version the receipt was assembled at (a stale-plan check anchor). */
@@ -986,11 +1147,44 @@ export interface ConfirmReceipts {
  * demand — the capability exists, it awaited consent — so mixing the two would
  * poison the "what to build next" triage signal the gap ledger feeds. Rows are
  * token-lean and injection-safe (ids + structural facts; the only free text,
- * `note`, is length-capped, and `receipts` carries authored strings only).
+ * `note`, is length-capped, and `receipts` carries authored strings plus one
+ * structured runtime DATA field, `willUse` — the input the human is shown).
+ *
+ * `kind` GROWS, and a consumer should be written for that. Three words shipped in
+ * 0.6.0; {@link SessionOptions.requireHumanApproval} adds four, because the
+ * library can now record facts it previously could not have: a human's ALLOW
+ * standing on its own BEFORE any fire, a durable ALWAYS ALLOW, the moment an
+ * approval was spent, and a crossing attempt that had no valid yes. What never
+ * happens is a kind CHANGING meaning: every value keeps exactly what it had, and
+ * a new one is always a new fact, never an old one relabelled.
+ *
+ * WHY FOUR NEW KINDS AND NOT A `scope: 'once' | 'always'` FIELD. A new field is
+ * silently ignored by a consumer that does not know it exists, so a DURABLE grant
+ * would be counted as a one-time yes by every 0.6-era filter — and here being
+ * missed is a security misreading, not a cosmetic one. A new kind is unmissable.
+ * So read a row by the kind you know and let the rest fall through; an exhaustive
+ * `never` check over the old three is the one consumer shape this stops
+ * compiling.
  */
 export interface ConfirmRecord {
-  kind: 'ask' | 'approved' | 'declined';
-  /** Links the ask → decision → fire rows of one high-effect gate. */
+  /**
+   * - `'ask'`              — a high-effect gate opened; carries the receipts.
+   * - `'approved'`         — a human's ALLOW. Single-use: one yes, one fire.
+   * - `'always-approved'`  — a human's ALWAYS ALLOW: a scoped standing policy,
+   *   never consumed, and deliberately NOT bound to an input (see `scopeInstance`).
+   * - `'declined'`         — a no. From the human's own door it is terminal for
+   *   that askId; relayed by an agent it is a report and closes nothing.
+   * - `'used'`             — an approval was SPENT by a fire (`transitionId`).
+   * - `'refused'`          — a crossing attempt with no valid yes (`rejectionReason`).
+   * - `'revoked'`          — a standing grant was withdrawn.
+   */
+  kind: 'ask' | 'approved' | 'always-approved' | 'declined' | 'used' | 'refused' | 'revoked';
+  /**
+   * Links the ask → decision → fire rows of one high-effect gate. On an
+   * `'always-approved'` row it is that policy's own id ('grant#1'), carried by
+   * every `'used'` row the grant authorizes — so the journal shows how many times
+   * a standing yes was exercised.
+   */
   askId: string;
   affordanceId: string;
   /** Epoch milliseconds when the row was recorded. */
@@ -1002,15 +1196,66 @@ export interface ConfirmRecord {
   // 'ask' rows -------------------------------------------------------------
   /** The receipts that rode this ask (present on 'ask' rows). */
   receipts?: ConfirmReceipts;
-  // 'approved' rows --------------------------------------------------------
-  /** The TransitionRecord.id of the fire this approval authorized. */
+  // 'approved' / 'used' rows -----------------------------------------------
+  /**
+   * The TransitionRecord.id of the fire this row is about. Present on `'used'`
+   * rows, and on a `'approved'` row written by the pre-enforcement default path
+   * (where the fire IS what closed the ask). Deliberately ABSENT on an
+   * `approveAsk` row: no fire has happened yet — that is the whole change.
+   */
   transitionId?: string;
   // 'approved' / 'declined' rows -------------------------------------------
   /** Who answered — an operator id, an email, your host's label. Optional. */
   by?: string;
   /** Free-text note (length-capped). On a decline, typically why. */
   note?: string;
+  // enforced rows (requireHumanApproval) -----------------------------------
+  /**
+   * Present (true) on every row the enforcement path wrote — so an auditor can
+   * separate rows the gate will honour from the pre-enforcement journal's rows,
+   * without inferring it from a kind.
+   */
+  enforced?: true;
+  /** An ALWAYS ALLOW scoped to one row of a list (an order id). Absent = any instance. */
+  scopeInstance?: string;
+  /** When a standing grant stops authorizing (epoch ms). Absent = no time limit. */
+  expiresAt?: number;
+  /**
+   * The STATE version when the decision was recorded — the anchor for
+   * {@link HumanApprovalPolicy.refuseWhenWorldMoved}. Stamped always; enforced
+   * only when asked.
+   */
+  stateVersion?: number;
+  /** Why a crossing attempt was refused (`'refused'` rows) — joins the gap ledger. */
+  rejectionReason?: 'APPROVAL_REQUIRED' | 'APPROVAL_SPENT' | 'APPROVAL_MISMATCH' | 'APPROVAL_STALE' | 'APPROVAL_DECLINED';
 }
+
+/**
+ * What one of the human-side approval doors did — {@link Session.approveAsk},
+ * {@link Session.declineAsk}, {@link Session.alwaysApprove},
+ * {@link Session.revokeAlwaysApprove}.
+ *
+ * A typed REFUSAL rather than a throw, because these run inside click handlers: a
+ * button that throws takes the page down, while a button that reports gets to
+ * show the person what went wrong.
+ */
+export type ApprovalResult =
+  | { ok: true; record: ConfirmRecord }
+  | {
+      ok: false;
+      /**
+       * - `'UNKNOWN_ASK'`          — no such ask (or no such standing grant).
+       * - `'ASK_ALREADY_ANSWERED'` — a decision is already recorded; nothing here
+       *   ever overwrites one.
+       * - `'NEEDS_DECIDER'`        — `by` is required: an approval whose decider is
+       *   unknown is the very claim-as-fact this closes.
+       * - `'NOT_ENFORCED'`         — the session was not created with
+       *   requireHumanApproval, so this row would authorize nothing.
+       */
+      reason: 'UNKNOWN_ASK' | 'ASK_ALREADY_ANSWERED' | 'NEEDS_DECIDER' | 'NOT_ENFORCED';
+      /** One authored sentence naming the cure. */
+      explanation: string;
+    };
 
 // ---------------------------------------------------------------------------
 // Skill frames — on-demand disclosure (serve skills; expand tools on commit)

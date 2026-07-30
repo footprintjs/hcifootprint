@@ -3,8 +3,19 @@ title: Confirms & receipts
 description: A needs-confirm ask carries receipts — what will happen, why it's fireable, where the human is, and the recent trail — and both answers leave an auditable record.
 ---
 
-High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate and are
-**never auto-crossed**. The agent must ask the human, then call again with `confirm: true`.
+High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate. The agent
+must show the human the receipts, then call again with `confirm: true`.
+
+<Callout type="warn" title="What `confirm: true` is, and what it is not">
+By default `confirm: true` is the **agent asking to proceed** — not the human's answer. Nothing
+ties it to a recorded decision, so a model that skips the ask is indistinguishable from one that
+got a yes; sent on the very first call it crosses the gate and the journal stays empty. Approve is
+a recorded decision plus a convenience message — honest for a demo, but we would not describe it
+as enforced HITL. To make it enforced, create the session with
+[`requireHumanApproval`](#requirehumanapproval--make-approve-enforceable): a confirmed fire then
+carries a pointer to a decision a person recorded, and the library refuses anything it cannot
+prove.
+</Callout>
 
 ## The ask carries receipts
 
@@ -38,6 +49,112 @@ authored claim (`does` + declared `writes`), honesty-tagged like every claim in 
 streams rows to your audit sink live. This journal is deliberately SEPARATE from the
 [gap ledger](doc:sessions#the-gap-ledger): a gated action is consented capability, not unmet
 demand.
+
+`ConfirmRecord.kind` **grows**: `'ask' | 'approved' | 'declined'` shipped first, and enforcement
+adds `'always-approved'`, `'used'`, `'refused'` and `'revoked'` — four facts the library
+previously could not record. A durable grant is a new *kind* rather than a field on `'approved'`
+precisely so a 0.6-era filter cannot miscount it as a one-time yes. Read the kinds you know and
+let the rest fall through.
+
+## `requireHumanApproval` — make Approve enforceable
+
+Opt in at the session, and a high-effect **agent** fire is refused unless it carries the
+`askId` of a journal row a **person's own control** recorded. The proof stops being a boolean the
+model sets and becomes a pointer to a decision the app wrote down.
+
+```ts
+const session = map.createSession({ node: 'checkout', requireHumanApproval: true });
+
+// Your Approve button — a channel the model does not write.
+onApproveClick(() => session.approveAsk(askId, { by: 'alice@ops' }));
+onDeclineClick(() => session.declineAsk(askId, { by: 'alice@ops' }));
+```
+
+`by` is **required**: an approval whose decider is unknown is the claim-as-fact this closes.
+There is deliberately **no `principal` argument** — an approval must be one thing only, so the
+door stamps `'user'` and there is nothing to lie with. The doors return a typed
+`ApprovalResult` rather than throwing, because they run inside click handlers, and they answer
+`NOT_ENFORCED` on a session without the option: a row nothing reads would authorize nothing.
+
+**One yes, one fire.** An ALLOW is single-use. The fire that spends it appends a `'used'` row,
+so an auditor can count approvals against executions, and a second fire under the same `askId`
+is refused `APPROVAL_SPENT`.
+
+**The approval binds to the receipts.** A human approved the action *and the input on the card*
+(`receipts.willUse`), so a fire under that `askId` carrying anything else is refused
+`APPROVAL_MISMATCH`. Identity is exact structural equality over a canonical, key-order-independent
+rendering; anything the receipts cannot hold faithfully — a `Map`, a `Date`, a `BigInt`, a cycle,
+a value past the snapshot caps — is refused rather than guessed. This is the one place the library
+declines toward REFUSE: elsewhere an unjudgeable thing is passed, because a wrong rejection has no
+appeal; here an unprovable match is not a match.
+
+**ALWAYS ALLOW is a policy row, not an approval.** `session.alwaysApprove(id, { by, instance?,
+expiresInMs? })` records a standing grant, scoped to the action (and optionally one instance) and
+deliberately **not** to the input — a grant bound to one input would be indistinguishable from a
+single ALLOW. Tell the human the truth in those words: *"always allow Add to cart — any item, for
+the next hour."* Every fire it authorizes still lands a `'used'` row, so the exercise count is
+visible, and `session.revokeAlwaysApprove(id, { by })` withdraws it immediately.
+
+**Staleness is recorded always, enforced only when asked.** Every enforced row carries its
+timestamp and the `stateVersion` the human decided at. Pass a policy to act on them:
+
+```ts
+requireHumanApproval: { expiresAfterMs: 120_000, refuseWhenWorldMoved: true }
+```
+
+Both default off, because the threshold is a product decision the library cannot make for you —
+approving a refund may legitimately take four minutes, and in a live-tapped app the state version
+moves on almost every report.
+
+### A decline is as unforgeable as an approval
+
+An agent must not be able to manufacture a no, and — worse — must not be able to **bury** a
+pending ask by declining it so the human's card disappears. So under enforcement a relayed
+`decline: true` (principal `'agent'`) is recorded as **the agent's report** and closes nothing:
+the ask stays open, `groundTruth()` keeps saying *"Awaiting the human's decision"*, and the result
+says so. A human's no arrives through `declineAsk` (or `declineConfirm` with exactly one card
+open) and is terminal for that `askId` for the session's life. A re-ask after a no mints a **new**
+`askId`, so an agent grinding a person toward yes leaves a countable trail.
+
+### Every refusal, and what it teaches
+
+| Refusal | What happened | The next move it names |
+| --- | --- | --- |
+| `APPROVAL_REQUIRED` | No recorded approval authorizes this | Show the receipts and wait for the person |
+| `APPROVAL_SPENT` | That yes was already used | Ask again — and say it is the second time |
+| `APPROVAL_MISMATCH` | A different action, input or instance (`differs`) | Ask again for THIS input |
+| `APPROVAL_STALE` | Too old, or the state moved after the yes | Show the current receipts and re-ask |
+| `APPROVAL_DECLINED` | The human said no | Tell them it was not done; do not re-ask the same thing |
+
+Every refused crossing lands in **both** ledgers — a `'fire-rejected'` gap row, so
+[`groundTruth()`](doc:grounding) says *"did NOT happen … was refused: APPROVAL_REQUIRED"*, and a
+`'refused'` confirm row, so the journal an auditor points at tells the whole story. The rows are
+never deduplicated (a repeated forgery is new information); only the dev warning is.
+At the served boundary `APPROVAL_REQUIRED` comes back as `judgment: 'needs-confirm'` with fresh
+receipts — enforcement is not a wall the agent bounces off, it is the ask, again, honestly.
+
+<Callout type="warn" title="What this does NOT prove">
+It proves that a row of the right kind, from the right principal, for this action and this input,
+exists and has not been spent. It does **not** prove that a particular person authenticated —
+`by` is a string your host supplies — and it cannot verify the property it depends on: that your
+app keeps `approveAsk` somewhere the model cannot reach. The option moves approval onto a channel
+the model does not write *by a convention you must uphold*, not by a proof we can offer.
+
+The gate keys off the **principal**, not the door: a direct in-process
+`session.fire(id, { source: 'agent' })` **is** gated. What is exempt is the app-self-report tier —
+`source: 'user'`, `source: 'system'`, and the record-only sensor (`invoke: false`) — because that
+motion really happened, and refusing it would be the library denying reality. So, in the same
+voice the never-trap gate already uses: **hand a model a port constructed with `source: 'user'`
+and you have disarmed this gate.** Ask ids are also per-session counters, so an `askId` from one
+session never resolves in another — an audit sink must key on `(session, askId)`.
+</Callout>
+
+<Callout title="`willUse` puts the input in the receipts pack">
+Binding the approval to what was shown means the input now rides the receipts — to the model, to
+the human, and into the journal export. That is the point of it, and it means an input carrying a
+secret is in the pack. `redactedKeys` governs state keys, never payloads, exactly as it never
+governed `TransitionRecord.payload`.
+</Callout>
 
 ## Two ways to run the approval
 

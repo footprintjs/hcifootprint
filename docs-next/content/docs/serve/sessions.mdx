@@ -248,7 +248,17 @@ wherever it already knows: `enabled:` at registration, `handle.setEnabled(…)`,
 `when` HIDES a control; a false `enabledWhen` **serves** it carrying `enabled: false` on
 `available().edges` and refuses execution fires — the full table is on
 [Guards](doc:guards#enabledwhen--the-other-question). High-effect steps return
-`judgment: 'needs-confirm'` and never auto-cross — see [Receipts](doc:receipts).
+`judgment: 'needs-confirm'` — and by default `confirm: true` is the agent's own request to
+proceed, tied to no recorded decision. Create the session with
+[`requireHumanApproval`](doc:receipts#requirehumanapproval--make-approve-enforceable) to refuse a
+crossing the library cannot prove a person authorized; that adds five more typed refusals —
+`APPROVAL_REQUIRED`, `APPROVAL_SPENT`, `APPROVAL_MISMATCH`, `APPROVAL_STALE`,
+`APPROVAL_DECLINED` — see [Receipts](doc:receipts).
+
+`FireResult`'s refusal set **grows** the same way the gap ledger's kinds do: a new reason is
+always a new fact, never an old one relabelled. Read the reasons you know and let the rest fall
+through as "refused, and here is the word" — an exhaustive `never` check over today's set is the
+one consumer shape a future reason stops compiling.
 
 ## The gap ledger
 

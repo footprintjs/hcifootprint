@@ -36,6 +36,36 @@ declared writes observed?). They disagree honestly — a tapless handler
 completes `'performed'` with `effectVerified: 'unobservable'` — and neither is
 averaged into the other.
 
+## approval-gate.ts + same-input.ts — an approval we cannot prove is not an approval
+
+`confirm: true` was the AGENT asserting that a human approved: a boolean in the
+model's own tool arguments, tied to no recorded decision, so a model that never
+asked was indistinguishable from one that got a yes. Worse, nothing in the
+library could RECORD a human approval — the only writer of an `'approved'` row
+was `fire()` itself, stamping the firing principal on the row that claimed to
+authorize it.
+
+`SessionOptions.requireHumanApproval` (opt-in, absent by default) closes it in
+two halves. The missing half first: `approveAsk` / `declineAsk` /
+`alwaysApprove` / `revokeAlwaysApprove` are human-side doors that stamp
+`principal: 'user'` with **no argument to override it**, and require `by`. Then
+the gate — one insertion in base `fire()`, after the capability refusals and
+before the tour arm, keyed on the PRINCIPAL rather than the door, so a direct
+in-process agent fire is gated while the app-self-report tier is not.
+
+`approval-gate.ts` is a PURE function taking the open asks, a row lookup, the
+standing grants, the clock and the policy — no `Session` import — because the
+verdict has ten branches and every one is something somebody will try; testing
+it without a session is what makes each mutation proof three lines.
+
+`same-input.ts` answers "is this the input the human was shown?" and is the one
+module in the library that declines toward **REFUSE**: `payload-shape.ts` passes
+what it cannot judge because a wrong rejection has no appeal, while an
+unprovable match on a security boundary is not a match. Same stance, opposite
+default; the reason is which mistake is unrecoverable. Values the receipts
+snapshot cannot hold faithfully — a `Map`, a `Date`, a cycle, anything past the
+caps — are `'cannot-judge'`, and the gate refuses rather than guessing.
+
 ## payload-shape.ts — the input contract, enforced
 
 A declared schema reached the model but not the door: `.safeParse`/`.parse`

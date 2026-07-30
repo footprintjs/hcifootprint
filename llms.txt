@@ -121,10 +121,15 @@ Extends the base `SessionOptions` (source: `src/atom/types.ts`) plus two tree-on
   honest no-ops (`executed: false` + `materialized: false` on the result, an `unmaterialized-fire`
   gap row, `materialized: false` stamped on every served edge) instead of the default
   `NOT_MATERIALIZED` rejection. For guide/tour/plan flows. Default false (fail-closed).
+- `requireHumanApproval?: boolean | { expiresAfterMs?: number; refuseWhenWorldMoved?: boolean }` —
+  refuse a high-effect AGENT fire unless it carries `FireOptions.askId`, a pointer to a confirm-journal
+  row a person's own control recorded (`approveAsk`), or a standing `alwaysApprove` grant. Without it
+  `confirm: true` is the agent's own request to proceed and authorizes nothing by itself. Default absent
+  (fail-closed, byte-identical). Both staleness rules default off — the stamps are always recorded.
 - `dormantGraceMs?: number` — how long a registration outside the router-confirmed page may
   persist before drift telemetry fires. Default 3000ms.
-- `now?: () => number` — the clock the grace timers read (epoch ms). Default `Date.now`. Inject a
-  controllable clock for deterministic staleness tests.
+- `now?: () => number` — the clock the grace timers and the confirm chain read (epoch ms). Default
+  `Date.now`. Inject a controllable clock for deterministic staleness tests.
 
 ### `registerToolGroup(path, opts?)` — `RegisterToolGroupOptions`
 
@@ -229,6 +234,18 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   `confirms()` / `onConfirm(row => ...)` — the auditable ask→decision→fire chain (a confirmed `fire()`
   auto-closes the ask as `approved` and stamps `TransitionRecord.askId`). SEPARATE from the gap ledger:
   a gated action is consented capability, not unmet demand.
+- Enforced approval (opt-in, `requireHumanApproval`): `confirmAsk(id, {source?, input?, instance?})` puts
+  the input on the card (`receipts.willUse`); the human's own control calls `approveAsk(askId, {by})` /
+  `declineAsk(askId, {by})` / `alwaysApprove(id, {by, instance?, expiresInMs?})` /
+  `revokeAlwaysApprove(id, {by})`, all returning a typed `ApprovalResult` (never throwing — they run in
+  click handlers) and all stamping `principal: 'user'` with no argument to override it. A high-effect
+  agent fire then needs `fire(id, {askId})`; refusals are `APPROVAL_REQUIRED` / `_SPENT` / `_MISMATCH`
+  (with `differs`) / `_STALE` / `_DECLINED`, each landing BOTH a `'fire-rejected'` gap row and a
+  `'refused'` confirm row. `ConfirmRecord.kind` grows by `'always-approved' | 'used' | 'refused' |
+  'revoked'`. One yes = one fire (a replay is `APPROVAL_SPENT`); an ALWAYS ALLOW is scoped to the action,
+  never to the input, and every exercise lands a `'used'` row. The gate keys on the PRINCIPAL: a direct
+  `session.fire(id, {source:'agent'})` is gated; `source: 'user'`/`'system'` and the record-only sensor
+  (`invoke:false`) are the app-self-report tier and are not.
 
 ---
 
@@ -423,8 +440,10 @@ unverified hop instead of silently diverging.
 `handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`), `NOT_MATERIALIZED` (declared but
 unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with a
 tool group, or create the session with `allowUnmaterializedFires` for read-only touring). Every
-refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` and never auto-cross — ask the human, then
-call again with `confirm: true`.
+refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` — ask the human, then
+call again with `confirm: true`. By default that `confirm: true` is the agent's own request to proceed and is tied to no
+recorded decision (an agent that never asks crosses on its first call); create the session with `requireHumanApproval`
+and a crossing needs a pointer to an approval the app recorded from a person, or it is refused `APPROVAL_REQUIRED`.
 
 ---
 
