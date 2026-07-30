@@ -1,94 +1,14 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   hcifootprint homepage — brand tokens + page styles.
+   hcifootprint homepage — the page's own sections.
 
-   ONE tokens block owns every colour on this page; nothing below the block
-   contains a colour literal. Dark is the base; light overrides. The visitor's
-   theme resolves in three layers, weakest first:
-     1. no JS at all      → prefers-color-scheme
-     2. site theme class  → html.light / html.dark (set pre-paint in layout.jsx)
-   The site's existing ThemeToggle writes that class, so a returning visitor
-   keeps their choice and prefers-color-scheme only supplies the first guess.
-
-   Fonts are self-hosted from /fonts (latin subsets). No third-party requests.
+   The brand tokens, the self-hosted faces and the shared bar are NOT here: they
+   live in globals.css, which the root layout imports, so /story/ is painted from
+   the same block and wears the same header. Nothing below contains a colour
+   literal.
    ───────────────────────────────────────────────────────────────────────────── */
 
-:root {
-  --hp-bg: #0b1113;
-  --hp-panel: #121a1d;
-  --hp-ink: #e6ecea;
-  --hp-ink2: #8a9a9a;
-  --hp-rule: #253134;
-  --hp-grid: #1d2b30;
-  --hp-human: #e8a63c;
-  --hp-agent: #4cbacf;
-  --hp-refuse: #ce6350;
-  --hp-shadow: rgba(0, 0, 0, .62);
-}
-
-@media (prefers-color-scheme: light) {
-  html:not(.dark) {
-    --hp-bg: #e9edec;
-    --hp-panel: #f7f9f8;
-    --hp-ink: #101819;
-    --hp-ink2: #5a6a6b;
-    --hp-rule: #c6cfce;
-    --hp-grid: #d8e0df;
-    --hp-human: #a96a12;
-    --hp-agent: #14707f;
-    --hp-refuse: #a63c2b;
-    --hp-shadow: rgba(16, 24, 25, .18);
-  }
-}
-
-html.light {
-  --hp-bg: #e9edec;
-  --hp-panel: #f7f9f8;
-  --hp-ink: #101819;
-  --hp-ink2: #5a6a6b;
-  --hp-rule: #c6cfce;
-  --hp-grid: #d8e0df;
-  --hp-human: #a96a12;
-  --hp-agent: #14707f;
-  --hp-refuse: #a63c2b;
-  --hp-shadow: rgba(16, 24, 25, .18);
-}
-
-html.dark {
-  --hp-bg: #0b1113;
-  --hp-panel: #121a1d;
-  --hp-ink: #e6ecea;
-  --hp-ink2: #8a9a9a;
-  --hp-rule: #253134;
-  --hp-grid: #1d2b30;
-  --hp-human: #e8a63c;
-  --hp-agent: #4cbacf;
-  --hp-refuse: #ce6350;
-  --hp-shadow: rgba(0, 0, 0, .62);
-}
-
-/* the gate reads as a human decision point, so it borrows the human hue */
-:root, html.light, html.dark { --hp-gate: var(--hp-human); }
-
-/* ── self-hosted faces ─────────────────────────────────────────────────────── */
-@font-face {
-  font-family: 'Archivo hp';
-  font-style: normal;
-  font-weight: 100 900;
-  font-stretch: 62% 125%;
-  font-display: swap;
-  src: url('../fonts/archivo-var.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face { font-family: 'Plex Mono hp'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/plex-mono-400.woff2') format('woff2'); }
-@font-face { font-family: 'Plex Mono hp'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/plex-mono-500.woff2') format('woff2'); }
-@font-face { font-family: 'Plex Mono hp'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/plex-mono-600.woff2') format('woff2'); }
-@font-face { font-family: 'Plex Sans hp'; font-style: normal; font-weight: 400; font-display: swap; src: url('../fonts/plex-sans-400.woff2') format('woff2'); }
-@font-face { font-family: 'Plex Sans hp'; font-style: normal; font-weight: 500; font-display: swap; src: url('../fonts/plex-sans-500.woff2') format('woff2'); }
-@font-face { font-family: 'Plex Sans hp'; font-style: normal; font-weight: 600; font-display: swap; src: url('../fonts/plex-sans-600.woff2') format('woff2'); }
-
 .hp {
-  --mono: 'Plex Mono hp', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --sans: 'Plex Sans hp', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* the reading faces come from globals.css; the display face is this page's own */
   --display: 'Archivo hp', 'Plex Sans hp', system-ui, sans-serif;
   background: var(--hp-bg);
   color: var(--hp-ink);
@@ -97,7 +17,6 @@ html.dark {
   min-height: 100vh;
   text-wrap: pretty;
 }
-.hp * { box-sizing: border-box; }
 .hp a { color: var(--hp-agent); text-decoration: none; }
 .hp a:hover { color: var(--hp-human); }
 .hp :where(a, button):focus-visible { outline: 2px solid var(--hp-agent); outline-offset: 3px; }
@@ -105,31 +24,8 @@ html.dark {
 @keyframes hpRise { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
 @keyframes hpFade { from { opacity: 0 } to { opacity: 1 } }
 
-/* ── header ───────────────────────────────────────────────────────────────── */
-.hp-hd {
-  position: sticky; top: 0; z-index: 40; display: flex; align-items: center;
-  justify-content: space-between; gap: 20px; height: 64px;
-  padding: 0 clamp(18px, 4vw, 56px);
-  background: var(--hp-bg); border-bottom: 1px solid var(--hp-rule);
-}
-.hp-hd-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.hp-wordmark { font-family: var(--mono); font-size: 15px; font-weight: 500; letter-spacing: -.02em; color: var(--hp-ink); text-decoration: none; }
-.hp-wordmark:hover { color: var(--hp-ink); }
-.hp-ver { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--hp-ink2); border: 1px solid var(--hp-rule); padding: 3px 6px; white-space: nowrap; }
-.hp-nav { display: flex; align-items: center; gap: clamp(12px, 2vw, 28px); font-family: var(--mono); font-size: 12.5px; letter-spacing: .04em; }
-.hp-nav a { color: var(--hp-ink2); }
-.hp-nav a:hover { color: var(--hp-ink); }
-.hp-nav a.is-out { color: var(--hp-ink); border-bottom: 1px solid var(--hp-rule); padding-bottom: 2px; }
-.hp-theme {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; padding: 0; cursor: pointer;
-  background: transparent; border: 1px solid var(--hp-rule); color: var(--hp-ink2);
-}
-.hp-theme:hover { color: var(--hp-ink); border-color: var(--hp-ink2); }
-.hp-theme svg { width: 15px; height: 15px; display: block; }
-
 /* ── hero ─────────────────────────────────────────────────────────────────── */
-.hp-hero { position: relative; padding: clamp(30px, 5vh, 64px) clamp(18px, 4vw, 56px) clamp(40px, 8vh, 110px); overflow: hidden; }
+.hp-hero { position: relative; padding: clamp(30px, 5vh, 64px) var(--gutter) clamp(40px, 8vh, 110px); overflow: hidden; }
 .hp-hero-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: clamp(22px, 4vw, 64px); justify-content: space-between; }
 .hp-hero-copy { flex: 1 1 460px; max-width: 760px; animation: hpRise .8s ease both; }
 .hp-eyebrow { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .2em; color: var(--hp-ink2); margin-bottom: clamp(20px, 3vh, 34px); }
@@ -173,9 +69,40 @@ html.dark {
 .hp-hero-caption span[data-tone='ink'] { color: var(--hp-ink); }
 .hp-scrollcue { display: flex; justify-content: center; margin-top: clamp(14px, 2vh, 26px); font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--hp-ink2); text-align: center; }
 
+/* ── the hero beside the headline ─────────────────────────────────────────────
+   Stacked, the 13.6s relay begins below the fold on a laptop: the reader has to
+   go looking for the thing the page is about. From 1200px up there is room for
+   both — that is the width at which the copy column still holds its 46ch of prose
+   with the scene next to it — so the hero becomes two columns, copy left, scene
+   right, and the object is in the first viewport.
+
+   The scene is NOT re-scaled by a second mechanism: --hscale already measures the
+   stage's own width and fits the 820px plate to it (HomeClient.measure), so
+   handing the stage a narrower column IS the resize. Below 1200px none of this
+   applies and the page stacks as before — text first, then the hero. */
+@media (min-width: 1200px) {
+  .hp-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(28px, 3.2vw, 64px);
+    align-items: start;
+  }
+  .hp-hero-row, .hp-hero-scene { min-width: 0; }
+  .hp-scrollcue { grid-column: 1 / -1; }
+  /* the wordmark is sized against the viewport, and the viewport is no longer
+     what constrains it. Twelve monospace glyphs at 0.6em advance, less the
+     -.055em tracking, need ~6.6em — so anything up to 15cqw of the copy column
+     fits; the cap keeps it from growing past the size it has when stacked. */
+  .hp-hero-row { container-type: inline-size; }
+  .hp-h1 { font-size: min(104px, 14cqw); }
+  /* the annotation list is a full-width line under the copy now that the copy
+     has a column of its own, rather than a margin note beside it */
+  .hp-hero-side { flex: 1 1 100%; text-align: left; padding-top: 0; }
+}
+
 /* ── the sticky map + scene copy ──────────────────────────────────────────── */
-.hp-story { display: flex; flex-wrap: wrap; align-items: flex-start; gap: clamp(24px, 3.5vw, 64px); padding: 0 clamp(18px, 4vw, 56px); border-top: 1px solid var(--hp-rule); }
-.hp-mapcol { flex: 1 1 620px; position: sticky; top: 64px; z-index: 5; display: flex; align-items: flex-start; justify-content: center; padding: clamp(10px, 1.6vh, 24px) 0; min-width: 0; background: var(--hp-bg); }
+.hp-story { display: flex; flex-wrap: wrap; align-items: flex-start; gap: clamp(24px, 3.5vw, 64px); padding: 0 var(--gutter); border-top: 1px solid var(--hp-rule); }
+.hp-mapcol { flex: 1 1 620px; position: sticky; top: var(--hd-h); z-index: 5; display: flex; align-items: flex-start; justify-content: center; padding: clamp(10px, 1.6vh, 24px) 0; min-width: 0; background: var(--hp-bg); }
 .hp-scenes { flex: 1 1 380px; max-width: 560px; min-width: 0; }
 .hp-scene { min-height: 86vh; display: flex; flex-direction: column; justify-content: var(--blockJustify, center); gap: 16px; padding: var(--blockPad, 6vh) 0 6vh; }
 .hp-scene:first-child { padding-top: var(--blockPadFirst, 10vh); }
@@ -196,7 +123,7 @@ html.dark {
 }
 
 /* ── the integration panel ────────────────────────────────────────────────── */
-.hp-code-sec { background: var(--hp-panel); border-top: 1px solid var(--hp-rule); padding: clamp(48px, 9vh, 110px) clamp(18px, 4vw, 56px); }
+.hp-code-sec { background: var(--hp-panel); border-top: 1px solid var(--hp-rule); padding: clamp(48px, 9vh, 110px) var(--gutter); }
 .hp-wrap { max-width: 1180px; margin: 0 auto; }
 .hp-code-row { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: clamp(28px, 4vw, 72px); align-items: flex-start; }
 .hp-code-copy { flex: 1 1 320px; max-width: 440px; }
@@ -214,7 +141,7 @@ html.dark {
 .hp-code .cm { color: var(--hp-ink2); opacity: .8; }
 
 /* ── numbers ──────────────────────────────────────────────────────────────── */
-.hp-num-sec { padding: clamp(48px, 9vh, 110px) clamp(18px, 4vw, 56px); border-top: 1px solid var(--hp-rule); }
+.hp-num-sec { padding: clamp(48px, 9vh, 110px) var(--gutter); border-top: 1px solid var(--hp-rule); }
 /* three measured facts, three equal columns — a grid rather than a wrapping
    flex row, so the middle card can never end up alone on a second line */
 .hp-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
@@ -235,7 +162,7 @@ html.dark {
 .hp-creed { font-family: var(--mono); font-size: 11.5px; color: var(--hp-ink2); margin-left: auto; }
 
 /* ── footer ───────────────────────────────────────────────────────────────── */
-.hp-ft { background: var(--hp-panel); border-top: 1px solid var(--hp-rule); padding: clamp(30px, 5vh, 52px) clamp(18px, 4vw, 56px); }
+.hp-ft { background: var(--hp-panel); border-top: 1px solid var(--hp-rule); padding: clamp(30px, 5vh, 52px) var(--gutter); }
 .hp-ft-row { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 28px; justify-content: space-between; align-items: flex-end; font-family: var(--mono); font-size: 12px; color: var(--hp-ink2); }
 .hp-ft-id { display: flex; flex-direction: column; gap: 8px; }
 .hp-ft-id b { font-size: 15px; font-weight: 500; letter-spacing: -.02em; color: var(--hp-ink); }
@@ -255,8 +182,16 @@ html.dark {
    end frame. To freeze the hero we do not need JS timing: pushing --hd past the
    end of the timeline lands every animation on its last frame, and --hpPlay
    pauses whatever is still in flight. That is why reduced-motion and mobile get
-   a correct still image on the very first paint, with no flash of movement. */
-.hs-a { animation-play-state: var(--hpPlay, running); }
+   a correct still image on the very first paint, with no flash of movement.
+
+   !important is load-bearing here, not decoration. Every animated element in the
+   hero declares `animation:` as an INLINE SHORTHAND, and a shorthand resets every
+   longhand it does not mention — animation-play-state back to `running` — from
+   the inline style, which already outranks a class rule. Without !important this
+   line was a no-op: --hpPlay resolved to `paused` and the animations ran anyway.
+   An author !important beats a non-important inline declaration, which is what
+   makes the freeze and the hold-until-seen gate actually hold. */
+.hs-a { animation-play-state: var(--hpPlay, running) !important; }
 
 @keyframes hsPlateIn { from { opacity: 0; transform: translate3d(0,0,-80px) } to { opacity: 1; transform: translate3d(0,0,0) } }
 @keyframes hsPage { from { opacity: 0; transform: translate3d(0,26px,40px) } to { opacity: .96; transform: translate3d(0,0,90px) } }
@@ -361,11 +296,6 @@ html.dark {
   .hp-hero-stage, .hp-hero-caption { --hd: -20s; --hpPlay: paused; }
 }
 
-/* the toggle shows the theme it will switch TO */
-.hp-theme .i-sun { display: none; }
-.hp-theme .i-moon { display: block; }
-html.dark .hp-theme .i-sun { display: block; }
-html.dark .hp-theme .i-moon { display: none; }
 .hp-num p .mono { font-family: var(--mono); }
 
 /* held at frame 0 until the object is first scrolled into view (see HomeClient).
@@ -380,14 +310,3 @@ html.dark .hp-theme .i-moon { display: none; }
 /* the agent's step markers are diamonds: the 45° turn has to live in the
    keyframe, because an animated transform replaces the element's own */
 @keyframes dcPopRot { from { opacity: 0; transform: rotate(45deg) scale(.2) } to { opacity: 1; transform: rotate(45deg) scale(1) } }
-
-/* the header carries five things; below ~620px only the two destinations that
-   leave the page survive, so nothing overlaps at 390px */
-@media (max-width: 620px) {
-  .hp-nav .is-sec { display: none; }
-  .hp-hd { gap: 10px; }
-  .hp-hd-brand { gap: 8px; }
-}
-@media (max-width: 400px) {
-  .hp-ver { display: none; }
-}

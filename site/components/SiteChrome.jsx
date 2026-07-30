@@ -1,27 +1,15 @@
-import { ThemeToggle } from 'storydeck';
+import SiteHeader from './SiteHeader';
 import { BASE, AUTHOR, AUTHOR_URL } from '../site.config';
+import { version } from '../content/agent-map';
 
-/* The site's shared header/footer.
- *
- * These used to live in the root layout, wrapping every page. The homepage
- * brings its own chrome (its header and footer are part of the design), so the
- * shared chrome moved here and is opted into by the pages that want it —
- * today that is /story/. */
+/* The shared header/footer, opted into by the pages that want it — today that
+ * is /story/. The homepage builds its own footer (it carries the page's own
+ * sign-off) but wears the SAME header, from <SiteHeader>. */
 export function SiteChrome({ children }) {
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
-      <header className="site-hd">
-        <a className="brand" href={`${BASE}/`}>
-          <img src={`${BASE}/logo-foot.png`} alt="" width={26} height={26} />
-          <span>H<span className="a">A</span>CI&nbsp;Footprint</span>
-        </a>
-        <span className="sp" />
-        <a className="nav" href="https://github.com/footprintjs/hcifootprint">GitHub</a>
-        <a className="nav" href="https://www.npmjs.com/package/hcifootprint">npm</a>
-        <a className="nav" href="https://footprintjs.github.io/">footprintjs</a>
-        <ThemeToggle />
-      </header>
+      <SiteHeader version={version} here={`${BASE}/story/`} />
       {children}
       <footer className="site-ft">
         <span className="built">Built by <a href={AUTHOR_URL}>{AUTHOR}</a></span> · open source ·{' '}

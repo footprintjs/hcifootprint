@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import HeroScene, { HeroCaption } from './HeroScene';
 import MapCanvas from './MapCanvas';
+import SiteHeader from './SiteHeader';
 import { BASE } from '../site.config';
 
 const GITHUB = 'https://github.com/footprintjs/hcifootprint';
@@ -216,36 +217,9 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
     copyTimer.current = setTimeout(() => setCopied(false), 1600);
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    const el = document.documentElement;
-    const next = el.classList.contains('dark') ? 'light' : 'dark';
-    el.classList.remove('dark', 'light');
-    el.classList.add(next);
-    try { localStorage.setItem('theme', next); } catch { /* private mode */ }
-  }, []);
-
   return (
     <div className="hp" ref={rootRef}>
-      <header className="hp-hd">
-        <div className="hp-hd-brand">
-          <a className="hp-wordmark" href={`${BASE}/`}>hcifootprint</a>
-          <span className="hp-ver">{version}</span>
-        </div>
-        <nav className="hp-nav">
-          <a href={DOCS}>docs</a>
-          <a className="is-sec" href="#integration">guide</a>
-          <a className="is-sec" href="#gaps">honesty</a>
-          <a className="is-out" href={GITHUB}>github ↗</a>
-          <button type="button" className="hp-theme" onClick={toggleTheme} aria-label="Switch colour theme">
-            <svg className="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-            </svg>
-            <svg className="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-            </svg>
-          </button>
-        </nav>
-      </header>
+      <SiteHeader version={version} here={`${BASE}/`} />
 
       <section className="hp-hero" data-scene="0" id="top">
         <div className="hp-hero-row">
@@ -276,15 +250,21 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
             <div className="gate">one gate</div>
           </div>
         </div>
-        <div
-          className="hp-hero-stage"
-          ref={heroRef}
-          style={{ '--hscale': hscale, height: `${Math.round(560 * hscale)}px` }}
-        >
-          <HeroScene />
+        {/* Stage and caption travel together — under the headline when the page
+            stacks, beside it from 1200px up (see home.css) — and stay SIBLINGS,
+            which is what lets the hold-until-seen switch on the stage reach the
+            words. */}
+        <div className="hp-hero-scene">
+          <div
+            className="hp-hero-stage"
+            ref={heroRef}
+            style={{ '--hscale': hscale, height: `${Math.round(560 * hscale)}px` }}
+          >
+            <HeroScene />
+          </div>
+          {/* the relay in words, on the relay's own clock (see HeroScene) */}
+          <HeroCaption />
         </div>
-        {/* the relay in words, on the relay's own clock (see HeroScene) */}
-        <HeroCaption />
         <div className="hp-scrollcue">↓ SCROLL — THE OBJECT FLATTENS INTO THE MAP</div>
       </section>
 

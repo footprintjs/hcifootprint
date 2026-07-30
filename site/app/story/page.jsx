@@ -34,7 +34,8 @@ export default function Story() {
     <SiteChrome>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <style dangerouslySetInnerHTML={{ __html: post.deckCssScoped }} />
-      <PostView post={post} />
+      {/* the page carries a deck — see the .deck-page block in globals.css */}
+      <div className="deck-page"><PostView post={post} /></div>
     </SiteChrome>
   );
 }
