@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.0] - 2026-07-30
+
+**An approval the library cannot prove is not an approval** — the sentence this release is
+measured by. A security release, entirely **opt-in**: without `requireHumanApproval` the
+behaviour is byte-identical to 0.6.0 (one field excepted, named below), so a 0.6 consumer
+is unaffected until they set the option.
 
 ### `requireHumanApproval` — Approve stops being something the agent can claim
 
