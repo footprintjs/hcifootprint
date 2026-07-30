@@ -6,7 +6,7 @@ title: watchPage
 
 > **watchPage**(`session`, `options`): [`PageWatch`](/api/sensor/interfaces/PageWatch)
 
-Defined in: [src/sensor/watch-page.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/watch-page.ts#L118)
+Defined in: [src/sensor/watch-page.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/watch-page.ts#L121)
 
 Attach the sensor to a page. The session is the single source of truth for what
 to watch; `options.root` is the only thing about the environment the library is

@@ -24,7 +24,7 @@ import {
   debounceMsOf,
   needsTimer,
 } from '../src/sensor/cadence.js';
-import { clock, desk, el, humanCommit, humanType, mountDesk, settle } from './sensor-fixture.js';
+import { clock, desk, el, humanClick, humanCommit, humanType, mountDesk, settle } from './sensor-fixture.js';
 
 describe('cadence.ts — which moment each setting commits on', () => {
   it("'commit' is the default answer for a value control: change, the browser's own word for finished", () => {
@@ -87,6 +87,35 @@ describe('the debouncer — last call wins, by construction', () => {
     debouncer.schedule('b', 10, () => commits.push('b'));
     time.advance(10);
     expect(commits.sort()).toEqual(['a', 'b']);
+  });
+
+  it('cancels by KEY, so a clock whose handle is `undefined` is still asked to cancel', () => {
+    // A LEGAL CLOCK. `SensorTimers.setTimeout` returns `unknown` precisely so a
+    // non-browser host can drive this with its own, and `undefined` is one of the
+    // answers that type permits. Reading the stored handle to decide whether
+    // anything was pending made the debouncer's own bookkeeping depend on the
+    // host's choice of value: the map knew the key was in flight and skipped the
+    // cancel anyway. `has` asks the map what the map knows.
+    const cancelled: unknown[] = [];
+    const due: Array<() => void> = [];
+    const handleless = {
+      setTimeout(handler: () => void): unknown {
+        due.push(handler);
+        return undefined;
+      },
+      clearTimeout(handle: unknown): void {
+        cancelled.push(handle);
+      },
+    };
+    const debouncer = createDebouncer(handleless);
+
+    debouncer.schedule('k', 10, () => undefined);
+    debouncer.schedule('k', 10, () => undefined);
+
+    // MUTATION PROOF: pre-change this was zero — a second window opened for a key
+    // the debouncer had already armed, with no cancel even attempted.
+    expect(cancelled).toEqual([undefined]);
+    expect(due).toHaveLength(2);
   });
 
   it('cancelAll disarms everything — the teardown path', () => {
@@ -317,6 +346,117 @@ describe('a debounced cadence with NO clock is REFUSED, never downgraded', () =>
     humanType(input);
     time.advance(100);
     expect(rowsFor(reports, desk.compose)).toHaveLength(1);
+    watch.stop();
+  });
+});
+
+/**
+ * THE ATTACK: point a page-wide `{ debounceMs }` at a page of BUTTONS.
+ *
+ * A cadence is a policy about the value stream — but the decision was taken from
+ * the cadence alone, without asking what moment had actually committed, so the
+ * window closed over clicks too. Every test below failed against the pre-change
+ * source, and each one is a different way of losing a human act that really
+ * happened.
+ */
+describe('a cadence window never reaches a click — the value stream is the whole of it', () => {
+  it('two real clicks under a page-wide { debounceMs } are TWO rows, not one', async () => {
+    const { session, surface, time } = mountDesk();
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, {
+      root: surface,
+      cadence: { debounceMs: 200 },
+      onReport: (r) => reports.push(r),
+    });
+
+    // Two separate acts: the turn window is closed between them, so nothing here
+    // is a duplicate delivery.
+    humanClick(button);
+    await settle();
+    humanClick(button);
+    await settle();
+    time.advance(500);
+
+    // MUTATION PROOF: the second click used to cancel the first click's timer —
+    // one human act erased, and no report arm could even say so.
+    expect(rowsFor(reports, desk.send)).toHaveLength(2);
+    expect(session.transitions().filter((t) => t.cause.affordanceId === desk.send)).toHaveLength(2);
+    watch.stop();
+  });
+
+  it('a click is recorded even when the debounced watcher has NO clock', () => {
+    const { session, surface } = mountDesk({ withoutClock: true });
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, {
+      root: surface,
+      cadence: { debounceMs: 200 },
+      onReport: (r) => reports.push(r),
+    });
+
+    // Coverage advertises this edge, and correctly: a click has nothing to
+    // coalesce, so the missing clock is no wall for it.
+    expect(watch.coverage().edges.find((e) => e.edge === desk.send)).toMatchObject({ status: 'watching' });
+
+    humanClick(button);
+
+    // MUTATION PROOF: the click used to be swallowed by the no-clock guard —
+    // zero rows, and not one report of any kind. Coverage promised `watching`
+    // and the sensor delivered silence.
+    expect(rowsFor(reports, desk.send)).toHaveLength(1);
+    watch.stop();
+  });
+
+  it('stop() cannot discard a click that already happened', () => {
+    const { session, surface, time } = mountDesk();
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, {
+      root: surface,
+      cadence: { debounceMs: 200 },
+      onReport: (r) => reports.push(r),
+    });
+
+    humanClick(button);
+    watch.stop();
+    time.advance(500);
+
+    // MUTATION PROOF: the act used to sit in a window until teardown cancelled
+    // it. A pending VALUE may be dropped on stop — the human had not finished —
+    // but a click is finished the moment it lands.
+    expect(rowsFor(reports, desk.send)).toHaveLength(1);
+  });
+
+  it("the truth gates are judged when the human acted, not when a window would have closed", () => {
+    const { session, surface, time } = mountDesk();
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, {
+      root: surface,
+      cadence: { debounceMs: 200 },
+      onReport: (r) => reports.push(r),
+    });
+    // The ordinary shape of a navigating control — and the exact reason every
+    // listener registers on the capture phase.
+    button.addEventListener('click', () => {
+      session.sync('profile');
+    });
+
+    humanClick(button);
+    time.advance(500);
+
+    // MUTATION PROOF: a deferred fire was judged against the page the click
+    // LANDED on, so the session answered NOT_ON_NODE for an act that was
+    // perfectly legal when it happened — the invented refusal capture phase
+    // exists to prevent.
+    expect(reports.filter((r) => r.kind === 'reported')).toMatchObject([
+      { edge: desk.send, result: { ok: true } },
+    ]);
     watch.stop();
   });
 });

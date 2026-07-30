@@ -125,6 +125,45 @@ describe('the report arms', () => {
     watch.stop();
   });
 
+  it('an advisory is WITHDRAWN once the app lifts the wall', () => {
+    const { session, surface } = mountDesk();
+    const label = el('label', { text: 'Message' });
+    const input = el('input', { attrs: { type: 'text' }, labels: [label] });
+    surface.mount(el('form', { children: [label, input] }));
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, { root: surface, onReport: (r) => reports.push(r) });
+    // Said at the one instant a declaration was IMPOSSIBLE: attach() lives on the
+    // handle watchPage has not returned yet, so every value-taking edge is advised
+    // about before the app has had its chance.
+    expect(reports.filter((r) => r.kind === 'unwatched' && r.edge === desk.compose)).toHaveLength(1);
+
+    watch.attach({ edge: desk.compose, element: input, value: () => ({ message: 'hi' }) });
+
+    // MUTATION PROOF: nothing used to take it back. coverage() flipped to
+    // `watching` and a consumer reading the report stream went on believing a wall
+    // the app had already torn down.
+    expect(reports.filter((r) => r.kind === 'watching')).toEqual([{ kind: 'watching', edge: desk.compose }]);
+    expect(watch.coverage().edges.find((e) => e.edge === desk.compose)).toMatchObject({ status: 'watching' });
+    watch.stop();
+  });
+
+  it('the wall coming back is said again — a withdrawn advisory is not a spent budget', () => {
+    const { session, surface } = mountDesk();
+    const label = el('label', { text: 'Message' });
+    const input = el('input', { attrs: { type: 'text' }, labels: [label] });
+    surface.mount(el('form', { children: [label, input] }));
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, { root: surface, onReport: (r) => reports.push(r) });
+
+    watch.attach({ edge: desk.compose, element: input, value: () => ({ message: 'hi' }) }).detach();
+
+    // MUTATION PROOF: the once-per-(edge, sentence) budget was spent at startup, so
+    // the edge going back to unwatched was silence. The sentence is only worth
+    // suppressing while it is still the last thing said.
+    expect(reports.filter((r) => r.kind === 'unwatched' && r.edge === desk.compose)).toHaveLength(2);
+    watch.stop();
+  });
+
   it('a sensor throw is isolated — the app’s own dispatch is never broken', () => {
     const { session, surface } = mountDesk();
     const button = el('button', { text: 'Send' });

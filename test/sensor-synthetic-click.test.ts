@@ -136,6 +136,31 @@ describe('the decline is reported ONLY when the gesture would have been attribut
     watch.stop();
   });
 
+  it('an edge the app reports through its OWN door declines silently — the sensor stood down for it', () => {
+    const { session, surface } = mountDesk();
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const reports: SensorReport[] = [];
+    const watch = watchPage(session, {
+      root: surface,
+      reportedElsewhere: [desk.send],
+      onReport: (r) => reports.push(r),
+    });
+    // Handed over, because the DECLARED level is where a stood-down edge is still
+    // matched: recognition by locator drops an unwatched edge before it can be a
+    // candidate at all.
+    watch.attach({ edge: desk.send, element: button });
+
+    button.click();
+
+    // MUTATION PROOF: the decline used to name desk.send — the sensor announcing
+    // that it declined something it had already stood down for, which is a second
+    // answer to a question coverage settled once with `blocked: 'door'`.
+    expect(reports.filter((r) => r.kind === 'synthetic-event')).toHaveLength(0);
+    expect(session.transitions().filter((t) => t.cause.affordanceId === desk.send)).toHaveLength(0);
+    watch.stop();
+  });
+
   it('an event with no isTrusted flag at all is not a human either', () => {
     const { session, surface } = mountDesk();
     const button = el('button', { text: 'Send' });

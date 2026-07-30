@@ -181,6 +181,12 @@ from `options.timers` for a test or non-browser host — and a debounced cadence
 reachable clock is refused with `cadence-unavailable`, never quietly downgraded to the loudest
 setting.
 
+A window belongs to the **value stream** and to nothing else, so a page-wide `{ debounceMs }`
+never reaches a click: two clicks are two rows however loud the cadence is. The moment that
+committed the act decides, not the setting alone — a window over clicks would swallow the
+second of two real acts into the first one's window, and hold `fire()`'s truth gates open past
+the cursor they are meant to be judged against.
+
 ## Honesty on ambiguity — four gaps, four signals, never a guess
 
 `onReport` receives one typed row for everything the sensor did and everything it declined.
@@ -195,10 +201,18 @@ There is no arm that writes a guessed session row:
 | `value-not-declared` | a handed-over control for an action that takes a value, with no `value()` |
 | `unwatched` | a live edge the sensor is not watching, with the wall it hit |
 | `cadence-unavailable` | a debounced cadence with no clock to run it on |
+| `watching` | an advisory **withdrawn** — you lifted the wall, so the earlier one no longer holds |
 | `sensor-error` | the sensor itself threw — isolated, so your dispatch is never broken |
 
 A click that never touched a role-bearing element is not reported at all: clicking a paragraph
 is not an interaction your graph failed to declare.
+
+Advisories are said **once per sentence** and taken back when they stop being true. `attach()`
+lives on the handle `watchPage` returns, so at the moment the first advisories go out a
+declaration is *impossible* — every value-taking edge is advised about before you have had your
+chance. Hand the control over and that edge reports `watching`; let it go again and the
+advisory comes back. A report stream that could not retract would leave you believing a wall
+you had already torn down, while `coverage()` said the opposite.
 
 `coverage()` answers the other direction — one row per **served edge**, `watching` or
 `unwatched` with the sentence saying why and which of three walls it hit (`gesture`, `payload`,
@@ -222,6 +236,16 @@ browser global in `src/` is a compile error — the app hands the environment in
 never reaches for one. The port is structural, so a real `HTMLElement`, `Document`,
 `ShadowRoot` or `Window` satisfies it, and both halves are proved by a compiler probe rather
 than asserted.
+
+**One watcher per shadow root.** The DOM *retargets* a composed event that crosses a shadow
+boundary: a listener on `document.body` reads `event.target` as the **host**, never the control
+inside it, so the sensor computes the host's role and name and recognises nothing. (`change`
+does not compose at all, so it never crosses.) Nothing is mis-attributed — a host presenting no
+role is silence, exactly as clicking prose is — but nothing is reported either, and
+`coverage()` cannot see that wall to name it: it speaks about your graph, and a locator is
+never claimed to resolve to a real element. So hand the shadow root itself in. It satisfies
+`root`, ids resolve against it rather than the outer document, and inside its own tree there is
+no retargeting to lose.
 
 `stop()` is idempotent and releases everything: every listener (through one shared capture
 options object, because `removeEventListener` only cancels a registration whose capture flag

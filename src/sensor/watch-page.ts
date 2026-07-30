@@ -28,7 +28,9 @@
  * - It does not decide cadence. That is cadence.ts, one policy, three named
  *   settings, chosen per control.
  * - It does not smooth repeated motion. Two clicks are two ledger rows; the turn
- *   window (dedupe.ts) removes DUPLICATE DELIVERIES of one act, never a second act.
+ *   window (dedupe.ts) removes DUPLICATE DELIVERIES of one act, never a second
+ *   act, and no cadence setting can reach a click — a window belongs to the value
+ *   stream and to nothing else (cadence.ts `coalesceWindow`).
  */
 import type { Actuation } from '../atom/types.js';
 import type { SensorElement, SensorEvent, SensorListener, SensorListenerOptions } from './dom-port.js';
@@ -39,7 +41,7 @@ import type { MatchCandidate } from './match.js';
 import type { Coverage, ControlAttachment, PageWatch, SensorReport, SensorSession, WatchOptions } from './types.js';
 import { documentOf, timersOf, viewOf } from './dom-port.js';
 import { CADENCE_NEEDS_A_CLOCK, buildBindingIndex } from './binding-index.js';
-import { commitsOnControl, createDebouncer, debounceMsOf, needsTimer } from './cadence.js';
+import { coalesceWindow, commitsOnControl, createDebouncer, needsTimer } from './cadence.js';
 import { createControlIndex } from './control-index.js';
 import { createTurnWindow } from './dedupe.js';
 import { candidateLabel, matchElement } from './match.js';
@@ -107,6 +109,7 @@ const EMPTY_TALLY = (): Record<SensorReport['kind'], number> => ({
   'value-not-declared': 0,
   unwatched: 0,
   'cadence-unavailable': 0,
+  watching: 0,
   'sensor-error': 0,
 });
 
@@ -149,17 +152,19 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
   let sensorStandsDown = new Set<string>();
   const tally = EMPTY_TALLY();
   /**
-   * Advisories already given, keyed on (edge, sentence) — so each is said once, not
-   * per rebuild.
+   * The last thing said about each edge — the advisory's memory, and the thing
+   * that makes it retractable.
    *
-   * KEYED ON THE SENTENCE, not on the edge alone, and that is load-bearing: an
-   * edge's situation CHANGES. A value-taking action starts out unwatched because
-   * nothing declared it; the moment the app hands the control over it earns the
-   * more precise `value-not-declared` instead. Keyed on the edge, the generic
-   * advisory would have spent the budget and the app would attach into silence.
+   * THE SENTENCE IS THE VALUE, not half of a composite key, and that is
+   * load-bearing: an edge's situation CHANGES. A value-taking action starts out
+   * unwatched because nothing declared it; the moment the app hands the control
+   * over it earns the more precise `value-not-declared` — or it earns `watching`,
+   * and then the advisory is WITHDRAWN rather than left standing. Each of those is
+   * one report; a repeat of the same sentence on the next rebuild is none. And a
+   * consumer who holds only the last thing said about an edge is holding what
+   * coverage() would tell them, which is the whole point of the channel.
    */
-  const announced = new Set<string>();
-  const advisoryKey = (edge: string, reason: string): string => `${edge}\u0000${reason}`;
+  const lastAdvice = new Map<string, string>();
   const attached = new Map<SensorEventType, SensorListener>();
   const unsubscribes: Array<() => void> = [];
   /** A broken onReport is warned about ONCE: an every-click console flood is its own bug. */
@@ -211,12 +216,19 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
   }
 
   /**
-   * Say once, per edge, what is declared here that the sensor is not watching.
+   * Say what is declared here that the sensor is not watching — and take it back
+   * when it stops being true.
    *
-   * ONCE, not per rebuild: this is an advisory about a static property of the
-   * edge, and repeating it on every mount would drown the reports that describe
-   * something that actually just happened. coverage() always carries the full live
-   * list, so nothing is lost by saying it once.
+   * ONCE PER SENTENCE, not per rebuild: an advisory repeated on every mount would
+   * drown the reports that describe something that actually just happened.
+   *
+   * AND WITHDRAWN, because the first pass runs before the app can possibly have
+   * answered it: `attach()` lives on the handle `watchPage` has not returned yet,
+   * so every value-taking edge is advised about at the one instant a declaration
+   * is IMPOSSIBLE. That advisory is honest when it is said and stale a moment
+   * later, and a report stream that cannot take it back leaves a consumer
+   * believing a wall the app has already torn down — the one thing this channel
+   * exists not to do. coverage() was always right; now the stream agrees with it.
    *
    * THE ARM IS PICKED FROM THE SENTENCE, by identity against the constant that
    * wrote it. That keeps one derivation: a consumer's arm can never disagree with
@@ -224,11 +236,14 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
    */
   function announce(): void {
     for (const row of index.coverage) {
-      if (row.status !== 'unwatched') continue;
+      if (row.status === 'watching') {
+        // Only an edge that was ADVISED about has anything to withdraw.
+        if (lastAdvice.delete(row.edge)) report({ kind: 'watching', edge: row.edge });
+        continue;
+      }
       const reason = row.reason ?? '';
-      const key = advisoryKey(row.edge, reason);
-      if (announced.has(key)) continue;
-      announced.add(key);
+      if (lastAdvice.get(row.edge) === reason) continue;
+      lastAdvice.set(row.edge, reason);
       if (reason === CADENCE_NEEDS_A_CLOCK) {
         report({ kind: 'cadence-unavailable', edge: row.edge, reason });
       } else if (row.blocked === 'payload' && controls.forEdge(row.edge) !== undefined) {
@@ -295,19 +310,30 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
     });
   }
 
-  /** Now, or when the human stops — the cadence decision, applied. */
-  function commit(candidate: MatchCandidate, declaration: ControlDeclaration | undefined): void {
-    if (sensorStandsDown.has(candidate.edge)) return; // door / payload / clock — already said once
-    const ms = debounceMsOf(declaration?.cadence ?? watcherCadence);
-    if (ms === undefined) {
+  /**
+   * Now, or when the human stops — the cadence decision, applied.
+   *
+   * THE MOMENT DECIDES, NOT THE CADENCE ALONE. `moment` is the event class that
+   * committed this act, which both evidence levels have already agreed on
+   * (match.ts returns `one` only for an element's own moment), so it is the one
+   * honest answer to "does this act coalesce" — and cadence.ts owns the policy.
+   */
+  function commit(
+    moment: SensorEventType,
+    candidate: MatchCandidate,
+    declaration: ControlDeclaration | undefined,
+  ): void {
+    const ms = coalesceWindow(moment, declaration?.cadence ?? watcherCadence);
+    // No window — or no clock to run one on, which the stand-down check above and
+    // attach() both refuse before any act can reach here (binding-index.ts:211-216
+    // is where coverage writes that wall). Either way the act is recorded NOW: a
+    // recognised gesture must never leave this function unrecorded AND unreported,
+    // which is exactly what the silent `return` this replaced did to every click
+    // under a debounced watcher with no clock.
+    if (ms === undefined || debouncer === undefined) {
       fire(candidate, declaration);
       return;
     }
-    // A debounced cadence without a clock is an unwatched edge (refused above)
-    // and refused again at attach(), so this cannot be reached. The guard keeps
-    // the impossible case impossible rather than letting it become a silent
-    // per-keystroke downgrade.
-    if (debouncer === undefined) return;
     debouncer.schedule(candidateLabel(candidate), ms, () => {
       if (!stopped) fire(candidate, declaration);
     });
@@ -346,6 +372,15 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       );
       if (outcome.kind === 'silent') return;
 
+      // STANDING DOWN OUTRANKS EVERY ARM BELOW IT — door, payload, or a cadence
+      // with no clock. announce() already said why, once, so an edge the sensor
+      // will not record is one it does not comment on either: a decline naming an
+      // edge that was never going to be recorded is a second, contradicting
+      // answer to the same question ("the sensor stands down for them",
+      // types.ts:96-113). Asked HERE rather than at the moment of recording, so
+      // the trusted and untrusted paths cannot disagree about it.
+      if (outcome.kind === 'one' && sensorStandsDown.has(outcome.candidate.edge)) return;
+
       if (!trust(event)) {
         // Only when the gesture WOULD have been attributed. A programmatic click
         // on an ambiguous or undeclared control is as unreportable as a human one.
@@ -373,7 +408,7 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
         });
         return;
       }
-      commit(outcome.candidate, outcome.declaration);
+      commit(eventType, outcome.candidate, outcome.declaration);
     } catch (error) {
       // Sensor exceptions are isolated exactly like session listeners: they never
       // propagate into the app's event dispatch.
@@ -402,9 +437,8 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       // for an edge this page never serves — and a cadence nobody can run is worth
       // saying out loud the moment it is asked for, not only if the edge shows up.
       if (needsTimer(control.cadence ?? watcherCadence) && debouncer === undefined) {
-        const key = advisoryKey(control.edge, CADENCE_NEEDS_A_CLOCK);
-        if (!announced.has(key)) {
-          announced.add(key);
+        if (lastAdvice.get(control.edge) !== CADENCE_NEEDS_A_CLOCK) {
+          lastAdvice.set(control.edge, CADENCE_NEEDS_A_CLOCK);
           report({ kind: 'cadence-unavailable', edge: control.edge, reason: CADENCE_NEEDS_A_CLOCK });
         }
         return NOTHING_ATTACHED;

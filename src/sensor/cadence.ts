@@ -69,6 +69,31 @@ export function debounceMsOf(cadence: Cadence): number | undefined {
 }
 
 /**
+ * The window THIS MOMENT waits in, or `undefined` to record the act now.
+ *
+ * A CADENCE IS A POLICY ABOUT THE VALUE STREAM, and this is the function that
+ * says so out loud. Only the cadence's own value moment carries a window: it is
+ * the one moment a human produces thirty of while meaning a single act. A click,
+ * a press and a `change` each have exactly ONE moment per act, so there is
+ * nothing to coalesce.
+ *
+ * ASKING THE CADENCE WITHOUT THE MOMENT is the bug this replaces. A page-wide
+ * `{ debounceMs }` then reached clicks too, and two real clicks inside one window
+ * became ONE ledger row — a human act erased by the previous act's own timer, with
+ * no report arm that could say so. It also held `fire()`'s truth gates open past
+ * the cursor they are meant to be judged against (watch-page.ts's capture-phase
+ * note), and let a `stop()` inside the window discard an act that had already
+ * happened. All three are pinned in test/sensor-cadence.test.ts.
+ *
+ * Written as "the cadence's own value moment" rather than as the literal
+ * `'input'`, so this stays one derivation with {@link valueEvent}: no cadence can
+ * grow a window over a moment that does not carry a value.
+ */
+export function coalesceWindow(moment: SensorEventType, cadence: Cadence): number | undefined {
+  return moment === valueEvent(cadence) ? debounceMsOf(cadence) : undefined;
+}
+
+/**
  * RECOGNISED: which event class commits this DECLARED GESTURE.
  *
  * The actuation is the app's own statement about how the control is worked
@@ -120,8 +145,14 @@ export function createDebouncer(timers: SensorTimers): Debouncer {
   const pending = new Map<string, unknown>();
   return {
     schedule(key, ms, commit): void {
-      const existing = pending.get(key);
-      if (existing !== undefined) timers.clearTimeout(existing);
+      // `has`, not the stored handle. `SensorTimers.setTimeout` returns `unknown`
+      // (dom-port.ts:100) precisely so a non-browser host can drive this with its
+      // own clock, and `undefined` is one of the answers that type permits — on
+      // which reading the handle back left the map unable to answer its own
+      // question, "is a commit in flight for this key?", and the cancel was
+      // skipped for a key the map knew about. The map is this debouncer's record
+      // of what it armed, and `has` is how a Map is asked.
+      if (pending.has(key)) timers.clearTimeout(pending.get(key));
       pending.set(
         key,
         timers.setTimeout(() => {

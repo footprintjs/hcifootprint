@@ -4,9 +4,9 @@ title: SensorReport
 
 # Type Alias: SensorReport
 
-> **SensorReport** = \{ `edge`: `string`; `instance?`: `string`; `kind`: `"reported"`; `result`: [`FireResult`](/api/index/type-aliases/FireResult); \} \| \{ `actuation`: [`Actuation`](/api/index/type-aliases/Actuation); `kind`: `"off-graph"`; `name`: `string`; `role`: `string`; \} \| \{ `candidates`: readonly `string`[]; `kind`: `"ambiguous"`; \} \| \{ `actuation`: [`Actuation`](/api/index/type-aliases/Actuation); `edge`: `string`; `instance?`: `string`; `kind`: `"synthetic-event"`; \} \| \{ `edge`: `string`; `kind`: `"value-not-declared"`; `reason`: `string`; \} \| \{ `blocked`: [`BlockedBy`](/api/sensor/type-aliases/BlockedBy); `edge`: `string`; `kind`: `"unwatched"`; `reason`: `string`; \} \| \{ `edge`: `string`; `kind`: `"cadence-unavailable"`; `reason`: `string`; \} \| \{ `error`: `unknown`; `kind`: `"sensor-error"`; \}
+> **SensorReport** = \{ `edge`: `string`; `instance?`: `string`; `kind`: `"reported"`; `result`: [`FireResult`](/api/index/type-aliases/FireResult); \} \| \{ `actuation`: [`Actuation`](/api/index/type-aliases/Actuation); `kind`: `"off-graph"`; `name`: `string`; `role`: `string`; \} \| \{ `candidates`: readonly `string`[]; `kind`: `"ambiguous"`; \} \| \{ `actuation`: [`Actuation`](/api/index/type-aliases/Actuation); `edge`: `string`; `instance?`: `string`; `kind`: `"synthetic-event"`; \} \| \{ `edge`: `string`; `kind`: `"value-not-declared"`; `reason`: `string`; \} \| \{ `blocked`: [`BlockedBy`](/api/sensor/type-aliases/BlockedBy); `edge`: `string`; `kind`: `"unwatched"`; `reason`: `string`; \} \| \{ `edge`: `string`; `kind`: `"cadence-unavailable"`; `reason`: `string`; \} \| \{ `edge`: `string`; `kind`: `"watching"`; \} \| \{ `error`: `unknown`; `kind`: `"sensor-error"`; \}
 
-Defined in: [src/sensor/types.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L151)
+Defined in: [src/sensor/types.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L163)
 
 Everything the sensor did and everything it refused to do — one union, no
 silent arms.
@@ -84,6 +84,26 @@ A live edge the sensor is not watching, with the wall it hit — `'gesture'`
 A `{ debounceMs }` cadence was asked for and this watcher has no clock to run
 it on. REFUSED, never downgraded: turning "one row when they stop typing"
 into "one row per keystroke" behind the app's back is its own bug.
+
+***
+
+### Type Literal
+
+\{ `edge`: `string`; `kind`: `"watching"`; \}
+
+AN ADVISORY WITHDRAWN: an edge this watcher advised about is watched now,
+because the app lifted the wall — usually by handing the control over.
+
+It exists because `attach()` lives on the handle `watchPage` RETURNS. At the
+moment the first advisories are given, a declaration is IMPOSSIBLE, so every
+value-taking edge is advised about before the app has had its chance; the
+advice is honest when it is said and stale a moment later. Without this arm
+the report stream would leave a consumer believing a wall that no longer
+exists, while coverage() said the opposite.
+
+Emitted only for an edge that WAS advised about, and named after the coverage
+status it announces — one vocabulary, so the two surfaces cannot describe the
+same edge with two different words.
 
 ***
 

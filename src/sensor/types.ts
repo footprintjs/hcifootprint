@@ -72,6 +72,18 @@ export interface WatchOptions {
    * the house law is that the app hands the environment in and the library never
    * reaches for a global. A framework skin supplies the browser default; the
    * core never invents one.
+   *
+   * ONE WATCHER PER SHADOW ROOT, and this is the honest limit of a single root.
+   * The DOM RETARGETS a composed event that crosses a shadow boundary: a listener
+   * on `document.body` reads `event.target` as the HOST element, never the control
+   * inside it, so the sensor computes the host's role and name and recognises
+   * nothing. (`change` does not compose at all, so it never crosses.) Nothing is
+   * mis-attributed — a host that presents no role is silence, exactly as clicking
+   * prose is — but nothing is reported either, and coverage() cannot see that
+   * wall to name it: it speaks about the graph, and a locator is never claimed to
+   * resolve to a real element. So hand the shadow root itself in. The port takes
+   * one (dom-port.ts:123-127) and resolves ids against it (`documentOf`), and
+   * inside its own tree there is no retargeting to lose.
    */
   root: SensorRoot;
   /** Every fire, and every non-fire, as a typed row. See {@link SensorReport}. */
@@ -196,6 +208,22 @@ export type SensorReport =
    * into "one row per keystroke" behind the app's back is its own bug.
    */
   | { readonly kind: 'cadence-unavailable'; readonly edge: string; readonly reason: string }
+  /**
+   * AN ADVISORY WITHDRAWN: an edge this watcher advised about is watched now,
+   * because the app lifted the wall — usually by handing the control over.
+   *
+   * It exists because `attach()` lives on the handle `watchPage` RETURNS. At the
+   * moment the first advisories are given, a declaration is IMPOSSIBLE, so every
+   * value-taking edge is advised about before the app has had its chance; the
+   * advice is honest when it is said and stale a moment later. Without this arm
+   * the report stream would leave a consumer believing a wall that no longer
+   * exists, while coverage() said the opposite.
+   *
+   * Emitted only for an edge that WAS advised about, and named after the coverage
+   * status it announces — one vocabulary, so the two surfaces cannot describe the
+   * same edge with two different words.
+   */
+  | { readonly kind: 'watching'; readonly edge: string }
   /** The sensor itself threw. Isolated exactly like a session listener — the app's dispatch is never broken. */
   | { readonly kind: 'sensor-error'; readonly error: unknown };
 
