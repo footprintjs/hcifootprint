@@ -123,6 +123,59 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
     expect(chain[1].askId).toBe(asked['askId']);
   });
 
+  it('a PAUSE is never isError — the transport reserves that for a tool that does not exist', async () => {
+    // A pause is not a failure, and a transport that flags it as one hands the
+    // host an error banner for a question that is waiting on a person. isError
+    // is reserved for UNKNOWN_TOOL and unexpected throws (serve/mcp-server.ts);
+    // every domain answer — needs-confirm included — is a normal result.
+    const session = shopSession();
+    session.sync('checkout');
+    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    const client = await connectClient(session);
+
+    const asked = await client.callTool({ name: 'shop.do_action', arguments: { action: 'place-order' } });
+    expect(asked.isError).toBeUndefined();
+    expect(text(asked)).toMatchObject({ judgment: 'needs-confirm', performed: false });
+
+    // …and the same for the ask the model then asks about: awaiting-human is an
+    // answer, not a wire failure.
+    const paused = await client.callTool({
+      name: 'shop.did_it_work',
+      arguments: { transitionId: text(asked)['askId'] as string },
+    });
+    expect(paused.isError).toBeUndefined();
+    expect(text(paused)).toMatchObject({ ok: true, judgment: 'awaiting-human', performed: false });
+  });
+
+  it('the ENFORCED refusal is a normal result too — the arm that looks most like an error', async () => {
+    // `ok: false` + `reason: 'APPROVAL_REQUIRED'` is the arm a transport is most
+    // tempted to flag. Nothing was done and nothing is broken: the app is
+    // waiting for a person, and the result says so.
+    const map = buildNavigationGraph('shop', {
+      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
+    });
+    const session = map.createSession({
+      node: 'checkout',
+      state: {},
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    const client = await connectClient(session);
+
+    const refused = await client.callTool({
+      name: 'shop.do_action',
+      arguments: { action: 'place-order', confirm: true },
+    });
+    expect(refused.isError).toBeUndefined();
+    expect(text(refused)).toMatchObject({
+      ok: false,
+      judgment: 'needs-confirm',
+      reason: 'APPROVAL_REQUIRED',
+      performed: false,
+    });
+  });
+
   it('an unbound agent fire surfaces NOT_MATERIALIZED over the server too', async () => {
     const session = shopSession(); // nothing registered: the tool is declared only
     const client = await connectClient(session);
@@ -194,6 +247,31 @@ describe('mcpServer — a real MCP server backed by a live session', () => {
  * pin both halves so the sentence in the docs cannot drift from the behaviour
  * again.
  */
+describe('a value JSON cannot encode never costs the caller the whole answer', () => {
+  it('a bigint in the handler’s own data crosses as digits instead of throwing', async () => {
+    // `JSON.stringify` THROWS on a bigint, and a throw at this transport turns a
+    // perfectly good answer into "tool failed" — the caller loses the result over
+    // one field of app data. A bigint survives structuredClone, which is this
+    // library's usual wire bar, so the capture path is where it has to be caught.
+    const map = buildNavigationGraph('shop', {
+      pages: { catalog: { tools: { total: { does: 'Read the balance' } } } },
+    });
+    const session = map.createSession({ node: 'catalog', state: {}, onWarn: () => undefined });
+    session.registerToolGroup('catalog', {
+      handlers: { total: () => ({ balanceCents: 900719925474099123n }) },
+    });
+    const client = await connectClient(session as ReturnType<typeof shopSession>, {
+      settleWithinMs: 50,
+    });
+    const res = await client.callTool({ name: 'shop.do_action', arguments: { action: 'total' } });
+
+    expect((res as { isError?: boolean }).isError).toBeUndefined();
+    const body = text(res);
+    expect(body['ok']).toBe(true);
+    expect((body['data'] as { balanceCents: unknown }).balanceCents).toBe('900719925474099123');
+  });
+});
+
 describe('settleWithinMs — the settled truth folded into the fire result', () => {
   /** A shop whose add-to-cart takes `delayMs` and then reports (or fails). */
   function slowShop(delayMs: number, fail?: string) {

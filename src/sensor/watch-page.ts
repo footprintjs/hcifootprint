@@ -167,6 +167,13 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
   const lastAdvice = new Map<string, string>();
   const attached = new Map<SensorEventType, SensorListener>();
   const unsubscribes: Array<() => void> = [];
+  /**
+   * The session-side releases for the value getters this watcher forwarded.
+   * Held here as well as in each attachment because `stop()` releases everything
+   * a watcher put into the world: a reader left behind by a stopped watcher would
+   * keep answering a served row from a page nobody is watching any more.
+   */
+  const holdsReleases = new Set<() => void>();
   /** A broken onReport is warned about ONCE: an every-click console flood is its own bug. */
   let reportSinkWarned = false;
 
@@ -444,10 +451,29 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
         return NOTHING_ATTACHED;
       }
       const release = controls.attach(control);
+      // The SAME getter, forwarded to the session's value door so the served row
+      // can say what this control holds before anything fires. One declaration,
+      // two readers of it — the payload of a gesture that happened, and the row
+      // describing the control that has not been used yet — and neither invents
+      // anything the app did not hand over.
+      //
+      // A per-INSTANCE declaration is not forwarded: the door files one reader
+      // per action, a repeats row stands for every mounted card at once, and a
+      // reader that answered for one of them would be a guessed row. The value
+      // still rides the fire, which carries the instance key.
+      const releaseHolds =
+        control.value !== undefined && control.instance === undefined
+          ? session.declareHolds?.(control.edge, control.value)
+          : undefined;
+      if (releaseHolds) holdsReleases.add(releaseHolds);
       refresh();
       return {
         detach(): void {
           release();
+          if (releaseHolds) {
+            holdsReleases.delete(releaseHolds);
+            releaseHolds();
+          }
           refresh();
         },
       };
@@ -462,6 +488,8 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       debouncer?.cancelAll();
       turn.forget();
       controls.clear();
+      for (const off of holdsReleases) off();
+      holdsReleases.clear();
       // Every release is attempted even if one throws: a teardown that gives up
       // half way leaves a live listener behind, which is the leak stop() exists to
       // prevent.

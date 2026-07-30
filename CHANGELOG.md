@@ -1,5 +1,223 @@
 # Changelog
 
+## [0.9.0] - 2026-07-31
+
+**Everything the person on the page already knew, and the agent had to infer** — the sentence
+this release is measured by. A production integration reported four walls in one wave, and they
+turned out to be one wall seen from four sides: the app knew a fact, a human reading the screen
+or the approval card had it, and the row a model reads did not. Five surfaces answer them — the
+navigation ask needed two halves, the claim before the fire and the observation after — and where
+the app declared nothing, every one of them answers with **absence** rather than a guess.
+
+Entirely **additive**, and it holds 0.8.0's line: **no existing union grows** (spelled out under
+*Compatibility*). 120 new tests (1336 → 1456).
+
+Each item below says what the report asked for, what shipped instead where the two differ, and
+why. Reports are unnamed by house rule; the intake is [`LIBRARY_ASK.md`](LIBRARY_ASK.md).
+
+### A pause is not a failure
+
+**The failure.** An agent hit the `needs-confirm` gate, read `ok: false` as *the app broke*, told
+the person so, and went looking for another route. Nothing had happened and nothing was wrong: a
+person had the question. `ok: false` is a true fact about the **call**, and the payload said
+neither of the two things a reader needed — that **nothing was done**, and that the missing piece
+is **a person, not a fix**.
+
+**Shipped.** Every `needs-confirm` result now carries **`performed: false`** plus one authored
+sentence saying so — the machine-readable half and the model-readable half of the same fact. All
+three arms carry it: `do_action`, a skill step, and the enforced `APPROVAL_REQUIRED` refusal
+(which keeps its own sentence, because it already says both halves and adds the one thing only it
+knows). A low-effect action is untouched: this is the **pause** marker, not a new field on
+everything.
+
+**`did_it_work` now takes an `askId`** in the same `transitionId` property and answers from the
+**ask book** — `'awaiting-human'`, `'approved-not-yet-done'`, `'approval-no-longer-valid'`,
+`'declined'` — and, once the yes has been spent, forwards to the fire it authorized and answers with that fire's settlement. Before
+this, a paused action's id was answered `UNKNOWN_TRANSITION` beside two lists that *structurally
+could not contain it* (an ask is not a fire and never joins `pending()`), so the one question with
+an answer available got the one word that says there isn't one. The refusal arm now names a third
+list, `awaitingHuman`. New read: **`session.asks()`** → `AskStatus[]`, structural facts only.
+
+**What shipped instead, and why.** The obvious shape was a new word — `'awaiting'` — on
+`EffectStatus` or `Settlement`. It was refused: nothing fired, so there is no transition and
+nothing that came to rest, and putting a word for *no transition exists* inside the vocabulary for
+*how a transition came to rest* is a category error the type would then teach to everyone. It is a
+result-level `judgment` string instead. Likewise no second tool argument: one property carries two
+id families, because a grown schema changes the tool array's bytes for every caller and the port
+can tell the two apart itself. The ask book is a library read rather than something a serving layer
+derives, because deriving those fates from journal rows means re-implementing the gate's law beside
+the gate — and a disagreement there reads to a model as *the human already answered*.
+
+**Two refusals rather than a confident answer.** A yes the app's own `requireHumanApproval` policy
+has aged out (`expiresAfterMs`, `refuseWhenWorldMoved`) reads `'approval-no-longer-valid'` and asks
+for a fresh decision, because the gate will refuse a fire on it and refuse it identically forever —
+telling the model to perform it would be an instruction into a loop. `AskStatus.stale` carries the
+same reading for any caller, computed through the gate's own function so the two can never disagree.
+And an id that names **both** a transition and a card — possible when an app names an action `ask`,
+since transition ids and approval cards share the `<name>#<n>` grammar — is refused `AMBIGUOUS_ID`
+naming both, rather than answered about either; the library also warns the app team at mint time,
+since renaming the action is the cure.
+
+Over MCP a pause is **never `isError`**: that flag stays reserved for a tool that does not exist
+and for an unexpected throw. → [A pause is not a failure](https://footprintjs.github.io/hcifootprint/docs/serve/paused-not-failed)
+
+### `goesTo` — the destination the human's receipt always showed
+
+**The failure.** A navigating action declares no `writes`, so from the side of the control an
+agent just fired, success and failure look identical — nothing changed, the button is still there,
+the state report says what it said before. The only evidence is **page motion**. The human already
+had the fact that would have said so: a confirm receipt has disclosed `willDo.navigatesTo` since
+0.3.0. The agent's own action row did not. One fact, two readers, one of them told.
+
+**Shipped.** `AvailableEdge.navigatesTo` on the served row, `goesTo` on the `whats_here` wire row —
+straight from the declared `goTo`, **absent** when the app declared no destination, never inferred
+from a binding or a route, and served whether or not anything is wired to make it true. A claim,
+said as one. → [Navigation claims](https://footprintjs.github.io/hcifootprint/docs/serve/navigation-claims)
+
+### `arrival` — a claim, and whether anything corroborated it
+
+**The ask.** Having been told where an action goes, the natural next question is *did it get
+there?*
+
+**Shipped instead: corroboration, and no verdict.** `TransitionRecord.arrival` has exactly two
+values, ever. `'claimed'` is stamped when the navigation claim is written — the app said it
+navigates and nothing has observed it arrive. `'observed'` means a later `sync()` landed on the
+page that claim named. `did_it_work` serves both beside the settlement with an authored
+`arrivalMeans` sentence, so an action can read `performed` with `arrival` still `'claimed'` — and
+that pair is the truth.
+
+**Why there is no third value.** There is no word for *did not arrive*, because nothing here can
+tell one from a later legitimate hop: a sync somewhere else, or no sync at all, leaves `'claimed'`
+standing forever, a session with no sync channel observes nothing by construction, and **a clock is
+not evidence**. `'observed'` is corroboration and not proof of cause either — the sync row that
+produced it still carries `unverifiedEdge: true`, because the cursor moved without passing a guard
+and nothing in this library can see the app's router.
+
+The match law is narrow on purpose: exact page id, or `matchRoute` over the **whole** route table
+for a raw pathname — never string similarity, and never the claimed page's own route alone (a claim
+on `/orders/:id` would otherwise swallow an observation of `/orders/new` that a more literal route
+describes exactly). The window is one claim wide, **opens where the fire is recorded** and closes on
+the next fire or the next observation — fire order on both ends, so a settlement that lands late
+can neither re-open a window its own closers already shut nor take one from a newer fire. An
+observation that lands while the fire is still in flight (the ordinary case: routers move before
+promises resolve) corroborates it, and the claim stamped at settle does not overwrite that.
+
+Nothing already written is rewritten: the settlement receipt taken at rest still says `'claimed'`,
+`toNodeClaimed` is never flipped back, and the join bumps **no version** — it does re-emit the
+record on `'transition'`, which is one extra event per corroborated fire for a consumer that
+counts them. Every gesture that declares `navigatesTo` gets an `arrival`, **including `tab`**: a
+tab-bound edge that declares a destination moves the page cursor exactly like any other declared
+hop, so excluding it would leave a hop nothing could ever corroborate. A fire under
+`allowUnmaterializedFires` says `'claimed'` and can never say more — nothing executed it, so there
+is nothing for an observation to be evidence of, and `did_it_work` now carries that fire's
+`materialized: false` onto the poll as well.
+
+**The adoption step is one line**, and it is the same line that keeps `youAreOn` honest:
+`session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname)`.
+
+### `holds` — what the control is holding right now
+
+**The failure.** A model could see that an action takes a value, and could see the app's committed
+state, and could not see the one thing a person looking at the screen sees for free: the draft
+already in the box. So it asked the human to retype what they were looking at, or it invented a
+value and fired.
+
+**Shipped.** `AvailableEdge.holds` on the served row (`holds` on the `whats_here` row), through two
+wires and only where the app already holds the value in a variable: `holds:` at
+`registerToolGroup`, and the human sensor forwarding a declared control's existing `value()`
+getter. One declaration, two readers of it — the payload of a gesture that happened, and the row
+describing a control nobody has used yet. The per-element declaration outranks the registration
+reader, and readers are released with the handlers or the declaration they came with.
+
+**What shipped instead, and why.** A **reading, never a binding**: the fire still reads its own
+payload at act time, so `holds` is a fact about the app one turn early and firing does not send it.
+Read **late**, at row assembly, so it is never a cached first read. And **absence is the default**:
+no reader declared, a reader answering `undefined`, a reader that throws, an action whose contract
+is the author's `'none'`, a row standing for many rows of a `repeats` container — each serves **no
+key**, never `null` and never a guess. So does a value this library cannot carry as data — a Map, a
+Set, a Date, whose bounded copy comes out `{}` and would say *the box is empty* about a box that is
+full — and so does a value whose own property getter throws (a revoked proxy, a component
+mid-teardown): reading the value is part of the read, and one app object must never be able to take
+down `available()` and, through the gap context, every refused fire with it. Each of those warns
+**once per action**, because this path runs on every served row. There is no fallback to the app's
+state and nothing is ever read off the DOM: a plausible-looking wrong value is indistinguishable, on
+a row a model reads, from a right one. A `repeats` row holds nothing this library can name in v1,
+and says why once.
+
+**Redaction point 4 of 4.** What a control holds **is** the next fire's payload one turn early, so
+`redactedFields.payload` governs it too — same list, same dot paths, same `'[REDACTED]'` marker.
+Without that, a field hidden from the log and from the approval card would simply ride out in the
+clear a turn sooner, on the row a model reads *before* it fires anything. The consent gate is
+untouched: it still compares a fire against the faithful detached copy, never a rendering.
+→ [What a control holds](https://footprintjs.github.io/hcifootprint/docs/serve/what-a-control-holds)
+
+### The live-source invalidation contract
+
+**The failure.** A store whose actions are derived from the router has **no change of its own to
+announce** when the page changes: the route moved, the store's state did not, so nothing emits.
+The surface after a navigation was therefore whatever the last emission left behind — the previous
+page's actions, served confidently as the actions available here.
+
+**Shipped.** The contract, stated so an app can hold up its end: *your store must emit whenever the
+action surface changes; **navigation is covered for you***. `fromLiveStore` re-reads on every page
+change the app reports through `sync()`, via the new optional `LiveBindingPort.whenPageChanges`
+(and `Session.whenPageChanges(fn)` directly). Optional and **severable**: a hand-rolled port
+without it keeps exactly the old store-emissions-only behaviour.
+
+**Three hard edges.** Only an **observed** page change re-reads, never a claimed one — a claim moves
+the cursor before the app's own handler has run, so a read there describes the page the app has not
+left yet and could release the very handler the fire is one statement away from invoking. A
+re-read that changes nothing is **free** — the identity ledger re-registers nothing, so it is a diff
+and no world motion. And **nothing re-reads at report time**: `whats_here`, the facts block and
+`available()` must never mutate the structure they are in the middle of serving.
+
+**A failed read now says so.** A later read runs on somebody else's stack — the app's notify loop,
+or the session mid-hop — so it still warns rather than throws. But the bindings left on offer are
+from *before* the failure, and serving them silently presents a stale list as current fact, so it
+also files **one gap row per failure streak**, cleared by the next read that works. The row's
+`request` is an **authored** sentence naming the consequence, never the store's own error text —
+that is your runtime string. And the row is marked `actionsMayBeStale`, which is what carries it
+past the app's triage ledger into the **facts block a model reads**, as a line this library
+authors: *the app could not re-read its own list of actions here*. Without that half the disclosure
+reached a developer's console and the reader about to act on the list was served it as current fact
+with nothing said. It is the one `'reported'` row the facts block admits, and the only one that
+should ever ask for that channel.
+→ [The invalidation contract](https://footprintjs.github.io/hcifootprint/docs/build/live-bindings#when-it-re-reads--the-invalidation-contract)
+
+### Compatibility
+
+**No existing union grows in this release** — the discipline 0.8.0 started, held for a second
+release. Every new word lives on a **new optional field** or in a result-level `judgment` string
+that no published union describes:
+
+- `TransitionRecord.arrival`, `AvailableEdge.navigatesTo` / `.holds` and
+  `ReportGapOptions.actionsMayBeStale` (copied onto `GapRecord`) are new optional fields;
+  `AskStatus` is a new interface, `.stale` included; `RegisterToolGroupOptions.holds`,
+  `LiveBindingPort.whenPageChanges`, `LiveBindingPort.reportGap` and `SensorSession.declareHolds`
+  are new **optional** members, so a hand-built port that does not implement them still compiles
+  and still works.
+- `'awaiting-human'`, `'approved-not-yet-done'` and `'declined'` are **not** added to
+  `EffectStatus` or `Settlement`; the failed-read gap row uses the existing `reason: 'other'`
+  rather than growing `GapReason`. An exhaustive `never` check written against 0.8.0's types still
+  compiles.
+- No new `exports` entry, no new dependency, no new peer. **No tool schema STRUCTURE changed**:
+  `did_it_work` takes the `askId` in the property it already had — no new property, no type change,
+  no change to `required` — so the Mode B array stays byte-identical every turn and the prompt cache
+  stays warm. Two *descriptions* were edited and they are what a caller diffing tool definitions
+  across versions will see: the tool's own, and `transitionId`'s inside the input schema, each
+  naming the second id family.
+- One capture-path fix rides along, and it is a fix rather than a choice: a **bigint** in a value
+  this library bounds (`holds`, a handler's `produced`) now crosses as its decimal digits. It
+  survives `structuredClone` — the usual wire bar here — and then throws in `JSON.stringify`, which
+  is how every MCP result crosses, so one app value of that type used to cost the caller the whole
+  answer.
+- Nothing changes unless you ask: absent a `holds` reader, absent a `whenPageChanges` subscription
+  and absent a declared `goTo`, the served rows and records are exactly 0.8.0's. The two deltas
+  that do not need asking for: every `needs-confirm` result gains `performed` / `why` (the point of
+  the release), and an `on('transition')` listener sees one extra event per fire whose edge declares
+  `goTo` — the join that turns `arrival` `'observed'` re-emits the record, with nothing else about
+  it changed and no version bump.
+
 ## [0.8.0] - 2026-07-30
 
 **The human's journey lands on the same ledger as the agent's, without boilerplate** — the

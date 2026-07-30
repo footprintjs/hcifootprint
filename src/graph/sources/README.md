@@ -31,23 +31,49 @@ wins over a same-id journey silently (deterministic and documented); same-kind
 id collisions refuse (ambiguous authorship); unknown/unreadable source shapes
 fail closed in the library's own voice.
 
+## When the live source re-reads (the invalidation contract)
+
+> Your store must emit whenever the action surface changes; NAVIGATION is
+> covered for you by a re-read on every page change the app reports through
+> `sync()`.
+
+A store whose actions are derived from the router has no change of its own to
+announce when the page changes, so without that re-read the surface after a
+navigation is whatever the last emission left behind — served as the actions
+available here. `LiveBindingPort.whenPageChanges` is the door (optional and
+severable: a port without it keeps store-emissions-only behaviour). It fires on
+an OBSERVED page change, never on a navigation the app merely CLAIMED — a claim
+moves the cursor before the app's own handler has run, so a read there describes
+the page the app has not left yet. Nothing re-reads at `whats_here`/report time:
+a read must never mutate the structure it is about to serve.
+
 ## Error stance of the live source (split by WHO is on the stack)
 
 The FIRST read at attach is LOUD: an invalid action is an authoring error and
 dies at `createSession` — and the loud throw cleans up after itself (the store
-subscription and any bindings registered before the bad action are released,
-so a failed attach leaks nothing). A LATER store emission runs inside the
-app's own notify loop, where a throw would abort the app's iteration over its
-other subscribers — those reconciles are isolated (recorder rule): a failure
-warns through the session's `onWarn` sink (console on the direct `attach`
-door) and leaves bindings as-is; the store's next emission simply retries.
+subscription, the page-change subscription and any bindings registered before
+the bad action are released, so a failed attach leaks nothing). A LATER read
+runs on somebody else's stack — the app's own notify loop, or the session
+mid-hop — where a throw would abort their work; those reconciles are isolated
+(recorder rule): a failure warns through the session's `onWarn` sink (console on
+the direct `attach` door) and leaves bindings as-is; the next read simply
+retries.
+
+It is also DISCLOSED. Bindings from BEFORE the failure are still on offer, and
+serving them with nothing said presents a stale list as current fact — so a
+caught failure ALSO files one gap row (`reason: 'other'`, `principal: 'system'`,
+an authored `request` naming the consequence) through
+`LiveBindingPort.reportGap`. One row per failure STREAK, cleared by the next
+read that works: a store that throws on every emission is one broken read, not
+forty unmet demands.
 
 ## Leaf modules by construction
 
 Each factory is its own module with at most the shared authoring guards as
 value imports; `fromLiveStore` has ZERO value imports — it drives the session
 instance it is handed through the type-only `LiveBindingPort` (the shape
-`InteractionSession` already satisfies: registerToolGroup + show/setVisible).
+`InteractionSession` already satisfies: registerToolGroup + show/setVisible,
+plus the two optional members `whenPageChanges` and `reportGap`).
 `test/treeshake.test.ts` is the proof: importing `fromRoutes` from the barrel
 bundles no session machinery and no footprintjs.
 

@@ -4,7 +4,7 @@ title: FireSettlement
 
 # Interface: FireSettlement
 
-Defined in: [src/atom/types.ts:767](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L767)
+Defined in: [src/atom/types.ts:854](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L854)
 
 The final truth about one fire, delivered once through `FireResult.whenSettled`.
 
@@ -14,7 +14,7 @@ The final truth about one fire, delivered once through `FireResult.whenSettled`.
 
 > **effectStatus**: `"performed"` \| `"refused"` \| `"unobservable"`
 
-Defined in: [src/atom/types.ts:769](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L769)
+Defined in: [src/atom/types.ts:856](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L856)
 
 'pending' is excluded by construction — a final answer is never "not yet".
 
@@ -24,7 +24,7 @@ Defined in: [src/atom/types.ts:769](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **error?**: `unknown`
 
-Defined in: [src/atom/types.ts:782](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L782)
+Defined in: [src/atom/types.ts:869](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L869)
 
 Why it was refused, when a handler failure caused the refusal: the thrown
 error, or the returned failure's `error` (else the returned object
@@ -39,7 +39,7 @@ would be a guess.
 
 > **outcome**: [`Settlement`](/api/index/type-aliases/Settlement)
 
-Defined in: [src/atom/types.ts:771](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L771)
+Defined in: [src/atom/types.ts:858](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L858)
 
 The record's outcome at the moment it came to rest.
 
@@ -49,7 +49,7 @@ The record's outcome at the moment it came to rest.
 
 > `optional` **produced?**: `unknown`
 
-Defined in: [src/atom/types.ts:806](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L806)
+Defined in: [src/atom/types.ts:893](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L893)
 
 The handler's return value, sanitized (parity with `Session.producedFor()`).
 
@@ -59,7 +59,7 @@ The handler's return value, sanitized (parity with `Session.producedFor()`).
 
 > **transition**: [`TransitionRecord`](/api/index/interfaces/TransitionRecord)
 
-Defined in: [src/atom/types.ts:773](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L773)
+Defined in: [src/atom/types.ts:860](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L860)
 
 A snapshot — never the live record, which may keep moving afterwards.
 
@@ -69,7 +69,7 @@ A snapshot — never the live record, which may keep moving afterwards.
 
 > `optional` **verifyHeld?**: `boolean` \| `"unevaluable"`
 
-Defined in: [src/atom/types.ts:804](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L804)
+Defined in: [src/atom/types.ts:891](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L891)
 
 What the action's declared [VerifyContract](/api/index/type-aliases/VerifyContract) said, once the fire came
 to rest: `true` it held, `false` it did not (and this settlement is

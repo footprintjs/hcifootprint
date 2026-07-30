@@ -18,6 +18,7 @@
  * time — createSession attaches it to each new session, exactly where the
  * order sentence reserved its place (last, bind-only).
  */
+import type { ReportGapOptions } from '../../atom/types.js';
 import type { JourneyDef, PageNodeDef } from '../../tree/types.js';
 // Type-only imports from the session layer (erased at build): a source module
 // or a consumer importing these types never drags session machinery.
@@ -109,4 +110,37 @@ export interface LiveBindingPort {
   registerToolGroup(path: string, opts?: RegisterToolGroupOptions): ToolGroupHandle;
   show(path: string): void;
   setVisible(path: string, visible: boolean): void;
+  /**
+   * Run something each time the app REPORTS that it is on a different page —
+   * the INVALIDATION half of the contract, and the half an app cannot supply.
+   *
+   * Your store must emit whenever the action surface changes; NAVIGATION is
+   * covered by this re-read, because a store whose actions are derived from the
+   * router has no change of its own to announce when the page changes. It fires
+   * on an observed page change (`sync()`), never on a navigation the app merely
+   * CLAIMED — reading a store at that moment describes the page the app has not
+   * left yet. A source that does not subscribe (or a port that does not offer
+   * this) keeps exactly today's behaviour: store emissions and nothing else.
+   *
+   * Optional and severable — a hand-rolled port without it degrades rather than
+   * breaks. InteractionSession satisfies it as-is.
+   */
+  whenPageChanges?(listener: () => void): () => void;
+  /**
+   * File a row in the session's gap ledger — the AGENT-VISIBLE half of a dev
+   * warning. A live source uses it for one thing: saying out loud that a read
+   * failed and the bindings being served are from before the failure. A warning
+   * alone reaches the developer's console and nothing else, so the surface
+   * would still be served as current fact.
+   *
+   * AGENT-VISIBLE is earned by the mark, not by the row: a read-failure report
+   * passes {@link ReportGapOptions.actionsMayBeStale}, which is what puts an
+   * authored line in the facts block. Without it the row reaches the app's
+   * triage ledger only.
+   *
+   * Optional and severable, like the hook above; InteractionSession satisfies it
+   * as-is. Not a general side channel — a source that files anything else is
+   * writing into a ledger whose whole meaning is unmet demand.
+   */
+  reportGap?(opts: ReportGapOptions): unknown;
 }

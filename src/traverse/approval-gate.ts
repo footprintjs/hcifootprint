@@ -254,8 +254,18 @@ function liveGrant(question: ApprovalQuestion): { ok: true; askId: string } | { 
  * change since the human looked?", and `version` also bumps on served-structure
  * changes and on the fire itself — so comparing it would refuse almost every
  * real approval and teach the caller nothing true.
+ *
+ * EXPORTED so the ask BOOK can answer with the same law the gate will apply. A
+ * serving layer that told a model "the human approved this — go do it" while
+ * this function was about to refuse the fire would send it round a loop it could
+ * never leave: the fire refuses APPROVAL_STALE, the ask stays approved-and-
+ * unspent, the instruction repeats. One reading, both readers.
  */
-function stale(row: ConfirmRecord, ask: OpenAsk, question: ApprovalQuestion): boolean {
+export function stale(
+  row: ConfirmRecord,
+  ask: OpenAsk,
+  question: { rules: HumanApprovalRules; now: number; stateVersion: number },
+): boolean {
   const { rules, now, stateVersion } = question;
   if (rules.expiresAfterMs !== undefined && now - row.timestamp > rules.expiresAfterMs) return true;
   if (rules.refuseWhenWorldMoved === true) {

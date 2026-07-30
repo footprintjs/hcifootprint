@@ -229,7 +229,9 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
 - Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
   unsubscribe fn. A throwing listener is isolated, never aborts the session.
 - Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire (`kind: 'fire-rejected'`), every
-  explicit `reportGap(...)` (`kind: 'reported'`), every allowed no-op tour fire
+  explicit `reportGap(...)` (`kind: 'reported'`; pass `actionsMayBeStale: true` when the row also says
+  the ACTIONS ON OFFER may be out of date — that mark, and only that, puts an authored line in the
+  facts block a model reads), every allowed no-op tour fire
   (`kind: 'unmaterialized-fire'` — the binding still to build), and every page the cursor rests on
   where nothing could be performed at all (`kind: 'dead-end'`) becomes a token-lean, name-only row
   for demand-driven triage. `kind` GROWS release to release; no shipped value ever changes meaning,
@@ -288,16 +290,24 @@ const result = port.call(name, args);           // route a tool_use; return `res
   model's last look) — cheaper re-grounding after write-steps.
 - `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, decline?, instance? }`)
 - `shop.why` — the causal backward slice for a state key (`{ key }`)
-- `shop.did_it_work` — how an action ALREADY PERFORMED came to rest (`{ transitionId }`, taken from that
-  action's result). A POLL, never a wait — see §5.
+- `shop.did_it_work` — how an action came to rest (`{ transitionId }`, taken from that action's
+  result — or the `askId` from a `needs-confirm` result, to learn whether the human has decided).
+  A POLL, never a wait — see §5.
 
 `MCPToolDescription` = `{ name, description, inputSchema }` (source: footprintjs).
 
 ### The three call shapes
 
-- **`shop.whats_here` →** `{ ok: true, facts, brief, actions: [{ action, does, highEffect?,
-  guardUnevaluated?, instances?, enumeration?, activation?, expects? }], skills: [{ skill, does,
-  feasible, feasibilityUnknownFor? }], youAreOn, version }`. `expects?` is that action's declared
+- **`shop.whats_here` →** `{ ok: true, facts, brief, actions: [{ action, does, goesTo?, holds?,
+  highEffect?, guardUnevaluated?, instances?, enumeration?, activation?, expects? }], skills: [{ skill,
+  does, feasible, feasibilityUnknownFor? }], youAreOn, version }`. `goesTo?` is the page this edge CLAIMS
+  it will move you to (the declared `goTo`; absent when none is declared) — its success evidence is
+  PAGE MOTION, because a navigation declares no writes and nothing on the page has to change.
+  `holds?` is WHAT THAT CONTROL IS HOLDING RIGHT NOW — the draft already in the box, read when the row
+  was served. Use it instead of asking the human to retype what they can see, and never invent one:
+  the key is ABSENT whenever the app declared no way to read the value, so absence means the library
+  does not know, not that the box is empty. It is a reading, not a binding — firing still sends the
+  `input` you pass. `expects?` is that action's declared
   input contract (absent when the action declares none; `'none'` when it takes no input) — the same
   shape a `PAYLOAD_INVALID` rejection teaches, and the same value `available()` serves.
   **`facts`** is `groundTruth().text` (see §2): the app's own record of what was ATTEMPTED and how
@@ -318,8 +328,10 @@ produced data) are structured DATA fields. Fields you will encounter (source: `s
 
 - `ok: boolean` and `judgment` — the routing discriminant on `ok: false`:
   `'blocked'` (skill precondition fails), `'error'` (unknown step/action, bad tool), `'needs-confirm'`
-  (high-effect step awaiting `confirm: true` — carries `askId` + `receipts`; `decline: true` records the
-  refusal and returns `judgment: 'declined'`), `'rejected'` (fire refused — carries `reason`).
+  (high-effect step awaiting `confirm: true` — carries `askId` + `receipts` + `performed: false` + an
+  authored `why`: NOTHING has been done and this is a question for the human, not a failure — never
+  report it as an error; `decline: true` records the refusal and returns `judgment: 'declined'`),
+  `'rejected'` (fire refused — carries `reason`).
   On an open frame `judgment` is `'navigate-or-wait' | 'one-ready-step' | 'needs-choice'`; on
   completion `'done'`.
 - Position (always): `youAreOn` (current node), `version` (the total-order cursor).
@@ -406,10 +418,10 @@ for what comes next. (When there is no state tap, or the step declares no writes
 **And to learn whether it actually worked, ASK — never assume.** `effectStatus` on a fire result is the
 truth AT RETURN TIME; for anything the app still has to do it is `'pending'` (nobody has done it yet), and
 the result names the door out in `howToSettle`. Call `shop.did_it_work` with that `transitionId`. It is a
-POLL, so it answers immediately, one of three ways:
+POLL, so it answers immediately, one of these ways:
 
 - settled — `{ ok: true, settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
-  writesObserved?, verifyHeld?, toNode?, error?, data? }`. THREE axes, none averaged into another:
+  writesObserved?, verifyHeld?, arrival?, arrivalMeans?, toNode?, error?, data? }`. THREE axes, none averaged into another:
   `effectStatus` = did anyone perform it; `effectVerified` = were the declared writes observed;
   `verifyHeld` = did the app's OWN declared `verify` condition hold (absent when no contract was
   declared — silence, never a passing grade). `'refused'` covers FOUR routes, one word: the handler
@@ -420,14 +432,32 @@ POLL, so it answers immediately, one of three ways:
   truthy). A settlement is a RECEIPT and first settlement wins, so the record
   can move afterwards (a server rejecting an already-reported order flips it to `'rolled-back'`); when the
   live record no longer agrees, `outcomeNow` rides ALONGSIDE `outcome` — never over it — with `howToAct`
-  saying to check `whats_here` before acting on the receipt.
+  saying to check `whats_here` before acting on the receipt. `arrival` rides the same way and appears
+  only on an action that declared a navigation: `'claimed'` (the app said it navigates and nothing has
+  observed it arrive — including a fire nothing executed, beside `materialized: false`) or `'observed'`
+  (a later `sync()` landed on the page it claimed). `arrivalMeans`
+  is the authored sentence for whichever one you got. There is NO third value for "did not arrive" —
+  a sync elsewhere, or no sync at all, leaves `'claimed'` standing, because a later legitimate hop and
+  a failed navigation are indistinguishable from here and a clock is not evidence. `'observed'` is
+  corroboration, never proof of cause: the sync row that produced it is still an unverified hop.
 - still running — `{ ok: true, settled: false, judgment: 'still-pending', did, howToAct }`. Do NOT perform
   the action again; call again with the same id.
+- paused (you passed an `askId`) — `{ ok: true, settled: false, performed: false, judgment, askId, did,
+  howToAct }`, where `judgment` is `'awaiting-human'` (nobody has decided), `'approved-not-yet-done'`
+  (a yes is on record and nothing has fired), `'approval-no-longer-valid'` (a yes is on record and this
+  app will not act on it any more — ask again; performing it would be refused forever) or `'declined'`.
+  NOTHING was fired, so there is no outcome — and that is not a failure. Once the yes has been SPENT the
+  same `askId` answers with the settlement of the fire it authorized. Ids are matched exactly; the
+  receipts stay on the ask.
+- ambiguous id — `{ ok: false, judgment: 'error', reason: 'AMBIGUOUS_ID', why, askId, askedAbout, did? }`.
+  One id named BOTH a fire and a card (an app named an action `ask`, and approval cards are numbered
+  `ask#1`, `ask#2`, …). Either answer would be about the other object, so neither is given.
 - unknown id — `{ ok: false, judgment: 'error', reason: 'UNKNOWN_TRANSITION', pending: [...],
-  awaitingSettlement: [...] }`. A wrong id is refused BY NAME, never soothed with a "still running" it
-  cannot know. `pending` = fires awaiting the app's STATE report (`updateState`'s own word, same meaning);
-  `awaitingSettlement` = every fire this tool can still be asked about — the superset, and the one the
-  question is about.
+  awaitingSettlement: [...], awaitingHuman: [{ askId, action }] }`. A wrong id is refused BY NAME, never
+  soothed with a "still running" it cannot know. `pending` = fires awaiting the app's STATE report
+  (`updateState`'s own word, same meaning); `awaitingSettlement` = every fire this tool can still be
+  asked about — the superset, and the one a fire question is about; `awaitingHuman` = the cards a person
+  has not answered (asks are not fires, so they join neither of the other two lists).
 
 Over a real MCP server (`mcpServer`) the answer usually arrives without a second call: the server waits up
 to `settleWithinMs` (default 250) and folds the settled word, produced data and any failure into the SAME
@@ -438,7 +468,11 @@ result. In process, `session.settlementOf(transitionId)` is that truth as a prom
 cursor moved on the graph's declared `goTo` — a claim about your app, not an observation (a bound
 handler completing does not confirm it either; only `sync()` does). Confirm the real page with
 `session.sync(routerPage)` before trusting `youAreOn`; a mismatch is reconciled and recorded as an
-unverified hop instead of silently diverging.
+unverified hop instead of silently diverging. That confirmation is also the ONLY thing that can move
+`arrival` from `'claimed'` to `'observed'` — and the only thing that re-reads a live action store
+(`LiveBindingPort.whenPageChanges`), so an app whose actions come from the router keeps its agent
+surface current by syncing. Matching is exact: the page id, or a raw pathname read through the route
+table by `matchRoute`'s own segment rules. Never a resemblance.
 
 ---
 
@@ -453,8 +487,10 @@ unverified hop instead of silently diverging.
 `handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`), `NOT_MATERIALIZED` (declared but
 unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with a
 tool group, or create the session with `allowUnmaterializedFires` for read-only touring). Every
-refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` — ask the human, then
-call again with `confirm: true`. By default that `confirm: true` is the agent's own request to proceed and is tied to no
+refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` — a PAUSE, not a
+failure (`performed: false`: nothing has been done, and the missing piece is a person, not a fix) — so ask the
+human, then call again with `confirm: true`. While they decide, `shop.did_it_work` with that `askId` says
+whether they have answered. By default that `confirm: true` is the agent's own request to proceed and is tied to no
 recorded decision (an agent that never asks crosses on its first call); create the session with `requireHumanApproval`
 and a crossing needs a pointer to an approval the app recorded from a person, or it is refused `APPROVAL_REQUIRED`.
 

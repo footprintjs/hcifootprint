@@ -133,6 +133,13 @@ per channel, off unless you ask. If a declared value must not reach the model or
 name its path there; nothing in the sensor hides it for you.
 </Callout>
 
+**One getter, two readers of it.** The same `value()` is forwarded to the session's value door, so
+the served action row can say [what that control holds](doc:what-a-control-holds) *before* anything
+is fired — the payload of a gesture that happened, and the row describing the control nobody has
+used yet. Nothing about the sensor crosses with it: no element, no report kind, and a
+**per-instance** declaration is not forwarded at all, because one row of a repeats container cannot
+answer for the rest. `detach()` and `stop()` take the reader back with them.
+
 ## Record-only, in the type system
 
 ```ts
@@ -290,7 +297,8 @@ session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathnam
 
 ## What it does not do
 
-It does not perform anything, ever. It does not read values. It does not write visibility —
+It does not perform anything, ever. It does not read values *out of the DOM* — it only ever calls
+the getter your app handed over. It does not write visibility —
 [`PresenceIndex`](doc:presence) is already the presence sensor, and its own law applies here
 too: no amount of mount-counting can see CSS, so visibility stays an explicit signal. And it
 reports *after* the browser ran your handler, where a hand-written `humanFire` wrapper reports

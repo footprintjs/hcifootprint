@@ -35,10 +35,11 @@ import type { CommitBundle, ExecutionCounter, FilterCondition } from 'footprintj
 import { detectSchema } from 'footprintjs';
 import type { MCPToolDescription, ScopeRecorder, WhereFilter } from 'footprintjs';
 import { formatSlice, keysReadFromMap, sliceForKey } from 'footprintjs/trace';
-import { isParam, segmentsOf } from '../graph/route-match.js';
+import { isParam, matchRoute, segmentsOf } from '../graph/route-match.js';
 import type {
   Affordance,
   ApprovalResult,
+  AskStatus,
   AvailableEdge,
   AvailableSkill,
   AvailableSlice,
@@ -81,14 +82,14 @@ import type {
 import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
 import type { SettlementLatch } from './settlement.js';
-import { checkApproval } from './approval-gate.js';
+import { checkApproval, stale } from './approval-gate.js';
 import type { ApprovalVerdict, OpenAsk } from './approval-gate.js';
 import { normalizeInput, sameInput } from './same-input.js';
 import { UNCOPYABLE_INPUT, boundInput } from './bound-input.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
 import { redactFields } from './redact-fields.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
-import { expectsOf } from './expects.js';
+import { NO_INPUT, expectsOf } from './expects.js';
 import { checkVerify, filterVerdict } from './verify.js';
 import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
@@ -133,6 +134,27 @@ const NOTHING_ATTEMPTED = 'No actions have been performed in this app this sessi
 /** An id the graph does not have — caller-supplied text, kept out of the authored channel. */
 const UNKNOWN_ACTION = '(an action this app does not have)';
 
+/**
+ * The facts-block line for a row that reported the served action list could not
+ * be refreshed ({@link ReportGapOptions.actionsMayBeStale}).
+ *
+ * AUTHORED, and it ignores the row's own `request`: that field is caller text,
+ * and this block is the one a model is told to trust above its own account. What
+ * it says is a FACT ABOUT A MOMENT — the read failed here — and the consequence
+ * is hedged, because stale bindings may well still be correct and the library
+ * cannot tell.
+ */
+const READ_FAILED_LINE =
+  'the app could not re-read its own list of actions here — anything listed after this may be from ' +
+  'before that.';
+
+/**
+ * How many times a page-change broadcast will run again for a listener that
+ * moved the cursor from inside it. Two listeners CAN bounce a cursor between
+ * them forever; this is where the library stops and says so.
+ */
+const MAX_PAGE_CHANGE_ROUNDS = 5;
+
 /** The principal of a fire, tolerating a caller who omitted `source` entirely. */
 export function principalOf(opts: FireOptions): Principal {
   // The cast is the honest part: JS callers are not held to FireOptions, so
@@ -158,6 +180,20 @@ interface SettlementExtra {
 type AttemptRow =
   | { at: number; rank: 0; gap: GapRecord }
   | { at: number; rank: 1; fired: TransitionRecord };
+
+/**
+ * WHICH KIND of rest this is, and the distinction is the whole design: did
+ * anything REPORT where the cursor now is? Only sync() does. A fire's declared
+ * navigation moves the cursor on a CLAIM — at a moment when the app's own
+ * handler has not even run yet — and a structure flush does not move it at all.
+ * Named rather than flagged, because a boolean at three call sites is how this
+ * gets quietly mismatched.
+ */
+type CursorRest =
+  /** sync() reported where the cursor now is. Carries the observation. */
+  | { kind: 'observed'; node: string }
+  /** Nobody reported anything: a claimed navigation, or the coalesced structure flush. */
+  | { kind: 'unreported' };
 
 interface PendingTransition {
   record: TransitionRecord;
@@ -242,13 +278,15 @@ export class Session {
    * Paths hidden inside the DATA a transition carries (SessionOptions.
    * redactedFields) — the sibling of #redacted, which governs state keys only.
    *
-   * Applied at the THREE points where a value is written onto something a caller
-   * can reach: the record's `payload`, the record's `produced`, and the receipts'
-   * `willUse.input`. At the capture site and never at the export door, because
-   * there are nine doors (transitions(), the 'transition' event, three settlement
-   * readers, producedFor(), confirmAsk's return, confirms(), the 'confirm'
-   * listener) and a filter on each is a leak waiting for the tenth. The raw value
-   * simply never lands on the artifact.
+   * Applied at the FOUR points where a value is written onto something a caller
+   * can reach: the record's `payload`, the record's `produced`, the receipts'
+   * `willUse.input`, and the served row's `holds` — what a control is holding IS
+   * the future fire's payload one turn early, so the payload list governs it too
+   * or the secret simply rides out a turn sooner. At the capture site and never
+   * at the export door, because there are nine doors (transitions(), the
+   * 'transition' event, three settlement readers, producedFor(), confirmAsk's
+   * return, confirms(), the 'confirm' listener) and a filter on each is a leak
+   * waiting for the tenth. The raw value simply never lands on the artifact.
    *
    * NOT applied to the approval gate's own copies (#openAsks holds
    * bound-input.ts's faithful clone) — that is what keeps the enforced-consent
@@ -294,6 +332,28 @@ export class Session {
   /** Closed frames (completed / cancelled / demoted), oldest first. */
   readonly #frames: SkillFrame[] = [];
   readonly #registry: ToolRegistry;
+  /**
+   * THE VALUE DOOR — how the app says what a control HOLDS, keyed by canonical
+   * affordance id. Two maps rather than one because the two doors are not peers:
+   * a per-element DECLARATION outranks a registration-time reader.
+   *
+   * A STACK on the declared side, for the same reason `#dynamic` keeps one: two
+   * elements may declare the same edge (a mobile button and a desktop one, a
+   * React StrictMode double-invoke), the newest serves, and releasing the newer
+   * must hand the row back to the older rather than silencing an edge that is
+   * still declared. The registration side follows the handler registry instead —
+   * last write wins, and an unregister only removes what its own group still
+   * owns — because that is the lifecycle a mount handle already has.
+   *
+   * A READER AND NOTHING ELSE: no instance dimension, no free-form keys. The
+   * door files one reader per SERVED ACTION, which is what keeps this a fact
+   * about a control and not a data channel (LIBRARY_ASK.md, "The app's DATA as a
+   * fourth pillar" — declined).
+   */
+  readonly #holdsDeclared = new Map<string, Array<() => unknown>>();
+  readonly #holdsRegistered = new Map<string, { group: string; read: () => unknown }>();
+  /** Value-reader complaints already made, keyed `reason:affordanceId` (the #warnedOnce discipline). */
+  readonly #holdsWarned = new Set<string>();
   readonly #warn: (message: string) => void;
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
@@ -345,6 +405,34 @@ export class Session {
   #askSeq = 0;
   /** Passive observer listeners, by event name (the recorder category, session grain). */
   readonly #listeners = new Map<SessionEventName, Set<(payload: unknown) => void>>();
+  /**
+   * Page-change listeners — a SEPARATE surface from `on()` on purpose. These run
+   * inside a write path and are EXPECTED to change the session (a live source
+   * re-reads its store and mounts/releases bindings); `on()` promises the exact
+   * opposite ("listeners never change what the session does"), and quietly
+   * handing an active reaction that passive contract would make the contract a
+   * lie for every other listener on it.
+   */
+  readonly #pageChangeListeners = new Set<() => void>();
+  /** Guard: a listener that drives the cursor again must not recurse into its own broadcast. */
+  #notifyingPageChange = false;
+  /** …and the move it made is not lost: the broadcast runs again for everyone else. */
+  #pageChangeMissed = false;
+  /**
+   * Whether an app REPORT has established the position the cursor is on. True at
+   * construction (the caller said where the app is), false the moment a claimed
+   * navigation moves the cursor on the app's word alone — so the report that
+   * follows is the FIRST word anything outside gets about that position, even
+   * though the cursor was already there.
+   */
+  #positionReported = true;
+  /**
+   * The newest navigation CLAIM still open to corroboration: the fire whose
+   * `arrival` may still become 'observed'. Holds ONE claim and only the newest;
+   * the claim's own record carries the version stamp (`cursorVersion`), so no
+   * second counter is invented here. Null between windows.
+   */
+  #navClaim: { recordId: string; target: string } | null = null;
   /** Monotonic counter for generated tool-group ids (never caller-supplied). */
   #groupSeq = 0;
 
@@ -551,6 +639,42 @@ export class Session {
     this.#emit('transition', this.#copyRecord(record));
   }
 
+  /**
+   * Run something every time the app REPORTS that it is on a different page —
+   * after the hop is recorded, the version has moved and observers have seen it.
+   *
+   * FIRES ON {@link Session.sync} ONLY, and only when the reported node differs
+   * from where the cursor was. Not on a claimed navigation: that moves the cursor
+   * on the app's word, before the app's own handler has run, so anything read
+   * there would describe the page the app has not left yet. Not on a structure
+   * change either — the cursor did not move, and that flush is usually a listener
+   * here seeing its own mount come back around.
+   *
+   * The door a LIVE SOURCE needs and `on('transition')` cannot be: the transition
+   * event fires BEFORE the version bump, and its listeners are documented passive
+   * (they never change what the session does), while the whole point here is a
+   * reaction that DOES — re-reading an action store and mounting or releasing
+   * bindings. So this is its own surface, and the two contracts stay true.
+   *
+   * ONE SYNC IS THE LIBRARY'S OWN: when a fire that moved the cursor on a claim
+   * is rolled back by its handler failing, the session walks the cursor home with
+   * a `sync(fromNode, { principal: 'system' })`. That is a position report like
+   * any other — the cursor really is back — so this fires for it too, and a live
+   * source re-reads the page it is actually on.
+   *
+   * Listeners run in registration order and are ISOLATED (a throw is caught and
+   * warned, never aborting the hop). A listener that moves the cursor again does
+   * not recurse into this broadcast; the move is remembered and the pass runs
+   * again, so no listener is left holding a page the session has left. Returns
+   * the unsubscribe.
+   */
+  whenPageChanges(listener: () => void): () => void {
+    this.#pageChangeListeners.add(listener);
+    return () => {
+      this.#pageChangeListeners.delete(listener);
+    };
+  }
+
   /** Increment the state axis and notify observers. (`+= 1` so global bump-replaces skip this.) */
   #bumpState(): void {
     this.#stateVersion += 1;
@@ -664,16 +788,195 @@ export class Session {
         ...(this.#registry.isEnabled(aff.id) === false || this.#disabledByDeclaration(aff)
           ? { enabled: false }
           : {}),
+        // What the control HOLDS right now, read HERE — on the fresh row, never
+        // stored on `expects` or `binding`, which are shared and deep-frozen so
+        // one rendered contract can reach every caller. A value that changes
+        // between two turns cannot live on an object built to be shared.
+        ...this.#holdsFor(aff, expects),
         evidence: conditions,
         ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
         schema: aff.schema,
         ...(expects !== undefined ? { expects } : {}),
         highEffect: aff.highEffect,
+        // The declared destination, served BEFORE the fire — the same claim the
+        // human's confirm receipt has always carried (ConfirmWillDo.navigatesTo).
+        ...(aff.effect?.navigatesTo !== undefined ? { navigatesTo: aff.effect.navigatesTo } : {}),
         binding: aff.binding,
         ...(aff.descriptionSource === 'registration' ? { descriptionSource: 'registration' as const } : {}),
       });
     }
     return { version: this.#version, node: this.#node, edges };
+  }
+
+  // -------------------------------------------------------------------------
+  // holds — what a control is holding right now (the value door)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Hand over a reader for what one control HOLDS — the per-element
+   * DECLARATION door, and the one the sensor forwards `ControlDeclaration.value`
+   * into. Returns the release, token-identity like every other declaration pair
+   * in this library: it drops the reader it was handed and nothing else, so
+   * attach → attach → detach nets to the surviving declaration rather than to
+   * silence.
+   *
+   * PRECEDENCE, stated once: this door OUTRANKS the registration-time `holds:`
+   * reader for the same action. A declaration is the more specific statement —
+   * it is about the element on screen, not about the tool — which is the same
+   * rank order the sensor's own two evidence levels keep.
+   *
+   * An id no affordance answers to is filed and simply never served. Not a
+   * refusal, and deliberately not a warning: a control can be handed over before
+   * the tool that declares it is mounted, and shouting at a mount race would
+   * teach nothing true.
+   *
+   * A READING, NOT A BINDING — see {@link AvailableEdge.holds}. Nothing here
+   * changes what a fire sends; the fire reads its own payload at act time. And
+   * the reader must BE a read: it runs once per served row, on a path every
+   * refused fire also walks.
+   */
+  declareHolds(affordanceId: string, read: () => unknown): () => void {
+    const key = canonicalHoldsKey(affordanceId);
+    const stack = this.#holdsDeclared.get(key);
+    if (stack) stack.push(read);
+    else this.#holdsDeclared.set(key, [read]);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const live = this.#holdsDeclared.get(key);
+      if (!live) return;
+      const at = live.lastIndexOf(read);
+      if (at === -1) return;
+      live.splice(at, 1);
+      if (live.length === 0) this.#holdsDeclared.delete(key);
+    };
+  }
+
+  /**
+   * File a REGISTRATION-time reader, owned by the mount group that declared it —
+   * so `unregisterGroup` releases it with the handlers beside it and an unmounted
+   * component's closure can never keep answering. Protected: the public
+   * registration doors live on the tree layer, which resolves a leaf name to its
+   * qualified id first.
+   */
+  protected registerHolds(affordanceId: string, group: string, read: () => unknown): void {
+    const key = canonicalHoldsKey(affordanceId);
+    const existing = this.#holdsRegistered.get(key);
+    // The same sentence the handler registry says about the same event, because
+    // it is the same event one field over: two groups claiming one control. Last
+    // write wins here as it does there — but only the handler side stacks back to
+    // a survivor, so a silent replace here ends with the row going BARE when the
+    // newer group unmounts while the older one is still on screen.
+    if (existing !== undefined && existing.group !== group) {
+      this.#warn(
+        `hcifootprint: the value reader for '${affordanceId}' was replaced by group '${group}' ` +
+          `(previously '${existing.group}') — last registration wins, and releasing '${group}' takes the ` +
+          `row's value with it rather than handing it back. Two components claiming one control is the ` +
+          `usual cause.`,
+      );
+    }
+    this.#holdsRegistered.set(key, { group, read });
+  }
+
+  /**
+   * May this edge serve `holds` at all? Yes wherever one action names one
+   * control. The tree layer overrides it for a repeats container, where the row
+   * stands for many rows at once.
+   *
+   * Consulted ONLY when a reader exists, so an override that teaches does so to
+   * an app that actually declared one.
+   */
+  protected servesHolds(_affordanceId: string): boolean {
+    return true;
+  }
+
+  /**
+   * What this control holds right now, or NO KEY — the whole read side, and
+   * every arm but the last one is absence.
+   *
+   * - the author's `'none'` → nothing. An action that refuses a value has no
+   *   value to hold, and a reader must not be able to re-open a door the author
+   *   shut (the sensor's `refusesAValue` law, aimed at this surface).
+   * - nothing declared → nothing. There is no fallback: not the app's state
+   *   under a same-looking key, not a rendered node. `sensor/payload.ts` states
+   *   why in full, and it is the same reason here — a plausible wrong value is
+   *   indistinguishable, on the row, from a right one.
+   * - a row standing for many rows → nothing (see {@link servesHolds}).
+   * - a reader that THROWS → nothing, plus a dev warning (once per action —
+   *   this runs on every served row). Never `null`: `null` is a value the app
+   *   chose, and stamping it for a failure would report a cleared box the human
+   *   never cleared. READING THE VALUE IS PART OF THE READ: a returned object
+   *   whose own property getter throws (a revoked proxy, a component mid-
+   *   teardown) fails one level below the reader, so the whole read — call,
+   *   bound, redact — is inside the one guard. Outside it, a single app value
+   *   took down `available()` and, through the gap context, every refused fire.
+   * - a value this library cannot read as data → nothing, plus a dev warning. A
+   *   Map, a Set, a Date has no own enumerable fields, so bounding it produces
+   *   `{}` — and `holds: {}` says THE BOX IS EMPTY about a box that is full.
+   *   Absence says the one true thing instead.
+   * - a reader answering `undefined` → nothing. `undefined` is how this library
+   *   spells absence everywhere else, so building the key here would produce the
+   *   one shape this surface promises never to serve.
+   * - otherwise → the value, READ LATE (the getter runs at row assembly, so the
+   *   row carries what the box holds now rather than a copy of what it held),
+   *   bounded exactly like a handler's return, then redacted through
+   *   `redactedFields.payload` — REDACTION POINT 4 of 4, because what a control
+   *   holds IS the future fire's payload one turn early.
+   */
+  #holdsFor(aff: Affordance, expects: unknown): { holds: unknown } | Record<string, never> {
+    // The SERVED contract, not the compiled flag: `'none'` is the author's word
+    // and this is the one place both spellings of it arrive as the same value.
+    // An ABSENT contract is not 'none' — it neither demands a value nor refuses
+    // one — so a declared reader still answers, exactly as a declared value still
+    // rides a fire (sensor/payload.ts `takesAValue` / `refusesAValue`).
+    if (expects === NO_INPUT) return {};
+    const key = canonicalHoldsKey(aff.id);
+    const declared = this.#holdsDeclared.get(key);
+    const read = declared?.[declared.length - 1] ?? this.#holdsRegistered.get(key)?.read;
+    if (read === undefined) return {};
+    if (!this.servesHolds(aff.id)) return {};
+    try {
+      const raw = read();
+      if (raw === undefined) return {};
+      // Bounded first, then hidden: sanitizeProduced flattens what it can into
+      // plain objects, so the redaction walk is over a shape it can see all of —
+      // the same order, for the same reason, as the record's `produced`. A reader
+      // answering a function sanitizes to nothing, which is absence, not
+      // `holds: undefined`.
+      const bounded = sanitizeProduced(raw);
+      if (bounded === undefined) return {};
+      if (emptyBoxFor(raw, bounded)) {
+        this.#warnHoldsOnce(
+          `unreadable:${aff.id}`,
+          `hcifootprint: the holds reader for '${aff.id}' answered a ${describeKind(raw)}, which this ` +
+            `library cannot carry on a row as data — serving it would print an EMPTY box for a box that ` +
+            `is not empty, so the row says nothing about it. Return the plain value the control holds ` +
+            `(a string, a number, or an object of them).`,
+        );
+        return {};
+      }
+      return { holds: redactFields(bounded, this.#redactedFields.payload) };
+    } catch (error) {
+      this.#warnHoldsOnce(
+        `threw:${aff.id}`,
+        `hcifootprint: the holds reader for '${aff.id}' threw: ${String(error)} — the row says nothing ` +
+          `about what this control holds rather than reporting a value nobody read.`,
+      );
+      return {};
+    }
+  }
+
+  /**
+   * One warning per action per reason. This path runs on every served row — and
+   * every refused fire assembles rows for its gap context — so a per-call warning
+   * is a console flood, which is the sibling bug `watch-page.ts` already refuses
+   * to ship ("an every-click console flood is its own bug").
+   */
+  #warnHoldsOnce(key: string, message: string): void {
+    if (this.#holdsWarned.has(key)) return;
+    this.#holdsWarned.add(key);
+    this.#warn(message);
   }
 
   // -------------------------------------------------------------------------
@@ -728,6 +1031,13 @@ export class Session {
   /** Remove every live binding currently owned by `group` (component unmount). */
   unregisterGroup(group: string): string[] {
     const removed = this.#registry.unregisterGroup(group);
+    // The group's value readers go with its handlers: an unmounted component's
+    // closure still answering "what does this control hold" is the stale-read bug
+    // this whole surface exists to avoid. Ownership-checked like the registry's
+    // own removal — a group that re-declared after this one keeps its reader.
+    for (const [id, entry] of this.#holdsRegistered) {
+      if (entry.group === group) this.#holdsRegistered.delete(id);
+    }
     if (removed.length > 0) this.noteStructureChange();
     return removed;
   }
@@ -1165,7 +1475,7 @@ export class Session {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
       cause: { kind: 'fired', affordanceId, principal: source },
       timestamp: Date.now(),
-      // REDACTION POINT 1 of 3 (SessionOptions.redactedFields.payload). The
+      // REDACTION POINT 1 of 4 (SessionOptions.redactedFields.payload). The
       // RECORD's copy only: the handler is still handed `opts.payload` below, and
       // the gate above already compared the real values. Written redacted here
       // rather than filtered at each export door, so transitions(), the
@@ -1199,6 +1509,25 @@ export class Session {
     // 'approved', which is the forgery this option exists to refuse.
     if (approval !== undefined) this.#spendApproval(record, affordanceId, approval, source);
     else if (this.#humanApproval === undefined) this.#resolveOpenAsk(record, affordanceId, source);
+    // A new fire closes any older navigation claim's window, and — when this one
+    // declares a destination — opens its own.
+    //
+    // OPENED HERE, AT FIRE TIME, and this is the whole of the window's ordering
+    // law: its closers (the next fire, the next observation) run in FIRE order,
+    // so an opener that ran at SETTLE re-opened a window that an intervening fire
+    // or a contradicting observation had already closed — and a settle that lands
+    // late (two rapid fires, the second handler resolving first) handed the
+    // window to the OLDER fire. Both produced 'observed' about a navigation
+    // nothing corroborated. The stamp still lands at settle; only the window
+    // lives here.
+    //
+    // NOT FOR AN ALLOWED NO-OP: nothing executed it, so there is nothing for an
+    // observation to corroborate. It still stamps 'claimed' at settle — the app
+    // did declare a destination — and simply can never be upgraded.
+    this.#closeArrivalWindow();
+    if (aff.effect?.navigatesTo !== undefined && !honestNoOp) {
+      this.#navClaim = { recordId: record.id, target: aff.effect.navigatesTo };
+    }
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 
@@ -1351,7 +1680,7 @@ export class Session {
         // looked-up record) rides the DATA channel on the record — sanitized +
         // capped so untrusted content can never become planner instructions.
         if (this.#captureProduced && returnValue !== undefined && returnValue !== null) {
-          // REDACTION POINT 2 of 3 (SessionOptions.redactedFields.produced).
+          // REDACTION POINT 2 of 4 (SessionOptions.redactedFields.produced).
           // AFTER the sanitizer, deliberately: sanitizeProduced has already
           // flattened Maps and class instances into plain objects and dropped
           // whatever exceeded its caps, so the walk below is over a plain shape
@@ -1812,6 +2141,10 @@ export class Session {
         // into a fact for whoever asks settlementOf() later. The state axis is
         // separate and stays true above: the declared writes really did land.
         this.#settlements.set(record.id, this.#effectSnapshot(record, 'unobservable'));
+        // A guessed fire is still a fire: it closes an older claim's window, for
+        // the same reason a real one does — two candidates, no way to tell which
+        // moved the app, so nothing is corroborated.
+        this.#closeArrivalWindow();
         this.#transitions.push(record); this.#emitTransition(record);
         this.#version++;
         this.#bumpState();
@@ -1919,6 +2252,22 @@ export class Session {
    */
   sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult {
     if (observedNode === this.#node) {
+      // An OBSERVATION, not a hop — and the one that matters most to a
+      // navigation claim: a claimed nav moves the cursor optimistically, so the
+      // app's own router confirming that page arrives HERE, not below.
+      //
+      // A FIRST report of this position is a full rest even though nothing
+      // moved: until it landed, the only thing that had placed the cursor here
+      // was the app's word, and this is the moment anyone outside can act on it.
+      // A REPEAT report is not — the position was already established, and
+      // re-reading the world on every redundant router tick would be motion the
+      // session invented. Either way the join runs: corroboration is what the
+      // report is for.
+      if (this.#positionReported) this.#joinArrival(observedNode);
+      else {
+        this.#positionReported = true;
+        this.#cursorCameToRest({ kind: 'observed', node: observedNode });
+      }
       return { changed: false, node: this.#node, version: this.#version };
     }
     const offGraph = !this.spec.pages[observedNode];
@@ -1940,11 +2289,15 @@ export class Session {
     // Empty commit — footprint's own idiom: empty commits are deliberate cursor stops.
     this.#commitDelta(`sync:${observedNode}`, record.id, [], {});
     this.#node = observedNode;
+    this.#positionReported = true; // this report is what established the new position
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++;
     this.#checkFrameAfterWorldChange();
-    // The cursor came to rest somewhere new: is there a way out of it?
-    this.#checkDeadEnd();
+    // The cursor came to rest somewhere new and something REPORTED it — the one
+    // rest that can corroborate a navigation claim, and the one that must re-read
+    // the live action surface (an app's store has no reason to emit on a route
+    // change). Both phases run here, in that order.
+    this.#cursorCameToRest({ kind: 'observed', node: observedNode });
     return offGraph
       ? { changed: true, transition: record, node: this.#node, version: this.#version, offGraph: true }
       : { changed: true, transition: record, node: this.#node, version: this.#version };
@@ -2012,6 +2365,9 @@ export class Session {
       reason: opts.reason ?? 'other',
       ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
       ...(opts.principal !== undefined ? { principal: opts.principal } : {}),
+      // The one mark that puts a 'reported' row in front of the model, as an
+      // authored line — see ReportGapOptions.actionsMayBeStale.
+      ...(opts.actionsMayBeStale === true ? { actionsMayBeStale: true } : {}),
     };
     this.#pushGap(row);
     return structuredClone(row);
@@ -2064,6 +2420,153 @@ export class Session {
   }
 
   /**
+   * THE CURSOR CAME TO REST — the three write points, and the ONE order they
+   * all take. Two phases and a closing question, and the order is the contract:
+   *
+   *   1. SESSION-INTERNAL. The join the session owes itself: a claim meeting the
+   *      observation that corroborates it. Nothing outside has run yet, so it
+   *      reads a settled, self-consistent session.
+   *   2. EXTERNAL. Reactions that may drive the session back — a live source
+   *      re-reading its action store and mounting or releasing bindings.
+   *   3. THE NEVER-TRAP, last, because it is a question about the room AS IT
+   *      FINALLY STANDS. Asked before phase 2 it would file a dead-end row
+   *      against a page whose door the library had not got around to asking for
+   *      — a true observation of a world that existed for one statement.
+   *
+   * WHY EXTERNAL IS HERE rather than on the 'transition' event: `#emitTransition`
+   * fires BEFORE `#version++`, so a reaction riding it would register tools
+   * against a version the world had already moved past — and `on()` promises its
+   * listeners never change what the session does. This slot is strictly after the
+   * record is pushed, the version is bumped and observers have seen it, which is
+   * the only point where "the cursor is HERE now" is true for everyone.
+   *
+   * ONLY A REPORTED REST RUNS PHASES 1 AND 2. A claimed navigation moves the
+   * cursor optimistically at a moment when the app's handler has not run: asking
+   * the app's own store what is available there would read the page it has not
+   * left yet and bind those answers to the new position — worse than not asking.
+   * A structure flush moves the cursor not at all, and is usually a phase-2
+   * listener's own mount coming back around.
+   */
+  #cursorCameToRest(rest: CursorRest): void {
+    if (rest.kind === 'observed') {
+      this.#joinArrival(rest.node);
+      this.#notifyPageChanged();
+    }
+    this.#checkDeadEnd();
+  }
+
+  /**
+   * Phase 2: hand the rest to whoever asked for it. Isolated per listener (the
+   * recorder rule — a live source's failure never aborts a hop that already
+   * happened) and non-re-entrant: a listener that moves the cursor again does not
+   * nest a second broadcast inside this one.
+   *
+   * DEFERRED, NOT DROPPED. The nested move is remembered and the pass runs again
+   * afterwards, because a dropped broadcast leaves every OTHER listener holding
+   * the page the session has already left — a live source that re-read at the old
+   * page and never heard about the new one serves that page's bindings under this
+   * page's name, and the worst version of that is a confident empty list. Bounded,
+   * because two listeners can bounce the cursor between them forever, and a
+   * library that spins is worse than one that says so.
+   *
+   * Iterates a COPY: a listener may unsubscribe itself — or another — mid-loop.
+   */
+  #notifyPageChanged(): void {
+    if (this.#notifyingPageChange) {
+      this.#pageChangeMissed = true;
+      return;
+    }
+    if (this.#pageChangeListeners.size === 0) return;
+    this.#notifyingPageChange = true;
+    try {
+      for (let round = 0; round < MAX_PAGE_CHANGE_ROUNDS; round++) {
+        this.#pageChangeMissed = false;
+        for (const listener of [...this.#pageChangeListeners]) {
+          try {
+            listener();
+          } catch (error) {
+            this.#warn(`hcifootprint: a page-change listener threw: ${String(error)}`);
+          }
+        }
+        if (!this.#pageChangeMissed) return;
+      }
+      this.#warn(
+        `hcifootprint: page-change listeners kept moving the cursor after ${MAX_PAGE_CHANGE_ROUNDS} rounds ` +
+          `— the re-read stops here, so a listener may be holding an older page than the session is on. A ` +
+          `listener that syncs on every page change is the usual cause.`,
+      );
+    } finally {
+      this.#notifyingPageChange = false;
+      this.#pageChangeMissed = false;
+    }
+  }
+
+  /**
+   * ARRIVAL — the claim and the observation, joined where they meet.
+   *
+   * A fire that declared `navigatesTo` stamped `arrival: 'claimed'`: the app
+   * SAID it navigates. This is the other half — an observation landing on the
+   * page that claim named upgrades it to 'observed'. Nothing else does, and
+   * nothing ever writes a third value: see {@link TransitionRecord.arrival}.
+   *
+   * THE MATCH LAW, and it is narrow on purpose. Two ways to match, no third:
+   * exact page-id equality, or — when the observation is a raw path the graph
+   * has no page named for — the answer `matchRoute` gives over the WHOLE route
+   * table. Never string similarity, never `endsWith` on a pathname. The whole
+   * table rather than the claimed page's own route, because a claim on
+   * '/orders/:id' would otherwise swallow an observation of '/orders/new' that a
+   * more literal route describes exactly; asking the matcher lets the better
+   * route win and this join correctly find nothing.
+   *
+   * THE WINDOW is one claim wide, opens where the fire is RECORDED, and closes on
+   * whichever comes first: the next FIRED transition, or the next OBSERVATION.
+   * Fire order on both ends, deliberately — a window opened at settle could be
+   * re-opened after its own closers had run, and handed to whichever fire settled
+   * last rather than the one that fired last. Two rapid fires claiming the same
+   * page can never both be corroborated by one observation — the older keeps
+   * 'claimed', which is the truth about it. And an observation that landed
+   * SOMEWHERE ELSE closes the window without being a verdict: nothing is marked
+   * failed, but it is evidence the claim did not describe, and corroborating a
+   * later hop across a contradiction would be a guess wearing the word
+   * 'observed'.
+   *
+   * The upgrade does NOT bump the version: nothing about the world changed here,
+   * and invalidating live plans for a record annotation would be motion the
+   * session invented. It re-emits the record so observers see the join, and it
+   * touches nothing else — `toNodeClaimed` stands, and the settlement receipt
+   * taken when the fire came to rest was copied at that moment and is never
+   * rewritten.
+   */
+  #joinArrival(observed: string): void {
+    const claim = this.#navClaim;
+    if (claim === null) return;
+    // An authored page id is compared exactly; only an off-graph observation
+    // (a raw pathname — what watchLocation reports) is put to the route table.
+    const landed =
+      this.spec.pages[observed] !== undefined ? observed : matchRoute(this.spec.pages, observed);
+    // One observation per claim, whichever way it goes: the window closes here.
+    this.#navClaim = null;
+    if (landed !== claim.target) return; // elsewhere, or unplaceable: no verdict either way
+    const record = this.#transitions.find((t) => t.id === claim.recordId);
+    // `!== 'observed'` rather than `=== 'claimed'`: the fire may not have settled
+    // yet — a router that moves before its own promise resolves is the ordinary
+    // case — so the stamp lands here and #settle's `??=` leaves it standing.
+    if (record === undefined || record.arrival === 'observed') return;
+    record.arrival = 'observed';
+    this.#emitTransition(record);
+  }
+
+  /**
+   * Close the arrival window. Called wherever a FIRED transition is recorded:
+   * once anything else has been fired, an observation can no longer be told
+   * apart from that fire's own doing, and the library does not guess which of
+   * two candidates moved the app.
+   */
+  #closeArrivalWindow(): void {
+    this.#navClaim = null;
+  }
+
+  /**
    * THE PAGE-LEVEL NEVER-TRAP. The commit gate refuses a skill FRAME that
    * opens onto an entry nothing can perform; this is the same law one level
    * up, about the room itself. A page where NOTHING the graph puts there could
@@ -2097,10 +2600,8 @@ export class Session {
    *
    * CALLED FROM WRITE PATHS ONLY — never from available(). recordRejection's
    * own #gapContext calls available(), so a read-path emission would recurse
-   * through every refusal. The three writes where the cursor rests: sync()
-   * landing a page change, a fire()-claimed navigation settling, and the
-   * coalesced structure flush (where a mount may have just fixed — or just
-   * broken — the room).
+   * through every refusal. It runs inside {@link Session.#cursorCameToRest},
+   * which owns the three writes where the cursor rests.
    */
   #checkDeadEnd(): void {
     if (this.#allowUnmaterialized) return;
@@ -2685,6 +3186,65 @@ export class Session {
   }
 
   /**
+   * THE ASK BOOK — every high-effect ask this session is holding, and what
+   * became of each (copies, oldest first).
+   *
+   * The read that answers "is anything waiting on a person?". A paused ask is
+   * not a transition and never joins {@link Session.pending} or
+   * {@link Session.awaitingSettlement}, so before this door a caller asking
+   * about a paused action was answered by the two lists that structurally could
+   * not contain it — and an empty list reads as *nothing is happening*, which
+   * is the confident emptiness this library keeps closing.
+   *
+   * NOT named `openAsks`: under {@link SessionOptions.requireHumanApproval}
+   * answered cards STAY in the book (an approval must be spendable once, a
+   * decline refusable for the session's life), so a name promising only open
+   * ones would be wrong on its own rows. Read `answer` for the fate — absent
+   * means the person has not decided.
+   *
+   * A LIVE READ, and callers must keep it that way: ask it at answer time, never
+   * once at construction. The whole value of the arm it feeds is that the fate
+   * it reports is the fate right now.
+   *
+   * Structural facts only ({@link AskStatus}) — the receipts stay on the ask.
+   * {@link Session.confirms} remains the auditable journal; this is the
+   * derivation the library owes its own serving layer, because deriving these
+   * fates from journal rows means re-implementing the gate's law beside the gate.
+   */
+  asks(): AskStatus[] {
+    return [...this.#openAsks.values()].map((ask) => ({
+      askId: ask.askId,
+      affordanceId: ask.affordanceId,
+      ...(ask.instance !== undefined ? { instance: ask.instance } : {}),
+      ...(ask.answer !== undefined ? { answer: ask.answer } : {}),
+      ...(ask.spent !== undefined ? { spent: ask.spent } : {}),
+      ...(this.#approvalWentStale(ask) ? { stale: true as const } : {}),
+    }));
+  }
+
+  /**
+   * Would the gate refuse a fire on this recorded yes RIGHT NOW, because the
+   * app's own policy says it is too old? Asked through the gate's own function,
+   * never re-derived: the read that tells a caller "go and do it" and the check
+   * that refuses the doing must be the same law, or the library hands out an
+   * instruction it will then reject forever.
+   *
+   * Only ever true about an unspent approval under a declared policy — a spent
+   * one is finished, and a session with no policy has no way for a yes to age.
+   */
+  #approvalWentStale(ask: OpenAsk): boolean {
+    if (this.#humanApproval === undefined) return false;
+    if (ask.answer !== 'approved' || ask.spent === true) return false;
+    const row = this.#approvalRows.get(ask.askId);
+    if (row === undefined) return false;
+    return stale(row, ask, {
+      rules: this.#humanApproval,
+      now: this.#now(),
+      stateVersion: this.#stateVersion,
+    });
+  }
+
+  /**
    * Close an open ask as APPROVED when a matching fire lands (called from fire()).
    * THE DEFAULT PATH ONLY: under enforcement the gate owns the outcome, because
    * this stamps the FIRING principal on a row named 'approved' — an audit trail,
@@ -2831,7 +3391,7 @@ export class Session {
   /**
    * What the card will SEND — bounded exactly like every other captured value.
    *
-   * REDACTION POINT 3 of 3 (SessionOptions.redactedFields.payload — the SAME list
+   * REDACTION POINT 3 of 4 (SessionOptions.redactedFields.payload — the SAME list
    * as the record's, because this is the same value with a second home, and a
    * field hidden from the log that still rides the card is not hidden).
    *
@@ -2909,17 +3469,39 @@ export class Session {
    * an auditor can read what a row is from its prefix alone: `ask#N` is a question
    * put to a human, `grant#N` a standing policy, `refusal#N` a crossing attempt
    * that presented no pointer at all. Never caller-supplied.
+   *
+   * THE ONE COLLISION, said out loud where it can be fixed. A transition id is
+   * `<affordanceId>#<n>` from a different counter, so a graph with an action
+   * literally named 'ask' can mint a transition and a card with the same string.
+   * The serving layer refuses to answer about either one when that happens
+   * (AMBIGUOUS_ID) — this warning is the half that reaches the person who can
+   * rename the action. Once per prefix; the ids themselves are never changed to
+   * dodge it, because an id that quietly differs from what the counter says is a
+   * second thing to reason about.
    */
   #mintAskId(): string {
-    return `ask#${(this.#askSeq += 1)}`;
+    return this.#mintedConfirmId('ask');
   }
 
   #mintGrantId(): string {
-    return `grant#${(this.#askSeq += 1)}`;
+    return this.#mintedConfirmId('grant');
   }
 
   #mintRefusalId(): string {
-    return `refusal#${(this.#askSeq += 1)}`;
+    return this.#mintedConfirmId('refusal');
+  }
+
+  #mintedConfirmId(prefix: 'ask' | 'grant' | 'refusal'): string {
+    if (this.spec.affordances[prefix] !== undefined && !this.#approvalWarned.has(`id:${prefix}`)) {
+      this.#approvalWarned.add(`id:${prefix}`);
+      this.#warn(
+        `hcifootprint: this graph has an action named '${prefix}', and approval cards are numbered ` +
+          `'${prefix}#1', '${prefix}#2', … — the same shape as that action's transition ids. One string ` +
+          `can end up naming both, and did_it_work refuses to answer about either when it does. Rename ` +
+          `the action to keep the two apart.`,
+      );
+    }
+    return `${prefix}#${(this.#askSeq += 1)}`;
   }
 
   #pushConfirm(row: ConfirmRecord): void {
@@ -3126,8 +3708,15 @@ export class Session {
    * window that ONE transition closed — refusals first, the transition last.
    * Timestamps could only tie at millisecond grain and invent an order.
    *
-   * 'reported' and 'dead-end' gap rows are deliberately absent: the first is
-   * runtime free text, and neither is an attempt to act.
+   * 'dead-end' rows are absent (not an attempt to act), and so is nearly every
+   * 'reported' row: those carry runtime free text, and this block admits none.
+   * THE ONE EXCEPTION is a row that marks itself
+   * {@link ReportGapOptions.actionsMayBeStale} — a report that the list of
+   * actions being served could not be refreshed. It is not an attempt either, but
+   * it is the one thing a reader of this block cannot afford to be missing: every
+   * other line here is about what happened, and this one is about whether the
+   * room being described is still the room. It renders as an AUTHORED line; the
+   * row's own `request` never crosses.
    *
    * References, not sentences — the caller slices first and renders after.
    */
@@ -3135,6 +3724,9 @@ export class Session {
     const rows: AttemptRow[] = [];
     for (const gap of this.#gaps) {
       if (gap.kind === 'fire-rejected') rows.push({ at: gap.version, rank: 0, gap });
+      else if (gap.kind === 'reported' && gap.actionsMayBeStale === true) {
+        rows.push({ at: gap.version, rank: 0, gap });
+      }
     }
     for (const t of this.#transitions) {
       if (t.cause.kind === 'fired') rows.push({ at: t.cursorVersion, rank: 1, fired: t });
@@ -3143,9 +3735,10 @@ export class Session {
     return rows;
   }
 
-  /** One attempt in plain words — a refused fire, or a recorded one. */
+  /** One row in plain words — a refused fire, a recorded one, or a failed re-read. */
   #attemptLine(row: AttemptRow): string {
-    return row.rank === 0 ? this.#refusedLine(row.gap) : this.#firedLine(row.fired);
+    if (row.rank === 1) return this.#firedLine(row.fired);
+    return row.gap.kind === 'reported' ? READ_FAILED_LINE : this.#refusedLine(row.gap);
   }
 
   /** A fire this session refused: it did not happen, and the reason is the typed one. */
@@ -3290,8 +3883,9 @@ export class Session {
       this.#bumpStructure();
       this.#checkFrameAfterWorldChange();
       // The served structure just changed under a stationary cursor — the one
-      // moment a page can become (or stop being) a room with no doors.
-      this.#checkDeadEnd();
+      // moment a page can become (or stop being) a room with no doors. Nobody
+      // reported a position, so only the never-trap question runs.
+      this.#cursorCameToRest({ kind: 'unreported' });
     });
   }
 
@@ -3392,11 +3986,26 @@ export class Session {
       // Declared target = expectation, flagged as a CLAIM; sync() records reality.
       record.toNode = aff.effect.navigatesTo;
       record.toNodeClaimed = true;
+      // …and the claim is stamped, for EVERY gesture that declares a destination.
+      // Including 'tab': the cursor hop below has never been gated on the gesture
+      // either, so excluding tabs here minted a session where the cursor moved on
+      // the app's word and nothing could ever corroborate it — the asymmetry, not
+      // the honesty. The declaration is the app's, whichever gesture carries it.
+      //
+      // `??=`: an observation that landed while this fire was still in flight has
+      // already written 'observed', and a claim written over it would forget the
+      // corroboration between a router that moves first and a promise that
+      // resolves second — the ordinary shape of a real navigation.
+      record.arrival ??= 'claimed';
       // The claim moves the LIVE cursor only if nothing else moved it since
       // this transition fired — a weaker claim must never clobber a newer
       // sync() observation that interleaved while the fire was pending.
       if (this.#node === record.fromNode && this.#node !== aff.effect.navigatesTo) {
         this.#node = aff.effect.navigatesTo;
+        // Moved on the app's WORD. Nothing has reported this position, so the
+        // router's confirmation — a sync that changes no node — still counts as
+        // the first report of it.
+        this.#positionReported = false;
         cursorHopped = true;
       }
     } else {
@@ -3417,8 +4026,10 @@ export class Session {
     }
     this.#emitTransition(record); // now committed — observers see the settled record
     this.#checkFrameAfterWorldChange();
-    // A claimed navigation just moved the cursor: same question as sync()'s.
-    if (cursorHopped) this.#checkDeadEnd();
+    // A claimed navigation just moved the cursor: the same rest sync() takes,
+    // minus the observation — nothing has confirmed this hop, and the app's own
+    // handler has not even run yet.
+    if (cursorHopped) this.#cursorCameToRest({ kind: 'unreported' });
   }
 
   /** The disclosure filter: full slice normally; frame steps + escape roles when a frame is open. */
@@ -3584,6 +4195,39 @@ function fullyLiteral(routeOrHref: string): boolean {
 }
 
 /**
+ * The id a value reader is filed under, and the id a served row looks it up by.
+ *
+ * CANONICAL IS SELF TODAY — an action has exactly one name, so this is identity.
+ * It exists as one function anyway because a future alias feature has to resolve
+ * THROUGH it: an alias that filed its own key would give one control two readers
+ * and serve whichever was written last, which is the guessed-value class this
+ * whole surface refuses. One place to change, and both sides change together.
+ */
+function canonicalHoldsKey(affordanceId: string): string {
+  return affordanceId;
+}
+
+/**
+ * Did bounding this value produce an EMPTY BOX — `{}` for something that was not
+ * empty? True for a Map, a Set, a Date, a RegExp: containers whose contents live
+ * nowhere `Object.entries` can see, so the bounded copy comes out with no keys at
+ * all. An app's genuinely empty `{}` is not one of these and still serves, because
+ * there the empty box is the truth.
+ */
+function emptyBoxFor(raw: unknown, bounded: unknown): boolean {
+  if (typeof bounded !== 'object' || bounded === null) return false;
+  if (Array.isArray(bounded) || Object.keys(bounded).length > 0) return false;
+  const proto: unknown = Object.getPrototypeOf(raw as object);
+  return proto !== Object.prototype && proto !== null;
+}
+
+/** What kind of thing the app handed back, for the warning only — never served. */
+function describeKind(raw: unknown): string {
+  const name: unknown = (raw as { constructor?: { name?: unknown } })?.constructor?.name;
+  return typeof name === 'string' && name.length > 0 ? name : 'value';
+}
+
+/**
  * Bounded, firewall-safe copy of a handler's return value for the DATA channel.
  * Caps depth/breadth/string length (search results can be large), drops
  * functions, and tolerates cycles via the depth cap — so a handler return can
@@ -3592,6 +4236,12 @@ function fullyLiteral(routeOrHref: string): boolean {
 function sanitizeProduced(value: unknown, depth = 0): unknown {
   if (typeof value === 'function') return undefined;
   if (typeof value === 'string') return value.length > 200 ? `${value.slice(0, 200)}…` : value;
+  // A bigint survives structuredClone — this library's usual wire bar — and then
+  // THROWS in JSON.stringify, which is how every MCP result crosses. One app
+  // value of this type would cost the model the whole answer (facts, actions and
+  // skills), so it crosses as its decimal digits: the same number, in the only
+  // type JSON has for it.
+  if (typeof value === 'bigint') return `${value}`;
   if (value === null || typeof value !== 'object') return value; // number, boolean, undefined
   if (depth >= 4) return null; // deep enough — and a cycle backstop
   if (Array.isArray(value)) {

@@ -4,7 +4,7 @@ title: ConfirmTrailStep
 
 # Interface: ConfirmTrailStep
 
-Defined in: [src/atom/types.ts:1154](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1154)
+Defined in: [src/atom/types.ts:1260](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1260)
 
 One compact row of the run-so-far trail — authored/structural facts only.
 
@@ -14,7 +14,7 @@ One compact row of the run-so-far trail — authored/structural facts only.
 
 > **outcome**: [`Settlement`](/api/index/type-aliases/Settlement)
 
-Defined in: [src/atom/types.ts:1160](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1160)
+Defined in: [src/atom/types.ts:1266](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1266)
 
 Its settlement outcome.
 
@@ -24,7 +24,7 @@ Its settlement outcome.
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1158](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1158)
+Defined in: [src/atom/types.ts:1264](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1264)
 
 Who did it.
 
@@ -34,6 +34,6 @@ Who did it.
 
 > **what**: `string`
 
-Defined in: [src/atom/types.ts:1156](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1156)
+Defined in: [src/atom/types.ts:1262](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1262)
 
 The affordance id (fired rows) or a `stimulus:<kind>` label — never runtime text.

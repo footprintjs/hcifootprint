@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildNavigationGraph } from '../../src/index.js';
+import { buildNavigationGraph, skillsAsTools } from '../../src/index.js';
 import { VERIFY_FAILED_EXPLANATION } from '../../src/traverse/verify.js';
 import { checkNoInput } from '../../src/traverse/payload-shape.js';
 
@@ -118,6 +118,81 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
     expect(grounding).toContain(
       'these lines are what actually happened; the conversation is a claim about them',
     );
+  });
+
+  it('the pause sentences are the ones the port actually serves', () => {
+    // Two authored constants a doc quotes verbatim: the one that tells a model
+    // nothing happened, and the one that tells it a person — not a fix — is what
+    // is missing. Reworded in modes.ts and not in the page, and the page would be
+    // teaching a sentence no model ever receives.
+    const session = buildNavigationGraph('shop', {
+      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true } } } },
+    }).createSession({ node: 'checkout', onWarn: () => undefined });
+    const port = skillsAsTools(session);
+    const asked = port.call('shop.do_action', { action: 'place-order' });
+    const paused = port.call('shop.did_it_work', { transitionId: asked['askId'] as string });
+
+    expect(flatten(read('docs-next/content/docs/serve/receipts.mdx'))).toContain(flatten(String(asked['why'])));
+    // …and the page that teaches the whole surface quotes the same sentence.
+    expect(flatten(read('docs-next/content/docs/serve/paused-not-failed.mdx'))).toContain(
+      flatten(String(asked['why'])),
+    );
+    expect(flatten(read('docs-next/content/docs/serve/modes.mdx'))).toContain(
+      flatten('Paused, not failed: no outcome exists because nothing was fired.'),
+    );
+    expect(String(paused['howToAct'])).toContain(
+      'Paused, not failed: no outcome exists because nothing was fired.',
+    );
+  });
+
+  it('the arrival sentences are the ones the port actually serves', async () => {
+    // Two more authored constants quoted verbatim: what a navigation CLAIM means,
+    // and what an OBSERVATION of it means. These two carry the release's most
+    // easily-overstated fact — corroboration is not proof — so a rewording in
+    // modes.ts that never reached the page would leave the page teaching a
+    // stronger word than the model is ever handed.
+    const session = buildNavigationGraph('shop', {
+      pages: {
+        catalog: { tools: { 'go-to-cart': { does: 'Open the cart', goTo: 'cart' } } },
+        cart: { tools: { checkout: { does: 'Check out' } } },
+      },
+    }).createSession({ node: 'catalog', onWarn: () => undefined });
+    session.registerToolGroup('catalog', { handlers: { 'go-to-cart': () => undefined } });
+    const port = skillsAsTools(session);
+    const id = port.call('shop.do_action', { action: 'go-to-cart' })['transitionId'] as string;
+    await port.whenSettled(id);
+
+    const claimed = port.call('shop.did_it_work', { transitionId: id });
+    expect(claimed['arrival']).toBe('claimed');
+    session.sync('cart'); // the app's own report — the only thing that corroborates
+    const observed = port.call('shop.did_it_work', { transitionId: id });
+    expect(observed['arrival']).toBe('observed');
+
+    const page = flatten(read('docs-next/content/docs/serve/navigation-claims.mdx'));
+    expect(page).toContain(flatten(String(claimed['arrivalMeans'])));
+    expect(page).toContain(flatten(String(observed['arrivalMeans'])));
+  });
+
+  it('the stale-actions line the facts block prints is the one the page quotes', () => {
+    // The page shows this line inside a code fence, as the thing a model will
+    // read. It is authored on the library's side, so a rewording that never
+    // reached the page would leave the page teaching a sentence nobody receives.
+    const session = buildNavigationGraph('desk', {
+      pages: { home: { tools: { look: { does: 'Look around' } } } },
+    }).createSession({ node: 'home', onWarn: () => undefined });
+    session.reportGap({
+      request: 'live action store read failed; serving bindings from before the failure',
+      principal: 'system',
+      actionsMayBeStale: true,
+    });
+    const line = session
+      .groundTruth()
+      .text.split('\n')
+      .find((row) => row.includes('could not re-read'))!;
+
+    expect(flatten(read('docs-next/content/docs/build/live-bindings.mdx'))).toContain(flatten(line));
+    // …and the row's own request — runtime text on any other source — does not cross.
+    expect(session.groundTruth().text).not.toContain('serving bindings from before');
   });
 
   it('the dead-end warning names the same three fixes the docs name', () => {

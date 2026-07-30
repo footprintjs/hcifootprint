@@ -4,7 +4,7 @@ title: RedactedFields
 
 # Interface: RedactedFields
 
-Defined in: [src/atom/types.ts:331](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L331)
+Defined in: [src/atom/types.ts:338](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L338)
 
 WHICH FIELDS TO HIDE INSIDE THE DATA A TRANSITION CARRIES — the redaction
 `redactedKeys` never did.
@@ -47,11 +47,13 @@ for a hidden one the marker tells them exactly which field they cannot judge.
 
 > `optional` **payload?**: `string`[]
 
-Defined in: [src/atom/types.ts:337](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L337)
+Defined in: [src/atom/types.ts:346](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L346)
 
 Paths inside the value a fire CARRIES. Governs every rendering of it at once
-— `TransitionRecord.payload` and `ConfirmWillUse.input` — because a field
-hidden from the log that still rides the approval card is not hidden.
+— `TransitionRecord.payload`, `ConfirmWillUse.input`, and
+[AvailableEdge.holds](/api/index/interfaces/AvailableEdge#holds), which is that same value one turn EARLY —
+because a field hidden from the log that still rides the approval card (or
+the action row the model reads before it fires) is not hidden.
 
 ***
 
@@ -59,7 +61,7 @@ hidden from the log that still rides the approval card is not hidden.
 
 > `optional` **produced?**: `string`[]
 
-Defined in: [src/atom/types.ts:344](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L344)
+Defined in: [src/atom/types.ts:353](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L353)
 
 Paths inside the value a handler RETURNS
 ([TransitionRecord.produced](/api/index/interfaces/TransitionRecord#produced)): the act → get-data-back channel, which

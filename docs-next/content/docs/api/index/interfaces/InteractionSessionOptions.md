@@ -16,7 +16,7 @@ Defined in: [src/traverse/nav-session.ts:49](https://github.com/footprintjs/hcif
 
 > `optional` **allowUnmaterializedFires?**: `boolean`
 
-Defined in: [src/atom/types.ts:388](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L388)
+Defined in: [src/atom/types.ts:397](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L397)
 
 Let AGENT fires of declared-but-unbound tools proceed as honest no-ops
 (executed: false, materialized: false on the result) instead of the
@@ -35,7 +35,7 @@ trusting position. Default false (fail-closed).
 
 > `optional` **captureProduced?**: `boolean`
 
-Defined in: [src/atom/types.ts:379](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L379)
+Defined in: [src/atom/types.ts:388](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L388)
 
 Capture each handler's RETURN value onto its transition (sanitized+capped)
 as the "act → get data back" channel — TransitionRecord.produced. Default
@@ -52,7 +52,7 @@ internal and should never reach the agent).
 
 > `optional` **checkPayloadShape?**: `boolean`
 
-Defined in: [src/atom/types.ts:403](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L403)
+Defined in: [src/atom/types.ts:412](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L412)
 
 Check a plain JSON-Schema declaration against the payload at fire time.
 STRUCTURAL only — required keys, declared primitive types, closed objects —
@@ -77,7 +77,7 @@ either way; this flag governs only the plain-JSON-Schema branch.
 
 > `optional` **commitValues?**: `"full"` \| `"delta"`
 
-Defined in: [src/atom/types.ts:370](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L370)
+Defined in: [src/atom/types.ts:379](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L379)
 
 Commit-log value encoding (footprintjs dial). Default 'delta'.
 
@@ -104,7 +104,7 @@ instantly if the router then confirms their page. Default 3000ms.
 
 > `optional` **navigate?**: (`href`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [src/atom/types.ts:415](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L415)
+Defined in: [src/atom/types.ts:424](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L424)
 
 The caller's OWN router navigation (e.g. `(href) => router.push(href)`).
 PRESENCE of this option is the opt-in: with it, an edge whose gesture
@@ -167,7 +167,7 @@ real waits (hcifootprint/testing's harness wires one for you).
 
 > `optional` **onWarn?**: (`message`) => `void`
 
-Defined in: [src/atom/types.ts:372](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L372)
+Defined in: [src/atom/types.ts:381](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L381)
 
 Dev-warning sink (StrictMode re-registrations, handler errors). Default console.warn.
 
@@ -191,7 +191,7 @@ Dev-warning sink (StrictMode re-registrations, handler errors). Default console.
 
 > `optional` **redactedFields?**: [`RedactedFields`](/api/index/interfaces/RedactedFields)
 
-Defined in: [src/atom/types.ts:368](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L368)
+Defined in: [src/atom/types.ts:377](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L377)
 
 Fields to hide INSIDE the data a transition carries — a fire's payload, a
 handler's return. The sibling of `redactedKeys` (which governs state keys and
@@ -208,7 +208,7 @@ changes. See [RedactedFields](/api/index/interfaces/RedactedFields).
 
 > `optional` **redactedKeys?**: `string`[]
 
-Defined in: [src/atom/types.ts:361](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L361)
+Defined in: [src/atom/types.ts:370](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L370)
 
 Keys stored as 'REDACTED' in the commit log while live state keeps raw values.
 
@@ -222,7 +222,7 @@ Keys stored as 'REDACTED' in the commit log while live state keeps raw values.
 
 > `optional` **requireHumanApproval?**: `boolean` \| [`HumanApprovalPolicy`](/api/index/interfaces/HumanApprovalPolicy)
 
-Defined in: [src/atom/types.ts:439](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L439)
+Defined in: [src/atom/types.ts:448](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L448)
 
 REQUIRE A RECORDED HUMAN APPROVAL before an agent may fire a high-effect
 action. Off by default; with it on, a high-effect agent fire is refused
@@ -256,7 +256,7 @@ fail-closed, byte-identical.
 
 > `optional` **state?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [src/atom/types.ts:351](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L351)
+Defined in: [src/atom/types.ts:360](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L360)
 
 Initial projected state (the lean snapshot guards read — not the whole app).
 
@@ -270,7 +270,7 @@ Initial projected state (the lean snapshot guards read — not the whole app).
 
 > `optional` **stateTap?**: `boolean`
 
-Defined in: [src/atom/types.ts:359](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L359)
+Defined in: [src/atom/types.ts:368](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L368)
 
 Whether this session receives updateState() reports (a router/store tap).
 Default: true when `state` was provided, false otherwise. Without a tap,

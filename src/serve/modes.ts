@@ -33,7 +33,14 @@
  * values (state, payloads, instance keys, evidence) are structured DATA fields.
  */
 import type { MCPToolDescription } from 'footprintjs';
-import type { AvailableEdge, Explanation, FireResult, FireSettlement, Principal } from '../atom/types.js';
+import type {
+  AskStatus,
+  AvailableEdge,
+  Explanation,
+  FireResult,
+  FireSettlement,
+  Principal,
+} from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 import { errorText } from './error-text.js';
 
@@ -146,10 +153,11 @@ const WHY_DESCRIPTION =
   'who fired each one — that produced it. Pass a state key name seen in results or guards.';
 
 const DID_IT_WORK_DESCRIPTION =
-  'Find out how an action you already performed came to rest — whether the app actually did it. ' +
-  'Pass the transitionId from that action’s result. This answers immediately either way: the final ' +
-  'outcome, or that the app has not finished yet (call again). Use it whenever a result came back ' +
-  'with effectStatus "pending".';
+  'Find out how an action came to rest — whether the app actually did it. Pass the transitionId ' +
+  'from that action’s result. This answers immediately either way: the final outcome, or that the ' +
+  'app has not finished yet (call again). Use it whenever a result came back with effectStatus ' +
+  '"pending". It also takes the askId from a needs-confirm result, and answers whether the human ' +
+  'has decided yet — a paused action is not a failed one.';
 
 const STILL_PENDING_HOWTO =
   'The app has not finished this action yet, so there is no outcome to report. Do NOT perform the ' +
@@ -160,10 +168,78 @@ const OUTCOME_MOVED_HOWTO =
   'This is the receipt from when the action came to rest — the app has moved it since (see ' +
   'outcomeNow). Do NOT act on outcome alone: call whats_here to see where things actually stand.';
 
+// A PAUSE IS NOT A FAILURE — the four sentences of the ask book, and the field
+// report they answer: an agent met needs-confirm, read `ok: false` as an error,
+// told the human the app had failed, and went looking for another route. Nothing
+// in the payload said the two things a reader needed — that NOTHING was done, and
+// that the missing piece is a person rather than a fix. Now the results say both,
+// and `performed: false` says the first one in a field a machine can branch on.
+// The answer vocabulary these belong to is written down in
+// docs/design/answer-grammar.md.
+const PAUSED_NOTHING_DONE =
+  'Nothing has been done. This is a question for the human, not a failure — do not report it as an ' +
+  'error, and confirm: true is not the human’s answer.';
+
+const PAUSED_AWAITING_HUMAN_HOWTO =
+  'Paused, not failed: no outcome exists because nothing was fired. The human has not decided. Do ' +
+  'not report this as an error and do not look for another way to do it — show them what it will ' +
+  'do and wait for their answer.';
+
+const PAUSED_APPROVED_HOWTO =
+  'The human approved this and nothing has fired yet, so there is still no outcome. Perform the ' +
+  'action to carry out what they approved — do not ask them a second time.';
+
+const PAUSED_DECLINED_HOWTO =
+  'The human said no, so this was never performed and no outcome exists. Do not ask again about the ' +
+  'same thing — tell them it was not done, and move on or ask about something different.';
+
+// The yes exists and the app will not take it: this app requires an approval to
+// be fresh, and this one is not any more. Said instead of PAUSED_APPROVED_HOWTO
+// and never beside it — "go and perform it" here would order the one move the
+// gate is about to refuse, forever, since the refusal leaves the card exactly as
+// it found it.
+const PAUSED_APPROVAL_STALE_HOWTO =
+  'The human approved this, but the app will not act on that approval any more — it has run out, or ' +
+  'things changed since they looked. Nothing has been done. Do not keep trying to perform it: show ' +
+  'them the action again and get a fresh answer.';
+
+// One id, two objects, and no way to tell which was meant — so neither answer is
+// given. The app team is the reader who can fix it; the model is told what it
+// safely can do.
+const AMBIGUOUS_ID_WHY =
+  'This id names two different things in this session: an action that was performed, and a question ' +
+  'a human was asked. Answering about either could be an answer about the other one, so neither is ' +
+  'reported. Call whats_here to see where things actually stand. (App team: an action named "ask", ' +
+  '"grant" or "refusal" shares the id grammar this library uses for approval cards — renaming the ' +
+  'action ends this.)';
+
+// ARRIVAL — the claim and the observation, side by side, and neither promoted.
+// A navigating action declares no writes, so "nothing changed here" is what its
+// success looks like from the element's side; the only other evidence is the app
+// reporting where it now is. These two sentences say exactly how much that is
+// worth, and the second is deliberately the weaker word: a matching observation
+// is corroboration, and nothing here can see the app's router.
+const ARRIVAL_CLAIMED_MEANS =
+  'The app declares this action navigates, and nothing has observed it arrive. That is not a ' +
+  'failure — no observation has landed, which is a different thing from a navigation that did not ' +
+  'happen. Call whats_here to see where things actually stand.';
+
+const ARRIVAL_OBSERVED_MEANS =
+  'A matching observation landed after this action: the app reported being on the page this action ' +
+  'said it goes to. That is corroboration, not proof that this action caused it.';
+
 const NOT_MATERIALIZED_WHY =
   'Nothing in the app is wired to execute this action yet — firing it would do nothing. ' +
   'Tell the human it is not available; the app team can register a tool group to wire it, ' +
   'or create the session with allowUnmaterializedFires for read-only touring.';
+
+// The same fact one call later. This session allows fires nothing is wired to
+// execute, so the record came to rest without anything having happened — every
+// effect on it, including where it says it goes, is the app's declaration alone.
+const NOTHING_EXECUTED_IT =
+  'Nothing in the app was wired to execute this action, so it was recorded but never performed. ' +
+  'Anything it says about where it goes or what it changes is the app’s declaration, not something ' +
+  'that happened. Do not tell the human it is done.';
 
 // The five requireHumanApproval refusals, in the NOT_MATERIALIZED_WHY shape: name
 // what happened, name the next move, name the option. Every one is a fixed
@@ -390,7 +466,12 @@ export function skillsAsTools(
         properties: {
           transitionId: {
             type: 'string',
-            description: 'The transitionId carried by the result of the action you performed.',
+            // One property, two id families, and no second argument: a schema
+            // grown for this would change the tool array's bytes for every
+            // caller, and the port can tell the two apart itself.
+            description:
+              'The transitionId carried by the result of the action you performed — or the askId ' +
+              'from a needs-confirm result, to learn whether the human has decided.',
           },
         },
         required: ['transitionId'],
@@ -482,6 +563,10 @@ export function skillsAsTools(
         skill: skillId,
         step: stepId,
         does: edge.description,
+        // `ok: false` is true of the CALL and was read as true of the app. These
+        // two say what actually happened: nothing, and it is a person's turn.
+        performed: false,
+        why: PAUSED_NOTHING_DONE,
         ...asked,
         ...positionData(),
       };
@@ -562,6 +647,8 @@ export function skillsAsTools(
         judgment: 'needs-confirm',
         action: edge.affordanceId,
         does: edge.description,
+        performed: false,
+        why: PAUSED_NOTHING_DONE,
         ...askData(edge.affordanceId, args),
         ...positionData(),
       };
@@ -625,29 +712,48 @@ export function skillsAsTools(
    * key produced a confident lie. Here a wrong id is refused by name, and an
    * unfinished action says it is unfinished.
    *
-   * Three arms, no fourth: settled (the final word), still-pending (honest,
-   * immediate), unknown (refused in the UpdateResult vocabulary the rest of
-   * the library already teaches with).
+   * The arms: settled (the final word), still-pending (honest, immediate), the
+   * three ASK-BOOK arms (nothing fired — a person has it, answered it, or
+   * refused it), and unknown (refused in the UpdateResult vocabulary the rest of
+   * the library already teaches with). One vocabulary, written down:
+   * docs/design/answer-grammar.md.
+   *
+   * Two facts ride ALONGSIDE the settled arm rather than inside it, because both
+   * can land after the receipt was written and the receipt is never rewritten:
+   * `outcomeNow` (the record moved) and `arrival` (an observation corroborated —
+   * or has yet to corroborate — a navigation claim).
    */
-  function callDidItWork(transitionId: string): ServeResult {
+  function callDidItWork(transitionId: string, visited: ReadonlySet<string> = new Set()): ServeResult {
     let settled: FireSettlement | undefined;
     try {
       settled = session.settlementIfKnown(transitionId);
     } catch {
-      // The session refuses an id no settlement can ever exist for. Over the
-      // wire a throw is not an answer, so it becomes a typed result carrying
-      // TWO lists, side by side, neither standing in for the other:
+      // The session refuses an id no settlement can ever exist for — and an
+      // ASK id is exactly that, honestly so: nothing fired, so there is no
+      // transition to have come to rest. Before this, a paused action's id was
+      // answered UNKNOWN_TRANSITION beside two lists that structurally could not
+      // contain it (an ask is not a latch and never joins pending()), so the one
+      // question with an answer available got the one word that says there
+      // isn't one. Ask the book first.
+      const paused = fromAskBook(transitionId, visited);
+      if (paused) return paused;
+      // Not an ask either. Over the wire a throw is not an answer, so it becomes
+      // a typed result carrying THREE lists, side by side, none standing in for
+      // another:
       //
       //   pending            — fires awaiting the app's STATE report. The exact
       //                        meaning updateState()'s own UNKNOWN_TRANSITION
       //                        carries, kept identical so one word does not
       //                        mean two things across the library.
       //   awaitingSettlement — fires this tool can still be asked about.
+      //   awaitingHuman      — asks nobody has answered. Not fires at all, which
+      //                        is why they need their own list rather than a
+      //                        third meaning bolted onto one of the others.
       //
-      // The second is the one the model's question is actually about, and it is
-      // the SUPERSET: a fire declaring no writes never joins `pending` while
-      // its handler runs, so `pending` alone answered "[]" — "nothing is live" —
-      // about an action that was at that moment running. That is the same
+      // The second is the one a model's question is usually about, and it is the
+      // SUPERSET of the first: a fire declaring no writes never joins `pending`
+      // while its handler runs, so `pending` alone answered "[]" — "nothing is
+      // live" — about an action that was at that moment running. That is the same
       // confident-emptiness this tool exists to end, and it left the wire
       // teaching strictly less than the in-process throw, which has always
       // named the open latches.
@@ -657,6 +763,33 @@ export function skillsAsTools(
         reason: 'UNKNOWN_TRANSITION',
         pending: session.pending().map((waiting) => waiting.id),
         awaitingSettlement: session.awaitingSettlement(),
+        awaitingHuman: session
+          .asks()
+          .filter((ask) => ask.answer === undefined)
+          .map((ask) => ({ askId: ask.askId, action: ask.affordanceId })),
+        ...positionData(),
+      };
+    }
+    // Past the catch, the id NAMES A TRANSITION — and in one graph shape it names
+    // a card as well. An action the app called 'ask' (or 'grant', or 'refusal')
+    // mints transition ids from the very grammar the ask book mints its own from
+    // (`<name>#<n>`), nothing refuses that name at build, and the two counters
+    // collide sooner or later. Answering from either book would be a confident
+    // answer about the OTHER object — a settled fire reported as the fate of a
+    // human's open card, or the reverse. There is no second argument to
+    // disambiguate with and no fact that says which was meant, so it is refused
+    // by name, with both candidates on the row.
+    const twin = session.asks().find((row) => row.askId === transitionId);
+    if (twin !== undefined) {
+      const fired = firedAction(transitionId);
+      return {
+        ok: false,
+        judgment: 'error',
+        reason: 'AMBIGUOUS_ID',
+        why: AMBIGUOUS_ID_WHY,
+        askId: twin.askId,
+        askedAbout: twin.affordanceId,
+        ...(fired !== undefined ? { did: fired } : {}),
         ...positionData(),
       };
     }
@@ -681,8 +814,16 @@ export function skillsAsTools(
     // app has since undone — a fact the session is holding right there. The
     // later word rides ALONGSIDE, never over: the receipt is not rewritten, and
     // it appears only when the two genuinely disagree.
-    const outcomeNow = session.transitions().find((row) => row.id === transitionId)?.outcome;
+    const live = session.transitions().find((row) => row.id === transitionId);
+    const outcomeNow = live?.outcome;
     const moved = outcomeNow !== undefined && outcomeNow !== settled.outcome;
+    // ARRIVAL rides the same rail, for the same reason: a navigation claim can be
+    // corroborated by an observation that lands long after the receipt was
+    // written, and the receipt is not rewritten to say so. Read LIVE (the
+    // receipt's own copy was frozen at rest and still says 'claimed'), served
+    // beside it, and never mistaken for the settlement's verdict — an action can
+    // be 'performed' with arrival still 'claimed', and that pair is the truth.
+    const arrival = live?.arrival;
     return {
       ok: true,
       settled: true,
@@ -714,10 +855,118 @@ export function skillsAsTools(
       // exists for — was left to infer it from `error` prose. Absent when the
       // action declares no verify: silence, never a passing grade.
       ...(settled.verifyHeld !== undefined ? { verifyHeld: settled.verifyHeld } : {}),
+      // Absent on every action that declares no navigation — silence, not a
+      // third word for "this one does not travel".
+      ...(arrival !== undefined
+        ? {
+            arrival,
+            arrivalMeans: arrival === 'observed' ? ARRIVAL_OBSERVED_MEANS : ARRIVAL_CLAIMED_MEANS,
+          }
+        : {}),
+      // The tour marker, carried onto the POLL. The fire-time result said
+      // `materialized: false` and this answer did not, so the same action read
+      // "settled, and here is how it came to rest" one call later — about
+      // something nothing in the app executed. Same word as the fire result, so a
+      // consumer branches on one name.
+      ...(settled.transition.materialized === false
+        ? { materialized: false, why: NOTHING_EXECUTED_IT }
+        : {}),
       ...(settled.transition.toNode !== undefined ? { toNode: settled.transition.toNode } : {}),
       // Capped TEXT: an app's error object never crosses a result whole.
       ...(settled.error !== undefined ? { error: errorText(settled.error) } : {}),
       ...(data !== undefined ? { data } : {}),
+      ...positionData(),
+    };
+  }
+
+  /**
+   * The id names no settlement — so ask the ASK BOOK, whose three fates are the
+   * three ways an action can have produced no outcome without anything failing
+   * (the same three `groundTruth()` prints). `undefined` = not an ask either,
+   * and the caller refuses it by name.
+   *
+   * READ AT ANSWER TIME, never from a snapshot this port kept: a card's fate is
+   * exactly the thing that changes between two calls, and reporting "the human
+   * is still deciding" about an ask they answered a minute ago is this tool's own
+   * failure mode wearing a friendlier word.
+   *
+   * EXACT IDS ONLY, like every other lookup here. `resolveStep`'s suffix matching
+   * exists because a model retypes a step name it read in prose; nothing retypes
+   * an askId, and a near-miss match would answer about a DIFFERENT person's
+   * card — the one class of wrong answer this tool must never give.
+   */
+  function fromAskBook(askId: string, visited: ReadonlySet<string>): ServeResult | undefined {
+    const ask = session.asks().find((row) => row.askId === askId);
+    if (ask === undefined) {
+      // Not in the book. In the DEFAULT mode an ask is dropped the moment the
+      // fire closes it, so a spent id lands here rather than on the arm below —
+      // the transition still carries it, which is the whole point of the chain.
+      return spentAnswer(askId, visited);
+    }
+    if (ask.answer === undefined) return pausedAnswer('awaiting-human', ask, PAUSED_AWAITING_HUMAN_HOWTO);
+    if (ask.answer === 'declined') return pausedAnswer('declined', ask, PAUSED_DECLINED_HOWTO);
+    if (ask.spent !== true) {
+      // A yes the app's own policy has aged out is still a yes on the card and
+      // still unspent, so it lands here — and the instruction has to split. The
+      // gate will refuse a fire on it (APPROVAL_STALE) and refuse it identically
+      // every time, without changing anything the ask book can see, so telling
+      // the model to perform it is telling it to loop.
+      return ask.stale === true
+        ? pausedAnswer('approval-no-longer-valid', ask, PAUSED_APPROVAL_STALE_HOWTO)
+        : pausedAnswer('approved-not-yet-done', ask, PAUSED_APPROVED_HOWTO);
+    }
+    return spentAnswer(askId, visited);
+  }
+
+  /**
+   * A card that has been SPENT: the fire it authorized carries its askId
+   * (TransitionRecord.askId, written by the gate as it spends the approval), so
+   * the question is forwarded to that fire and answered with ITS settlement. The
+   * model asked "did it work" and gets the outcome, not a lecture about ids.
+   *
+   * EXACTLY ONE, or nothing. A standing ALWAYS ALLOW grant is exercised by many
+   * fires under one id, and picking the newest would answer about an action the
+   * caller may not have meant — so an ambiguous id falls through to the refusal,
+   * which names what IS live rather than guessing which fire was meant.
+   *
+   * ONE HOP, ENFORCED. The forward re-enters with a TRANSITION id, which the ask
+   * book normally cannot match — but "normally" is not a proof: an action named
+   * 'ask' mints transition ids in the same `<name>#<n>` grammar the ask counter
+   * uses, so the two id spaces really can meet. The `visited` set is the
+   * termination argument, in code rather than in a sentence: nothing here is
+   * answered twice, whatever the app named its actions.
+   */
+  function spentAnswer(askId: string, visited: ReadonlySet<string>): ServeResult | undefined {
+    const spent = session.transitions().filter((row) => row.askId === askId);
+    if (spent.length !== 1) return undefined;
+    const forwardTo = spent[0]!.id;
+    if (visited.has(forwardTo)) return undefined;
+    return callDidItWork(forwardTo, new Set([...visited, forwardTo]));
+  }
+
+  /**
+   * One ask-book arm: nothing fired, so there is no settlement to report and no
+   * failure to report either.
+   *
+   * `performed: false` rides here for the same reason it rides the needs-confirm
+   * results — it is the same fact, and a consumer branching on it must not have
+   * to know which arm produced the payload. It is also what separates this from
+   * `still-pending`, whose action WAS fired and is merely unfinished: both carry
+   * `settled: false`, and only one of them means nobody has done anything.
+   *
+   * The action NAME and nothing more. The receipts belong to the ask that minted
+   * them; re-serving them here would put the human's card on a second channel,
+   * and a payload a model can fetch twice is a payload it can quote as new.
+   */
+  function pausedAnswer(judgment: string, ask: AskStatus, howToAct: string): ServeResult {
+    return {
+      ok: true,
+      settled: false,
+      performed: false,
+      judgment,
+      askId: ask.askId,
+      did: ask.affordanceId,
+      howToAct,
       ...positionData(),
     };
   }
@@ -900,6 +1149,12 @@ export function skillsAsTools(
         judgment: 'needs-confirm',
         did: id,
         reason: fired.reason,
+        // The pause marker, on the third needs-confirm arm. Its `why` stays the
+        // enforcement sentence rather than the generic one: it already says both
+        // halves of PAUSED_NOTHING_DONE (nothing crossed, confirm: true is not the
+        // human's answer) and adds the one thing only this arm knows — that the
+        // app requires an approval it recorded from a person.
+        performed: false,
         why: APPROVAL_REQUIRED_WHY,
         ...(edge ? { does: edge.description } : {}),
         ...askData(id, args),
@@ -951,6 +1206,22 @@ export function skillsAsTools(
     return {
       action: edge.affordanceId,
       does: edge.description,
+      // What this edge CLAIMS it will move you to, before anything is fired. The
+      // human's confirm receipt has always disclosed it (ConfirmWillDo.
+      // navigatesTo) and the agent's row did not, so only one of the two readers
+      // knew that this edge's success evidence is PAGE MOTION — a navigation
+      // declares no writes, so an agent watching the control it clicked sees
+      // nothing change and reads a working link as a dead one. A CLAIM, said as
+      // one: absent when the app declared no destination, never inferred.
+      ...(edge.navigatesTo !== undefined ? { goesTo: edge.navigatesTo } : {}),
+      // What the control is HOLDING right now — the draft in the box, before the
+      // model asks a human to retype it or invents a value of its own. Present
+      // only where the app declared a way to read it: an absent key means the
+      // library does not know, never that the box is empty. `null` DOES ride —
+      // it is a value the app chose — so the test is against undefined, not
+      // truthiness. And it is a reading, not a binding: firing still sends the
+      // caller's own input.
+      ...(edge.holds !== undefined ? { holds: edge.holds } : {}),
       ...(edge.highEffect ? { highEffect: true } : {}),
       ...(edge.guardUnevaluated ? { guardUnevaluated: edge.guardUnevaluated } : {}),
       // Nothing is bound to execute this one — visible BEFORE the agent fires it.

@@ -44,6 +44,8 @@ for you to wire:
 
 ```jsonc
 { "judgment": "needs-confirm", "step": "checkout.place-order", "askId": "ask#1",
+  "performed": false,                                                  // nothing happened — this is a pause, not a failure
+  "why": "Nothing has been done. This is a question for the human, not a failure — do not report it as an error, and confirm: true is not the human’s answer.",
   "receipts": {
     "willDo":   { "does": "Place the order", "writes": ["orders"] },   // what happens (a claim, honesty-tagged)
     "because":  [{ "key": "cartCount", "op": "gt", "actual": 2, "result": true }],  // the guard evidence
@@ -56,6 +58,26 @@ for you to wire:
 `because` is **structural guard evidence**, not a guessed rationale — the session *knows* why
 the edge is fireable, because [the guard](doc:guards) just evaluated. `willDo` is the
 authored claim (`does` + declared `writes`), honesty-tagged like every claim in the library.
+
+`performed: false` and `why` are the other half, and they are there because of a reported
+failure: an agent read `ok: false` as *the app broke*, told the person so, and went hunting for
+another route. Nothing had happened and nothing was wrong — a person had the question. Both
+fields are fixed authored text plus a boolean, so a machine can branch on the first and a model
+reads the second.
+
+## While the human is deciding
+
+`session.asks()` is the ask book: one row per card — `{ askId, affordanceId, instance?, answer?,
+spent? }` — with `answer` absent while the person still has it. It is a read; the receipts stay
+on the ask.
+
+An agent holding the `askId` asks the same question through [`did_it_work`](doc:modes#did-it-work),
+which answers `'awaiting-human'`, `'approved-not-yet-done'` or `'declined'` — and, once the yes
+has been spent, the settlement of the fire it authorized. A paused action has no transition, so
+it never appears in `pending()` or `awaitingSettlement()`; before the ask book it was answered
+`UNKNOWN_TRANSITION` beside two lists that could not contain it.
+
+The whole surface, with its honest limits, is [A pause is not a failure](doc:paused-not-failed).
 
 ## Decisions leave a record
 
@@ -286,7 +308,8 @@ const session = graph.createSession({
   node: 'checkout',
   requireHumanApproval: true,
   redactedFields: {
-    // every rendering of what the fire CARRIES: TransitionRecord.payload AND willUse.input
+    // every rendering of what the fire CARRIES: TransitionRecord.payload, willUse.input,
+    // AND what the control HOLDS — the same value, one turn before it is sent
     payload: ['payment.token'],
     // what a handler RETURNS: TransitionRecord.produced, the settlement, producedFor()
     produced: ['apiToken', 'items.secret'],
@@ -298,6 +321,14 @@ Dot paths, the same grammar footprintjs's `RedactionPolicy.fields` teaches. A pa
 an array applies to **every element** (`'items.secret'` hides it in each item). A named field that is
 present arrives as the literal **`'[REDACTED]'`** — exported as `REDACTED`, and the same marker a
 redacted state key already shows in guard evidence.
+
+**`payload` governs three points now, not two — four in all.** The `payload` list covers the
+record's `payload`, the receipts' `willUse.input`, and — since a control's contents *are* the next
+fire's payload one turn early —
+[what the served row says that control holds](doc:what-a-control-holds#redaction-point-4--the-hidden-field-cannot-ride-the-row-instead).
+A field hidden from the log and the card that still rides the action row a model reads *before* it
+fires is not hidden. The fourth point is `produced`, governed by its own list, which covers only
+what a handler returns.
 
 **A marker, never a drop.** A dropped field reads as a field that was never sent; the marker says a
 value was here and you are not being shown it. A field that is **absent or `undefined` stays absent** —

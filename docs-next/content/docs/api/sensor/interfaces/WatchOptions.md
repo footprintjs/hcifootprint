@@ -4,7 +4,7 @@ title: WatchOptions
 
 # Interface: WatchOptions
 
-Defined in: [src/sensor/types.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L69)
+Defined in: [src/sensor/types.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L84)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/sensor/types.ts:69](https://github.com/footprintjs/hcifootprint
 
 > `optional` **cadence?**: [`Cadence`](/api/sensor/type-aliases/Cadence)
 
-Defined in: [src/sensor/types.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L151)
+Defined in: [src/sensor/types.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L166)
 
 The watcher's default cadence for value-bearing controls. Default `'commit'`
 — commit-on-blur. A declaration may override it per control. See
@@ -24,7 +24,7 @@ The watcher's default cadence for value-bearing controls. Default `'commit'`
 
 > `optional` **now?**: () => `number`
 
-Defined in: [src/sensor/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L99)
+Defined in: [src/sensor/types.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L114)
 
 The clock coverage() reports its window with. Defaults to Date.now.
 
@@ -38,7 +38,7 @@ The clock coverage() reports its window with. Defaults to Date.now.
 
 > `optional` **onReport?**: (`report`) => `void`
 
-Defined in: [src/sensor/types.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L90)
+Defined in: [src/sensor/types.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L105)
 
 Every fire, and every non-fire, as a typed row. See [SensorReport](/api/sensor/type-aliases/SensorReport).
 
@@ -58,7 +58,7 @@ Every fire, and every non-fire, as a typed row. See [SensorReport](/api/sensor/t
 
 > `optional` **reportedElsewhere?**: readonly `string`[]
 
-Defined in: [src/sensor/types.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L125)
+Defined in: [src/sensor/types.ts:140](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L140)
 
 "Does the app already report these edges itself?" — ONE ACT, ONE ROW.
 
@@ -83,7 +83,7 @@ future one-door control would register itself on.)
 
 > **root**: [`SensorRoot`](/api/sensor/interfaces/SensorRoot)
 
-Defined in: [src/sensor/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L88)
+Defined in: [src/sensor/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L103)
 
 The event-delegation root. REQUIRED, and required in the core on purpose:
 the house law is that the app hands the environment in and the library never
@@ -108,7 +108,7 @@ inside its own tree there is no retargeting to lose.
 
 > `optional` **timers?**: [`SensorTimers`](/api/sensor/interfaces/SensorTimers)
 
-Defined in: [src/sensor/types.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L106)
+Defined in: [src/sensor/types.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L121)
 
 The clock a `{ debounceMs }` cadence runs on. Defaults to the root's own view
 (dom-port.ts `timersOf`); pass it explicitly for a test or a non-browser
@@ -121,7 +121,7 @@ host. With no clock reachable, a debounced cadence is REFUSED
 
 > `optional` **trust?**: (`event`) => `boolean`
 
-Defined in: [src/sensor/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L97)
+Defined in: [src/sensor/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L112)
 
 "Was a human really here?" Defaults to reading `event.isTrusted`, which only
 a real user gesture sets. Injectable because a test harness can never mint a
@@ -144,7 +144,7 @@ trusted event — the same injectable-with-production-default seam as
 
 > `optional` **watchLocation?**: `boolean`
 
-Defined in: [src/sensor/types.ts:145](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L145)
+Defined in: [src/sensor/types.ts:160](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L160)
 
 Watch the view for location motion and report it with `sync()`. **Default
 false**, and the default is the honest one.

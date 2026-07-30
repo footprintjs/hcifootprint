@@ -4,7 +4,7 @@ title: PendingInfo
 
 # Interface: PendingInfo
 
-Defined in: [src/atom/types.ts:931](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L931)
+Defined in: [src/atom/types.ts:1018](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1018)
 
 A fired transition still awaiting its state report.
 
@@ -14,7 +14,7 @@ A fired transition still awaiting its state report.
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:933](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L933)
+Defined in: [src/atom/types.ts:1020](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1020)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:933](https://github.com/footprintjs/hcifootprint/
 
 > **firedAt**: `number`
 
-Defined in: [src/atom/types.ts:934](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L934)
+Defined in: [src/atom/types.ts:1021](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1021)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [src/atom/types.ts:934](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:932](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L932)
+Defined in: [src/atom/types.ts:1019](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1019)

@@ -17,6 +17,7 @@ title: index
 
 - [Affordance](/api/index/interfaces/Affordance)
 - [AffordanceDef](/api/index/interfaces/AffordanceDef)
+- [AskStatus](/api/index/interfaces/AskStatus)
 - [AvailableEdge](/api/index/interfaces/AvailableEdge)
 - [AvailableSkill](/api/index/interfaces/AvailableSkill)
 - [AvailableSlice](/api/index/interfaces/AvailableSlice)

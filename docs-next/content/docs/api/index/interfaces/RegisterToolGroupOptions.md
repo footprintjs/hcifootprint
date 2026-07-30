@@ -28,6 +28,28 @@ Bind the app's EXISTING handlers (by reference) to tools declared on this node.
 
 ***
 
+### holds?
+
+> `optional` **holds?**: `Record`\<`string`, () => `unknown`\>
+
+Defined in: [src/traverse/nav-session.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L99)
+
+What each control HOLDS right now (leaf name — or qualified id — → a reader
+the served row calls at serve time). The registration-time half of
+[AvailableEdge.holds](/api/index/interfaces/AvailableEdge#holds): the component already holds the draft in a
+variable, so it hands over the way to read it and never a copy.
+
+Released with the group's handlers on `unregister()` — a reader that
+outlived its component would answer with the last render's state, which is
+exactly the stale value this surface exists to avoid.
+
+KEEP IT A READ. It runs once per served row, and rows are assembled on a hot
+path (every refused fire builds one for its gap context), so return the
+variable you already hold — never compute, fetch, or write in it. A reader
+that throws costs the row its value and nothing else.
+
+***
+
 ### instance?
 
 > `optional` **instance?**: `string`

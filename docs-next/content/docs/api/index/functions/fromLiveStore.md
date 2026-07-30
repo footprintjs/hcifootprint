@@ -6,7 +6,7 @@ title: fromLiveStore
 
 > **fromLiveStore**(`store`): [`LiveSource`](/api/index/interfaces/LiveSource)
 
-Defined in: [src/graph/sources/from-live-store.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-live-store.ts#L85)
+Defined in: [src/graph/sources/from-live-store.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-live-store.ts#L106)
 
 Read a live action store into a LiveSource. Declare it in `sources` so every
 createSession() wires it (and detachSources() releases it) — or use the

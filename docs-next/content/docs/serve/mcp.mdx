@@ -78,6 +78,13 @@ again with `confirm: true`. Portable **in shape** — the ask, the receipts and 
 the ordinary result channel, with no framework-specific pause/resume — and enforced only with
 `requireHumanApproval`.
 
+**A pause is never `isError`.** The transport reserves that flag for a tool that does not exist and
+for an unexpected throw; every domain answer — `needs-confirm` and the enforced
+`APPROVAL_REQUIRED` refusal included — crosses as a normal result carrying
+[`performed: false`](doc:paused-not-failed). Flagging it would hand the host an error banner for a
+question that is waiting on a person. The `askId` works over the wire too: `did_it_work` answers
+`awaiting-human` as an ordinary result, not a transport failure.
+
 What the default gate does **not** do is prove the yes was real. `confirm: true` is the agent's
 request to proceed, not the human's answer, so an agent that skips the ask crosses anyway. Create
 the session with

@@ -103,11 +103,17 @@ transition last. Timestamps could only tie at millisecond grain and invent an or
 As deliberate as what it holds:
 
 - **state values and payloads** — the two-string-class invariant, extended to history;
-- **produced data** — that is the data channel (`producedFor`), not the facts channel;
+- **produced data** — that is [the data channel](doc:reading-data) (`producedFor`), not the facts
+  channel;
 - **available actions and skills** — options are `whats_here`'s other half. Facts are what
   *happened*; keeping the two non-overlapping is what keeps both lean;
 - **`reported` gap rows and all runtime free text** — a user's own words are data, never
-  something to hand a planner as instruction;
+  something to hand a planner as instruction. With one exception, and it carries no free text
+  either: a row marked
+  [`actionsMayBeStale`](doc:live-bindings#the-error-stance--split-by-who-is-on-the-stack) prints
+  one **authored** line saying the app's list of actions could not be re-read. Every other line
+  here is about what happened; that one is about whether the room being described is still the
+  room, which is the one thing a reader of this block cannot afford to be missing;
 - **interpretation** — one line per occurrence, no advice, no summary.
 
 An id the graph does not have renders as a constant — *(an action this app does not have)* —

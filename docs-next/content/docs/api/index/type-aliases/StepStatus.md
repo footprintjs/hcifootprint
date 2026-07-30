@@ -6,4 +6,4 @@ title: StepStatus
 
 > **StepStatus** = `"done"` \| `"inferred-done"` \| `"ready"` \| `"blocked"` \| `"off-node"`
 
-Defined in: [src/atom/types.ts:1343](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1343)
+Defined in: [src/atom/types.ts:1490](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1490)

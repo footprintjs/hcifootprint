@@ -81,6 +81,22 @@ export interface RegisterToolGroupOptions {
   visible?: boolean;
   /** Initial disabled state per tool (leaf name → enabled). Flip later via handle.setEnabled. */
   enabled?: Record<string, boolean>;
+  /**
+   * What each control HOLDS right now (leaf name — or qualified id — → a reader
+   * the served row calls at serve time). The registration-time half of
+   * {@link AvailableEdge.holds}: the component already holds the draft in a
+   * variable, so it hands over the way to read it and never a copy.
+   *
+   * Released with the group's handlers on `unregister()` — a reader that
+   * outlived its component would answer with the last render's state, which is
+   * exactly the stale value this surface exists to avoid.
+   *
+   * KEEP IT A READ. It runs once per served row, and rows are assembled on a hot
+   * path (every refused fire builds one for its gap context), so return the
+   * variable you already hold — never compute, fetch, or write in it. A reader
+   * that throws costs the row its value and nothing else.
+   */
+  holds?: Record<string, () => unknown>;
 }
 
 /**
@@ -224,11 +240,19 @@ export class InteractionSession<Paths extends string = string> extends Session {
       this.registry.register(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled);
     }
 
-    // 3. Presence + optional initial visibility signal.
+    // 3. Value readers, AFTER the overlay above so a tool declared here-and-now
+    //    resolves like any other. Filed under the QUALIFIED id — the canonical
+    //    key the served row looks up — so `{ send: … }` and `{ 'compose.send': … }`
+    //    are the same declaration, and an unknown name is refused by name.
+    for (const [name, read] of Object.entries(opts?.holds ?? {})) {
+      this.registerHolds(this.#resolveToolOnNode(path, name), group, read);
+    }
+
+    // 4. Presence + optional initial visibility signal.
     const presenceHandle = this.#presence.open(path, opts?.instance);
     if (opts?.visible !== undefined) this.#presence.setVisible(path, opts.visible);
 
-    // 4. Dormancy bookkeeping: a mount outside the router-confirmed page is
+    // 5. Dormancy bookkeeping: a mount outside the router-confirmed page is
     //    held, not offered — its clock starts now.
     if (node.page !== this.node && !this.#foreignSeen.has(path)) {
       this.#foreignSeen.set(path, this.#now());
@@ -740,6 +764,37 @@ export class InteractionSession<Paths extends string = string> extends Session {
     if (super.couldMaterialise(affordanceId)) return true;
     const prefix = `${affordanceId}[`;
     return this.registry.registrations().some((r) => r.affordanceId.startsWith(prefix));
+  }
+
+  /**
+   * A REPEATS ROW HOLDS NOTHING THIS LIBRARY CAN NAME, in v1.
+   *
+   * One served row stands for every mounted card of a repeats container — that is
+   * what `instances` says out loud — while a value reader answers once. So the
+   * honest answer is one row and many values, and there is no arithmetic that
+   * turns the one into the other: picking a row would be a guessed instance, and
+   * a guessed instance on a value is a lie about which card the human is looking
+   * at. Silence, and the warning says so once per action so an app that declared
+   * a reader learns why its row is bare.
+   *
+   * The upgrade is a per-instance door, and it is deliberately not this one: it
+   * would have to key by instance everywhere the value door keys by action, and
+   * the surface it changes (`holds` on a row that already carries `instances`) is
+   * the one nobody has asked for yet.
+   */
+  protected override servesHolds(affordanceId: string): boolean {
+    const path = this.#pathOnCurrentPage(affordanceId);
+    if (path === null || this.#map.nodes[path]?.repeats !== true) return true;
+    const warnKey = `holds:${affordanceId}`;
+    if (!this.#warnedOnce.has(warnKey)) {
+      this.#warnedOnce.add(warnKey);
+      this.warn(
+        `hcifootprint: '${affordanceId}' is on a repeats container, so its row stands for every mounted ` +
+          `card at once and one reader cannot say which — holds stays absent for it rather than naming a ` +
+          `guessed row. The value still rides the fire, which carries the instance key.`,
+      );
+    }
+    return false;
   }
 
   /**

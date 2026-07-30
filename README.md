@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1336%20passing-f5b301?style=flat" alt="1336 tests passing">
+  <img src="https://img.shields.io/badge/tests-1456%20passing-f5b301?style=flat" alt="1456 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -310,10 +310,27 @@ narrate a flow it never performed, and because the friendly `brief` structurally
 fire (a refusal is a gap-ledger row, not a transition). With nothing attempted it says so in one flat line:
 *No actions have been performed in this app this session.* In process it is `session.groundTruth()`.
 
-**After a claimed navigation, re-`sync()`.** A fire whose edge declares `goTo` moves the session cursor on
-the *graph's claim* about your app, not on an observation — the result says so with `toNodeClaimed: true`
-(and `youAreOn` shows the claimed page). Confirm it from the router with `session.sync(realPage)` before
-trusting the position; if the app went somewhere else, `sync()` reconciles and records the real hop.
+**A navigation is a claim, and the app is the only thing that can observe it.** An action that navigates
+declares no `writes`, so from the side of the control the agent just fired, success and failure look
+identical — nothing changed. Two disclosures close that, and they are the same claim at two moments. Before
+the fire, the action row carries **`goesTo`** — the page this edge *claims* it will take you to, which the
+human's confirm receipt has always shown and the agent's row did not. After it, the record carries
+**`arrival`**: `'claimed'` when the app said so and nothing has seen it, `'observed'` once a `sync()` lands
+on the page it claimed. There is deliberately **no third value** for *did not arrive* — silence is not a
+failed navigation, and no clock turns it into one — and `'observed'` is corroboration, never proof of cause.
+So keep the router wired: `session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname)`
+is the one line that makes `youAreOn` honest and lets a claim ever be corroborated.
+→ [A claim is not an observation](https://footprintjs.github.io/hcifootprint/docs/serve/navigation-claims)
+
+**And the model can see what the control is holding.** A `whats_here` action row carries **`holds`** — the
+draft already in the box, the option already selected — so the model stops asking a person to retype what
+they are looking at, or inventing a value. Your app declares a *reader* (`registerToolGroup(…, { holds })`,
+or the `value()` getter a [sensor](#-the-human-sensor--every-real-click-on-the-ledger-with-no-shim) control
+already declares) and the row is read late, at serve time. Nothing is ever scraped from the DOM, so an
+**absent key means the library does not know** — never that the box is empty. It is a reading, not a
+binding: firing still sends the `input` the caller passes. And because what a control holds *is* the next
+fire's payload one turn early, `redactedFields.payload` hides it there too.
+→ [What a control holds](https://footprintjs.github.io/hcifootprint/docs/serve/what-a-control-holds)
 
 ### Plug into any framework — or run a real MCP server
 
@@ -397,6 +414,21 @@ approval:
 
 Either way, the gate is enforced at the session, so an agent can't fire a high-effect action without a real
 approval.
+
+### A pause is not a failure
+
+A `needs-confirm` result comes back with `ok: false` — a true fact about the **call**, and one an agent read
+as *the app broke*: it told the person so and went hunting for another route. Nothing had happened and
+nothing was wrong; a person had the question. So every `needs-confirm` result now also carries
+**`performed: false`** and one authored sentence — *Nothing has been done. This is a question for the human,
+not a failure* — the machine-readable half and the model-readable half of the same fact.
+
+And an agent holding the `askId` can ask what became of the card: `did_it_work` takes it in the same
+argument and answers **`awaiting-human`** (nobody has decided), **`approved-not-yet-done`** (a yes is on
+record, nothing has fired) or **`declined`** — then, once the yes is spent, the settlement of the fire it
+authorized. Nothing here times out or ages a card: silence is never a decline, and `session.asks()` is the
+same book in process.
+→ [A pause is not a failure](https://footprintjs.github.io/hcifootprint/docs/serve/paused-not-failed)
 
 ### The ask carries receipts
 
@@ -604,6 +636,17 @@ wires (a store subscription, router events, your existing handlers). The
 storefront with an AI stylist. Human clicks come in through the
 [sensor above](#-the-human-sensor--every-real-click-on-the-ledger-with-no-shim), which needs no framework at
 all.
+
+**If your actions come from a live store, the invalidation contract has two halves.** Yours: *the store must
+emit whenever the action surface changes*. Ours: **navigation is covered for you** — `fromLiveStore` re-reads
+on every page change the app reports through `sync()`. A store whose actions are derived from the router has
+no change of its own to announce when the route moves, so without that re-read the surface after a
+navigation was whatever the last emission left behind — the previous page's actions, served as the actions
+available here. Only an *observed* page change re-reads (never a claimed one — the app has not left the page
+yet), a re-read that changes nothing is free, and nothing re-reads at report time. And a read that **fails**
+now says so: the bindings still on offer are from before the failure, so beside the dev warning it files one
+gap row per failure streak instead of serving a stale list in silence.
+→ [The invalidation contract](https://footprintjs.github.io/hcifootprint/docs/build/live-bindings#when-it-re-reads--the-invalidation-contract)
 
 React has a binding already ([`hcifootprint/react`](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)).
 **On the roadmap:** the same skin for Vue and Angular — each is five fields and one method, and a test already

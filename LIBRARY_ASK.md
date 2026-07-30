@@ -111,6 +111,38 @@ consumers get `why()` for writes today and have not reported missing the read ha
 
 **Status** — `open`. Cheap, additive, and waiting for one real report to justify the surface.
 
+### `sameAs` — one action under two names, and a report when two names collide
+
+**Ask.** Let an action declare an **alias**, so an app whose own vocabulary drifted from the
+graph's (a renamed button, a legacy id still used by the store, two teams naming one control)
+can serve both names for one action — and let the library **report** when two declarations claim
+the same name, rather than picking one.
+
+**Evidence.** Real, and it arrives from two directions at once. A live store publishing under the
+app's own id, beside a graph that already declares the same control under an authored id, is
+today two actions: the merge order binds one and mount-declares the other, and only a person
+reading both files can see they are the same thing. And a model handed a name from prose retypes
+the name it read — `do_action`'s resolution ladder already softens that for a *near* miss, which
+is exactly the machinery an alias would have to reach through.
+
+**Workaround.** Renaming one side to match the other, which is a rename in an app the library
+does not own; or living with two rows. Cost: unmeasured — nobody has reported a number, which is
+why this is parked and not queued.
+
+**Why it is not in 0.9.0.** It looked like one field and it is not. An alias has to resolve
+**through** every place an id is the identity: `do_action`'s resolution ladder and its
+`UNKNOWN_ACTION` id list, `notHereData`'s *on another page / conditions unmet* arms, `why()` and
+the explanation surfaces, journal attribution (a confirm chain keyed to one id, spent by a fire
+carrying another), and now the value door — `canonicalHoldsKey` (`src/traverse/session.ts`) exists
+as one function today precisely so an alias resolves through it rather than filing a second key,
+because one control with two readers would serve whichever was written last, which is the
+guessed-value class `holds` refuses. The **collision report** is the other half and cannot be
+skipped: an alias feature that silently prefers one claimant would launder an authoring mistake
+into a served fact.
+
+**Status** — `open`, parked for its own design round. It earns that round when someone reports the
+cost of carrying two names; it does not get bolted onto a release built around other seams.
+
 ---
 
 ## Declined
@@ -158,6 +190,69 @@ pillar is not declining the findings:
 **Status** — `declined`. Re-proposing it means answering reason 1: name the mechanism by which
 this library could *check* that the served data was used. If that mechanism exists, the rest
 follows and this entry is wrong.
+
+### A gesture-kind proof table
+
+**Ask.** Publish a table of gesture kinds — click, type, select, submit — saying what each one
+**proves** about the app, so a consumer reading a sensor report can conclude that the action was
+performed.
+
+**Evidence.** Real and sympathetic: a team wiring the human sensor wanted one place to look up
+*what does a click on this kind of control mean happened?*, and was writing that table themselves.
+
+**Declined, and why** — two reasons, either sufficient:
+
+1. **It is MEANING, and meaning is the app's.** The library's half of the boundary is mechanism
+   plus honesty: it observes a gesture on an element the app declared, and it records who did it.
+   What a gesture *means in your product* — which press is the act, whether a click on this
+   control constitutes an order — is the app's own statement, and this library already has the
+   doors for it: `ControlDeclaration.commits` says *not yet* per element per moment, `writes` +
+   `effectVerified` say whether the declared effect landed, and `verify:` asks the app's own
+   condition at settlement. A table shipped from here would be us asserting the one thing we
+   promised to let the app say.
+2. **It would launder coincidence into proof.** The sensor sees a gesture; it does not see your
+   handler run, and the browser ran that handler before the report was even written. *A click
+   happened on the element declared for this action* and *this action was performed* are two
+   facts, and the gap between them is exactly where a table with the word **proves** in it would
+   quietly close. Every honesty marker in this codebase exists to keep that gap visible —
+   `arrival` was given two values and no third for exactly this reason.
+
+**What was taken from it.** The real question underneath — *how do I know it actually happened?* —
+is answered by mechanisms that already ship and are now easier to find: `verify:`,
+`effectVerified` / `writesObserved`, `did_it_work`, and (for the one case with no writes to watch)
+`arrival`. The docs, not a table, are where that belongs.
+
+**Status** — `declined`. Re-proposing it means naming a gesture whose kind alone lets this library
+*observe* that the app did the thing. If one exists, this entry is wrong.
+
+### Auto-merging two action declarations by object identity
+
+**Ask.** When the same action reaches the session twice — a graph-declared tool and a live store's
+own entry, or one control published by two sources — decide they are the same action by comparing
+the **objects** the library was handed, and merge them automatically instead of serving two rows.
+
+**Evidence.** The underlying problem is real and reported: an app's own vocabulary drifts from the
+graph's, so one control arrives under two names and an agent is offered it twice. That half is
+filed as an open ask (**`sameAs`**, above), because it is a real cost.
+
+**Declined, and why.** The proposed mechanism is a guess presented as a fact. **Object identity
+carries no information about whether two declarations describe the same action** — and it fails in
+both directions, silently:
+
+- a store that builds fresh objects on every read (the ordinary shape, and the one
+  `useSyncExternalStore`-style stores encourage) makes every action look brand new, so nothing
+  would ever merge;
+- a store that caches and mutates in place makes an **edited** action look like the same object,
+  so a merge would carry the old declaration forward under the new one's name.
+
+Either way the library would be answering *are these the same action?* with a heuristic and then
+serving the answer as structure — on the surface a model plans over. The identity the reconciler
+uses instead is a statement the app actually made: `${node}.${name}` plus `instance`
+(`src/graph/sources/from-live-store.ts`). Same-kind id collisions **refuse** rather than pick,
+which is the same stance one level up.
+
+**Status** — `declined` as a mechanism. The need it points at is open under `sameAs`, where the
+merge is something the app **declares** and a collision is **reported** rather than resolved.
 
 ---
 
@@ -301,8 +396,112 @@ receipts a model relays. It matters more the moment an app returns real data thr
 **Workaround.** Redacting by hand before returning from a handler and before firing. Cost: the
 policy lives at N call sites instead of one, and a missed site is silent.
 
-**Status** — `shipped on main, unreleased`. `createSession({ redactedFields: { payload,
+**Status** — `shipped in 0.8.0`. `createSession({ redactedFields: { payload,
 produced } })`, dot paths in footprintjs's own `RedactionPolicy.fields` grammar, aimed per
 channel on purpose. A marker (`'[REDACTED]'`), never a drop — a dropped field reads as one that
 was never sent. The consent gate is untouched and that is tested: it compares the fire against
-the bound input, never against the rendered receipts.
+the bound input, never against the rendered receipts. **0.9.0 added a fourth point** to the
+`payload` list — what a control *holds* is that same value one turn early (see below).
+
+### A pause an agent can tell apart from a failure
+
+**Ask.** Make a `needs-confirm` result say that nothing was done, and let an agent holding the
+`askId` ask whether the human has answered.
+
+**Evidence.** An agent hit the gate, read `ok: false` as *the app broke*, told the person so, and
+went looking for another route. Nothing had happened and nothing was wrong. `ok: false` is true of
+the **call**, and the payload said neither of the two things a reader needed: that nothing was
+done, and that the missing piece is a person rather than a fix. The follow-up question had no
+answer either — an ask is not a fire, so the id was refused `UNKNOWN_TRANSITION` beside two lists
+that structurally could not contain it.
+
+**Workaround.** Prompt engineering: a sentence in the system prompt telling the model that
+`needs-confirm` is not an error. Cost: it is instruction, not data — nothing a consumer can branch
+on, and it competes with everything else in the window at exactly the moment the model has decided
+something went wrong.
+
+**Status** — `shipped in 0.9.0`, **reshaped**. `performed: false` plus one authored sentence on
+all three needs-confirm arms; `did_it_work` accepts an `askId` and answers `'awaiting-human'` /
+`'approved-not-yet-done'` / `'declined'`, forwarding to the authorized fire once a yes is spent;
+`session.asks()` is the ask book; the unknown arm grew a third list, `awaitingHuman`. The
+reshaping: the obvious move was a new `'awaiting'` value on `EffectStatus` or `Settlement`, and it
+was refused — nothing fired, so there is no transition and nothing that came to rest, and a word
+for *no transition exists* inside the vocabulary for *how a transition came to rest* is a category
+error the type would teach to everyone. It is a result-level `judgment` string instead, and no
+published union grew. The tool schema did not grow either: one property carries both id families,
+because a second argument changes the tool array's bytes for every caller.
+
+### Tell the agent where an action goes — and whether it got there
+
+**Ask.** Put the declared destination on the agent's action row, and say afterwards whether the
+navigation actually happened.
+
+**Evidence.** A navigating action declares no `writes`, so success and failure look identical from
+the side of the control that was fired — nothing changed. The human had the missing fact already:
+`ConfirmWillDo.navigatesTo` has ridden the approval receipt since 0.3.0. The agent's row did not
+carry it, so a working link read as a dead one.
+
+**Workaround.** Re-reading `whats_here` after every fire and diffing `youAreOn` by hand — which
+answers *where am I now*, not *did that action take me there*, and cannot tell a claim from an
+observation at all.
+
+**Status** — `shipped in 0.9.0`, half of it **reshaped**. The disclosure shipped as asked:
+`AvailableEdge.navigatesTo` / `goesTo` on the wire, absent when the app declared none, never
+inferred. The second half did not: `arrival` reports **corroboration, not a verdict** — `'claimed'`
+and `'observed'`, and deliberately no third value for *did not arrive*. A sync somewhere else, or
+no sync at all, leaves `'claimed'` standing forever, because a later legitimate hop and a failed
+navigation are indistinguishable from here, a session with no sync channel observes nothing by
+construction, and a clock is not evidence. `'observed'` is not proof of cause either: the sync row
+that produced it still carries `unverifiedEdge: true`. Corroboration needs one line from the app —
+`session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname)`.
+
+### Show the model what the control is already holding
+
+**Ask.** Put the app's current value for a control on the served row, so the model stops asking a
+person to retype what they can see.
+
+**Evidence.** A model could see that an action takes a value, and could see the app's committed
+state, and could not see the draft in the box. So it asked the human to retype it, or it invented
+one and fired.
+
+**Workaround.** Pushing the draft into projected state under a state key and telling the model to
+read it there. Cost: a second copy of every in-progress value on a surface built for *committed*
+state, updated on every keystroke or stale — and guard evaluation reads that same state, so a
+draft key is one authoring mistake away from opening an edge.
+
+**Status** — `shipped in 0.9.0`, **reshaped**. `AvailableEdge.holds` / `holds` on the wire, from
+two wires that both require the app to declare a **reader**: `registerToolGroup(…, { holds })`, and
+the human sensor forwarding the `value()` getter a declared control already has. The reshaping is
+the whole design: it is a **reading, not a binding** (the fire still reads its own payload at act
+time), it is read **late** rather than cached, and **absence is the default** — no reader, a reader
+answering `undefined`, a reader that throws, an author's `input: 'none'`, or a row standing for
+every card of a `repeats` container each serve **no key at all**. There is no fallback to the app's
+state and nothing is ever read off the DOM: the 0.8.0 rule that a plausible wrong value is the
+worst thing this library can ship applies here more, not less, because this row is read *before*
+anything fires. And it is governed by `redactedFields.payload` (redaction point 4 of 4) — what a
+control holds is the next fire's payload one turn early.
+
+### Keep a live action store current across navigation
+
+**Ask.** Re-read a live action store when the page changes, and say something when a read fails.
+
+**Evidence.** A store whose actions are derived from the router has no change of its own to
+announce when the route moves — the store's state did not change, so nothing emits. The surface
+after a navigation was therefore the **previous page's actions**, served as the actions available
+here.
+
+**Workaround.** Poking the store to emit on every route change from the app's own router
+subscription. Cost: a second router subscription whose only job is to lie to the store about a
+change, in every app that has this shape — and it does nothing about a read that throws.
+
+**Status** — `shipped in 0.9.0`, plus a disclosure nobody asked for. `fromLiveStore` re-reads on
+every page change the app **reports** through `sync()` (`LiveBindingPort.whenPageChanges`,
+optional and severable; `Session.whenPageChanges` directly). Three edges are the reshaping: only an
+**observed** page change re-reads — never a claimed one, where the app's handler has not run and a
+read would describe the page it has not left; a re-read that changes nothing is free (the identity
+ledger re-registers nothing); and **nothing re-reads at report time**, because a read must never
+mutate the structure it is about to serve. The addition: a failed later read still warns rather
+than throws, and now also files **one gap row per failure streak** with an authored `request`
+naming the consequence — the bindings on offer are from before the failure, and serving them in
+silence is the same confident staleness the re-read exists to end. `GapReason` did not grow for it
+(`reason: 'other'`).

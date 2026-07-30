@@ -4,7 +4,7 @@ title: SkillToolsOptions
 
 # Interface: SkillToolsOptions
 
-Defined in: [src/serve/modes.ts:40](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L40)
+Defined in: [src/serve/modes.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L47)
 
 ## Extended by
 
@@ -16,7 +16,7 @@ Defined in: [src/serve/modes.ts:40](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L42)
+Defined in: [src/serve/modes.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L49)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
@@ -26,7 +26,7 @@ Require confirm:true before firing high-effect steps/actions. Default true.
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L52)
+Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
 
 Principal stamped on fires made through this port. Default 'agent'.
 

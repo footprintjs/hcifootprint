@@ -1,5 +1,17 @@
 {
   "title": "Serve",
   "icon": "Plug",
-  "pages": ["sessions", "human-sensor", "react-binding", "modes", "mcp", "receipts", "grounding", "reading-data"]
+  "pages": [
+    "sessions",
+    "human-sensor",
+    "react-binding",
+    "modes",
+    "mcp",
+    "receipts",
+    "grounding",
+    "paused-not-failed",
+    "navigation-claims",
+    "what-a-control-holds",
+    "reading-data"
+  ]
 }

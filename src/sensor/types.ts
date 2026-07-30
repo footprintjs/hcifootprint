@@ -64,6 +64,21 @@ export interface SensorSession {
   on<N extends SessionEventName>(event: N, listener: (payload: SessionEvents[N]) => void): () => void;
   /** Observed navigation: the existing hop-recording path (atom/types.ts:495 `unverifiedEdge`). */
   sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult;
+  /**
+   * The session's value door: hand over a declared control's `value()` so the
+   * SERVED ROW can say what the control holds, one turn before anything fires.
+   *
+   * The coupling runs one way, sensor → session, and only for the getter the app
+   * already handed over. Nothing about the sensor crosses: no element, no
+   * instance, no report kind — so the session imports nothing from here and this
+   * subpath stays the zero-value-import leaf it is.
+   *
+   * Optional and severable, like `LiveBindingPort`'s two hooks: a hand-built port
+   * without it keeps exactly today's behaviour (the getter still answers for the
+   * payload of a reported gesture, and the row simply stays silent). A real
+   * `InteractionSession` satisfies it as-is.
+   */
+  declareHolds?(affordanceId: string, read: () => unknown): () => void;
 }
 
 export interface WatchOptions {

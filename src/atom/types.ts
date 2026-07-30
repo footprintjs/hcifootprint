@@ -95,11 +95,18 @@ export type Binding =
    */
   | { kind: 'url'; href: string }
   /**
-   * A tab switch to a sibling node path. Its own gesture, DESCRIPTIVE in v1:
-   * it materialises only via a registered handler, and it NEVER moves the page
-   * cursor — flipping a tab does not change the page you are on. After the
-   * app's handler flips tabs, the existing visibility wire (show/setVisible)
-   * reports the result; fire() itself never writes the PresenceIndex.
+   * A tab switch to a sibling node path. Its own gesture, DESCRIPTIVE in v1: it
+   * materialises only via a registered handler, and the GESTURE never moves the
+   * page cursor — flipping a tab is not, by itself, changing the page you are on.
+   * After the app's handler flips tabs, the existing visibility wire
+   * (show/setVisible) reports the result; fire() itself never writes the
+   * PresenceIndex.
+   *
+   * What DOES move the cursor is the app declaring `effect.navigatesTo` on the
+   * edge, and that is true of every gesture including this one — a graph that
+   * models a tab as a page is saying the page changes, and the library takes the
+   * declaration rather than second-guessing it by gesture. Such a fire claims its
+   * destination ({@link TransitionRecord.arrival}) exactly like a link would.
    */
   | { kind: 'tab'; target: string };
 
@@ -331,8 +338,10 @@ export interface SkillGraphSpec {
 export interface RedactedFields {
   /**
    * Paths inside the value a fire CARRIES. Governs every rendering of it at once
-   * — `TransitionRecord.payload` and `ConfirmWillUse.input` — because a field
-   * hidden from the log that still rides the approval card is not hidden.
+   * — `TransitionRecord.payload`, `ConfirmWillUse.input`, and
+   * {@link AvailableEdge.holds}, which is that same value one turn EARLY —
+   * because a field hidden from the log that still rides the approval card (or
+   * the action row the model reads before it fires) is not hidden.
    */
   payload?: string[];
   /**
@@ -477,7 +486,13 @@ export interface HumanApprovalPolicy {
 // ---------------------------------------------------------------------------
 
 export interface SessionEvents {
-  /** A new or newly-settled occurrence (a snapshot of the record). */
+  /**
+   * A new, newly-settled, or newly-corroborated occurrence (a snapshot of the
+   * record). The third case is {@link TransitionRecord.arrival} turning
+   * 'observed': the record did not change otherwise and the version did not move,
+   * so a consumer counting events per fire sees one more than it did before 0.9.0
+   * for a fire whose edge declares `navigatesTo`.
+   */
   transition: TransitionRecord;
   /** A committed state delta landed (the `state` version moved). */
   state: { version: number; stateVersion: number };
@@ -547,6 +562,34 @@ export interface TransitionRecord {
    * CLAIM about the app, not an observation. sync() records observations.
    */
   toNodeClaimed?: boolean;
+  /**
+   * WHERE THE CLAIM AND THE OBSERVATION MEET — present only on a fire whose edge
+   * declared `effect.navigatesTo`, whichever gesture carries it, and absent
+   * everywhere else.
+   *
+   * Exactly two values, ever:
+   * - `'claimed'` — stamped when the navigation claim is written, beside
+   *   `toNodeClaimed`. It means the app SAID this action navigates and nothing
+   *   has observed the app arrive. A fire under
+   *   {@link SessionOptions.allowUnmaterializedFires} that nothing executed says
+   *   this and can never say more: there is no action for an observation to
+   *   corroborate, and the record's `materialized: false` is the other half.
+   * - `'observed'` — a later {@link Session.sync} landed on the page this fire
+   *   claimed. It means A MATCHING OBSERVATION LANDED. It is corroboration, not
+   *   causal proof: the sync row that produced it still carries
+   *   `unverifiedEdge: true`, because the cursor moved without passing a guard
+   *   and nothing here can see the app's router.
+   *
+   * WHAT IT NEVER SAYS. There is no third value for "did not arrive": a sync
+   * somewhere else, or no sync at all, leaves `'claimed'` standing forever. A
+   * later legitimate hop and a failed navigation are indistinguishable from
+   * here, a session with no sync channel observes nothing by construction, and a
+   * clock is not evidence — so silence is the honest answer and the field simply
+   * stops moving. `toNodeClaimed` is never retroactively flipped, and the
+   * settlement receipt taken at rest is never rewritten (the upgrade lands on the
+   * live record and rides ALONGSIDE the receipt — see docs/design/answer-grammar.md).
+   */
+  arrival?: 'claimed' | 'observed';
   /**
    * True on sync()-recorded hops: the cursor moved without passing any guard.
    * Backward slices must treat the hop as inferred, not authorized.
@@ -634,6 +677,19 @@ export interface AvailableEdge {
    */
   expects?: unknown;
   highEffect: boolean;
+  /**
+   * The page this edge CLAIMS it will move you to (from `effect.navigatesTo`),
+   * BEFORE anything is fired. Absent when the app declared none — never a
+   * guessed destination.
+   *
+   * A CLAIM about the app's handler, exactly as {@link ConfirmWillDo.navigatesTo}
+   * is on the receipt a human reads. The human already had this fact at decision
+   * time and the agent did not, which left the agent unable to know that this
+   * edge's success evidence is PAGE MOTION rather than an element surviving:
+   * a navigation declares no writes, so "nothing changed here" is what success
+   * looks like from the element's side.
+   */
+  navigatesTo?: string;
   binding?: Binding;
   /** See Affordance.descriptionSource. */
   descriptionSource?: 'declared' | 'registration';
@@ -657,6 +713,37 @@ export interface AvailableEdge {
    * `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`.
    */
   enabled?: boolean;
+  /**
+   * WHAT THIS CONTROL HOLDS RIGHT NOW — the draft in the box, the option
+   * currently selected — read at the moment the row is assembled.
+   *
+   * A READING, NEVER A BINDING. The fire still reads its own payload at act
+   * time: `holds` says what the control had when the row was served, and a human
+   * typing between the two makes the row stale by design. So it is a fact about
+   * the app's state one turn early, and firing does not send it.
+   *
+   * TWO WIRES land here, and only where the app already holds the value in a
+   * variable: `holds:` at registration ({@link RegisterToolGroupOptions}), and
+   * the sensor forwarding a declared control's `value()` getter. The sensor's
+   * per-element declaration wins when both exist — most specific, the same
+   * declaration-outranks rule the sensor's own two evidence levels follow.
+   *
+   * ABSENCE IS THE DEFAULT AND IT IS HONEST. No reader declared, a reader that
+   * answers `undefined`, a reader that throws, an action whose contract is the
+   * author's `'none'`, a row standing for many rows of a repeats container: each
+   * one serves NO KEY rather than a guess. Nothing is ever read off the DOM —
+   * that is the sensor's law (`sensor/payload.ts`), and it holds here for the
+   * same reason: a plausible-looking wrong value is the worst thing this library
+   * can ship.
+   *
+   * REDACTED like the payload it will become, through `redactedFields.payload`
+   * — what a control holds IS the future fire's payload one turn early, and a
+   * field hidden from the log that still rides the card is not hidden. Same dot
+   * paths, same `'[REDACTED]'` marker, same honest limit: a path names a field
+   * inside a value, so a control holding a bare string is named the same way it
+   * is on the record, which is to say it cannot be.
+   */
+  holds?: unknown;
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
   instances?: string[];
   /**
@@ -1074,6 +1161,8 @@ export interface GapRecord {
   request?: string;
   reason?: GapReason;
   note?: string;
+  /** See {@link ReportGapOptions.actionsMayBeStale} — copied from the report. */
+  actionsMayBeStale?: boolean;
 }
 
 export interface ReportGapOptions {
@@ -1082,6 +1171,23 @@ export interface ReportGapOptions {
   reason?: GapReason;
   note?: string;
   principal?: Principal;
+  /**
+   * This row also says the ACTIONS ON OFFER may be out of date — the source they
+   * come from could not be re-read, so what is being served is from before that.
+   *
+   * The one 'reported' row that reaches the model. Every other one is triage for
+   * the app (unmet demand, read from {@link Session.gaps} / {@link Session.onGap});
+   * this one is a fact about the surface a model is looking at while it looks,
+   * so `groundTruth()`'s facts block prints an AUTHORED line for it — never this
+   * row's `request`, which is runtime text. Without it, a broken read reached the
+   * developer's console and nothing else, and the session went on serving the
+   * pre-failure list as current fact.
+   *
+   * Use it for exactly that. It is not a general "tell the model" flag: a row that
+   * marks itself this way while the served list is fine spends the one channel the
+   * library keeps for saying the room may have moved.
+   */
+  actionsMayBeStale?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1307,6 +1413,47 @@ export interface ConfirmRecord {
   stateVersion?: number;
   /** Why a crossing attempt was refused (`'refused'` rows) — joins the gap ledger. */
   rejectionReason?: 'APPROVAL_REQUIRED' | 'APPROVAL_SPENT' | 'APPROVAL_MISMATCH' | 'APPROVAL_STALE' | 'APPROVAL_DECLINED';
+}
+
+/**
+ * One high-effect ask and what became of it — the rows {@link Session.asks}
+ * serves, read at the moment you ask.
+ *
+ * The READ side of the confirm journal, and it exists because deriving these
+ * three fates from {@link ConfirmRecord} rows means re-implementing library law
+ * outside the library (which rows close which, what a `relayed` decline does
+ * NOT close, when a yes is spent). A serving layer that re-derived it could
+ * disagree with the gate about the same card, and a disagreement here reads to a
+ * model as "the human already answered".
+ *
+ * Structural facts only: no receipts, no input, no `by`. This is the answer to
+ * "is anything waiting on a person?", not a second channel for the card.
+ */
+export interface AskStatus {
+  askId: string;
+  /** The action the card is about. */
+  affordanceId: string;
+  /** Which row/instance the card is about, when the action takes one. */
+  instance?: string;
+  /**
+   * Absent means STILL OPEN — nobody has answered. An agent's relayed decline
+   * under {@link SessionOptions.requireHumanApproval} leaves it absent, because
+   * that report closes nothing.
+   */
+  answer?: 'approved' | 'declined';
+  /** True once a fire has spent this approval. One yes authorizes one fire. */
+  spent?: boolean;
+  /**
+   * The human's yes is recorded and unspent, and the app's own
+   * {@link HumanApprovalPolicy} will no longer let a fire cross on it — it ran
+   * out, or the state moved since they looked. READ AT ANSWER TIME, from the same
+   * function the gate uses, so this row and the refusal can never disagree.
+   *
+   * Absent means nothing is known against the approval — including on every
+   * session that declares no policy, where a yes never goes stale. The cure is a
+   * fresh ask, and it is the only one: a decision is never overwritten.
+   */
+  stale?: true;
 }
 
 /**

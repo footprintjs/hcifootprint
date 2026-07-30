@@ -4,7 +4,7 @@ title: LiveAction
 
 # Interface: LiveAction
 
-Defined in: [src/graph/sources/types.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L81)
+Defined in: [src/graph/sources/types.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L82)
 
 One action a live store publishes: WHERE it lives (node, plus instance for a
 repeats card), WHAT it is (the RegisteredToolDef vocabulary mounts already
@@ -64,7 +64,7 @@ AUTHORED intent, one string two readers (consumer label = agent tool description
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [src/graph/sources/types.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L89)
+Defined in: [src/graph/sources/types.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L90)
 
 False = on screen but greyed out (flows to TOOL_DISABLED). Default true.
 
@@ -145,7 +145,7 @@ shape, so it advertises nothing rather than inventing an empty contract.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/graph/sources/types.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L87)
+Defined in: [src/graph/sources/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L88)
 
 Instance key when the action belongs to one card of a repeats container.
 
@@ -155,7 +155,7 @@ Instance key when the action belongs to one card of a repeats container.
 
 > **name**: `string`
 
-Defined in: [src/graph/sources/types.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L85)
+Defined in: [src/graph/sources/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L86)
 
 Leaf tool name (same segment law as every authored name).
 
@@ -165,7 +165,7 @@ Leaf tool name (same segment law as every authored name).
 
 > **node**: `string`
 
-Defined in: [src/graph/sources/types.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L83)
+Defined in: [src/graph/sources/types.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L84)
 
 Node path the action lives on (a page or declared container).
 

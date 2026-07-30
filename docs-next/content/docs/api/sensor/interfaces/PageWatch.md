@@ -4,7 +4,7 @@ title: PageWatch
 
 # Interface: PageWatch
 
-Defined in: [src/sensor/types.ts:266](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L266)
+Defined in: [src/sensor/types.ts:281](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L281)
 
 The handle `watchPage` returns.
 
@@ -21,7 +21,7 @@ across renders, and `registerToolGroup`'s handle already sets that idiom
 
 > **attach**(`control`): [`ControlAttachment`](/api/sensor/interfaces/ControlAttachment)
 
-Defined in: [src/sensor/types.ts:268](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L268)
+Defined in: [src/sensor/types.ts:283](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L283)
 
 Hand a control over. THE declared level — see [ControlDeclaration](/api/sensor/interfaces/ControlDeclaration).
 
@@ -41,7 +41,7 @@ Hand a control over. THE declared level — see [ControlDeclaration](/api/sensor
 
 > **coverage**(): [`Coverage`](/api/sensor/interfaces/Coverage)
 
-Defined in: [src/sensor/types.ts:269](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L269)
+Defined in: [src/sensor/types.ts:284](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L284)
 
 #### Returns
 
@@ -53,7 +53,7 @@ Defined in: [src/sensor/types.ts:269](https://github.com/footprintjs/hcifootprin
 
 > **stop**(): `void`
 
-Defined in: [src/sensor/types.ts:270](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L270)
+Defined in: [src/sensor/types.ts:285](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L285)
 
 #### Returns
 

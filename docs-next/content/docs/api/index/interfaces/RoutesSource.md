@@ -4,7 +4,7 @@ title: RoutesSource<PageIds>
 
 # Interface: RoutesSource\<PageIds\>
 
-Defined in: [src/graph/sources/types.ts:32](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L32)
+Defined in: [src/graph/sources/types.ts:33](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L33)
 
 A route table read as pages — the spine. `PageIds` carries the page names
 through `const` inference so a source-contributed page is a REAL typed node
@@ -23,7 +23,7 @@ a typo stays a compile error).
 
 > `readonly` `optional` **crossLinks?**: `true` \| readonly `PageIds`[]
 
-Defined in: [src/graph/sources/types.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L42)
+Defined in: [src/graph/sources/types.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L43)
 
 The crossLinks REQUEST this table was read with — `true` (every page whose
 route is fully literal) or the named subset. Snapshot DATA, not tools: the
@@ -37,7 +37,7 @@ so it is the one place the request materialises.
 
 > `readonly` **kind**: `"routes"`
 
-Defined in: [src/graph/sources/types.ts:33](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L33)
+Defined in: [src/graph/sources/types.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L34)
 
 ***
 
@@ -45,4 +45,4 @@ Defined in: [src/graph/sources/types.ts:33](https://github.com/footprintjs/hcifo
 
 > `readonly` **pages**: `Record`\<`PageIds`, [`PageNodeDef`](/api/index/interfaces/PageNodeDef)\>
 
-Defined in: [src/graph/sources/types.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L34)
+Defined in: [src/graph/sources/types.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L35)

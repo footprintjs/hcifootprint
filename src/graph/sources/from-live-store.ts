@@ -15,12 +15,24 @@
  * meaningless there). Consequence, stated: the handler bound at first sight
  * stays bound — to replace an action's behaviour, remove it and add it back.
  *
+ * WHEN IT RE-READS — the invalidation contract, stated so an app can hold up its
+ * end: your store must emit whenever the action surface changes, and NAVIGATION
+ * is covered for you by a re-read on every page change the app REPORTS through
+ * sync() (LiveBindingPort.whenPageChanges). A store whose actions are derived
+ * from the router has no change of its own to announce when the page changes,
+ * and without that re-read the surface after a navigation would be whatever the
+ * last emission left behind. Nothing re-reads at whats_here/report time: a read
+ * must never mutate the structure it is about to serve.
+ *
  * Error stance, split by WHO is on the stack (the recorder rule, both ways):
  * the FIRST read at attach is LOUD — an invalid action is an authoring error
- * and dies at createSession, releasing anything half-attached — but a LATER
- * store emission runs inside the app's own notify loop, where a throw would
- * abort the app's iteration over its other subscribers. Those reconciles are
- * isolated: a failure warns and leaves bindings as-is until the next emission.
+ * and dies at createSession, releasing anything half-attached — but a LATER read
+ * runs on somebody else's stack (the app's notify loop, or the session mid-hop),
+ * where a throw would abort their work. Those reconciles are isolated: a failure
+ * warns and leaves bindings as-is until the next read. It is also DISCLOSED —
+ * one gap row per failure streak — because bindings from before the failure are
+ * still being served, and serving them silently would present a stale list as
+ * current fact.
  *
  * LEAF MODULE with ZERO value imports: it drives the session INSTANCE it is
  * handed through the type-only LiveBindingPort, so importing fromLiveStore —
@@ -39,6 +51,15 @@ interface Held {
 
 /** The shape handed to registerToolGroup — a LiveAction minus its addressing fields. */
 type ActionDef = Omit<LiveAction, 'node' | 'name' | 'instance' | 'enabled'>;
+
+/**
+ * What the ledger says when a read failed — an AUTHORED constant, never the
+ * store's own error text (that is the app's runtime string, and the row is read
+ * by triage tooling and can reach a model). The dev warning carries the error;
+ * this carries the consequence, which is the part a reader must not have to
+ * infer: the bindings on offer are from BEFORE the failure.
+ */
+const READ_FAILED_REQUEST = 'live action store read failed; serving bindings from before the failure';
 
 /**
  * Bind first, declare second. "Live actions attach last and only BIND" — so an
@@ -134,42 +155,88 @@ export function fromLiveStore(store: LiveActionStore): LiveSource {
         }
       };
 
-      // Subscribe BEFORE the first read: a store that emits synchronously
-      // during subscribe just runs an extra reconcile, which is idempotent.
-      // The subscribed path is ISOLATED (module header, error stance): it runs
-      // inside the app's own notify loop, and a throw there would abort the
-      // app's iteration over its other subscribers — consumer store code must
-      // never be broken by ours. reconcile is idempotent by identity, so the
-      // next emission simply retries.
-      const unsubscribe = store.subscribe(() => {
+      // Whether a read is CURRENTLY failing — armed on the first failure of a
+      // streak, cleared by the next read that works. The gap row is the loud,
+      // agent-visible half of the warning, and one row per streak is the honest
+      // grain: a store that throws on every emission has one broken read, not
+      // forty unmet demands.
+      let readFailing = false;
+
+      /**
+       * The reconcile every LATER read takes: warn-not-throw, and never silent.
+       *
+       * ISOLATED for two different reasons on the two paths that call it. The
+       * store's own notify loop is the app's stack, and a throw there would
+       * abort the app's iteration over its other subscribers. The page-change
+       * path is the SESSION's stack, mid-hop, and a throw there would abort a
+       * navigation that already happened. Neither caller asked to be broken by
+       * a store read, and reconcile is idempotent by identity, so the next read
+       * simply retries.
+       *
+       * The failure is DISCLOSED, not just logged: the bindings on offer are now
+       * from before the failure, and serving them with nothing said would be the
+       * session presenting a stale list as current fact. The row is marked
+       * `actionsMayBeStale`, which is what carries it past the app's triage
+       * ledger and into the facts block a model reads — the whole point of
+       * saying it out loud.
+       */
+      const reconcileIsolated = (): void => {
         try {
           reconcile();
+          readFailing = false; // a read that works ends the streak
         } catch (error) {
           report(
             `hcifootprint: a live store change could not be reconciled (bindings unchanged until the ` +
-              `store's next emission): ${String(error)}`,
+              `next store emission or page change): ${String(error)}`,
           );
+          if (readFailing) return;
+          readFailing = true;
+          session.reportGap?.({
+            request: READ_FAILED_REQUEST,
+            // The published GapReason union did NOT grow for this: a broken read
+            // is not a new SHAPE of unmet demand, and 'other' plus a request
+            // that names the truth says more than a new word would.
+            reason: 'other',
+            principal: 'system',
+            actionsMayBeStale: true,
+          });
         }
-      });
+      };
+
+      // Subscribe BEFORE the first read: a store that emits synchronously
+      // during subscribe just runs an extra reconcile, which is idempotent.
+      const unsubscribe = store.subscribe(reconcileIsolated);
+      // …and re-read whenever the app REPORTS a page change. A store whose
+      // actions are derived from the router has no change of its own to announce
+      // when the page changes, so without this the surface after a navigation is
+      // whatever the last emission left behind. Free when nothing moved: the
+      // identity ledger re-registers nothing, so a no-change re-read is a diff
+      // and no world motion. A port that does not offer the hook keeps exactly
+      // the old behaviour (store emissions only).
+      const unwatch = session.whenPageChanges?.(reconcileIsolated);
       try {
         // The first read stays LOUD — an invalid action is an authoring error
         // and should die at createSession, not degrade into a warning…
         reconcile();
       } catch (error) {
-        // …but a loud death must not leak: drop the subscription and release
+        // …but a loud death must not leak: drop BOTH subscriptions and release
         // anything registered before the bad action, so the failed attach
         // leaves neither a live listener nor half-mounted bindings behind.
         unsubscribe();
+        unwatch?.();
         for (const { handle } of held.values()) handle.unregister();
         held.clear();
         throw error;
       }
 
       return () => {
-        // Idempotent detach: the second call finds nothing to release.
+        // Idempotent detach: the second call finds nothing to release. Both
+        // subscriptions go — a source still re-reading after detach is the same
+        // resurrection the `detached` guard refuses, one layer up.
         if (detached) return;
         detached = true;
         unsubscribe();
+        unwatch?.();
         for (const { handle } of held.values()) handle.unregister();
         held.clear();
       };

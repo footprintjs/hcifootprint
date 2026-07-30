@@ -101,6 +101,7 @@ export type {
   Affordance,
   AffordanceDef,
   ApprovalResult,
+  AskStatus,
   AvailableEdge,
   AvailableSkill,
   AvailableSlice,

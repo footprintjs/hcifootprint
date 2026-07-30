@@ -28,6 +28,41 @@ The live action space: the served edges ARE the sensor's watch-list.
 
 ***
 
+### declareHolds()?
+
+> `optional` **declareHolds**(`affordanceId`, `read`): () => `void`
+
+Defined in: [src/sensor/types.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L81)
+
+The session's value door: hand over a declared control's `value()` so the
+SERVED ROW can say what the control holds, one turn before anything fires.
+
+The coupling runs one way, sensor → session, and only for the getter the app
+already handed over. Nothing about the sensor crosses: no element, no
+instance, no report kind — so the session imports nothing from here and this
+subpath stays the zero-value-import leaf it is.
+
+Optional and severable, like `LiveBindingPort`'s two hooks: a hand-built port
+without it keeps exactly today's behaviour (the getter still answers for the
+payload of a reported gesture, and the row simply stays silent). A real
+`InteractionSession` satisfies it as-is.
+
+#### Parameters
+
+##### affordanceId
+
+`string`
+
+##### read
+
+() => `unknown`
+
+#### Returns
+
+() => `void`
+
+***
+
 ### fire()
 
 > **fire**(`affordanceId`, `opts`): [`FireResult`](/api/index/type-aliases/FireResult)

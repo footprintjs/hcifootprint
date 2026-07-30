@@ -4,7 +4,7 @@ title: Effect
 
 # Interface: Effect
 
-Defined in: [src/atom/types.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L110)
+Defined in: [src/atom/types.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L117)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:110](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **navigatesTo?**: `string`
 
-Defined in: [src/atom/types.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L114)
+Defined in: [src/atom/types.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L121)
 
 Page this affordance claims to move to. Reconciled by sync().
 
@@ -22,6 +22,6 @@ Page this affordance claims to move to. Reconciled by sync().
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/atom/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L112)
+Defined in: [src/atom/types.ts:119](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L119)
 
 State keys this affordance claims to change. Verified at settlement.

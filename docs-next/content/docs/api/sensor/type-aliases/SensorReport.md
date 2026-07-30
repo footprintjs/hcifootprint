@@ -6,7 +6,7 @@ title: SensorReport
 
 > **SensorReport** = \{ `edge`: `string`; `instance?`: `string`; `kind`: `"reported"`; `result`: [`FireResult`](/api/index/type-aliases/FireResult); \} \| \{ `actuation`: [`Actuation`](/api/index/type-aliases/Actuation); `kind`: `"off-graph"`; `name`: `string`; `role`: `string`; \} \| \{ `candidates`: readonly `string`[]; `kind`: `"ambiguous"`; \} \| \{ `actuation`: [`Actuation`](/api/index/type-aliases/Actuation); `edge`: `string`; `instance?`: `string`; `kind`: `"synthetic-event"`; \} \| \{ `edge`: `string`; `kind`: `"value-not-declared"`; `reason`: `string`; \} \| \{ `blocked`: [`BlockedBy`](/api/sensor/type-aliases/BlockedBy); `edge`: `string`; `kind`: `"unwatched"`; `reason`: `string`; \} \| \{ `edge`: `string`; `kind`: `"cadence-unavailable"`; `reason`: `string`; \} \| \{ `edge`: `string`; `kind`: `"watching"`; \} \| \{ `error`: `unknown`; `kind`: `"sensor-error"`; \}
 
-Defined in: [src/sensor/types.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L163)
+Defined in: [src/sensor/types.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L178)
 
 Everything the sensor did and everything it refused to do — one union, no
 silent arms.

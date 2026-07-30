@@ -4,7 +4,7 @@ title: ControlAttachment
 
 # Interface: ControlAttachment
 
-Defined in: [src/sensor/types.ts:252](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L252)
+Defined in: [src/sensor/types.ts:267](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L267)
 
 One declared control's registration. `attach`/`detach` are a true pair.
 
@@ -19,7 +19,7 @@ leaves exactly one control declared.
 
 > **detach**(): `void`
 
-Defined in: [src/sensor/types.ts:253](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L253)
+Defined in: [src/sensor/types.ts:268](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L268)
 
 #### Returns
 
