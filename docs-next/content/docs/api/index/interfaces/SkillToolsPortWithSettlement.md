@@ -4,7 +4,7 @@ title: SkillToolsPortWithSettlement
 
 # Interface: SkillToolsPortWithSettlement
 
-Defined in: [src/serve/modes.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L104)
+Defined in: [src/serve/modes.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L120)
 
 What [skillsAsTools](/api/index/functions/skillsAsTools) returns: a port whose settlement door is always
 there. Name the type only if you are storing the port somewhere typed — the
@@ -20,7 +20,7 @@ factory's inferred return already has it.
 
 > **call**(`name`, `args?`): [`ServeResult`](/api/index/type-aliases/ServeResult)
 
-Defined in: [src/serve/modes.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L73)
+Defined in: [src/serve/modes.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L89)
 
 Route a tool_use by name. Unknown names return a structured error result.
 
@@ -48,7 +48,7 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 > **tools**(): `MCPToolDescription`[]
 
-Defined in: [src/serve/modes.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L71)
+Defined in: [src/serve/modes.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L87)
 
 The STATIC tool array — identical bytes for the life of the conversation.
 
@@ -66,7 +66,7 @@ The STATIC tool array — identical bytes for the life of the conversation.
 
 > **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
 
-Defined in: [src/serve/modes.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L105)
+Defined in: [src/serve/modes.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L121)
 
 How a fire came to rest — the ASYNC door, for the caller that holds this
 port and nothing else (a relay, a transport wrapper). `call()` is

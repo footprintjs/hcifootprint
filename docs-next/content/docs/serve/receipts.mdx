@@ -43,7 +43,9 @@ authored claim (`does` + declared `writes`), honesty-tagged like every claim in 
 - **Approve** → call again with `confirm: true`; the fire lands and its transition carries
   `askId` back to the receipts the human saw.
 - **Decline** → call with `decline: true` (Mode B) or `session.declineConfirm(id)`; the
-  refusal is recorded instead of the ask dangling forever.
+  refusal is recorded instead of the ask dangling forever. (Under
+  [`requireHumanApproval`](#requirehumanapproval--make-approve-enforceable) that pair records a
+  *report* and the card stays open — the human's own no is `session.declineAsk(askId, { by })`.)
 
 `session.confirms()` returns the **ask → decision → fire** chain; `session.onConfirm(fn)`
 streams rows to your audit sink live. This journal is deliberately SEPARATE from the
@@ -88,6 +90,14 @@ a value past the snapshot caps — is refused rather than guessed. This is the o
 declines toward REFUSE: elsewhere an unjudgeable thing is passed, because a wrong rejection has no
 appeal; here an unprovable match is not a match.
 
+**It binds to a copy, and that is not a detail.** `confirmAsk` detaches the input the moment it
+arrives, so keeping your own reference and changing it after the yes is refused
+`APPROVAL_MISMATCH` rather than compared against itself. Without the copy, an app holding its form
+state — or a relay reusing one arguments object for the ask and then the fire — could send `999999`
+against a card that said `10`, and the journal would read *ask → approved → used* with nothing
+wrong in it. A value the library cannot copy faithfully binds to a stand-in that can never match,
+so it is refused too.
+
 **ALWAYS ALLOW is a policy row, not an approval.** `session.alwaysApprove(id, { by, instance?,
 expiresInMs? })` records a standing grant, scoped to the action (and optionally one instance) and
 deliberately **not** to the input — a grant bound to one input would be indistinguishable from a
@@ -108,13 +118,20 @@ moves on almost every report.
 
 ### A decline is as unforgeable as an approval
 
-An agent must not be able to manufacture a no, and — worse — must not be able to **bury** a
-pending ask by declining it so the human's card disappears. So under enforcement a relayed
-`decline: true` (principal `'agent'`) is recorded as **the agent's report** and closes nothing:
-the ask stays open, `groundTruth()` keeps saying *"Awaiting the human's decision"*, and the result
-says so. A human's no arrives through `declineAsk` (or `declineConfirm` with exactly one card
-open) and is terminal for that `askId` for the session's life. A re-ask after a no mints a **new**
-`askId`, so an agent grinding a person toward yes leaves a countable trail.
+A caller must not be able to manufacture a no, and — worse — must not be able to **bury** a
+pending ask by declining it so the human's card disappears. So under enforcement `declineConfirm`
+records **a report** and closes nothing, *whatever principal it is handed*: the ask stays open, the
+row is marked `relayed`, `groundTruth()` keeps saying *"Awaiting the human's decision"*, and the
+served result says so. `principal` is an argument, and an argument is a claim — passing `'user'`
+would otherwise have made the burial a one-word request.
+
+A human's no arrives through **`declineAsk(askId, { by })`** — keyed to the card they answered,
+with no principal argument to lie with, exactly like `approveAsk`. It is terminal for that `askId`
+for the session's life, and it outranks a standing grant for the thing the person was shown, with
+or without the pointer: dropping the `askId` does not walk around it. A **different** input is
+still authorized by a live grant, because a grant is deliberately not input-bound — and a re-ask
+after a no mints a **new** `askId`, so an agent grinding a person toward yes leaves a countable
+trail.
 
 ### Every refusal, and what it teaches
 
@@ -145,15 +162,26 @@ The gate keys off the **principal**, not the door: a direct in-process
 `source: 'user'`, `source: 'system'`, and the record-only sensor (`invoke: false`) — because that
 motion really happened, and refusing it would be the library denying reality. So, in the same
 voice the never-trap gate already uses: **hand a model a port constructed with `source: 'user'`
-and you have disarmed this gate.** Ask ids are also per-session counters, so an `askId` from one
-session never resolves in another — an audit sink must key on `(session, askId)`.
+and you have disarmed this gate.** The library will not stop you — that tier exists so an app can
+report its own motion — but it will not pretend either: building one **warns** through your
+`onWarn`, and that port serves the *unenforced* `confirm` description, because telling a model
+"this app enforces that" through the one port whose fires are exempt would be the same class of
+lie. `session.requiresHumanApprovalFrom(principal)` is the honest question for a port, and
+`session.requiresHumanApproval` is the question about the session. Ask ids are also per-session
+counters, so an `askId` from one session never resolves in another — an audit sink must key on
+`(session, askId)`.
 </Callout>
 
 <Callout title="`willUse` puts the input in the receipts pack">
-Binding the approval to what was shown means the input now rides the receipts — to the model, to
-the human, and into the journal export. That is the point of it, and it means an input carrying a
+Binding the approval to what was shown means the input rides the receipts — to the model, to the
+human, and into the journal export. That is the point of it, and it means an input carrying a
 secret is in the pack. `redactedKeys` governs state keys, never payloads, exactly as it never
 governed `TransitionRecord.payload`.
+
+It rides only where it **binds** something: the Mode B port passes the model's `input` to
+`confirmAsk` under `requireHumanApproval` and not otherwise, so a session without the option keeps
+the 0.6 receipts and the 0.6 journal rows exactly. Call `session.confirmAsk(id, { input })`
+yourself if you want the card to show it either way.
 </Callout>
 
 ## Two ways to run the approval

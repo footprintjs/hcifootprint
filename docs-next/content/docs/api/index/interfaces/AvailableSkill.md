@@ -4,7 +4,7 @@ title: AvailableSkill
 
 # Interface: AvailableSkill
 
-Defined in: [src/atom/types.ts:563](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L563)
+Defined in: [src/atom/types.ts:617](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L617)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:563](https://github.com/footprintjs/hcifootprint/
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:565](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L565)
+Defined in: [src/atom/types.ts:619](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L619)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:565](https://github.com/footprintjs/hcifootprint/
 
 > **entryAvailable**: `boolean`
 
-Defined in: [src/atom/types.ts:572](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L572)
+Defined in: [src/atom/types.ts:626](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L626)
 
 Whether the skill's first step is available right now (on-node + guard).
 
@@ -30,7 +30,7 @@ Whether the skill's first step is available right now (on-node + guard).
 
 > **evidence**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:568](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L568)
+Defined in: [src/atom/types.ts:622](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L622)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/atom/types.ts:568](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:564](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L564)
+Defined in: [src/atom/types.ts:618](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L618)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [src/atom/types.ts:564](https://github.com/footprintjs/hcifootprint/
 
 > **preconditionPassed**: `boolean`
 
-Defined in: [src/atom/types.ts:567](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L567)
+Defined in: [src/atom/types.ts:621](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L621)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [src/atom/types.ts:567](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **preconditionUnevaluable?**: `string`[]
 
-Defined in: [src/atom/types.ts:570](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L570)
+Defined in: [src/atom/types.ts:624](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L624)
 
 Precondition keys absent from the state view — feasibility unknown, said so.
 
@@ -64,4 +64,4 @@ Precondition keys absent from the state view — feasibility unknown, said so.
 
 > **steps**: `string`[]
 
-Defined in: [src/atom/types.ts:566](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L566)
+Defined in: [src/atom/types.ts:620](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L620)

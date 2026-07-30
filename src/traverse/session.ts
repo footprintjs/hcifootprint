@@ -83,6 +83,7 @@ import type { SettlementLatch } from './settlement.js';
 import { checkApproval } from './approval-gate.js';
 import type { ApprovalVerdict, OpenAsk } from './approval-gate.js';
 import { normalizeInput, sameInput } from './same-input.js';
+import { boundInput } from './bound-input.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { expectsOf } from './expects.js';
@@ -301,6 +302,13 @@ export class Session {
    * once and a decline must stay refusable for the session's life. A second map
    * for the enforced mode would be a second path through the gate, and a second
    * path is an escape.
+   *
+   * So under enforcement it GROWS — one entry per distinct ask, for the session's
+   * life, like every other ledger here. Deleting a decision to save memory is the
+   * one economy this file will not make. What is bounded instead is the RENDERING:
+   * groundTruth() caps the "awaiting" lines an agent can mint, because that block
+   * is read by a model, while this map is read only by the gate. Each entry holds
+   * a detached copy of its input (bound-input.ts), never the caller's object.
    */
   readonly #openAsks = new Map<string, OpenAsk>();
   /**
@@ -393,6 +401,38 @@ export class Session {
   }
 
   /**
+   * Whether a high-effect fire STAMPED WITH THIS PRINCIPAL has to present a
+   * recorded human approval — the question a serving layer must actually ask
+   * before it promises a model that this app enforces one.
+   *
+   * The gate keys on the principal, not the door (fire(), THE APPROVAL GATE): the
+   * app-self-report tier — `'user'`, `'system'`, and the record-only sensor —
+   * passes, because that motion really happened. So `requiresHumanApproval` alone
+   * is the wrong question for a PORT: a port that stamps `'user'` serves a model
+   * whose fires this session never gates, and a tool description promising the
+   * gate would be a lie told in the library's own voice.
+   *
+   * Here rather than re-derived at the port, so the rule lives in one place: the
+   * thing that answers "is this fire gated?" is the thing that gates it.
+   */
+  requiresHumanApprovalFrom(principal: Principal): boolean {
+    return this.#holdsFiresFrom(principal);
+  }
+
+  /**
+   * THE PRINCIPAL RULE, and the gate reads it from HERE rather than from the
+   * public method above.
+   *
+   * Both answer the same question, and they must never be able to disagree — a
+   * port that is told "gated" while `fire` lets the call through is the lie this
+   * whole option removes. Private, so a subclass overriding the public method
+   * changes what the app is TOLD and can never change what the gate DOES.
+   */
+  #holdsFiresFrom(principal: Principal): boolean {
+    return this.#humanApproval !== undefined && principal === 'agent';
+  }
+
+  /**
    * D18 version split — `version` stays the single total-order cursor; these
    * two say WHAT moved. A scrolling list must never staleness-fail a plan the
    * way a closing modal must; consumers watching for re-render/replan can
@@ -416,8 +456,16 @@ export class Session {
     return this.#registry;
   }
 
-  /** The session's dev-warning sink (protected seam for subclass layers). */
-  protected warn(message: string): void {
+  /**
+   * The session's dev-warning sink (SessionOptions.onWarn, console.warn by
+   * default) — the seam subclass layers already warn through.
+   *
+   * PUBLIC because the serving layer is a separate module by design: it consumes
+   * only this surface, and a warning it could not route through the host's own
+   * sink is a warning a host that captures `onWarn` would never see. It says
+   * nothing about state, so nothing can be forged with it.
+   */
+  warn(message: string): void {
     this.#warn(message);
   }
 
@@ -1009,7 +1057,7 @@ export class Session {
     // Holds the ALLOWED verdict only — a refusal returns above, so nothing below
     // has to re-ask whether the gate said yes.
     let approval: Extract<ApprovalVerdict, { ok: true }> | undefined;
-    if (this.#humanApproval !== undefined && aff.highEffect && source === 'agent' && opts.invoke !== false) {
+    if (this.#holdsFiresFrom(source) && aff.highEffect && opts.invoke !== false) {
       const verdict = this.#approvalVerdict(affordanceId, aff, opts);
       if (!verdict.ok) return this.#refuseApproval(affordanceId, verdict, source);
       approval = verdict;
@@ -2072,6 +2120,10 @@ export class Session {
        * `willUse.input`, so the human approves an object and not just a verb.
        * Optional: an ask told nothing shows nothing, and under enforcement a fire
        * carrying an input the card never showed is refused.
+       *
+       * DETACHED THE MOMENT IT ARRIVES (bound-input.ts): keep your reference and
+       * change it after the yes, and the fire is refused APPROVAL_MISMATCH rather
+       * than compared against itself.
        */
       input?: unknown;
       /** Which row/instance the card is about (an order id). */
@@ -2083,12 +2135,17 @@ export class Session {
     // ONE normalization for both sides of the later comparison — the reason a
     // click-only control asked with input '' and fired with nothing still matches.
     const input = normalizeInput(opts?.input, aff?.noInput === true);
+    // The card is assembled from what the caller handed us; the BINDING is a copy
+    // the caller cannot reach (bound-input.ts). Same value, two jobs, and they
+    // must not be the same object: a caller holding its own reference could
+    // otherwise change the payload after the yes and still compare 'same'.
+    const bound = boundInput(input);
     const receipts = this.#assembleReceipts(affordanceId, this.#willUse(input, opts?.instance));
-    const askId = this.#reuseOrMintAsk(affordanceId, input, opts?.instance);
+    const askId = this.#reuseOrMintAsk(affordanceId, bound, opts?.instance);
     this.#openAsks.set(askId, {
       askId,
       affordanceId,
-      input,
+      input: bound,
       ...(opts?.instance !== undefined ? { instance: opts.instance } : {}),
       askedAtVersion: this.#version,
       askedAtStateVersion: this.#stateVersion,
@@ -2182,6 +2239,14 @@ export class Session {
    * event). Closes the open ask for `affordanceId` when one exists; with none
    * open (a pre-emptive decline) it mints a standalone decline row — a refusal
    * is worth recording either way. Returns the row (a deep copy).
+   *
+   * UNDER `requireHumanApproval` IT CLOSES NOTHING, whatever `principal` says.
+   * The row is marked `relayed`, the card stays open, and the person still gets
+   * asked. `principal` is an argument, and an argument is a claim: a caller that
+   * could close a card by saying `'user'` could bury the question before the
+   * human ever saw it. A human's no goes through
+   * {@link Session.declineAsk}(askId, { by }) — keyed to the card they answered,
+   * with no principal argument to lie with.
    */
   declineConfirm(
     affordanceId: string,
@@ -2195,43 +2260,49 @@ export class Session {
       return this.#pushDecline(askId, affordanceId, principal, opts);
     }
     // UNDER ENFORCEMENT a decline must be as unforgeable as an approval, or the
-    // gate is asymmetric in the attacker's favour twice over: an agent could
+    // gate is asymmetric in the attacker's favour twice over: a caller could
     // manufacture "the human said no" to excuse inaction, and — worse — BURY a
     // pending ask by declining it, so the card disappears and the person never
     // sees the question.
     //
-    // So a relayed decline (the port passes its own source, 'agent') is recorded
-    // as a REPORT and closes nothing: the ask stays open, groundTruth keeps
-    // saying "Awaiting the human's decision", and the human's card stays live.
-    if (principal !== 'user') {
-      const askId = open[0]?.askId ?? this.#mintAskId();
-      return this.#pushDecline(askId, affordanceId, principal, opts, true);
-    }
-    // The ordinary UI case: exactly one card is open, and this is the person
-    // answering it. Terminal and permanent — the entry keeps the answer so any
-    // later fire under that id refuses, and no approveAsk can overwrite it.
-    if (open.length === 1) return this.#answerAsk(open[0], 'declined', opts);
-    if (open.length > 1) {
-      // Ambiguity is the disease this option treats, so it is never resolved by
-      // picking one. `declineAsk(askId)` is the unambiguous door.
+    // So this door RECORDS a refusal and closes nothing, whatever principal it is
+    // handed. `principal` is an ARGUMENT, and an argument is a claim: honouring
+    // 'user' here would have made the burial a one-word request, while
+    // `approveAsk` deliberately has no such argument at all. The asymmetry that
+    // looked like a design was the hole. A human's no arrives through
+    // `declineAsk(askId, { by })` — keyed to the card they answered, `by`
+    // required, principal stamped 'user' with nothing to override it.
+    //
+    // So: the ask stays open, groundTruth keeps saying "Awaiting the human's
+    // decision", the row is marked `relayed` so an auditor never has to infer it
+    // from a principal the caller chose, and the card stays live.
+    const askId = open[0]?.askId ?? this.#mintAskId();
+    if (principal === 'user') {
+      // The caller believed it was closing a card — an app's own Decline button,
+      // or a port constructed with source:'user'. Silence would leave a button
+      // that no longer does what its owner thinks it does.
       this.#warnOnceAboutApproval(
         affordanceId,
-        'AMBIGUOUS_DECLINE',
-        `hcifootprint: ${open.length} asks are open for '${affordanceId}', so declineConfirm recorded the refusal without closing any of them. Call declineAsk(askId) with the ask the human answered.`,
+        'RELAYED_DECLINE',
+        `hcifootprint: declineConfirm('${affordanceId}') recorded a REPORT, not the human's decision — the card is still open. Under requireHumanApproval a no that CLOSES a card comes from declineAsk(askId, { by }), the door with no principal argument to lie with.`,
       );
     }
-    // Zero open (a pre-emptive no) or several: the refusal is worth recording
-    // either way, and it closes nothing it cannot identify.
-    return this.#pushDecline(this.#mintAskId(), affordanceId, 'user', opts, true);
+    return this.#pushDecline(askId, affordanceId, principal, opts, true);
   }
 
-  /** One 'declined' row, whoever it came from. */
+  /**
+   * One 'declined' row, whoever it came from.
+   *
+   * Under enforcement this door writes REPORTS only (the human's own no goes
+   * through #answerAsk), so the two facts arrive together: `enforced` says the
+   * gate was live when it landed, `relayed` says the ask it names is still open.
+   */
   #pushDecline(
     askId: string,
     affordanceId: string,
     principal: Principal,
     opts?: { by?: string; note?: string },
-    enforced?: true,
+    relayed?: true,
   ): ConfirmRecord {
     const row: ConfirmRecord = {
       kind: 'declined',
@@ -2243,7 +2314,7 @@ export class Session {
       principal,
       ...(opts?.by !== undefined ? { by: opts.by } : {}),
       ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
-      ...(enforced ? { enforced, stateVersion: this.#stateVersion } : {}),
+      ...(relayed ? { enforced: true as const, relayed, stateVersion: this.#stateVersion } : {}),
     };
     this.#pushConfirm(row);
     return structuredClone(row);
@@ -2266,9 +2337,13 @@ export class Session {
    * so an auditor can count approvals against executions.
    *
    * NO `principal` PARAMETER, and that is the unforgeable shape rather than an
-   * omission. `declineConfirm` takes one safely (a decline never authorizes); an
-   * approval must be one thing only, so this door stamps `'user'` unconditionally
-   * and there is no argument to lie with.
+   * omission: this door stamps `'user'` unconditionally, so there is no argument
+   * to lie with. Its twin {@link Session.declineAsk} has the same shape for the
+   * same reason — a fabricated NO is a forgery too. It authorizes nothing, but it
+   * puts a human decision in the auditable journal and takes the question off the
+   * person's screen, and neither of those may be reachable by asking politely.
+   * ({@link Session.declineConfirm} does take a `principal`, and under
+   * enforcement it therefore closes nothing at all.)
    *
    * `by` is REQUIRED: an approval whose decider is unknown is exactly the
    * claim-as-fact this closes. It is a string YOUR host supplies — the library
@@ -2858,15 +2933,33 @@ export class Session {
     // might quietly re-ask around. `by` and `note` are deliberately NOT rendered —
     // they are caller-supplied runtime strings, and this block carries structural
     // facts only. `by` is the AUDIT field; facts gets the fact.
+    //
+    // BOUNDED WHERE IT CAN BE MINTED, and only there. Under enforcement every
+    // distinct input mints a new ask, so a model calling all turn could add a
+    // line per call to the one block it is told to trust ABOVE its own account —
+    // the attempts list caps itself eleven lines above for exactly this reason.
+    // The OLDEST cards are the ones kept: burying the question a person is
+    // actually looking at under forty fresh ones is the move this refuses.
+    // Answered lines are never capped — only a human-side door writes one, so
+    // their number is the person's own doing and hiding a recorded decision is
+    // the one thing this block must never do.
+    let awaitingShown = 0;
+    let awaitingOmitted = 0;
     for (const ask of this.#openAsks.values()) {
       const what = this.#actionLabel(ask.affordanceId);
       if (ask.answer === undefined) {
-        lines.push(`Awaiting the human's decision: ${what} (${ask.askId}).`);
+        if (awaitingShown < max) {
+          lines.push(`Awaiting the human's decision: ${what} (${ask.askId}).`);
+          awaitingShown++;
+        } else awaitingOmitted++;
       } else if (ask.answer === 'approved' && ask.spent !== true) {
         lines.push(`Approved by the human, not yet done: ${what} (${ask.askId}).`);
       } else if (ask.answer === 'declined') {
         lines.push(`The human declined: ${what} (${ask.askId}).`);
       }
+    }
+    if (awaitingOmitted > 0) {
+      lines.push(`  … ${awaitingOmitted} more await the human's decision, not listed.`);
     }
     const pend = this.pending();
     if (pend.length > 0) {

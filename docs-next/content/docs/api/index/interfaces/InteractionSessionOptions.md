@@ -157,6 +157,10 @@ real waits (hcifootprint/testing's harness wires one for you).
 
 `number`
 
+#### Overrides
+
+[`SessionOptions`](/api/index/interfaces/SessionOptions).[`now`](/api/index/interfaces/SessionOptions#now)
+
 ***
 
 ### onWarn?
@@ -194,6 +198,40 @@ Keys stored as 'REDACTED' in the commit log while live state keeps raw values.
 #### Inherited from
 
 [`SessionOptions`](/api/index/interfaces/SessionOptions).[`redactedKeys`](/api/index/interfaces/SessionOptions#redactedkeys)
+
+***
+
+### requireHumanApproval?
+
+> `optional` **requireHumanApproval?**: `boolean` \| [`HumanApprovalPolicy`](/api/index/interfaces/HumanApprovalPolicy)
+
+Defined in: [src/atom/types.ts:380](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L380)
+
+REQUIRE A RECORDED HUMAN APPROVAL before an agent may fire a high-effect
+action. Off by default; with it on, a high-effect agent fire is refused
+unless it carries [FireOptions.askId](/api/index/interfaces/FireOptions#askid) — a pointer to a confirm-journal
+row a person's own Approve control recorded ([Session.approveAsk](/api/index/classes/Session#approveask)),
+or a standing ALWAYS ALLOW ([Session.alwaysApprove](/api/index/classes/Session#alwaysapprove)).
+
+WHAT IT FIXES. `confirm: true` was the AGENT asserting that a human
+approved: a boolean in the model's own tool arguments, tied to nothing. A
+model that never asked was indistinguishable from one that got a yes. With
+this option the proof is a POINTER to a decision a person recorded, so "the
+model asked politely" stops being part of the security model.
+
+WHAT IT DOES NOT PROVE. That a particular person authenticated — `by` is a
+string your host supplies — and not that your own wiring keeps the approval
+door out of the model's reach. It proves that a row of the right kind, from
+the right principal, for this action and this input, exists and has not
+already been spent.
+
+Pass `true` for the plain policy, or a [HumanApprovalPolicy](/api/index/interfaces/HumanApprovalPolicy) to also
+refuse a yes that has gone stale. Without this option nothing changes —
+fail-closed, byte-identical.
+
+#### Inherited from
+
+[`SessionOptions`](/api/index/interfaces/SessionOptions).[`requireHumanApproval`](/api/index/interfaces/SessionOptions#requirehumanapproval)
 
 ***
 

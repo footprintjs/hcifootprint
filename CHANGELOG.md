@@ -30,20 +30,37 @@ stay absent.
 - **The approval binds to the receipts.** `confirmAsk(id, { input, instance })` puts what
   will be sent on the card (`ConfirmReceipts.willUse`), and a fire carrying anything else
   is `APPROVAL_MISMATCH`. Exact structural equality, key-order-independent; anything the
-  receipts cannot hold faithfully is refused rather than guessed.
+  receipts cannot hold faithfully is refused rather than guessed. It binds a **detached
+  copy**, so keeping your own reference and changing it after the yes is refused rather
+  than compared against itself.
 - **ALWAYS ALLOW is a policy row**, scoped to the action (+ optional instance) and
   deliberately not to the input — and revocable, because a durable grant with no off
   switch is a permanent hole.
-- **The decline is unforgeable too**: an agent-relayed `decline: true` is recorded as the
-  agent's report and closes NOTHING, so a model cannot manufacture a human no or bury the
-  pending card. A human no is terminal for its askId; a re-ask mints a new one, so nagging
-  is countable.
+- **The decline is unforgeable too**: under enforcement `declineConfirm` records a REPORT
+  and closes NOTHING *whatever `principal` it is handed* (the row carries `relayed: true`),
+  so nobody can manufacture a human no or bury the pending card by asking politely. A
+  human's no is `declineAsk(askId, { by })` — terminal for that askId, and it outranks a
+  standing grant for the action, instance and input the person was shown whether or not
+  the later fire presents the pointer. A re-ask mints a new askId, so nagging is countable.
+- **A port that cannot enforce does not say it does.** The gate keys on the principal, so
+  `skillsAsTools(session, { source: 'user' })` is exempt by design — it now warns when it
+  is built and serves the *unenforced* `confirm`/`decline` descriptions rather than telling
+  a model this app refuses what it does not refuse. New: `requiresHumanApprovalFrom(principal)`,
+  the honest question for a port.
+- **`groundTruth()` is bounded where an agent can mint lines**: the "awaiting the human"
+  cards obey the same `maxAttempts` dial as the attempts list (oldest kept, count stated),
+  so a model cannot inflate the one block it is told to trust above its own account.
 - Every refused crossing lands in **both** ledgers — a `'fire-rejected'` gap row (so
   `groundTruth()` says *"did NOT happen … was refused: APPROVAL_REQUIRED"*) and a
   `'refused'` confirm row. Rows are never deduplicated; only the dev warning is.
 
 **Nothing changes without the option** — default behaviour is byte-identical, pinned by
-`test/human-approval-default-unchanged.test.ts`.
+`test/human-approval-default-unchanged.test.ts`. One exception was found and closed before
+release: the Mode B port had begun passing the model's `input` to `confirmAsk` on every
+high-effect ask, so a session with the option OFF would have started carrying user payloads
+in `receipts.willUse` and in the exported confirm journal. It is passed only where it binds
+something now; call `confirmAsk(id, { input })` yourself if you want the card to show it
+either way.
 
 #### Note for anyone switching exhaustively on `FireResult` or `ConfirmRecord.kind`
 
@@ -68,7 +85,10 @@ moves approval onto a channel the model does not write *by a convention you upho
 a proof the library can offer. It keys on the PRINCIPAL, so a direct
 `fire(id, { source: 'agent' })` IS gated while the app-self-report tier (`'user'`,
 `'system'`, `invoke: false`) is not: hand a model a port built with `source: 'user'` and
-you have disarmed this gate. See [D24](docs/design/d24-enforced-approval.md).
+you have disarmed this gate — the library warns and stops claiming the gate, but it cannot
+stop you. See [D24](docs/design/d24-enforced-approval.md), whose *Round two* section records
+the four forgeries an adversarial review landed against the first cut of this feature and
+what each one cost to close.
 
 ## [0.6.0] - 2026-07-29
 

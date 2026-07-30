@@ -4,7 +4,7 @@ title: SkillToolsPort
 
 # Interface: SkillToolsPort
 
-Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L69)
+Defined in: [src/serve/modes.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L85)
 
 ## Extended by
 
@@ -16,7 +16,7 @@ Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/
 
 > **call**(`name`, `args?`): [`ServeResult`](/api/index/type-aliases/ServeResult)
 
-Defined in: [src/serve/modes.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L73)
+Defined in: [src/serve/modes.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L89)
 
 Route a tool_use by name. Unknown names return a structured error result.
 
@@ -40,7 +40,7 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 > **tools**(): `MCPToolDescription`[]
 
-Defined in: [src/serve/modes.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L71)
+Defined in: [src/serve/modes.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L87)
 
 The STATIC tool array — identical bytes for the life of the conversation.
 
@@ -54,7 +54,7 @@ The STATIC tool array — identical bytes for the life of the conversation.
 
 > `optional` **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
 
-Defined in: [src/serve/modes.ts:96](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L96)
+Defined in: [src/serve/modes.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L112)
 
 How a fire came to rest — the ASYNC door, for the caller that holds this
 port and nothing else (a relay, a transport wrapper). `call()` is

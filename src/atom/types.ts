@@ -1172,8 +1172,9 @@ export interface ConfirmRecord {
    * - `'approved'`         — a human's ALLOW. Single-use: one yes, one fire.
    * - `'always-approved'`  — a human's ALWAYS ALLOW: a scoped standing policy,
    *   never consumed, and deliberately NOT bound to an input (see `scopeInstance`).
-   * - `'declined'`         — a no. From the human's own door it is terminal for
-   *   that askId; relayed by an agent it is a report and closes nothing.
+   * - `'declined'`         — a no. From the human's own door ({@link Session.declineAsk})
+   *   it is terminal for that askId; any other decline under enforcement is a
+   *   report that closes nothing, and says so with `relayed`.
    * - `'used'`             — an approval was SPENT by a fire (`transitionId`).
    * - `'refused'`          — a crossing attempt with no valid yes (`rejectionReason`).
    * - `'revoked'`          — a standing grant was withdrawn.
@@ -1216,6 +1217,17 @@ export interface ConfirmRecord {
    * without inferring it from a kind.
    */
   enforced?: true;
+  /**
+   * Present (true) on a `'declined'` row that RELAYS a refusal instead of
+   * recording the human's own decision — an agent's report, or any
+   * {@link Session.declineConfirm} under enforcement. The ask it names is still
+   * OPEN: nothing was closed, and `groundTruth()` keeps saying the person is
+   * deciding. Without it an auditor would have to infer the difference from
+   * `principal`, which on this row is the caller's claim rather than a fact — and
+   * a fabricated no that reads like a real one is the same forgery as a
+   * fabricated yes. A human's no (`declineAsk`) never carries this.
+   */
+  relayed?: true;
   /** An ALWAYS ALLOW scoped to one row of a list (an order id). Absent = any instance. */
   scopeInstance?: string;
   /** When a standing grant stops authorizing (epoch ms). Absent = no time limit. */
@@ -1371,7 +1383,12 @@ export interface ContextBrief {
 export interface GroundTruthOptions {
   /** Only include attempts made at or after this cursor version ("since your last turn"). */
   sinceVersion?: number;
-  /** Cap on rendered attempts (default 20); older ones collapse into an omitted count. */
+  /**
+   * Cap on rendered attempts (default 20); older ones collapse into an omitted
+   * count. The same number bounds the "awaiting the human" cards listed below
+   * them — the other line an agent can mint at will — so one dial says how long
+   * this block may get.
+   */
   maxAttempts?: number;
 }
 

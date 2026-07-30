@@ -36,7 +36,7 @@ declared writes observed?). They disagree honestly — a tapless handler
 completes `'performed'` with `effectVerified: 'unobservable'` — and neither is
 averaged into the other.
 
-## approval-gate.ts + same-input.ts — an approval we cannot prove is not an approval
+## approval-gate.ts + same-input.ts + bound-input.ts — an approval we cannot prove is not an approval
 
 `confirm: true` was the AGENT asserting that a human approved: a boolean in the
 model's own tool arguments, tied to no recorded decision, so a model that never
@@ -65,6 +65,14 @@ unprovable match on a security boundary is not a match. Same stance, opposite
 default; the reason is which mistake is unrecoverable. Values the receipts
 snapshot cannot hold faithfully — a `Map`, a `Date`, a cycle, anything past the
 caps — are `'cannot-judge'`, and the gate refuses rather than guessing.
+
+`bound-input.ts` is the reason that comparison means anything. The ask used to
+hold the CALLER'S OBJECT, so a caller keeping its reference could change the
+payload after the human's yes and the gate compared one object against itself —
+verdict `'same'`. The ask now binds a detached copy, and a value that cannot be
+copied faithfully binds to a symbol stand-in that can never match, rather than
+falling back to the reference (a `Proxy` over a plain object renders faithfully
+and refuses to clone — exactly the shape a swap would use).
 
 ## payload-shape.ts — the input contract, enforced
 

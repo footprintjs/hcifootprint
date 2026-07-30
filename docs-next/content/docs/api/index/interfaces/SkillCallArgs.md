@@ -4,7 +4,7 @@ title: SkillCallArgs
 
 # Interface: SkillCallArgs
 
-Defined in: [src/serve/modes.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L47)
+Defined in: [src/serve/modes.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L55)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/serve/modes.ts:47](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/serve/modes.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L50)
+Defined in: [src/serve/modes.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L58)
 
 ***
 
@@ -20,9 +20,11 @@ Defined in: [src/serve/modes.ts:50](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **decline?**: `boolean`
 
-Defined in: [src/serve/modes.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L52)
+Defined in: [src/serve/modes.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L64)
 
-Record the human's refusal of a high-effect step (they said no) — closes the ask, does not fire.
+Record the human's refusal of a high-effect step (they said no) — closes the
+ask, does not fire. Under `requireHumanApproval` it is recorded as the
+caller's REPORT and closes nothing, so the person's card stays live.
 
 ***
 
@@ -30,7 +32,7 @@ Record the human's refusal of a high-effect step (they said no) — closes the a
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/serve/modes.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L49)
+Defined in: [src/serve/modes.ts:57](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L57)
 
 ***
 
@@ -38,7 +40,7 @@ Defined in: [src/serve/modes.ts:49](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/serve/modes.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L54)
+Defined in: [src/serve/modes.ts:66](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L66)
 
 Instance key for steps on repeats containers (from `instances` in results).
 
@@ -48,4 +50,4 @@ Instance key for steps on repeats containers (from `instances` in results).
 
 > `optional` **step?**: `string`
 
-Defined in: [src/serve/modes.ts:48](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L48)
+Defined in: [src/serve/modes.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L56)

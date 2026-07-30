@@ -13,6 +13,14 @@
  * the forged fire refuses, the supersede test finds two ask ids, the 'approved'
  * row carries 'user' instead of the firing principal, and approveAsk stops
  * answering NOT_ENFORCED. Verified by running it.
+ *
+ * WHAT THIS FILE MISSED THE FIRST TIME, kept here because it is the lesson: a
+ * non-breaking proof is only as wide as the cases it exercises. Every ask below
+ * was made with NO input, so all of them asserted a true fact about a case the
+ * change never touched — while the served path, which always has the model's
+ * `input` argument, had started carrying user payloads into the receipts and into
+ * the exported journal. The tests marked F5 are that case, and they exist because
+ * "byte-identical" is a claim about the path consumers actually use.
  */
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
@@ -142,6 +150,60 @@ describe('every pinned 0.6 confirm behaviour', () => {
     expect(Object.keys(receipts).sort()).toEqual(['because', 'recentSteps', 'version', 'willDo', 'youAreOn']);
   });
 
+  /**
+   * ATTACK F5 — the case the test above cannot reach.
+   *
+   * It asks with NO input, and so did the served-path test below it, so both
+   * asserted a true fact about a case the change never touched. The served path
+   * DOES have an input — a model's `input` argument — and `askData` was handing it
+   * to `confirmAsk` unconditionally. So a 0.6 consumer who upgraded and turned
+   * nothing on started finding `receipts.willUse` in every high-effect ask AND in
+   * the `'ask'` row of the confirm journal they export to an audit sink: user
+   * payloads on a path that had never carried them.
+   *
+   * The input is now passed only where it BINDS something. An app that wants the
+   * card to show it either way calls confirmAsk with it, which the last test here
+   * proves still works.
+   *
+   * MUTATION PROOF: drop the `sessionEnforces` guard in askData and both of these
+   * fail; nothing else in the suite notices, which is how it shipped.
+   */
+  it('F5: a served ask WITH an input still carries no willUse — not in the result, not in the journal', () => {
+    const { session, port } = plainPort();
+    const asked = port.call('shop.do_action', {
+      action: 'place-order',
+      input: { total: 42, cardNumber: '4111 1111 1111 1111' },
+    }) as { receipts: Record<string, unknown> };
+
+    expect(Object.keys(asked.receipts).sort()).toEqual([
+      'because',
+      'recentSteps',
+      'version',
+      'willDo',
+      'youAreOn',
+    ]);
+    expect(session.confirms()[0].receipts!.willUse).toBeUndefined();
+    // Said plainly because it is the reason the guard exists: nothing on the
+    // default path carries the caller's payload into an export.
+    expect(JSON.stringify(session.confirms())).not.toContain('4111');
+  });
+
+  it('F5: a skill step’s served ask is the same — one guard, both doors', () => {
+    const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    const port = skillsAsTools(session);
+    const asked = port.call('shop.do_action', { action: 'place-order', input: { total: 42 } }) as {
+      receipts: Record<string, unknown>;
+    };
+    expect(asked.receipts['willUse']).toBeUndefined();
+  });
+
+  it('F5: and an app that WANTS the input on its card still gets it, by asking for it', () => {
+    const session = atCheckout();
+    const { receipts } = session.confirmAsk('place-order', { input: { total: 42 } });
+    expect(receipts.willUse).toEqual({ input: { total: 42 } });
+  });
+
   it('groundTruth still says exactly one thing about an open ask', () => {
     const session = atCheckout();
     const { askId } = session.confirmAsk('place-order');
@@ -193,6 +255,12 @@ describe('none of the new machinery can appear without the option', () => {
     };
     expect(schema.properties.confirm.description).toBe(
       'Required true to proceed with a high-effect step (after the human approves the receipts).',
+    );
+    // Every served description, not just the one that gained a second mode:
+    // `decline` grew an enforced wording too, and a byte-identical claim has to
+    // cover the text a model actually reads.
+    expect(schema.properties.decline.description).toBe(
+      'Set true to record that the human refused a high-effect step (closes the ask; nothing fires).',
     );
     // No new model-facing argument, and the door stays closed to invented ones.
     expect(Object.keys(schema.properties).sort()).toEqual(['action', 'confirm', 'decline', 'input', 'instance']);

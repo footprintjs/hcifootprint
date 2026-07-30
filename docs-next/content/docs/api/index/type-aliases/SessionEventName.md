@@ -6,4 +6,4 @@ title: SessionEventName
 
 > **SessionEventName** = keyof [`SessionEvents`](/api/index/interfaces/SessionEvents)
 
-Defined in: [src/atom/types.ts:379](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L379)
+Defined in: [src/atom/types.ts:433](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L433)

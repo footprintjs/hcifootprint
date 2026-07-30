@@ -25,6 +25,7 @@ title: index
 - [ConfirmRecord](/api/index/interfaces/ConfirmRecord)
 - [ConfirmTrailStep](/api/index/interfaces/ConfirmTrailStep)
 - [ConfirmWillDo](/api/index/interfaces/ConfirmWillDo)
+- [ConfirmWillUse](/api/index/interfaces/ConfirmWillUse)
 - [ContextBrief](/api/index/interfaces/ContextBrief)
 - [ContextBriefOptions](/api/index/interfaces/ContextBriefOptions)
 - [DependencyEdge](/api/index/interfaces/DependencyEdge)
@@ -37,6 +38,7 @@ title: index
 - [GapRecord](/api/index/interfaces/GapRecord)
 - [GroundTruth](/api/index/interfaces/GroundTruth)
 - [GroundTruthOptions](/api/index/interfaces/GroundTruthOptions)
+- [HumanApprovalPolicy](/api/index/interfaces/HumanApprovalPolicy)
 - [InteractionSessionOptions](/api/index/interfaces/InteractionSessionOptions)
 - [JourneyDef](/api/index/interfaces/JourneyDef)
 - [JourneysSource](/api/index/interfaces/JourneysSource)
@@ -86,6 +88,7 @@ title: index
 
 - [ActivationLevel](/api/index/type-aliases/ActivationLevel)
 - [Actuation](/api/index/type-aliases/Actuation)
+- [ApprovalResult](/api/index/type-aliases/ApprovalResult)
 - [Binding](/api/index/type-aliases/Binding)
 - [CanonicalRole](/api/index/type-aliases/CanonicalRole)
 - [CommitSkillResult](/api/index/type-aliases/CommitSkillResult)

@@ -16,12 +16,21 @@
  * and why the flag is opt-in.
  *
  * THE MUTATION PROOF THAT MATTERS. With the flag ON, delete the gate block in
- * fire() (the `#humanApproval !== undefined && aff.highEffect && …` arm) and
- * `the forged fire is refused` goes green-as-executed: ok:true, an 'orders'
- * write, and an empty confirm journal. That is the finding, reproduced against
- * this file. Deleting only the `'used'` row instead turns the replay test red;
- * deleting only the gap row turns the ground-truth test red. Verified by running
- * each deletion.
+ * fire() (the `#holdsFiresFrom(source) && aff.highEffect && …` arm) and `the
+ * forged fire is refused` goes green-as-executed: ok:true, an 'orders' write, and
+ * an empty confirm journal. That is the finding, reproduced against this file.
+ * Deleting only the `'used'` row instead turns the replay test red; deleting only
+ * the gap row turns the ground-truth test red. Verified by running each deletion.
+ *
+ * THE SECOND ROUND. A1-A20/B1-B12/C1-C5 were run against a built dist by someone
+ * trying to forge an approval rather than to describe one, and four of them
+ * landed. Each has a test here or in its module's own file, named after itself:
+ * A8/B2 (swap the input after the yes, without swapping the object), B7 (a
+ * caller-supplied `principal: 'user'` fabricates the human's no), A19/B8 (walk
+ * around a decline by dropping the pointer), C2 (inflate the FACTS block). C4
+ * lives in approval-boundary.test.ts with the rest of the trust boundary, and F5
+ * in human-approval-default-unchanged.test.ts with the rest of the non-breaking
+ * proof. The lesson each one carries is written at the test, not here.
  */
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
@@ -69,14 +78,24 @@ function ordersMap(): NavigationGraph {
   });
 }
 
-/** An enforcing session with its buttons wired — the shape a real app ships. */
-function enforcedShop(policy: true | { expiresAfterMs?: number; refuseWhenWorldMoved?: boolean } = true, now?: () => number) {
+/**
+ * An enforcing session with its buttons wired — the shape a real app ships.
+ *
+ * `warnings` is a real sink rather than a silenced one: several of the holes below
+ * are only half-closed by a refusal, and the other half is the developer being
+ * TOLD. A test that swallowed the warning could not tell the two apart.
+ */
+function enforcedShop(
+  policy: true | { expiresAfterMs?: number; refuseWhenWorldMoved?: boolean } = true,
+  now?: () => number,
+  warnings?: string[],
+) {
   const session = shopMap().createSession({
     node: 'checkout',
     state: {},
     requireHumanApproval: policy,
     ...(now ? { now } : {}),
-    onWarn: () => undefined,
+    onWarn: (message: string) => warnings?.push(message),
   });
   session.registerToolGroup('checkout', {
     handlers: {
@@ -241,6 +260,97 @@ describe('what the approval binds to', () => {
     expect(receipts.willUse).toEqual({ input: { total: 42 } });
   });
 
+  /**
+   * ATTACK A8 — swap the input AFTER the yes, without swapping the object.
+   *
+   * Every laundering test above hands the ask one object literal and the fire
+   * another, so the comparison has two things to compare. The hole was the case
+   * where it has ONE: the ask stored the caller's live reference, so an app
+   * holding its own form state — or a relay reusing one args object — could change
+   * the payload after the human clicked Approve and the gate compared the object
+   * against itself. Verdict 'same'. The card said 10; the order went out for
+   * 999999; the journal read ask → approved → used with nothing wrong in it.
+   *
+   * MUTATION PROOF: return the value instead of the copy in boundInput and this
+   * goes green as a placed order for 999999 — with the whole rest of the suite
+   * still passing, which is how it survived the first time.
+   */
+  it('A8: the input is mutated after the yes — the ask bound a COPY, so the fire is refused', async () => {
+    const session = enforcedShop();
+    const payload: Record<string, unknown> = { total: 10 };
+    const { askId, receipts } = session.confirmAsk('checkout.place-order', { source: 'agent', input: payload });
+    session.approveAsk(askId, { by: 'alice@ops' });
+
+    payload['total'] = 999_999; // after the human said yes, before the fire
+
+    expect(session.fire('checkout.place-order', { source: 'agent', payload, askId })).toMatchObject({
+      ok: false,
+      reason: 'APPROVAL_MISMATCH',
+      differs: 'input',
+    });
+    // The card the person saw is still the card the person saw.
+    expect(receipts.willUse).toEqual({ input: { total: 10 } });
+    await tick();
+    expect(kinds(session)).toEqual(['ask', 'approved', 'refused']);
+  });
+
+  it('A8: and the UNCHANGED object still crosses — the copy is faithful, not a stand-in', () => {
+    const session = enforcedShop();
+    const payload = { total: 10 };
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: payload });
+    session.approveAsk(askId, { by: 'alice@ops' });
+    expect(session.fire('checkout.place-order', { source: 'agent', payload, askId }).ok).toBe(true);
+  });
+
+  /**
+   * ATTACK B2 — the same swap through the served port, which is where it is
+   * cheapest: a caller that reuses ONE arguments object for the ask and then for
+   * the fire never has to construct a second payload at all.
+   */
+  it('B2: a caller reusing its args object between the ask and the fire is refused', async () => {
+    const session = enforcedShop();
+    const port = skillsAsTools(session);
+    const args: { action: string; input: Record<string, unknown>; confirm?: boolean } = {
+      action: 'place-order',
+      input: { total: 10 },
+    };
+    const asked = port.call('shop.do_action', args) as { askId: string };
+    session.approveAsk(asked.askId, { by: 'alice@ops' });
+
+    args.input['total'] = 999_999;
+    args.confirm = true;
+    const fired = port.call('shop.do_action', args);
+    await tick();
+
+    // APPROVAL_REQUIRED, not MISMATCH: the port looks the pointer up BY input
+    // (openAskFor), so a swapped payload finds no card of its own — and the
+    // refusal is still a refusal, with nothing executed.
+    expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_REQUIRED' });
+    expect(session.transitions().filter((t) => t.cause.affordanceId === 'checkout.place-order')).toHaveLength(0);
+    // Refused, then re-asked with FRESH receipts — and the fresh card shows the
+    // 999999 the caller actually intends to send, which is the person's only
+    // chance to notice the swap.
+    expect(kinds(session)).toEqual(['ask', 'approved', 'refused', 'ask']);
+    expect((fired['receipts'] as { willUse: unknown }).willUse).toEqual({ input: { total: 999_999 } });
+  });
+
+  it('B2: a value the library cannot copy binds to nothing, so it can never match', () => {
+    const session = enforcedShop();
+    // A Proxy renders faithfully through the comparison and refuses to clone —
+    // the one shape for which keeping the reference would have been unsafe.
+    const live: Record<string, unknown> = { total: 10 };
+    const { askId } = session.confirmAsk('checkout.place-order', {
+      source: 'agent',
+      input: new Proxy(live, {}),
+    });
+    session.approveAsk(askId, { by: 'alice@ops' });
+    expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 10 }, askId })).toMatchObject({
+      ok: false,
+      reason: 'APPROVAL_MISMATCH',
+      differs: 'cannot-judge',
+    });
+  });
+
   it('instance laundering: approve the card for row o-1, fire o-999 → differs instance', () => {
     const session = ordersMap().createSession({
       node: 'list',
@@ -371,6 +481,63 @@ describe('the decline path', () => {
     expect(kinds(session)).toEqual(['ask', 'declined', 'refused']);
   });
 
+  /**
+   * ATTACK A19 — walk around the human's no by dropping the pointer.
+   *
+   * "A human no is terminal, and it outranks every other authority" was only true
+   * of a fire that PRESENTED the askId carrying the no. Omit it and the standing
+   * grant answered first, so the person's Decline did nothing while a grant they
+   * had also given was live — the button was a lie in exactly the case it matters.
+   * The gate now asks the ask book, scoped to the action, instance and input the
+   * person was shown.
+   */
+  it('A19: after a human no, the same order refuses even with the pointer dropped and a grant live', async () => {
+    const session = enforcedShop();
+    session.alwaysApprove('checkout.place-order', { by: 'alice@ops' });
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    session.declineAsk(askId, { by: 'alice@ops' });
+
+    expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 10 } })).toMatchObject({
+      ok: false,
+      reason: 'APPROVAL_DECLINED',
+      askId,
+    });
+    await tick();
+    expect(session.state()['orders']).toBeUndefined();
+  });
+
+  /**
+   * B8, the other half — and the reason A19's fix is scoped to the input. A
+   * standing grant is deliberately not input-bound ("any item, for the next hour"
+   * — alwaysApprove), so a genuinely different order is authorized by the yes the
+   * person gave rather than blocked by the one thing they refused. Both sentences
+   * are now true of the code, which is what the comment on the gate claims.
+   */
+  it('B8: a DIFFERENT order after that no still crosses on the standing grant the human gave', async () => {
+    const session = enforcedShop();
+    session.alwaysApprove('checkout.place-order', { by: 'alice@ops' });
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    session.declineAsk(askId, { by: 'alice@ops' });
+
+    expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 11 } }).ok).toBe(true);
+    await tick();
+    expect(kinds(session)).toEqual(['always-approved', 'ask', 'declined', 'used']);
+  });
+
+  it('and the person’s later YES on a fresh card still crosses — a no is not a permanent ban', () => {
+    const session = enforcedShop();
+    const first = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    session.declineAsk(first.askId, { by: 'alice@ops' });
+
+    const second = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    expect(second.askId).not.toBe(first.askId);
+    session.approveAsk(second.askId, { by: 'alice@ops' });
+
+    expect(
+      session.fire('checkout.place-order', { source: 'agent', payload: { total: 10 }, askId: second.askId }).ok,
+    ).toBe(true);
+  });
+
   it('nagging after a no is countable: the re-ask mints a NEW id and the FACTS block carries the decline', () => {
     const session = enforcedShop();
     const first = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } }).askId;
@@ -385,14 +552,77 @@ describe('the decline path', () => {
     expect(facts).toContain(`Awaiting the human's decision: checkout.place-order (${second}).`);
   });
 
-  it('the human’s own decline closes the one open card (the ordinary UI case)', () => {
-    const session = enforcedShop();
+  /**
+   * ATTACK B7 — a caller-supplied `principal: 'user'` fabricates the human's no.
+   *
+   * THIS TEST USED TO ASSERT THE HOLE. It read "the human's own decline closes the
+   * one open card (the ordinary UI case)" and pinned `declineConfirm(id, { by })`
+   * — whose principal defaults to `'user'` — closing the card and refusing the
+   * fire APPROVAL_DECLINED. That is the burial: one word in an options bag wrote a
+   * `principal: 'user'` decline row into the auditable journal and took the
+   * question off the person's screen before they answered it.
+   *
+   * The ordinary UI case did not lose its door; it never lived here. It is
+   * `declineAsk(askId, { by })` — keyed to the card the person answered, with no
+   * principal argument to lie with — and 'decline finality' above is its test.
+   */
+  it('B7: declineConfirm({ principal: "user" }) cannot close the card, and the person still decides', () => {
+    const warnings: string[] = [];
+    const session = enforcedShop(true, undefined, warnings);
     const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } });
-    const declined = session.declineConfirm('checkout.place-order', { by: 'alice@ops' });
-    expect(declined).toMatchObject({ kind: 'declined', askId, principal: 'user', enforced: true });
+
+    const declined = session.declineConfirm('checkout.place-order', { principal: 'user', by: 'nobody' });
+
+    // The row lands — a refusal is always worth recording — and says what it is.
+    expect(declined).toMatchObject({ kind: 'declined', askId, enforced: true, relayed: true });
+    // The card is STILL LIVE: the fire refuses because nobody has answered, not
+    // because "the human declined". The gate never reports a decision that was
+    // not made.
     expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 42 }, askId })).toMatchObject({
-      reason: 'APPROVAL_DECLINED',
+      reason: 'APPROVAL_REQUIRED',
     });
+    expect(session.groundTruth().text).toContain(`Awaiting the human's decision: checkout.place-order (${askId}).`);
+    // And the person can still answer it either way — which is the whole point of
+    // refusing to bury it.
+    expect(session.approveAsk(askId, { by: 'alice@ops' })).toMatchObject({ ok: true });
+    expect(warnings.join('\n')).toContain('recorded a REPORT');
+  });
+
+  /**
+   * The same attack from the other side: a port built with `source: 'user'`
+   * relaying decline: true. The result must not tell the model it closed anything.
+   */
+  it('B7 served: a source:"user" port’s relayed decline is still a report, and the result says so', () => {
+    const session = enforcedShop();
+    const port = skillsAsTools(session, { source: 'user' });
+    port.call('shop.do_action', { action: 'place-order', input: { total: 42 } });
+
+    const declined = port.call('shop.do_action', { action: 'place-order', input: { total: 42 }, decline: true });
+
+    expect(declined).toMatchObject({ recordedAs: 'your-report' });
+    expect(session.groundTruth().text).toContain("Awaiting the human's decision");
+  });
+
+  /**
+   * MUTATION PROOF for the pair above: restore the `principal !== 'user'` arm in
+   * declineConfirm — i.e. route a 'user' principal to #answerAsk — and both go
+   * red, the first on APPROVAL_DECLINED, the second on the missing marker.
+   */
+  it('the marker is on the ROW, so an auditor never has to infer it from a principal a caller chose', () => {
+    const session = enforcedShop();
+    session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } });
+    session.declineConfirm('checkout.place-order', { principal: 'user', by: 'nobody' });
+    session.declineConfirm('checkout.place-order', { principal: 'agent', by: 'the model' });
+
+    // Two principals, one truth: neither closed anything, and both rows say it.
+    const declines = session.confirms().filter((r) => r.kind === 'declined');
+    expect(declines.map((r) => r.principal)).toEqual(['user', 'agent']);
+    expect(declines.every((r) => r.relayed === true)).toBe(true);
+    // The human's own door is the only writer of a decline that carries no marker.
+    const open = session.openAskFor('checkout.place-order', { input: { total: 42 } })!;
+    session.declineAsk(open, { by: 'alice@ops' });
+    expect(session.confirms().filter((r) => r.kind === 'declined').at(-1)).toMatchObject({ principal: 'user' });
+    expect(session.confirms().filter((r) => r.kind === 'declined').at(-1)!.relayed).toBeUndefined();
   });
 });
 
@@ -751,5 +981,68 @@ describe('end to end over the serving layer', () => {
     expect(laundered).toMatchObject({ ok: false, reason: 'APPROVAL_REQUIRED', judgment: 'needs-confirm' });
     expect((laundered['receipts'] as { willUse?: unknown }).willUse).toEqual({ input: { total: 9_999 } });
     expect(session.state()['orders']).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The one block a model is told to trust above its own account
+// ---------------------------------------------------------------------------
+
+/**
+ * ATTACK C2 — inflate the FACTS block.
+ *
+ * Under enforcement every distinct input mints a new ask, and asks are kept for
+ * the session's life. Every one of them wrote a line into groundTruth(), which is
+ * the block a model is instructed to trust ABOVE its own account — so a model
+ * calling all turn could grow that block without limit and push the sentences
+ * that matter out of sight. The attempts list eleven lines above capped itself
+ * for exactly this reason; the ask lines did not.
+ *
+ * MUTATION PROOF: remove the `awaitingShown < max` arm and 'C2' fails at 40 lines.
+ */
+describe('C2: the FACTS block is bounded where an agent can mint lines', () => {
+  it('forty asks do not become forty lines, and the block says how many it withheld', () => {
+    const session = enforcedShop();
+    const port = skillsAsTools(session);
+    for (let i = 0; i < 40; i++) port.call('shop.do_action', { action: 'place-order', input: { total: i } });
+
+    const facts = session.groundTruth().text;
+    const awaiting = facts.split('\n').filter((line) => line.startsWith("Awaiting the human's decision"));
+    expect(awaiting).toHaveLength(20);
+    // Withheld, never hidden: the count is stated, in the same voice the attempts
+    // list uses.
+    expect(facts).toContain("… 20 more await the human's decision, not listed.");
+  });
+
+  it('the OLDEST cards are the ones kept — burying the question on screen is the move this refuses', () => {
+    const session = enforcedShop();
+    const first = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 0 } }).askId;
+    for (let i = 1; i < 40; i++) session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: i } });
+
+    expect(session.groundTruth().text).toContain(`Awaiting the human's decision: checkout.place-order (${first}).`);
+  });
+
+  it('one dial bounds both lists, and it is the caller’s', () => {
+    const session = enforcedShop();
+    for (let i = 0; i < 10; i++) session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: i } });
+
+    const facts = session.groundTruth({ maxAttempts: 3 }).text;
+    expect(facts.split('\n').filter((line) => line.startsWith("Awaiting the human's decision"))).toHaveLength(3);
+    expect(facts).toContain("… 7 more await the human's decision, not listed.");
+  });
+
+  /**
+   * ANSWERED lines are deliberately NOT capped: only a human-side door writes one,
+   * so their number is the person's own doing — and hiding a decision a person
+   * actually made is the one thing this block must never do.
+   */
+  it('answered cards are never withheld, however many there are', () => {
+    const session = enforcedShop();
+    for (let i = 0; i < 25; i++) {
+      const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: i } });
+      session.declineAsk(askId, { by: 'alice@ops' });
+    }
+    const facts = session.groundTruth().text;
+    expect(facts.split('\n').filter((line) => line.startsWith('The human declined'))).toHaveLength(25);
   });
 });

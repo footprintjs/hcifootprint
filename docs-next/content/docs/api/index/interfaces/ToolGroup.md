@@ -4,7 +4,7 @@ title: ToolGroup
 
 # Interface: ToolGroup
 
-Defined in: [src/atom/types.ts:387](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L387)
+Defined in: [src/atom/types.ts:441](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L441)
 
 The handle returned by registerToolGroup — the group's IDENTITY. You never
 name a group with a string (two components would collide and you'd have to
@@ -21,7 +21,7 @@ it. `id` is a generated opaque token, exposed only for telemetry/warnings.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:389](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L389)
+Defined in: [src/atom/types.ts:443](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L443)
 
 Generated identity of this registration (for telemetry/debug — not caller-supplied).
 
@@ -31,7 +31,7 @@ Generated identity of this registration (for telemetry/debug — not caller-supp
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:391](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L391)
+Defined in: [src/atom/types.ts:445](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L445)
 
 The node path this group is registered on (tree API); undefined for the flat API.
 
@@ -41,7 +41,7 @@ The node path this group is registered on (tree API); undefined for the flat API
 
 > **setEnabled**(`toolId`, `enabled`): `void`
 
-Defined in: [src/atom/types.ts:393](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L393)
+Defined in: [src/atom/types.ts:447](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L447)
 
 Grey out / re-enable one tool in this group (a disabled button).
 
@@ -65,7 +65,7 @@ Grey out / re-enable one tool in this group (a disabled button).
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:395](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L395)
+Defined in: [src/atom/types.ts:449](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L449)
 
 Remove this group's registrations (call on unmount). Idempotent.
 

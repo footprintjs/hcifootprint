@@ -17,6 +17,9 @@
  *    while the state has moved under them).
  *  - let a standing grant outrank a decline → 'a human no outranks a standing
  *    grant' passes.
+ *  - read the decline off the PRESENTED pointer only, instead of off the ask book
+ *    → both 'A19' tests pass (the reported walk-around: drop the pointer and the
+ *    grant wins over the person's no).
  *  - drop the scopeInstance filter → 'a grant scoped to one row' passes.
  */
 import { describe, expect, it } from 'vitest';
@@ -309,6 +312,158 @@ describe('a human no', () => {
     expect(
       checkApproval(question({ openAsks: new Map([[entry.askId, entry]]), standingGrants: [grantRow()] })),
     ).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED' });
+  });
+
+  /**
+   * ATTACK A19 — walk around the no by DROPPING the pointer.
+   *
+   * The sentence above ("a human no is terminal, and it outranks every other
+   * authority") was only true when the caller PRESENTED the askId that would
+   * refuse it: the decline was read off `openAsks.get(askId)`, and the standing
+   * grant was consulted first. So a caller that simply omitted the pointer — the
+   * caller this gate exists for — got the grant's yes over the person's no.
+   *
+   * The decline is now asked of the ask BOOK, scoped to what the person was
+   * actually shown. MUTATION PROOF: read it from `presented` alone again and both
+   * of these pass while every other test in the file stays green.
+   */
+  it('A19: with the pointer dropped, the same input is still refused by the human’s no', () => {
+    const entry = ask({ answer: 'declined', answeredAt: 1_100 });
+    expect(
+      checkApproval(
+        question({ askId: undefined, openAsks: new Map([[entry.askId, entry]]), standingGrants: [grantRow()] }),
+      ),
+    ).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED', askId: 'ask#1' });
+  });
+
+  it('A19: and a pointer to some OTHER card cannot launder it either', () => {
+    const no = ask({ answer: 'declined', answeredAt: 1_100 });
+    const other = ask({ askId: 'ask#9', input: { total: 999 } });
+    expect(
+      checkApproval(
+        question({
+          askId: 'ask#9',
+          openAsks: new Map([
+            [no.askId, no],
+            [other.askId, other],
+          ]),
+        }),
+      ),
+    ).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED', askId: 'ask#1' });
+  });
+
+  /**
+   * The other half of A19, and the reason the fix is SCOPED rather than blanket:
+   * a standing grant is deliberately not input-bound ("any item, for the next
+   * hour" — Session.alwaysApprove), so a genuinely different input is authorized
+   * by the grant the person gave, not by the one thing they refused. Blanket-
+   * refusing here would have made one no cancel a standing yes the human also
+   * gave, which is a different lie in the other direction.
+   */
+  it('B8: a DIFFERENT input is not covered by that no — the grant the human gave still authorizes it', () => {
+    const entry = ask({ answer: 'declined', answeredAt: 1_100 });
+    expect(
+      checkApproval(
+        question({
+          askId: undefined,
+          input: { total: 43 },
+          openAsks: new Map([[entry.askId, entry]]),
+          standingGrants: [grantRow()],
+        }),
+      ),
+    ).toMatchObject({ ok: true, via: 'always-approved' });
+  });
+
+  it('an input we cannot judge stays COVERED by the no — the gate never guesses permissively', () => {
+    const entry = ask({ answer: 'declined', answeredAt: 1_100 });
+    expect(
+      checkApproval(
+        question({
+          askId: undefined,
+          input: { when: new Date(0) }, // 'cannot-judge'
+          openAsks: new Map([[entry.askId, entry]]),
+          standingGrants: [grantRow()],
+        }),
+      ),
+    ).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED' });
+  });
+
+  it('a decline about ANOTHER action leaves this one alone', () => {
+    const entry = ask({ affordanceId: 'catalog.add-to-cart', answer: 'declined', answeredAt: 1_100 });
+    expect(
+      checkApproval(
+        question({ askId: undefined, openAsks: new Map([[entry.askId, entry]]), standingGrants: [grantRow()] }),
+      ),
+    ).toMatchObject({ ok: true, via: 'always-approved' });
+  });
+
+  it('a decline about another INSTANCE leaves this row alone', () => {
+    const entry = ask({ instance: 'o-1', answer: 'declined', answeredAt: 1_100 });
+    expect(
+      checkApproval(
+        question({
+          askId: undefined,
+          instance: 'o-2',
+          openAsks: new Map([[entry.askId, entry]]),
+          standingGrants: [grantRow()],
+        }),
+      ),
+    ).toMatchObject({ ok: true, via: 'always-approved' });
+  });
+
+  /**
+   * LAST WORD, not "any no ever". decline → re-ask → approve is the flow the docs
+   * promise, and a no that outlived the person's own later yes would break their
+   * second decision — a different way of ignoring the human.
+   */
+  it('a later YES about the same thing supersedes the earlier no', () => {
+    const no = ask({ askId: 'ask#1', answer: 'declined', answeredAt: 1_100 });
+    const yes = ask({ askId: 'ask#2', answer: 'approved', answeredAt: 1_200 });
+    const row = approvedRow({ askId: 'ask#2' });
+    expect(
+      checkApproval(
+        question({
+          askId: 'ask#2',
+          openAsks: new Map([
+            [no.askId, no],
+            [yes.askId, yes],
+          ]),
+          rowFor: (id) => (id === 'ask#2' ? row : undefined),
+        }),
+      ),
+    ).toMatchObject({ ok: true, via: 'approved', askId: 'ask#2' });
+  });
+
+  it('and a later NO after a yes is the person changing their mind — it refuses', () => {
+    const yes = ask({ askId: 'ask#1', answer: 'approved', answeredAt: 1_100, spent: true });
+    const no = ask({ askId: 'ask#2', answer: 'declined', answeredAt: 1_200 });
+    expect(
+      checkApproval(
+        question({
+          askId: undefined,
+          openAsks: new Map([
+            [yes.askId, yes],
+            [no.askId, no],
+          ]),
+          standingGrants: [grantRow()],
+        }),
+      ),
+    ).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED', askId: 'ask#2' });
+  });
+
+  /**
+   * A RELAYED decline never sets `answer` (Session.declineConfirm writes a report
+   * row and leaves the card open), so it can never reach this arm — which is what
+   * stops an agent manufacturing the refusal that blocks its own later fires, or
+   * anyone else's.
+   */
+  it('an UNANSWERED card is not a decision, so it refuses nothing', () => {
+    const entry = ask(); // open, nobody has answered
+    expect(
+      checkApproval(
+        question({ askId: undefined, openAsks: new Map([[entry.askId, entry]]), standingGrants: [grantRow()] }),
+      ),
+    ).toMatchObject({ ok: true, via: 'always-approved' });
   });
 });
 

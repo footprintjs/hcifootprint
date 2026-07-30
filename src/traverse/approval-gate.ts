@@ -116,8 +116,21 @@ export function checkApproval(question: ApprovalQuestion): ApprovalVerdict {
   //    a standing grant. Otherwise Decline on the card would do nothing while a
   //    grant was live, which would make the button a lie. The askId stays
   //    refusable for the session's life: nothing here ever deletes a decision.
-  if (presented?.answer === 'declined') {
-    return { ok: false, reason: 'APPROVAL_DECLINED', askId: presented.askId };
+  //
+  //    Read from the ASK BOOK, not only from the pointer the caller chose to
+  //    present. A decline you can walk around by DROPPING the pointer is not
+  //    terminal, it is optional — and the caller that wants to walk around it is
+  //    the one this gate exists for. So the question is asked of the state, and
+  //    the caller's pointer only decides which askId the refusal names.
+  //
+  //    SCOPED to this action, instance and input — that is what the person was
+  //    shown, and the sentence above is true of exactly that. A standing grant is
+  //    deliberately NOT input-bound ("any item, for the next hour" —
+  //    Session.alwaysApprove), so a LATER, DIFFERENT input is authorized by the
+  //    grant the human gave and not by the one thing they refused.
+  const declined = presented?.answer === 'declined' ? presented : lastNoAbout(question);
+  if (declined !== undefined) {
+    return { ok: false, reason: 'APPROVAL_DECLINED', askId: declined.askId };
   }
 
   // 2. A standing ALWAYS ALLOW authorizes on its own — that is what durable
@@ -179,6 +192,34 @@ export function checkApproval(question: ApprovalQuestion): ApprovalVerdict {
   if (differs !== undefined) return { ok: false, reason: 'APPROVAL_MISMATCH', askId, differs };
 
   return { ok: true, via: 'approved', askId };
+}
+
+/**
+ * The human's NO about this exact thing, if their last word on it was no.
+ *
+ * LAST WORD, not "any no ever": decline → re-ask → approve is the flow the docs
+ * promise ("a re-ask after a no mints a NEW askId"), and a no that outlived a
+ * later yes would break the person's own second decision. Ties break toward the
+ * later entry — the ask book is in mint order, so the newer card is the more
+ * recent conversation with the person.
+ */
+function lastNoAbout(question: ApprovalQuestion): OpenAsk | undefined {
+  let latest: OpenAsk | undefined;
+  for (const ask of question.openAsks.values()) {
+    // An unanswered card is not a decision, and a RELAYED decline never sets an
+    // answer (session.declineConfirm records a report) — so an agent cannot
+    // manufacture the refusal that closes its own future fires either.
+    if (ask.answer === undefined) continue;
+    if (ask.affordanceId !== question.affordanceId) continue;
+    if ((ask.instance ?? undefined) !== (question.instance ?? undefined)) continue;
+    // 'different' is the ONLY answer that clears this fire of that decision. An
+    // input we cannot judge stays covered by it: we cannot prove this is not the
+    // thing the person refused, and the gate never guesses in the permissive
+    // direction (same-input.ts, THE ASYMMETRY).
+    if (sameInput(question.input, ask.input) === 'different') continue;
+    if (latest === undefined || (ask.answeredAt ?? 0) >= (latest.answeredAt ?? 0)) latest = ask;
+  }
+  return latest?.answer === 'declined' ? latest : undefined;
 }
 
 /**

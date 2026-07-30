@@ -245,7 +245,14 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   'revoked'`. One yes = one fire (a replay is `APPROVAL_SPENT`); an ALWAYS ALLOW is scoped to the action,
   never to the input, and every exercise lands a `'used'` row. The gate keys on the PRINCIPAL: a direct
   `session.fire(id, {source:'agent'})` is gated; `source: 'user'`/`'system'` and the record-only sensor
-  (`invoke:false`) are the app-self-report tier and are not.
+  (`invoke:false`) are the app-self-report tier and are not — so `skillsAsTools(session, {source:'user'})`
+  is a port whose fires are NOT gated: it warns when built and serves the unenforced `confirm`/`decline`
+  descriptions (`session.requiresHumanApprovalFrom(principal)` is the honest question for a port,
+  `requiresHumanApproval` the one about the session). The ask binds a detached COPY of the input, so
+  mutating your own object after the yes is `APPROVAL_MISMATCH`, not a match. Under enforcement
+  `declineConfirm` records a REPORT and closes nothing whatever `principal` it is handed (the row is
+  marked `relayed`); the human's no is `declineAsk(askId, {by})`, which outranks a standing grant for
+  the action+instance+input the person was shown, with or without the pointer.
 
 ---
 

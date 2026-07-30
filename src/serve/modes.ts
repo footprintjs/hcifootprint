@@ -40,7 +40,15 @@ import { errorText } from './error-text.js';
 export interface SkillToolsOptions {
   /** Require confirm:true before firing high-effect steps/actions. Default true. */
   confirmHighEffect?: boolean;
-  /** Principal stamped on fires made through this port. Default 'agent'. */
+  /**
+   * Principal stamped on fires made through this port. Default 'agent'.
+   *
+   * Leave it alone for a port a MODEL holds. Under `requireHumanApproval` the
+   * gate holds agent fires and lets the app-self-report tier through, so a port
+   * stamping `'user'` or `'system'` is a port whose fires are not gated — the
+   * library says so out loud when you build one, and the confirm argument it
+   * serves stops claiming a gate it does not have.
+   */
   source?: Principal;
 }
 
@@ -48,7 +56,11 @@ export interface SkillCallArgs {
   step?: string;
   input?: unknown;
   confirm?: boolean;
-  /** Record the human's refusal of a high-effect step (they said no) — closes the ask, does not fire. */
+  /**
+   * Record the human's refusal of a high-effect step (they said no) — closes the
+   * ask, does not fire. Under `requireHumanApproval` it is recorded as the
+   * caller's REPORT and closes nothing, so the person's card stays live.
+   */
   decline?: boolean;
   /** Instance key for steps on repeats containers (from `instances` in results). */
   instance?: string;
@@ -58,7 +70,11 @@ export interface DoActionArgs {
   action: string;
   input?: unknown;
   confirm?: boolean;
-  /** Record the human's refusal of a high-effect action (they said no) — closes the ask, does not fire. */
+  /**
+   * Record the human's refusal of a high-effect action (they said no) — closes
+   * the ask, does not fire. Under `requireHumanApproval` it is recorded as the
+   * caller's REPORT and closes nothing, so the person's card stays live.
+   */
   decline?: boolean;
   instance?: string;
 }
@@ -179,10 +195,12 @@ const APPROVAL_DECLINED_WHY =
   'The human said no to this. Do not ask again about the same thing — tell them it was not done, and ' +
   'move on or ask about something different.';
 
-// The `confirm` argument's description, in the two modes it can honestly have.
-// The second is served only by a session that really does enforce, so the
-// instruction a model reads is true of the app it is holding — a description
-// promising a gate that is off would be the same class of lie this option removes.
+// The `confirm` and `decline` descriptions, in the two modes each can honestly
+// have. The enforced pair is served only by a port whose OWN fires the gate holds
+// (`gated` below — the session enforcing is not enough, since the gate keys on
+// the port's principal), so the instruction a model reads is true of the app it
+// is holding. A description promising a gate that is off would be the same class
+// of lie this option removes.
 const CONFIRM_DESCRIPTION =
   'Required true to proceed with a high-effect step (after the human approves the receipts).';
 
@@ -190,6 +208,17 @@ const CONFIRM_DESCRIPTION_ENFORCED =
   'Required true to proceed with a high-effect step, AFTER a human has approved it in the app. This ' +
   'app enforces that: your setting true is a request to proceed, and it does not by itself authorize ' +
   'anything — a step with no approval on record is refused. Show the human the receipts and wait.';
+
+const DECLINE_DESCRIPTION =
+  'Set true to record that the human refused a high-effect step (closes the ask; nothing fires).';
+
+// Same asymmetry as `confirm`, for the same reason: a relayed no is the agent's
+// REPORT of a refusal, and under enforcement it closes nothing. Telling a model
+// it closes the ask would invite it to believe the human's card is gone.
+const DECLINE_DESCRIPTION_ENFORCED =
+  'Set true to report that the human refused a high-effect step. Nothing fires, and your report is ' +
+  'recorded as yours: the ask stays open until the person answers it in the app, because a no you ' +
+  'send is no more the human’s decision than a yes you send.';
 
 // The three true things about a name this position cannot serve but the app
 // DOES have. One of them is always the case, and the session already knows
@@ -218,7 +247,7 @@ const STEP_INPUT_SCHEMA = {
         'expects field — an input that does not returns PAYLOAD_INVALID carrying what was expected.',
     },
     confirm: { type: 'boolean', description: CONFIRM_DESCRIPTION },
-    decline: { type: 'boolean', description: 'Set true to record that the human refused a high-effect step (closes the ask; nothing fires).' },
+    decline: { type: 'boolean', description: DECLINE_DESCRIPTION },
     instance: {
       type: 'string',
       description: 'Which instance to act on, when the step lists instances (e.g. an order id).',
@@ -235,23 +264,44 @@ export function skillsAsTools(
   const source: Principal = opts?.source ?? 'agent';
   const graphId = session.graphId;
   /**
-   * Whether the SESSION refuses a high-effect fire with no recorded human
-   * approval. Read once: the mode is fixed for the session's life, so the tool
-   * array is still frozen once and serves identical bytes every turn — the
-   * invariant is about a turn-to-turn CHANGE, and there is none.
+   * TWO different truths, and conflating them was a lie served to a model.
+   *
+   * `sessionEnforces` — this session refuses a high-effect fire with no recorded
+   * human approval. `gated` — a fire THROUGH THIS PORT is one of the ones it
+   * refuses, which is a question about the port's own principal because the gate
+   * keys on the principal and not the door (Session.requiresHumanApprovalFrom).
+   * A port constructed with `source: 'user'` is exempt, so it must not hand a
+   * model the sentence that says otherwise.
+   *
+   * Read once: the mode is fixed for the session's life, so the tool array is
+   * still frozen once and serves identical bytes every turn — the invariant is
+   * about a turn-to-turn CHANGE, and there is none.
    */
-  const enforcing = session.requiresHumanApproval;
+  const sessionEnforces = session.requiresHumanApproval;
+  const gated = session.requiresHumanApprovalFrom(source);
+  if (sessionEnforces && !gated) {
+    // Loud, once, through the host's own sink. The combination is documented
+    // (receipts.mdx: "hand a model a port constructed with source: 'user' and you
+    // have disarmed this gate") and the docs being right is not the same as the
+    // developer having read them.
+    session.warn(
+      `hcifootprint: this session runs with requireHumanApproval, but this port stamps its fires '${source}' — and the gate only holds agent fires. Every high-effect fire through this port executes with no approval on record. Build the port a model holds with the default source ('agent'); keep a '${source}' port for the app reporting its OWN motion.`,
+    );
+  }
   /**
    * Under enforcement the port ALWAYS asks for a high-effect edge, whatever
    * `confirmHighEffect` says. Fail-closed and usable: silently honouring `false`
    * would leave every high-effect fire refused with no ask ever landing, which is
    * a dead app rather than a safe one.
    */
-  const askBeforeHighEffect = confirmHighEffect || enforcing;
-  /** The step schema, with the confirm argument described mode-honestly. */
+  const askBeforeHighEffect = confirmHighEffect || gated;
+  /** The step schema, with the confirm/decline arguments described mode-honestly. */
   function stepSchema(): typeof STEP_INPUT_SCHEMA {
     const schema = structuredClone(STEP_INPUT_SCHEMA);
-    if (enforcing) schema.properties.confirm.description = CONFIRM_DESCRIPTION_ENFORCED;
+    if (gated) {
+      schema.properties.confirm.description = CONFIRM_DESCRIPTION_ENFORCED;
+      schema.properties.decline.description = DECLINE_DESCRIPTION_ENFORCED;
+    }
     return schema;
   }
 
@@ -408,7 +458,9 @@ export function skillsAsTools(
     }
     const edge = edgeById().get(stepId);
     if (askBeforeHighEffect && edge?.highEffect && args.confirm !== true) {
-      // The human refused: record the decline (closes the ask) and do NOT fire.
+      // A refusal is relayed: record it and do NOT fire. It closes the ask in the
+      // default mode; under enforcement it is the caller's report and closes
+      // nothing, which relayedDeclineData says out loud in the result.
       if (args.decline === true) {
         const declined = session.declineConfirm(stepId, { principal: source });
         return {
@@ -741,13 +793,21 @@ export function skillsAsTools(
   function askData(affordanceId: string, args: ConfirmArgs): ServeResult {
     const { askId, receipts } = session.confirmAsk(affordanceId, {
       source,
-      input: args.input,
+      // ONLY where it binds something. Under enforcement the input on the card is
+      // what the approval is bound to, which is the whole point of putting it
+      // there. With the option off it would bind nothing — and it would still put
+      // every caller's payload into `receipts.willUse`, into the model's result
+      // and into the confirm journal an app exports to its audit sink. A default
+      // path that starts carrying user payloads is not a default path that stayed
+      // the same, so the option pays for its own cost. An app that wants the card
+      // to show the input either way passes `input` to confirmAsk itself.
+      ...(sessionEnforces ? { input: args.input } : {}),
       ...(args.instance !== undefined ? { instance: args.instance } : {}),
     });
     return {
       askId,
       receipts,
-      howToAct: enforcing
+      howToAct: gated
         ? 'Show the human what this will do (see receipts) and let THEM approve it in the app — then call again with confirm: true. Your confirm: true alone will be refused, because this app requires an approval it recorded from a person. Send decline: true to report that they refused.'
         : 'Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.',
     };
@@ -764,7 +824,7 @@ export function skillsAsTools(
    * FireOptions.askId for an app driving its own Approve button), one gate.
    */
   function fireOptions(affordanceId: string, args: ConfirmArgs): Parameters<Session['fire']>[1] {
-    const askId = enforcing
+    const askId = gated
       ? session.openAskFor(affordanceId, { input: args.input, ...(args.instance !== undefined ? { instance: args.instance } : {}) })
       : undefined;
     return {
@@ -780,8 +840,12 @@ export function skillsAsTools(
    * so, rather than letting the model read 'declined' as "the question is gone".
    * Without this sentence an agent could believe it had buried the human's card.
    */
-  function relayedDeclineData(declined: { principal: Principal }): ServeResult {
-    return enforcing && declined.principal !== 'user'
+  function relayedDeclineData(declined: { relayed?: true }): ServeResult {
+    // Reads the ROW's own marker, never the principal. The principal on a relayed
+    // decline is whatever the caller stamped — including 'user' — so inferring
+    // "this closed the card" from it would let a port constructed with
+    // source:'user' report a human decision the session never recorded.
+    return declined.relayed === true
       ? {
           recordedAs: 'your-report',
           why: 'Recorded as your report, not as the human’s decision — the ask is still open. A human’s no arrives through the app’s own Decline control.',

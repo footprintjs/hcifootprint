@@ -99,11 +99,13 @@ the high-effect doors by firing them and read success-shaped results back.
 
 ### The decline is unforgeable too
 
-A gate asymmetric in the attacker's favour is not a gate. An agent-relayed `decline: true`
-(principal `'agent'`) is recorded as a REPORT and closes nothing — otherwise an agent could
-manufacture a human no, or bury the pending card so the person never sees the question. A human
-no is terminal and permanent for its askId; a re-ask after one mints a new id, so nagging is
-countable.
+A gate asymmetric in the attacker's favour is not a gate. `declineConfirm` is recorded as a REPORT
+and closes nothing — otherwise a caller could manufacture a human no, or bury the pending card so
+the person never sees the question. It is the door that takes a `principal` argument, so under
+enforcement it honours none of them: see *"the asymmetry that was a hole"* below. A human no
+arrives through `declineAsk(askId, { by })`, is terminal and permanent for that askId, and
+outranks a standing grant for the thing the person was shown; a re-ask after one mints a new id,
+so nagging is countable.
 
 ### Staleness: recorded always, enforced only when asked
 
@@ -129,7 +131,9 @@ human looked?", and `version` also bumps on served-structure changes and on the 
 - **Not the app-self-report tier.** The gate keys on the PRINCIPAL: `source: 'user'`,
   `source: 'system'` and the record-only sensor (`invoke: false`) pass, because that motion really
   happened. Consequence, in the never-trap gate's own voice: hand a model a port constructed with
-  `source: 'user'` and you have disarmed this gate.
+  `source: 'user'` and you have disarmed this gate. The library will not refuse to build that
+  port — the tier is the point — but it warns when it does, and it serves that port the
+  *unenforced* tool descriptions (see *"a true sentence about the wrong subject"* below).
 - **Not cross-session.** Ask ids are per-session counters, so a pointer from session A cannot
   resolve in session B — not by a check, but because the journal is per-session. An audit sink
   must key on `(session, askId)`.
@@ -138,6 +142,61 @@ human looked?", and `version` also bumps on served-structure changes and on the 
   library did not perform. Reconciliation must special-case `cause.inferred`.
 - **Not the app calling its own handler function.** A `ToolRegistry` handler reference is outside
   the library's reach entirely.
+
+## Round two — what a reviewer trying to FORGE an approval found
+
+The first round was reviewed by reading. The second was reviewed by attacking: A1–A20, B1–B12 and
+C1–C5, run against a built `dist`. Sixteen were refused. Four were not, and each one is a
+different way of holding the same mistake — **treating a claim as a fact.** Every fix has a test
+named after its attack.
+
+**A8/B2 — a comparison against yourself is a ceremony.** The ask stored the CALLER'S OBJECT as the
+binding target. `#willUse` snapshotted for the card, so the human saw `{ total: 10 }` frozen
+forever, but `checkApproval` compared the fire's payload against that same live reference: mutate
+it after the yes and both sides are one object, verdict `'same'`, ALLOW. The card said 10, the
+order went out for 999999, and the journal read *ask → approved → used* with nothing wrong in it.
+The ask now binds a detached copy (`bound-input.ts`). It does NOT fall back to the reference when
+the copy fails: a `Proxy` over a plain object renders faithfully through `sameInput` and throws
+`DataCloneError` — precisely the shape built to lie about itself — so an uncopyable value binds to
+a symbol stand-in that can never match. It does not bind the receipts snapshot either: that one is
+capped for display, and binding to a truncation would approve a fire whose 31st item differs from
+the card's.
+
+**C4 — a true sentence about the wrong subject.** `CONFIRM_DESCRIPTION_ENFORCED` ("a step with no
+approval on record is refused") was served whenever the SESSION enforced. But the gate keys on the
+principal, so a port built with `source: 'user'` — the documented, deliberate exemption — was the
+one port whose fires were never held, and the one telling a model in the library's own voice that
+they were. The exemption is unchanged. The claim is not: `Session.requiresHumanApprovalFrom(principal)`
+is the honest question for a port, a disarmed port serves the unenforced descriptions, and building
+one warns through the host's own `onWarn`. Documented is not the same as told, and the runtime
+must not contradict the page.
+
+**B7 — the asymmetry that was a hole.** `approveAsk` deliberately has no `principal` argument.
+`declineConfirm` had one, and the first round justified that as safe because "a decline never
+authorizes". It does two other things: it writes a human decision into the auditable journal, and
+it takes the question off the person's screen. Passing `principal: 'user'` did both. So under
+enforcement that door now records a report whatever it is handed, marked `relayed` on the row so
+an auditor never has to infer it from a principal the caller chose.
+
+**A19 — a no you can walk around by dropping the pointer.** The decline was read off
+`openAsks.get(askId)` — only when the caller PRESENTED the id that would refuse it — and the
+standing-grant check ran first. Omit the pointer and the grant outranked the person's Decline,
+which made the comment above it ("a human no outranks every other authority") false on a security
+boundary. The gate now asks the ask BOOK, scoped to the action, instance and input the person was
+actually shown; an input it cannot judge stays covered. Scoped, not blanket: a grant is
+deliberately not input-bound, so a genuinely different order is still authorized by the yes the
+human also gave. Both halves are now true of the code.
+
+Two more, smaller and worth naming. **F5:** the port passed the model's `input` to `confirmAsk`
+unconditionally, so a consumer who upgraded and enabled nothing started finding `willUse` — user
+payloads — in every served ask and in the exported journal. "Byte-identical" is a claim about the
+path consumers use, and the file that guarded it asked with no input at all. **C2:** every open
+ask wrote a line into `groundTruth()`, the block a model is told to trust above its own account,
+and under enforcement a model can mint asks at will; the awaiting lines are now capped by the same
+dial as the attempts list, oldest kept, count stated.
+
+The pattern under all six: the library was reporting something it had not established. That is the
+same defect as the original finding, wearing different clothes each time.
 
 ## The line this record exists to make true
 

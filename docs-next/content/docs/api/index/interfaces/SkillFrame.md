@@ -4,7 +4,7 @@ title: SkillFrame
 
 # Interface: SkillFrame
 
-Defined in: [src/atom/types.ts:1053](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1053)
+Defined in: [src/atom/types.ts:1310](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1310)
 
 One committed pass at a skill. 'demoted' = the skill's precondition broke mid-flow.
 
@@ -14,7 +14,7 @@ One committed pass at a skill. 'demoted' = the skill's precondition broke mid-fl
 
 > `optional` **closedAtVersion?**: `number`
 
-Defined in: [src/atom/types.ts:1067](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1067)
+Defined in: [src/atom/types.ts:1324](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1324)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:1067](https://github.com/footprintjs/hcifootprint
 
 > **firedSteps**: `string`[]
 
-Defined in: [src/atom/types.ts:1060](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1060)
+Defined in: [src/atom/types.ts:1317](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1317)
 
 Steps committed while this frame was open (observed fires).
 
@@ -32,7 +32,7 @@ Steps committed while this frame was open (observed fires).
 
 > **inferredSteps**: `string`[]
 
-Defined in: [src/atom/types.ts:1066](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1066)
+Defined in: [src/atom/types.ts:1323](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1323)
 
 Steps attributed by effect-signature INFERENCE while this frame was open
 — guesses, kept separate from observed fires. skillPlan shows them as
@@ -44,7 +44,7 @@ Steps attributed by effect-signature INFERENCE while this frame was open
 
 > **openedAt**: `number`
 
-Defined in: [src/atom/types.ts:1057](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1057)
+Defined in: [src/atom/types.ts:1314](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1314)
 
 ***
 
@@ -52,7 +52,7 @@ Defined in: [src/atom/types.ts:1057](https://github.com/footprintjs/hcifootprint
 
 > **openedAtVersion**: `number`
 
-Defined in: [src/atom/types.ts:1058](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1058)
+Defined in: [src/atom/types.ts:1315](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1315)
 
 ***
 
@@ -60,7 +60,7 @@ Defined in: [src/atom/types.ts:1058](https://github.com/footprintjs/hcifootprint
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1056](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1056)
+Defined in: [src/atom/types.ts:1313](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1313)
 
 ***
 
@@ -68,7 +68,7 @@ Defined in: [src/atom/types.ts:1056](https://github.com/footprintjs/hcifootprint
 
 > **skillId**: `string`
 
-Defined in: [src/atom/types.ts:1054](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1054)
+Defined in: [src/atom/types.ts:1311](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1311)
 
 ***
 
@@ -76,4 +76,4 @@ Defined in: [src/atom/types.ts:1054](https://github.com/footprintjs/hcifootprint
 
 > **status**: [`FrameStatus`](/api/index/type-aliases/FrameStatus)
 
-Defined in: [src/atom/types.ts:1055](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1055)
+Defined in: [src/atom/types.ts:1312](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1312)

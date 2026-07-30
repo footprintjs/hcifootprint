@@ -13,12 +13,18 @@
  *     BY DESIGN (the app-self-report tier), and so does the record-only sensor.
  *     Pinned so the exemption can never widen, and can never vanish, without
  *     somebody deciding to.
+ *  3. WHAT THE LIBRARY SAYS WHILE A HOLE IS OPEN (attack C4). A documented
+ *     exemption is honest; serving a model the sentence "this app enforces that"
+ *     through the one port whose fires are exempt is not. The exemption may stay
+ *     open; the claim may not.
  *
  * Mutation proofs: drop the `source === 'agent'` clause from the gate and the
  * two exemption tests fail (real human motion starts being refused); drop the
  * `opts.invoke !== false` clause and the sensor test fails the same way; break
  * the options spread in InteractionSession's constructor and the propagation
- * test fails while nothing else does.
+ * test fails while nothing else does; key the served description off
+ * `requiresHumanApproval` instead of `requiresHumanApprovalFrom(source)` and the
+ * C4 pair fails while the exemption tests stay green.
  */
 import { describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -39,16 +45,24 @@ function shopMap(): NavigationGraph {
   });
 }
 
-function strictSession(): Session {
+function strictSession(warnings?: string[]): Session {
   const session = shopMap().createSession({
     node: 'checkout',
     state: {},
     requireHumanApproval: true,
-    onWarn: () => undefined,
+    onWarn: (message: string) => warnings?.push(message),
   });
   session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
   return session;
 }
+
+/** The `confirm` argument's description, as this port actually serves it. */
+const confirmDescription = (port: { tools: () => Array<{ name: string; inputSchema: unknown }> }): string =>
+  (
+    port.tools().find((t) => t.name === 'shop.do_action')!.inputSchema as {
+      properties: { confirm: { description: string } };
+    }
+  ).properties.confirm.description;
 
 /** Did the action actually happen? The only question that matters here. */
 const executed = (session: Session): boolean =>
@@ -177,6 +191,62 @@ describe('what remains possible BY DESIGN — named, so it can never change sile
     await tick();
     expect(fired).toMatchObject({ ok: true, did: 'checkout.place-order' });
     expect(executed(session)).toBe(true);
+  });
+
+  /**
+   * ATTACK C4 — the disarmed port that SAYS it enforces.
+   *
+   * The exemption above is by design and documented. What was not defensible is
+   * what the library said while it was in force: the enforced `confirm`
+   * description ("This app enforces that: … a step with no approval on record is
+   * refused") was served whenever the SESSION enforced, regardless of the port's
+   * own principal. So the one port whose fires the gate never holds was the port
+   * telling a model, in the library's own voice, that they were held.
+   *
+   * The exemption is unchanged — the fire above still crosses. What changed is
+   * that the library no longer claims otherwise, and says so to the developer.
+   *
+   * MUTATION PROOF: key the description off `session.requiresHumanApproval`
+   * again and both tests below fail while the exemption test above stays green.
+   */
+  it('C4: a disarmed port does not serve the enforced instruction — the sentence would be false', () => {
+    const session = strictSession();
+    expect(session.requiresHumanApproval).toBe(true);
+    // The honest question for a PORT, and the two answers differ.
+    expect(session.requiresHumanApprovalFrom('agent')).toBe(true);
+    expect(session.requiresHumanApprovalFrom('user')).toBe(false);
+
+    expect(confirmDescription(skillsAsTools(session))).toContain('This app enforces that');
+    expect(confirmDescription(skillsAsTools(session, { source: 'user' }))).toBe(
+      'Required true to proceed with a high-effect step (after the human approves the receipts).',
+    );
+  });
+
+  it('C4: and building one is LOUD, through the host’s own warning sink', () => {
+    const warnings: string[] = [];
+    const session = strictSession(warnings);
+    skillsAsTools(session, { source: 'user' });
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('this port stamps its fires');
+    expect(warnings[0]).toContain('executes with no approval on record');
+    // The port a model should hold is silent — a warning on the ordinary case
+    // would train developers to ignore this one.
+    skillsAsTools(session);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('C4: a disarmed port also stops promising that decline: true closes the ask', () => {
+    const session = strictSession();
+    const declineOf = (port: ReturnType<typeof skillsAsTools>): string =>
+      (
+        port.tools().find((t) => t.name === 'shop.do_action')!.inputSchema as {
+          properties: { decline: { description: string } };
+        }
+      ).properties.decline.description;
+
+    expect(declineOf(skillsAsTools(session))).toContain('recorded as yours');
+    expect(declineOf(skillsAsTools(session, { source: 'user' }))).toContain('closes the ask');
   });
 
   it('a direct source:"user" or "system" fire is the app-self-report tier, and passes', async () => {
