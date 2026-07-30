@@ -5,6 +5,7 @@ import { BASE } from '../site.config';
 
 const HOME = `${BASE}/`;
 const GITHUB = 'https://github.com/footprintjs/hcifootprint';
+const NPM = 'https://www.npmjs.com/package/hcifootprint';
 
 /* The bar every page of this site wears.
  *
@@ -15,12 +16,19 @@ const GITHUB = 'https://github.com/footprintjs/hcifootprint';
  * `mark` entries are sections OF the homepage. On the homepage they stay bare
  * fragments — an absolute href there would be a navigation, reloading the page
  * and restarting the 13.6s hero — and from any other page they are the same
- * fragments hung off the homepage URL. */
+ * fragments hung off the homepage URL.
+ *
+ * `npm` is here because /story/ carried it before this bar was unified and then
+ * silently lost it. Adding it to THIS array is the whole fix: the homepage and
+ * /story/ both render from it, so neither page can have a link the other lacks.
+ * (The sibling link /story/ also lost, footprintjs.github.io, was not lost —
+ * the shared footer in SiteChrome.jsx still signs off with it.) */
 const LINKS = [
   { label: 'docs', href: `${BASE}/docs/` },
   { label: 'guide', mark: '#integration' },
   { label: 'honesty', mark: '#gaps' },
   { label: 'story', href: `${BASE}/story/` },
+  { label: 'npm', href: NPM, out: true },
   { label: 'github ↗', href: GITHUB, out: true },
 ];
 

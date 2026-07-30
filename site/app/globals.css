@@ -142,12 +142,36 @@ a { color: inherit; }
   padding: 0 var(--gutter);
   background: var(--bg); border-bottom: 1px solid var(--line);
 }
-.site-hd .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.site-hd .wordmark { font-family: var(--mono); font-size: 15px; font-weight: 500; letter-spacing: -.02em; color: var(--accent-ink); text-decoration: none; }
+/* The version badge is the bar's expendable element, and it hides by MEASUREMENT
+   rather than by a width guess.
+
+   It used to be dropped at a fixed `max-width: 400px`, which was only ever
+   correct for the string it was tested against: at 401px the gap between the
+   brand and the nav measured exactly 10.0px, while `0.7.0` renders 50.8px wide
+   and `0.10.10` renders 65.5px — so the first two-digit minor would have
+   overflowed the bar by 4.7px, and a prerelease like `0.10.10-beta.1` (116.9px)
+   by 56px. A wider breakpoint would only move the version that breaks it.
+
+   So the brand row is allowed to WRAP and is clipped to a single row: whenever
+   the wordmark and the badge together no longer fit the space the nav leaves,
+   the badge wraps to a second row that is not drawn. No threshold, no knowledge
+   of how long the string is — the layout measures it. `min-width: 0` is what
+   lets the row be squeezed at all, and the wordmark is pinned so the badge is
+   always the thing that goes. `--brand-row` sits between one row (24.8px) and
+   two, so a single row is never clipped and a second one never shows. */
+.site-hd .brand {
+  display: flex; align-items: center; gap: 14px; min-width: 0;
+  flex-wrap: wrap; align-content: flex-start;
+  --brand-row: 2rem; max-height: var(--brand-row); overflow: hidden;
+}
+.site-hd .wordmark { font-family: var(--mono); font-size: 15px; font-weight: 500; letter-spacing: -.02em; color: var(--accent-ink); text-decoration: none; flex: none; white-space: nowrap; }
 .site-hd .brand:hover .wordmark { color: var(--fg); }
 .site-hd .ver { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; color: var(--fg-muted); border: 1px solid var(--line); padding: 3px 6px; white-space: nowrap; }
 .site-hd .nav { display: flex; align-items: center; gap: clamp(12px, 2vw, 28px); font-family: var(--mono); font-size: 12.5px; letter-spacing: .04em; }
-.site-hd .nav a { color: var(--fg-muted); text-decoration: none; }
+/* A label is one thing to click, so it is never allowed to break across lines:
+   without this "github ↗" splits after the space when the row is tight, and the
+   arrow drops onto a second line inside a fixed-height bar. */
+.site-hd .nav a { color: var(--fg-muted); text-decoration: none; white-space: nowrap; }
 .site-hd .nav a:hover, .site-hd .nav a[aria-current='page'] { color: var(--fg); }
 .site-hd .nav a.is-out { color: var(--fg); border-bottom: 1px solid var(--line); padding-bottom: 2px; }
 .site-hd .theme {
@@ -162,15 +186,13 @@ a { color: inherit; }
 html.dark .site-hd .i-sun { display: block; }
 html.dark .site-hd .i-moon { display: none; }
 
-/* the bar carries five destinations; below ~620px only the three that leave the
-   page survive, so nothing overlaps at 390px */
+/* the bar carries six destinations; below ~620px only the four that leave the
+   page survive, so nothing overlaps at 390px. The version badge needs no rule of
+   its own here — it retires itself as soon as the row runs out of space. */
 @media (max-width: 620px) {
   .site-hd { gap: 10px; }
   .site-hd .brand { gap: 8px; }
   .site-hd .nav .is-sec { display: none; }
-}
-@media (max-width: 400px) {
-  .site-hd .ver { display: none; }
 }
 
 /* ── footer (the shared chrome's; the homepage signs off with its own) ──────── */
