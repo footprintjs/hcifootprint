@@ -13,8 +13,8 @@
  * re-running TypeDoc); the CI `docs` job runs `check:api` (regen + git diff
  * --exit-code) to enforce freshness — see .github/workflows/ci.yml.
  *
- * Unlike agentfootprint's single-entry setup, typedoc.docs-next.json declares ALL
- * FOUR public entry points (., ./mcp, ./testing, ./testing/lint) so the subpath
+ * Unlike agentfootprint's single-entry setup, typedoc.docs-next.json declares EVERY
+ * public entry point (., ./mcp, ./sensor, ./testing, ./testing/lint) so the subpath
  * exports are documented too — the gap that forced af to grow a docs-truth ratchet
  * never opens here.
  *
@@ -47,6 +47,8 @@ const FOLDER_TITLES = {
 const MODULE_TITLES = {
   index: 'hcifootprint',
   mcp: 'hcifootprint/mcp',
+  sensor: 'hcifootprint/sensor',
+  'sensor/index': 'hcifootprint/sensor',
   testing: 'hcifootprint/testing',
   'testing/index': 'hcifootprint/testing',
   'testing/lint': 'hcifootprint/testing/lint',

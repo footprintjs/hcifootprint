@@ -1,0 +1,13 @@
+{
+  // The port's claim about the real DOM. `lib` gains "DOM" HERE and nowhere else —
+  // widening the library's own lib would let a browser global leak into modules
+  // that must stay Node-safe, which is the guarantee the sibling probe proves.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": []
+  },
+  "include": ["real-dom.ts", "../../src/sensor"]
+}

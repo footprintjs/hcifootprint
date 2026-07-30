@@ -74,6 +74,29 @@ describe('importing one source factory ships only its leaf closure', () => {
     // metafile.inputs = every file LOADED — for a true leaf that is exactly one.
     expect(Object.keys(result.metafile!.inputs)).toEqual(['src/graph/sources/from-live-store.ts']);
   });
+
+  /**
+   * The sensor subpath is the same shape as that leaf, one folder wider: it drives
+   * the session INSTANCE it is handed through a type-only port (SensorSession), so a
+   * page that only wanted a DOM listener ships no engine. `metafile.inputs` is the
+   * right surface here — every file LOADED, not merely the ones that contributed
+   * bytes — because a type-only import that resolved to a real module would show up
+   * as loaded even after being shaken out.
+   */
+  it('the sensor subpath is a ZERO-engine leaf: only src/sensor/** is even loaded', async () => {
+    const result = await build({
+      entryPoints: [path.join(repoRoot, 'src/sensor/index.ts')],
+      bundle: true,
+      write: false,
+      metafile: true,
+      format: 'esm',
+      platform: 'node',
+      logLevel: 'silent',
+    });
+    const loaded = Object.keys(result.metafile!.inputs);
+    expect(loaded.filter((file) => !file.startsWith('src/sensor/'))).toEqual([]);
+    expect(loaded).toContain('src/sensor/watch-page.ts');
+  });
 });
 
 /** Tiny assertion helper so a failure names the file that leaked into the bundle. */
@@ -118,14 +141,16 @@ const distIndex = path.join(repoRoot, 'dist/index.js');
 const distSources = ['from-routes.js', 'from-journeys.js', 'from-live-store.js'].map((f) =>
   path.join(repoRoot, 'dist/graph/sources', f),
 );
+/** Same reason: an old dist would still have dist/index.js and "pass" without this. */
+const distSensor = path.join(repoRoot, 'dist/sensor/index.js');
 
-/** Bundle symbols from the BUILT barrel; return contributors + total bytes. */
-async function bundleFromDist(symbols: string): Promise<{ files: string[]; bytes: number }> {
+/** Bundle symbols from a BUILT entry; return contributors + total bytes. */
+async function bundleFromDist(symbols: string, from: string = distIndex): Promise<{ files: string[]; bytes: number }> {
   const result = await build({
     stdin: {
       // Absolute dist path: esbuild then resolves this package's own
       // package.json for the sideEffects flag — the consumer's view.
-      contents: `export { ${symbols} } from '${distIndex}';`,
+      contents: `export { ${symbols} } from '${from}';`,
       resolveDir: repoRoot,
     },
     bundle: true,
@@ -149,7 +174,7 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
   beforeAll(() => {
     // A gate, never a skip: without dist these tests would prove nothing,
     // and silently skipping would report green on an unproven package.
-    for (const file of [distIndex, ...distSources]) {
+    for (const file of [distIndex, ...distSources, distSensor]) {
       if (!fs.existsSync(file)) {
         throw new Error(`treeshake dist proof needs ${path.relative(repoRoot, file)} — run npm run build first`);
       }
@@ -176,5 +201,23 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
     const leaked = files.filter((f) => f !== 'dist/index.js' && !f.startsWith('dist/graph/'));
     expect(leaked, 'modules outside dist/index.js + dist/graph/** leaked into the matchRoute bundle').toEqual([]);
     expect(bytes).toBeLessThanOrEqual(1024);
+  });
+
+  /**
+   * What a page that imported ONLY `hcifootprint/sensor` really ships. This is the
+   * consumer-facing form of the promise "a DOM listener costs a DOM listener": the
+   * subpath drives the session through a type-only port, so no session machinery and
+   * no footprintjs can reach a page listener. Pinned at 16 KB against a measured
+   * 11,907 B, so honest growth passes and an engine leak fails.
+   */
+  it('the shipped sensor subpath carries no engine bytes at all — and stays under 16 KB', async () => {
+    const { files, bytes } = await bundleFromDist('watchPage', distSensor);
+    const leaked = files.filter((f) => !f.startsWith('dist/sensor/'));
+    expect(leaked, 'modules outside dist/sensor/** leaked into the sensor bundle').toEqual([]);
+    for (const forbidden of ['dist/traverse/', 'dist/tree/', 'dist/serve/', 'dist/registry/', 'dist/presence/', 'dist/graph/', 'node_modules/footprintjs']) {
+      expect(files.filter((f) => f.includes(forbidden)), `bundle must not contain ${forbidden}`).toEqual([]);
+    }
+    expect(files, 'probe must actually pull the watcher').toContain('dist/sensor/watch-page.js');
+    expect(bytes).toBeLessThanOrEqual(16 * 1024);
   });
 });

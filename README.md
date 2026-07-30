@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1032%20passing-f5b301?style=flat" alt="1032 tests passing">
+  <img src="https://img.shields.io/badge/tests-1283%20passing-f5b301?style=flat" alt="1283 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -535,15 +535,60 @@ codebase. HACI Footprint doesn't do that:
 
 Token cost tracks the task at hand, not the size of your codebase.
 
+## 👤 The human sensor — every real click on the ledger, with no shim
+
+An agent's actions land on the ledger by themselves. A **person's** don't, unless you write a `humanFire`
+call per control — one real integration counted 53 lines of shim across 21 call sites, each a place to forget
+`invoke: false` and run the click twice.
+
+`hcifootprint/sensor` does it once, for the whole page:
+
+```ts
+import { watchPage } from 'hcifootprint/sensor';
+
+const watch = watchPage(session, { root: document.body });
+// …the human clicks a declared button; the session gains a transition with
+// cause { kind: 'fired', principal: 'user' } and nothing else was wired.
+
+// For a control that holds a value, hand the element over:
+const control = watch.attach({ edge: 'compose.send', element: inputEl, value: () => draft });
+control.detach();
+watch.stop();
+```
+
+**No selector map. Ever.** The watch-list *is* `session.available().edges` and the binding each one carries —
+the graph you already authored is the instrumentation manifest. The only thing you may add is DOM truth (an
+ARIA role, an accessible name), which improves the page for every user and configures nothing.
+
+**Your app declares the value; the sensor never reads one.** The DOM is a *rendering* of your state, not the
+state — scraping it fails silently, differently per component library, and as a plausible-looking value, which
+is the worst failure a ledger can carry. So a payload rides a fire only from `value()`, and otherwise there is
+no `payload` key at all. The members a scraper would need aren't on the element port: it is an absent surface,
+not a rule anyone has to remember.
+
+**Record-only, in the type system.** `RecordOnlyFire` pins `invoke: false`, so an executing fire is
+*inexpressible* — the browser already ran your `onClick`. And one human act writes one row: name the edges you
+still report yourself in `reportedElsewhere`, and the sensor stands down for them and says so.
+
+**Honest, or silent — never a guess.** Two live edges answering to one role + name is refused, not picked. The
+agent's own `element.click()` is declined by name rather than recorded as a person. `coverage()` returns one
+row per served edge — watching, or unwatched with the sentence saying why. Framework-free (React, Vue and
+Angular are each a skin over four fields and one method), SSR-safe by compiler, and an 11.9 KB leaf that drags
+no engine.
+
+→ [The human sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor)
+
 ## Frontend: framework-agnostic
 
 The core is plain TypeScript and knows nothing about your framework — you connect it through three ordinary
 wires (a store subscription, router events, your existing handlers). The
 [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) shows the whole wiring on a real
-storefront with an AI stylist.
+storefront with an AI stylist. Human clicks come in through the
+[sensor above](#-the-human-sensor--every-real-click-on-the-ledger-with-no-shim), which needs no framework at
+all.
 
-**On the roadmap:** a React adapter (`useMount`) and a DOM actuation adapter (act through the real DOM), plus
-a demo gallery — the same app wired in Angular, React, Vue, and an iframe, shown as pills on one index page.
+**On the roadmap:** framework bindings over that same sensor core (`hcifootprint/react` first), plus a demo
+gallery — the same app wired in Angular, React, Vue, and an iframe, shown as pills on one index page.
 One graph, many frontends.
 
 ## The model — Affordance &amp; Transition

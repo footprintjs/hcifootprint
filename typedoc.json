@@ -1,6 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/index.ts", "src/mcp.ts", "src/testing/index.ts", "src/testing/lint.ts"],
+  "entryPoints": ["src/index.ts", "src/mcp.ts", "src/sensor/index.ts", "src/testing/index.ts", "src/testing/lint.ts"],
   "plugin": ["typedoc-plugin-markdown"],
   "readme": "none",
   "githubPages": false,

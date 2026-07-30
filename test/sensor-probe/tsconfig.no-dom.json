@@ -1,0 +1,10 @@
+{
+  // The library's OWN lib, unchanged. Compiling this must FAIL — see the file.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": []
+  },
+  "include": ["reaches-for-a-global.ts"]
+}

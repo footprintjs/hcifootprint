@@ -37,6 +37,58 @@ already shows in guard evidence.
 - **Nothing changes unless you ask.** Absent, 0.7.0 behaviour is byte-identical — including
   the payload's reference identity on the record — pinned by its own describe block.
 
+### `hcifootprint/sensor` — every real human click on the ledger, with no shim
+
+An agent's actions land on the ledger by themselves. A **person's** did not, unless the app
+wrote a `humanFire` call per control — one integration counted 53 lines of shim across 21 call
+sites, each one a place to forget `invoke: false` and run the click twice.
+
+**New subpath, zero dependencies, no framework required:** `watchPage(session, { root })`
+attaches one delegated capture-phase listener set to the page. The watch-list **is**
+`session.available().edges` and the `binding` each one carries — no selector map, no id
+registry, no instrumentation config, ever. It reaches the engine through a type-only port, so
+importing it drags no session machinery and no footprintjs (11.9 KB minified, pinned in
+`test/treeshake.test.ts`).
+
+- **The app declares the value; the sensor never reads one.** The DOM is a *rendering* of the
+  app's state, not the state — scraping it fails silently, differently per component library,
+  and as a plausible-looking value, which is indistinguishable from a right one once it is on
+  the ledger. So a payload rides a fire only from `ControlDeclaration.value()`, and otherwise
+  there is **no `payload` key at all** — never `payload: undefined`, never `{}`, never `''`,
+  which is the shape that once overrode an app's own authored default. The members a scraper
+  would need (`checked`, `form`, `children`, a per-control `name`) are absent from the element
+  port: an absent surface rather than a rule to remember. A declared value is still validated
+  by the app's own schema at the door, because that gate is source-blind.
+- **Two evidence levels, and the order is the design.** DECLARED (`attach()` — object identity,
+  may carry a value and an instance) beats RECOGNISED (role + accessible name against the
+  graph's own locators, which may never carry a value). Unique → reported; two or more →
+  refused, never picked.
+- **Record-only in the type system.** `RecordOnlyFire` pins `invoke` to `false`, so an
+  executing fire is *inexpressible* rather than discouraged. No engine change was needed.
+- **One human act, one row** — three collisions, three named answers: `reportedElsewhere` for
+  an app that still reports some edges itself (read once, both levels, `blocked: 'door'` in
+  coverage); silence for a known control reached at a moment that is not its own (Enter on a
+  button, whose real moment is the click the browser generates next); and a one-task turn
+  window for a duplicate delivery of one act.
+- **The agent's own clicks are not human acts.** `isTrusted` is read, and the decline **names
+  the edge it declined** so a team can delete their own filter and watch this one catch the
+  same events. The comment on `defaultTrust` names the seam where a future one-door `perform()`
+  makes the whole class unreachable rather than merely detectable.
+- **Cadence is a library policy:** `'commit'` (the default — one `change` listener, no `blur`
+  beside it), `{ debounceMs }` (coalesced, last value wins, read late so nothing is buffered),
+  or `'per-keystroke'`. Per watcher, overridable per control. The clock comes from the root's
+  own view or `options.timers`, and a debounced cadence with no clock is **refused**
+  (`cadence-unavailable`), never quietly downgraded.
+- **Honest, or silent.** Eight typed report arms, none of which writes a guessed row, plus
+  `coverage()` — one row per served edge, watching or unwatched with the sentence saying why
+  and which of three walls it hit (`gesture`, `payload`, `door`).
+- **SSR-safe by compiler.** `root` is required and the port is structural; a probe compiles the
+  real `HTMLElement`/`Document`/`ShadowRoot`/`Window` against it, and a sibling probe proves
+  `lib: ["ES2022"]` still refuses a browser global.
+
+Purely additive: a new `exports` entry, no existing specifier changes meaning. 251 new tests
+(1032 → 1283), each behaviour with its own mutation proof.
+
 ## [0.7.0] - 2026-07-30
 
 **An approval the library cannot prove is not an approval** — the sentence this release is

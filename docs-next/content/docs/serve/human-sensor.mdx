@@ -1,0 +1,249 @@
+---
+title: The human sensor
+description: A framework-free, record-only DOM sensor. The graph you already authored IS the instrumentation manifest — the app declares values, the sensor never reads them, and anything it cannot attribute is reported honestly or not at all.
+---
+
+Every human click your app already handles is a fact the ledger wants. Writing that down by
+hand means a `humanFire` call per control — a real integration counted 53 lines of shim and
+21 call sites — and every one of them is a place to forget `invoke: false`.
+
+`hcifootprint/sensor` does it once, for the whole page:
+
+```ts
+import { watchPage } from 'hcifootprint/sensor';
+
+const watch = watchPage(session, { root: document.body });
+// …the human clicks a declared button; the session gains a transition with
+// cause { kind: 'fired', principal: 'user' } and nothing else was wired.
+watch.stop();
+```
+
+It is a **zero-dependency leaf**: importing it drags no session machinery and no footprintjs
+(11.9 KB minified, proved in `test/treeshake.test.ts`). It reaches the engine through a
+type-only port, so a page that only wanted a listener does not ship an engine.
+
+## No selector map. Ever.
+
+The watch-list **is** `session.available().edges` and the `binding` each one carries. There is
+no config file, no id registry, no instrumentation layer to keep in sync with your components.
+The only thing you may add is DOM truth — an ARIA role, an accessible name — which improves
+the page for every user and configures nothing.
+
+The manifest is re-derived on every trusted event rather than cached, and that is a
+correctness decision: a guard opening or closing changes the served edges without moving
+`available().version`, so a version-keyed cache would go stale exactly when a guard flips.
+
+## Two evidence levels — and the order is the design
+
+<Callout title="DECLARED beats RECOGNISED, always">
+The app's own statement outranks the sensor's reading of the page. That order is not a
+preference; it is the rule that keeps a wrong value out of the ledger.
+</Callout>
+
+**DECLARED** — you hand the element over. Identity is *object* identity, so nothing is
+computed and nothing can be ambiguous. The declaration may carry a value getter, so a payload
+is legal here:
+
+```ts
+const control = watch.attach({
+  edge: 'compose.send',        // the affordance this control IS
+  element: inputEl,            // handed over — never matched by name
+  instance: 't-7',             // one row of a repeats container (optional)
+  value: () => draft,          // THE DECLARED VALUE (optional)
+  cadence: 'commit',           // per-control override (optional)
+});
+control.detach();
+```
+
+Four fields and one method. That is the entire framework interface: Vue is `onMounted` /
+`onScopeDispose` plus a template ref; Angular is a directive with `ElementRef` and
+`ngOnDestroy`. `test/sensor-framework-interface.test.ts` drives the whole declared level from a
+plain object with no framework at all, so "thin" is a test rather than a claim.
+
+**RECOGNISED** — nothing declared. The sensor walks up from the event target, computes role
+and accessible name from documented subsets, and looks up your graph's own
+[element bindings](doc:actuation). Unique match → reported. Two or more → refused. A payload is
+**never** legal here.
+
+## The app declares the value. The sensor never reads one.
+
+This is the deepest rule in the subpath, and it comes from bugs a production integration had
+to unship: a composed combobox that read as empty because its real value lived in component
+state; a button reported as "currently empty" because the node being interrogated was never
+the one holding the answer. **The DOM is a rendering of your app's state, not the state.**
+Reading a value back out of it fails silently, fails differently per component library, and
+fails as a *plausible-looking value* — which is the worst failure this library can ship,
+because a wrong payload in the ledger is indistinguishable from a right one.
+
+So there is exactly one door: `ControlDeclaration.value()`. Absent, there is **no `payload`
+key at all** — never `payload: undefined`, never `{}`, never `''`. That is not fussiness:
+`aff.noInput` already refuses a real payload with `PAYLOAD_INVALID`, and the empty string that
+motivated it *overrode the app's own authored default*. An omitted key can never re-create
+that.
+
+The rule is enforced by an absent surface, not by a rule anyone has to remember: `checked`,
+`form`, `children` and a per-control `name` are simply **not on** the sensor's element port.
+There is no member a value-scraper could reach for. The single `value` read that does exist
+serves `<input type="submit" value="Save">` — a *label*, not a payload — and a test fails if
+any other module reads it.
+
+Which edges each level may report:
+
+| | any edge | `expects: 'none'` or absent | a real schema |
+| --- | --- | --- | --- |
+| **DECLARED** | yes | attached, no value sent | attached **with** `value()`; omit it and you get `value-not-declared` once |
+| **RECOGNISED** | — | reported | honestly unwatched, `blocked: 'payload'` |
+
+<Callout type="warn" title="A declared value is validated at the door">
+The schema gate is source-blind and runs for `invoke: false` too — *"every source answers for
+the payload, deliberately, including the record-only sensor."* So a wrong declared value earns
+`PAYLOAD_INVALID` rather than a wrong ledger row. A framework binding cannot launder a value
+onto the ledger either.
+</Callout>
+
+<Callout title="Redaction and payloads — say it out loud">
+`redactedKeys` governs **state keys** and never touched a payload. A declared value reported
+into `payload` is governed by [`redactedFields.payload`](doc:receipts) instead — opt-in, aimed
+per channel, off unless you ask. If a declared value must not reach the model or the journal,
+name its path there; nothing in the sensor hides it for you.
+</Callout>
+
+## Record-only, in the type system
+
+```ts
+type RecordOnlyFire = Omit<FireOptions, 'invoke'> & { readonly invoke: false };
+```
+
+The browser has already run your `onClick` by the time anything here records it. A fire that
+also invoked would run one human click **twice** — so `invoke` is not a habit somebody could
+forget, it is pinned. An executing fire is *inexpressible* through the port, and downstream
+`#invokeHandler` returns on its first line for `invoke === false`. Every truth gate still runs;
+the arms that only make sense for an executing caller (`TOOL_DISABLED`, `NOT_MATERIALIZED`) are
+skipped by the engine's own design, because a greyed button a human really clicked is still
+something that really happened.
+
+## One human act, one ledger row
+
+The library has no dedupe primitive to lend — `FireOptions` carries no idempotency key and the
+transition log is append-only — so this is the sensor's to own. Three collisions, three named
+answers:
+
+1. **Two doors.** Mid-migration you still report some controls yourself. Name those edges in
+   `reportedElsewhere` and the sensor stands down for them, saying so in `coverage()` with
+   `blocked: 'door'`. Read **once**, at `watchPage`: a list that changed under a live watcher
+   would silently re-open the double-row bug it exists to prevent. It applies to both evidence
+   levels — one exclusion surface, not two. Delete your own door, delete this with it.
+2. **Two event classes, one activation.** Enter on a `<button>` fires `keydown` and then a
+   browser-generated `click` whose `isTrusted` is *true*. A known control reached by an event
+   class that is not its committed moment is **silence** — not a row, and not an off-graph
+   advisory either. The element is recognised; this simply is not its moment.
+3. **Two events, one turn.** A `(edge, instance)` already reported in the current synchronous
+   task is not reported again. A `<label>` and the control it labels, both handed over for one
+   edge, is a real page shape that delivers one human act as two clicks.
+
+## The agent's own clicks are not human acts
+
+`element.click()` produces an event identical to a person's in every way except `isTrusted`.
+The sensor reads that bit, because a production integration shipped without reading it and
+recorded the agent's own synthetic clicks as human actions — `source: 'user'` on machine
+motion is a lie in the one field the whole provenance model rests on.
+
+The decline is **diagnostic**, not silent: `{ kind: 'synthetic-event', edge, instance?,
+actuation }` names what it declined, reported only when the gesture *would* have been
+attributed. That is what lets you delete your own `isTrusted` filter and watch the sensor catch
+exactly what yours did.
+
+It is workaround-grade and named as such. `fire()` is already the one invocation chokepoint;
+a future one-door `perform()` over it — where the caller states who it is — makes this whole
+class *unreachable* rather than merely detectable, and `reportedElsewhere` is already the
+stand-down list such a control would register itself on.
+
+## Cadence — a library policy, not your rediscovery
+
+A click has one moment. Typing does not: a human types thirty characters and means one act,
+and every row bumps the session's version. So the answer is decided here:
+
+```ts
+type Cadence = 'commit' | 'per-keystroke' | { readonly debounceMs: number };
+```
+
+- **`'commit'` — the default.** Commit-on-blur, and it needs exactly one listener: `change`.
+  The browser fires it precisely when the human finishes — on blur, and on Enter; for a
+  `<select>`, on pick. Adding a `blur` listener alongside would *be* the double-row bug.
+- **`{ debounceMs }`** — `input`, coalesced, last value wins. Named because a live-search field
+  genuinely wants intermediate values on the ledger. The value is read when the window closes,
+  so "last value wins" costs no buffering.
+- **`'per-keystroke'`** — every `input`. Opt-in, and the cost is the point: one session version
+  bump per keystroke.
+
+Set it per watcher and override it per control. The clock comes from the root's own view, or
+from `options.timers` for a test or non-browser host — and a debounced cadence with **no**
+reachable clock is refused with `cadence-unavailable`, never quietly downgraded to the loudest
+setting.
+
+## Honesty on ambiguity — four gaps, four signals, never a guess
+
+`onReport` receives one typed row for everything the sensor did and everything it declined.
+There is no arm that writes a guessed session row:
+
+| arm | what happened |
+| --- | --- |
+| `reported` | recognised and recorded — `result` is the session's own answer, refusals included |
+| `off-graph` | real motion on a real control your graph never declared |
+| `ambiguous` | two or more live edges answer to one role + name; the sensor refuses to pick |
+| `synthetic-event` | code did this, not a person — with the edge it declined |
+| `value-not-declared` | a handed-over control for an action that takes a value, with no `value()` |
+| `unwatched` | a live edge the sensor is not watching, with the wall it hit |
+| `cadence-unavailable` | a debounced cadence with no clock to run it on |
+| `sensor-error` | the sensor itself threw — isolated, so your dispatch is never broken |
+
+A click that never touched a role-bearing element is not reported at all: clicking a paragraph
+is not an interaction your graph failed to declare.
+
+`coverage()` answers the other direction — one row per **served edge**, `watching` or
+`unwatched` with the sentence saying why and which of three walls it hit (`gesture`, `payload`,
+`door`). So the count you read back is the count your graph declared, and an edge can never go
+missing between the two. The sensor never *claims* a locator resolves to a real element — a
+watching edge that nothing answers to shows up as an edge with zero reported rows, which is the
+same boundary [the drift harness](doc:testing) already draws.
+
+## Capture phase, and why it is correctness
+
+Every listener registers with `capture: true`. Capture runs before your handlers, so
+recognition and `fire()`'s truth gates evaluate against the cursor as it was **when the human
+acted**. Let your `onClick` navigate first and the same click is judged against the page it
+*landed* on — inventing `STALE_CURSOR` and `NOT_ON_NODE` refusals for actions that were
+perfectly legal.
+
+## SSR, teardown, and location
+
+`root` is **required**. The library compiles with `lib: ["ES2022"]` and no DOM, so naming a
+browser global in `src/` is a compile error — the app hands the environment in and the library
+never reaches for one. The port is structural, so a real `HTMLElement`, `Document`,
+`ShadowRoot` or `Window` satisfies it, and both halves are proved by a compiler probe rather
+than asserted.
+
+`stop()` is idempotent and releases everything: every listener (through one shared capture
+options object, because `removeEventListener` only cancels a registration whose capture flag
+matches), every pending cadence timer, every declaration. `attach` → `detach` → `attach` nets
+to one entry and `watchPage` → `stop` → `watchPage` nets to one listener set — the React
+StrictMode shape, the same contract [presence handles](doc:presence) already keep.
+
+`watchLocation` is **off by default**, and the cost of the other choice is worth stating: page
+ids are author-chosen names, not URL paths, so handing `location.pathname` to `sync()` unasked
+moves the cursor to a page that does not exist — `available()` then honestly serves nothing and
+your whole agent surface goes quiet. Turn it on when your page ids *are* your paths; otherwise
+own the mapping yourself, which is one line:
+
+```ts
+session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname);
+```
+
+## What it does not do
+
+It does not perform anything, ever. It does not read values. It does not write visibility —
+[`PresenceIndex`](doc:presence) is already the presence sensor, and its own law applies here
+too: no amount of mount-counting can see CSS, so visibility stays an explicit signal. And it
+reports *after* the browser ran your handler, where a hand-written `humanFire` wrapper reports
+*before* — so a guard refusal cannot block the act. If you need refuse-before-perform, that
+belongs to a wrapper door, and the choice is yours to make rather than ours to hide.

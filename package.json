@@ -19,6 +19,10 @@
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
     },
+    "./sensor": {
+      "types": "./dist/sensor/index.d.ts",
+      "default": "./dist/sensor/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
@@ -87,6 +91,9 @@
     "*": {
       "mcp": [
         "dist/mcp.d.ts"
+      ],
+      "sensor": [
+        "dist/sensor/index.d.ts"
       ],
       "testing": [
         "dist/testing/index.d.ts"

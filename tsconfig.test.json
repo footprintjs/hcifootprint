@@ -14,5 +14,13 @@
     "src",
     "test",
     "examples"
+  ],
+  // test/sensor-probe holds two COMPILER probes with their own tsconfigs, and one of
+  // them is supposed NOT to compile (it proves that lib ["ES2022"] really refuses a
+  // browser global). test/sensor-dom-port.test.ts runs both; this typecheck must not.
+  // node_modules is listed because naming `exclude` at all replaces its default.
+  "exclude": [
+    "node_modules",
+    "test/sensor-probe"
   ]
 }
