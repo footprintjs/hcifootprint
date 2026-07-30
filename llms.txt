@@ -156,7 +156,13 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
 - `fire(affordanceId, opts)` — apply a transition. `opts` (`FireOptions`): `source` (Principal:
   `'user' | 'agent' | 'system' | 'unknown'`), `payload?`, `instance?`, `expectedVersion?`
   (optimistic-concurrency token from `available().version`), `invoke?` (default true; false =
-  record-only, for a DOM sensor, or an external actuator that already executed the action).
+  record-only, for a DOM sensor, or an external actuator that already executed the action),
+  `askId?` (the confirm-journal row authorizing this fire — read only under `requireHumanApproval`;
+  a POINTER, never a secret). **There is no `confirm` field on `FireOptions` and there will not
+  be**: a boolean the caller controls is not evidence. `confirm` is a MODE B TOOL ARGUMENT, so a
+  fire reaching the session directly is not gated by it at any layer — the app's own code owns its
+  session. `requireHumanApproval` keys on the PRINCIPAL rather than the door, so an agent-sourced
+  high-effect fire is held wherever it comes from, including this call.
   Returns `FireResult` — `{ ok: true, transition, version, settlement: 'settled' | 'awaiting-state',
   executed?: false, materialized?: false }` or a typed `{ ok: false, reason, ... }` (see §6).
   **An agent fire of a tool nothing is bound to is refused `NOT_MATERIALIZED`** — firing it would

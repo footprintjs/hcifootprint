@@ -77,6 +77,11 @@ is now on each type, which the 0.6.0 notes had already promised.
 **Triage note:** the five `APPROVAL_*` gap rows are SECURITY rows, not missing capability.
 Route them to your audit sink, never to a "what to build next" query.
 
+**Turning it on is a two-part change,** and the second part is yours: the option makes the
+gate real, and your app has to give a person a way to answer. Wire your Approve/Decline
+controls to `approveAsk` / `declineAsk`. Until you do, every high-effect agent fire is
+refused `APPROVAL_REQUIRED` — fail-closed on purpose.
+
 **And the honest limits, in the docs rather than in a footnote.** The gate proves a row of
 the right kind, from the right principal, for this action and this input, exists and has
 not been spent. It does not prove a particular person authenticated (`by` is your string),

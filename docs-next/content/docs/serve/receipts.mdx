@@ -1,20 +1,39 @@
 ---
 title: Confirms & receipts
-description: A needs-confirm ask carries receipts — what will happen, why it's fireable, where the human is, and the recent trail — and both answers leave an auditable record.
+description: A high-effect ask carries receipts — what will happen, why it's fireable, where the human is — and by default the agent's own `confirm: true` crosses it; `requireHumanApproval` makes the crossing require an approval a person recorded.
 ---
 
-High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate. The agent
-must show the human the receipts, then call again with `confirm: true`.
+High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate that carries
+receipts, and every answer leaves an auditable row.
+
+## Where the gate lives
+
+Read this before anything else on the page, because it is a trust boundary and an
+undocumented trust boundary is how audits fail.
+
+**The gate keys off the principal, not the door.** `confirm` is a **Mode B tool argument**, not a
+session concept — `session.fire()` has no `confirm` field and never will, because a boolean the
+caller controls is not evidence. So a fire that reaches the session directly is not gated by
+`confirm` at any layer: the app's own code owns its session, and `source: 'user'` /
+`source: 'system'` / `invoke: false` are the app reporting motion a person really performed.
+
+What [`requireHumanApproval`](#requirehumanapproval--make-approve-enforceable) changes is that an
+**agent-sourced** fire is gated wherever it comes from — the Mode B port, the MCP server, the
+testing harness, or your own code calling `session.fire(id, { source: 'agent' })`. One chokepoint,
+every door.
+
+The corollary, in the same voice the [never-trap gate](doc:actuation#the-never-trap-invariant)
+already uses: **hand a model a port built with `source: 'user'` and you have disarmed this gate.**
 
 <Callout type="warn" title="What `confirm: true` is, and what it is not">
-By default `confirm: true` is the **agent asking to proceed** — not the human's answer. Nothing
-ties it to a recorded decision, so a model that skips the ask is indistinguishable from one that
-got a yes; sent on the very first call it crosses the gate and the journal stays empty. Approve is
-a recorded decision plus a convenience message — honest for a demo, but we would not describe it
-as enforced HITL. To make it enforced, create the session with
-[`requireHumanApproval`](#requirehumanapproval--make-approve-enforceable): a confirmed fire then
-carries a pointer to a decision a person recorded, and the library refuses anything it cannot
-prove.
+By default `confirm: true` is the **agent asserting** that a human approved — nothing ties it to a
+recorded human decision, so a model that skipped the ask is indistinguishable from one that got a
+yes; sent on the very first call it crosses the gate and the journal stays **empty**. **Until you
+turn enforcement on, Approve is a recorded decision plus a convenience message — honest for a demo,
+but we would not describe it as enforced human-in-the-loop.** With
+[`requireHumanApproval`](#requirehumanapproval--make-approve-enforceable), a confirmed fire must
+carry the `askId` of a decision **a person recorded**, and anything the library cannot prove is
+refused.
 </Callout>
 
 ## The ask carries receipts
@@ -40,23 +59,47 @@ authored claim (`does` + declared `writes`), honesty-tagged like every claim in 
 
 ## Decisions leave a record
 
-- **Approve** → call again with `confirm: true`; the fire lands and its transition carries
-  `askId` back to the receipts the human saw.
-- **Decline** → call with `decline: true` (Mode B) or `session.declineConfirm(id)`; the
-  refusal is recorded instead of the ask dangling forever. (Under
-  [`requireHumanApproval`](#requirehumanapproval--make-approve-enforceable) that pair records a
-  *report* and the card stays open — the human's own no is `session.declineAsk(askId, { by })`.)
+- **Approve (default)** — the agent calls again with `confirm: true`; the fire lands and its
+  transition carries `askId` back to the receipts the human saw. *This is the agent's assertion,
+  recorded and not enforced.*
+- **Approve (enforced)** — the **app** calls `session.approveAsk(askId, { by })` when the person
+  clicks Approve; the agent's next `confirm: true` finds that yes and crosses. One yes, one action.
+- **Decline** — the app calls `session.declineAsk(askId, { by })`. Under enforcement, a decline
+  relayed by the **agent** (Mode B `decline: true`, or `session.declineConfirm(id)`) is recorded as
+  *its report*, closes nothing, and leaves the ask open — so **an agent cannot bury a pending ask
+  or manufacture a human no**, and a real no is terminal for that `askId` forever.
 
 `session.confirms()` returns the **ask → decision → fire** chain; `session.onConfirm(fn)`
 streams rows to your audit sink live. This journal is deliberately SEPARATE from the
 [gap ledger](doc:sessions#the-gap-ledger): a gated action is consented capability, not unmet
 demand.
 
-`ConfirmRecord.kind` **grows**: `'ask' | 'approved' | 'declined'` shipped first, and enforcement
-adds `'always-approved'`, `'used'`, `'refused'` and `'revoked'` — four facts the library
-previously could not record. A durable grant is a new *kind* rather than a field on `'approved'`
-precisely so a 0.6-era filter cannot miscount it as a one-time yes. Read the kinds you know and
-let the rest fall through.
+### The seven kinds, side by side
+
+`ConfirmRecord.kind` **grows**: `'ask' | 'approved' | 'declined'` shipped in 0.6.0, and enforcement
+adds four facts the library previously could not record. Laid out together because the difference
+between an ALLOW and an ALWAYS ALLOW has to be visible on the page as well as in the data:
+
+| `kind` | who writes it | what it means | authorizes |
+|---|---|---|---|
+| `'ask'` | the gate, when a high-effect step stops | the card exists; it carries the receipts | nothing — an `'ask'` row's `principal` proves only who asked |
+| `'approved'` | `approveAsk` (`principal: 'user'`) — or, in default mode, the fire itself | a human's **ALLOW** | **one** fire, then it is spent |
+| `'always-approved'` | `alwaysApprove` (`principal: 'user'`) | a human's **ALWAYS ALLOW** — a standing policy, scoped to the action (+ optional `scopeInstance`), never consumed | every matching fire until it expires or is revoked |
+| `'declined'` | `declineAsk` (`principal: 'user'`) — terminal | a human's **no** | nothing, and it outranks a standing grant |
+| `'declined'` + `relayed: true` | `declineConfirm` / Mode B `decline: true` under enforcement | the **agent's report** of a refusal | nothing, and it **closes nothing** — the card stays open |
+| `'used'` | the fire that spent an approval (carries `transitionId`) | an approval was exercised | nothing — it is the receipt for a spend |
+| `'refused'` | the gate (carries `rejectionReason`) | a crossing attempt with no valid yes | nothing — it is the forgery, recorded |
+| `'revoked'` | `revokeAlwaysApprove` (`principal: 'user'`) | a standing grant was withdrawn | nothing |
+
+A durable grant is a new **kind** rather than a `scope` field on `'approved'` precisely so a
+0.6-era filter cannot silently miscount it as a one-time yes — being missed here is a security
+misreading, not a cosmetic one. Read the kinds you know and let the rest fall through.
+
+`'declined'` is listed twice because the `relayed` flag is the whole difference between a human's
+no and an agent's *report* of one — and an auditor must never have to infer that from `principal`,
+which on a relayed row is the caller's claim rather than a fact. Rows the enforcement path wrote
+also carry `enforced: true`, so a journal export separates what the gate will honour from the
+pre-enforcement rows without inferring it from a kind.
 
 ## `requireHumanApproval` — make Approve enforceable
 
@@ -116,6 +159,23 @@ Both default off, because the threshold is a product decision the library cannot
 approving a refund may legitimately take four minutes, and in a live-tapped app the state version
 moves on almost every report.
 
+### Turning it on
+
+**Nothing changes unless you ask.** `requireHumanApproval` defaults off and 0.6 behaviour is
+byte-identical without it — same rows, same principals, same supersede semantics, pinned by its own
+test file (`test/human-approval-default-unchanged.test.ts`).
+
+**Note for anyone switching exhaustively.** Three public unions widen — `FireResult`,
+`GapRecord.rejectionReason`, and `ConfirmRecord.kind` — so an exhaustive `switch` gains cases and
+stops compiling until you add them. Every existing value keeps exactly the meaning it had: **a new
+kind is a new fact, never an old one relabelled.** Read the kinds you know and let the rest fall
+through.
+
+**Turning it on is a two-part change,** and the second part is yours: the option makes the gate
+real, and your app has to give a person a way to answer. Wire your Approve/Decline controls to
+`approveAsk` / `declineAsk`. Until you do, every high-effect agent fire is refused
+`APPROVAL_REQUIRED` — fail-closed on purpose.
+
 ### A decline is as unforgeable as an approval
 
 A caller must not be able to manufacture a no, and — worse — must not be able to **bury** a
@@ -151,25 +211,36 @@ At the served boundary `APPROVAL_REQUIRED` comes back as `judgment: 'needs-confi
 receipts — enforcement is not a wall the agent bounces off, it is the ask, again, honestly.
 
 <Callout type="warn" title="What this does NOT prove">
-It proves that a row of the right kind, from the right principal, for this action and this input,
-exists and has not been spent. It does **not** prove that a particular person authenticated —
-`by` is a string your host supplies — and it cannot verify the property it depends on: that your
-app keeps `approveAsk` somewhere the model cannot reach. The option moves approval onto a channel
-the model does not write *by a convention you must uphold*, not by a proof we can offer.
+It proves exactly this much: a row of the right **kind**, from the right **principal**, for this
+**action** and this **input**, exists and has not been spent. Everything below is outside that
+sentence, and is listed rather than implied.
 
-The gate keys off the **principal**, not the door: a direct in-process
-`session.fire(id, { source: 'agent' })` **is** gated. What is exempt is the app-self-report tier —
-`source: 'user'`, `source: 'system'`, and the record-only sensor (`invoke: false`) — because that
-motion really happened, and refusing it would be the library denying reality. So, in the same
-voice the never-trap gate already uses: **hand a model a port constructed with `source: 'user'`
-and you have disarmed this gate.** The library will not stop you — that tier exists so an app can
-report its own motion — but it will not pretend either: building one **warns** through your
-`onWarn`, and that port serves the *unenforced* `confirm` description, because telling a model
-"this app enforces that" through the one port whose fires are exempt would be the same class of
-lie. `session.requiresHumanApprovalFrom(principal)` is the honest question for a port, and
-`session.requiresHumanApproval` is the question about the session. Ask ids are also per-session
-counters, so an `askId` from one session never resolves in another — an audit sink must key on
-`(session, askId)`.
+- **WHO the human is.** `by` is a string your host supplies. The library records it and never
+  checks it — authentication is your job.
+- **The integrity of your own approval channel — the loudest item.** The option moves approval onto
+  a channel the model does not write *by a convention you uphold*, not by a proof we can offer. If
+  you wire `approveAsk` somewhere a model can reach, the gate is only as strong as that wiring.
+- **A port that stamps a human principal.** Covered at the top of this page: building one **warns**
+  through your `onWarn` and serves the *unenforced* `confirm`/`decline` descriptions, because
+  telling a model "this app refuses that" through the one port whose fires are exempt would be the
+  same class of lie. `session.requiresHumanApprovalFrom(principal)` is the honest question for a
+  port; `session.requiresHumanApproval` is the question about the session.
+- **Cross-session `askId`s.** Ask ids are per-session counters, so two sessions both mint `ask#1`
+  and an id from one never resolves in the other. An audit sink must key on `(session, askId)`.
+- **Tier-2 effect-signature inference.** A transition the session *inferred* from a state delta
+  never went through `fire()`, so no gate saw it. It is recorded `principal: 'unknown'` and marked
+  *attributed by inference, not observed* — see [Ground truth](doc:grounding).
+- **The app calling its own handler function.** The gate is on `fire()`. Code that calls the
+  underlying function directly bypasses the session entirely, and the session cannot know it
+  happened.
+- **Non-high-effect actions.** The gate only holds fires of steps declared `confirm: true` in the
+  graph. An action nobody marked high-effect is not held, and marking it is a graph decision.
+
+One thing it **does** cover, because it is the natural next question: a
+[tour](doc:actuation) cannot walk through a high-effect door.
+`allowUnmaterializedFires` lets an unbound fire through as an honest no-op, but the approval gate
+sits **before** that arm — so an unapproved high-effect fire is refused rather than answered
+`ok: true, executed: false`, and an agent cannot enumerate the high-effect doors by firing them.
 </Callout>
 
 <Callout title="`willUse` puts the input in the receipts pack">

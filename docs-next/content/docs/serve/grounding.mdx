@@ -38,8 +38,21 @@ facts.text;
    it, *these lines are what actually happened; the conversation is a claim about them*;
 2. **where you are** — the cursor (and, on the tree API, the focus below page level);
 3. **every attempt, one line each**, oldest first;
-4. **what a human still owes** — any open confirm ask, by action and `askId`;
+4. **where a human decision stands** — one line per confirm ask, by action and `askId`, in three
+   shapes: *Awaiting the human's decision*, *Approved by the human, not yet done*, and *The human
+   declined*. The two answered shapes exist because marking an ask answered would otherwise go
+   silent in exactly the window that matters — a recorded approval nothing has acted on yet, and a
+   no an agent might quietly re-ask around;
 5. **what the app has not answered** — any fire still awaiting its state report.
+
+The *awaiting* lines obey the same `maxAttempts` dial as the attempts list, because under
+[enforced approval](doc:receipts#requirehumanapproval--make-approve-enforceable) an agent mints a
+new ask per distinct input and could otherwise inflate the one block a model is told to trust above
+its own account. The **oldest** cards are kept — burying the question a person is actually looking
+at under forty fresh ones is the move this refuses — and the omitted count is stated outright.
+Answered lines are never capped: only a human-side door writes one, so hiding a recorded decision
+is the one thing this block must never do. `by` and `note` are not rendered here; they are the
+audit fields, and this block carries structural facts only.
 
 With nothing attempted it says so, in as many words:
 
@@ -68,6 +81,17 @@ Every attempt is graded, and the grades are deliberately unglamorous:
 A fire nobody could check says so rather than borrowing the stronger word — that grading is
 the whole reason the block is worth trusting. Attribution rides along too: a step attributed
 by effect-signature inference is marked *attributed by inference, not observed*.
+
+A **blocked forgery lands here as a fact, not as silence.** Under
+[enforced approval](doc:receipts#requirehumanapproval--make-approve-enforceable) a high-effect fire
+carrying no approval the library can prove is refused, and the refusal reads
+
+```text
+did NOT happen — agent's fire of checkout.place-order was refused: APPROVAL_REQUIRED
+```
+
+so the next turn cannot narrate the order as placed, which is the exact failure this page exists
+for.
 
 Attempts are ordered by **cursor version**, which is a proof rather than a heuristic: a
 refusal never bumps the version and a recorded fire bumps it immediately, so every row

@@ -74,8 +74,9 @@ are documented in the [API Reference](/api).
 
 Over MCP, a high-effect step returns `judgment: 'needs-confirm'` — with
 [receipts](doc:receipts) — and the host decides how to collect the approval before calling
-again with `confirm: true`. A portable human-in-the-loop that needs no framework-specific
-pause/resume: the ask, the receipts and the decision all ride the ordinary result channel.
+again with `confirm: true`. Portable **in shape** — the ask, the receipts and the decision all ride
+the ordinary result channel, with no framework-specific pause/resume — and enforced only with
+`requireHumanApproval`.
 
 What the default gate does **not** do is prove the yes was real. `confirm: true` is the agent's
 request to proceed, not the human's answer, so an agent that skips the ask crosses anyway. Create

@@ -930,6 +930,22 @@ export class Session {
    * while a typed caller is still made to name the principal. An omitted
    * source reads as 'agent' — never 'user', which would file a machine's
    * action in the ledger under a human and disarm the never-trap gate below.
+   *
+   * THE CONFIRM BOUNDARY, stated here because this is the signature an
+   * integrator reads. There is no `confirm` field on {@link FireOptions} and
+   * there never will be: a boolean the caller controls is not evidence, so the
+   * door has no slot for one. `confirm` is a MODE B TOOL ARGUMENT
+   * (serve/modes.ts), which means a fire arriving here directly is not gated by
+   * `confirm` at any layer — the app's own code owns its session, and 'user' /
+   * 'system' / `invoke: false` are the app reporting motion that really
+   * happened.
+   *
+   * What {@link SessionOptions.requireHumanApproval} adds is keyed on the
+   * PRINCIPAL rather than the door, so an AGENT-sourced high-effect fire is held
+   * wherever it comes from — the Mode B port, the MCP server, the testing
+   * harness, or this method called directly — and the proof it must present is
+   * {@link FireOptions.askId}, a pointer to a row a human-side door recorded.
+   * See THE APPROVAL GATE below.
    */
   fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
     // One reading of the principal for every gate, ledger row and cause below
