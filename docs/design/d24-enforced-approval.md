@@ -198,6 +198,47 @@ dial as the attempts list, oldest kept, count stated.
 The pattern under all six: the library was reporting something it had not established. That is the
 same defect as the original finding, wearing different clothes each time.
 
+## Round three — a whole-wave pass over the finished tree
+
+Forty-three attacks re-run against the FINAL tree by someone not trusting round two, plus a 0.6
+consumer compiled and run against the published 0.6.0 and against this build and diffed. Every
+forgery round two closed stayed closed. Three things came back.
+
+**The docs site would not build.** One frontmatter line — `description:` carrying an unquoted
+`` `confirm: true` `` — and YAML reads the colon-space inside a plain scalar as a nested mapping,
+which kills the whole Fumadocs build. `npm run docs:links` had said *"✓ all internal links
+resolve"* over exactly that tree, because it never parses frontmatter as YAML. A green gate over a
+site that does not exist is the same defect as the original finding, so the value is quoted and
+`test/docs/frontmatter.test.ts` now states the one rule that bit.
+
+**"Byte-identical" was one field too strong.** Confirm-journal rows moved from `Date.now()` to the
+session's injected `now()` in this wave, which is the right behaviour — a session handed a clock
+should use it — and it is not identical. A 0.6 consumer that injects `now` and asserts on
+`confirms()[n].timestamp` sees its own clock where it used to see the wall. Everything else the
+consumer touched — the served tool schema byte for byte, `whats_here`, the whole ask →
+`confirm: true` → `approved` chain, transitions, gaps, `groundTruth()`, warnings — is identical.
+The claim is corrected rather than the behaviour reverted.
+
+**A payload that answers differently each time it is read.** `bound-input.ts` detaches the ASK's
+input so a caller cannot swap it after the yes. The FIRE's payload is not detached: the gate reads
+it, `#invokeHandler` reads it again on the next microtask, from the same object. A plain value
+cannot change in between — a getter can. Hand `fire()` an object whose property returns the
+approved `10` to the gate and `999999` to the handler, and the gate allows it, the handler receives
+`999999`, and the journal reads ask (`willUse.input: {total:10}`) → approved → used with nothing
+wrong in it. The same works through an array element.
+
+It is NOT a hole a model can reach: nothing crossing a JSON boundary — the Mode B port, the MCP
+server — can carry a getter, and the exhibit needs `Object.defineProperty` in the host's own
+process. That places it in the same tier as *"if you wire `approveAsk` somewhere a model can
+reach"*: your own code, your own side of the channel. So it is written into **What this does NOT
+prove** rather than papered over, and the honest cure is one line at the call site — relay a plain
+snapshot, not a live object.
+
+Closing it in code would mean the gate comparing a snapshot and the handler receiving THAT
+snapshot, which changes what every enforced handler is handed (identity, and payloads that do not
+survive a copy). That is a design decision about the handler contract, not a review fix, and it is
+recorded here rather than taken.
+
 ## The line this record exists to make true
 
 Without the option: *Approve is a recorded decision plus a convenience message — honest for a

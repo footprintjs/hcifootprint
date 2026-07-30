@@ -1,6 +1,6 @@
 ---
 title: Confirms & receipts
-description: A high-effect ask carries receipts — what will happen, why it's fireable, where the human is — and by default the agent's own `confirm: true` crosses it; `requireHumanApproval` makes the crossing require an approval a person recorded.
+description: "A high-effect ask carries receipts — what will happen, why it's fireable, where the human is — and by default the agent's own `confirm: true` crosses it; `requireHumanApproval` makes the crossing require an approval a person recorded."
 ---
 
 High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate that carries
@@ -220,6 +220,14 @@ sentence, and is listed rather than implied.
 - **The integrity of your own approval channel — the loudest item.** The option moves approval onto
   a channel the model does not write *by a convention you uphold*, not by a proof we can offer. If
   you wire `approveAsk` somewhere a model can reach, the gate is only as strong as that wiring.
+- **A payload that answers differently each time it is read.** The ask binds to a **copy**, so
+  changing your object after the yes is refused. The *fire's* payload is not copied — the gate reads
+  it, and your handler reads it again a moment later, from the same object. A plain value cannot
+  change in between; a **getter** can. An in-process caller that hands `fire()` an object whose
+  property returns the approved value to the gate and another value to the handler is inside the
+  bullet above, not outside it: it is your own code, on your own side of the channel. Nothing
+  crossing a JSON boundary — the Mode B port, the MCP server — can do it. If you relay a live object
+  straight from your app into `fire()`, hand it a plain snapshot.
 - **A port that stamps a human principal.** Covered at the top of this page: building one **warns**
   through your `onWarn` and serves the *unenforced* `confirm`/`decline` descriptions, because
   telling a model "this app refuses that" through the one port whose fires are exempt would be the

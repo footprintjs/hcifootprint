@@ -54,8 +54,17 @@ stay absent.
   `groundTruth()` says *"did NOT happen … was refused: APPROVAL_REQUIRED"*) and a
   `'refused'` confirm row. Rows are never deduplicated; only the dev warning is.
 
-**Nothing changes without the option** — default behaviour is byte-identical, pinned by
-`test/human-approval-default-unchanged.test.ts`. One exception was found and closed before
+**Nothing changes without the option** — pinned by
+`test/human-approval-default-unchanged.test.ts`, and checked the only way that claim can be
+checked: a 0.6 consumer compiled and run against the published 0.6.0 and against this build, and
+the two transcripts diffed. The served tool schema is identical byte for byte, and so is the whole
+ask → `confirm: true` → `approved` chain, `whats_here`, transitions, gaps, `groundTruth()` and the
+warnings. **One field is not:** confirm-journal rows now take their `timestamp` from the session's
+injected `now()` instead of `Date.now()`. A session handed a clock should use it, so this stays —
+but if you inject `now` and assert on `confirms()[n].timestamp`, you will see your own clock where
+the wall used to be. That is the whole difference.
+
+One further exception was found and closed before
 release: the Mode B port had begun passing the model's `input` to `confirmAsk` on every
 high-effect ask, so a session with the option OFF would have started carrying user payloads
 in `receipts.willUse` and in the exported confirm journal. It is passed only where it binds
@@ -91,9 +100,14 @@ a proof the library can offer. It keys on the PRINCIPAL, so a direct
 `fire(id, { source: 'agent' })` IS gated while the app-self-report tier (`'user'`,
 `'system'`, `invoke: false`) is not: hand a model a port built with `source: 'user'` and
 you have disarmed this gate — the library warns and stops claiming the gate, but it cannot
-stop you. See [D24](docs/design/d24-enforced-approval.md), whose *Round two* section records
-the four forgeries an adversarial review landed against the first cut of this feature and
-what each one cost to close.
+stop you. One more joined that list on the last pass: the ask binds to a **copy**, but the
+FIRE's payload is not copied — the gate reads it and your handler reads it again a moment
+later, from the same object, so an object with a **getter** can answer the gate with the
+approved value and the handler with another. No JSON boundary can carry one, so it is your
+own code on your own side of the channel; relay a plain snapshot into `fire()` and it cannot
+arise. See [D24](docs/design/d24-enforced-approval.md), whose *Round two* and *Round three*
+sections record every forgery an adversarial review landed against this feature and what each
+one cost to close.
 
 ## [0.6.0] - 2026-07-29
 
