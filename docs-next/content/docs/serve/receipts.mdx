@@ -262,14 +262,71 @@ sits **before** that arm — so an unapproved high-effect fire is refused rather
 
 <Callout title="`willUse` puts the input in the receipts pack">
 Binding the approval to what was shown means the input rides the receipts — to the model, to the
-human, and into the journal export. That is the point of it, and it means an input carrying a
-secret is in the pack. `redactedKeys` governs state keys, never payloads, exactly as it never
-governed `TransitionRecord.payload`.
+human, and into the journal export. That is the point of it — a receipt that hides the amount is
+worse than useless — and it means an input carrying a secret is in the pack by default.
+`redactedKeys` governs state keys and never governed a payload, here or on
+`TransitionRecord.payload`.
 
 It rides only where it **binds** something: the Mode B port passes the model's `input` to
 `confirmAsk` under `requireHumanApproval` and not otherwise, so a session without the option keeps
 the 0.6 receipts and the 0.6 journal rows exactly. Call `session.confirmAsk(id, { input })`
 yourself if you want the card to show it either way.
+
+To hide a field inside it, name the path: [`redactedFields`](#redactedfields--hiding-a-field-inside-the-data).
+</Callout>
+
+## `redactedFields` — hiding a field inside the data
+
+`redactedKeys` governs **state keys**. `redactedFields` governs the **values a transition carries** —
+the payload a fire sends and the data a handler returns — which is where a real integration's secrets
+actually live. It is off unless you ask for it, and you aim it per channel:
+
+```ts
+const session = graph.createSession({
+  node: 'checkout',
+  requireHumanApproval: true,
+  redactedFields: {
+    // every rendering of what the fire CARRIES: TransitionRecord.payload AND willUse.input
+    payload: ['payment.token'],
+    // what a handler RETURNS: TransitionRecord.produced, the settlement, producedFor()
+    produced: ['apiToken', 'items.secret'],
+  },
+});
+```
+
+Dot paths, the same grammar footprintjs's `RedactionPolicy.fields` teaches. A path segment applied to
+an array applies to **every element** (`'items.secret'` hides it in each item). A named field that is
+present arrives as the literal **`'[REDACTED]'`** — exported as `REDACTED`, and the same marker a
+redacted state key already shows in guard evidence.
+
+**A marker, never a drop.** A dropped field reads as a field that was never sent; the marker says a
+value was here and you are not being shown it. A field that is **absent or `undefined` stays absent** —
+marking it would announce a secret that was never sent. `null` is a value the app chose to send, so it
+is marked. A value the library cannot read faithfully (a `Map`, a class instance) is hidden **whole**
+rather than reached into, because own-property enumeration cannot prove the secret is gone.
+
+<Callout type="warn" title="What redaction costs, and what it deliberately does not touch">
+**The approval gate is untouched, and that is tested.** The ask binds to a faithful detached copy of
+the input (`bound-input.ts`) and the gate compares the fire against **that**, never against the
+rendered receipts. So the comparison keeps running on the real values: an approved fire still crosses,
+a laundered one is still `APPROVAL_MISMATCH`, and a marker can never turn a mismatch into a match. A
+caller that echoes the redacted card back as its payload is refused — a rendering is not an input.
+
+**The human and the model are not separable here.** `confirmAsk()` returns one receipts pack to one
+caller, and over Mode B that caller is the model, which this library then instructs to show the human.
+There is no second channel down which an unredacted card could be sent, so hiding a field hides it
+from the model, from the person reading the model's rendering, and from the journal alike. Aim
+`payload` at fields a person does **not** need in order to judge the action; an app that draws its own
+approval card still holds the raw input it passed in, which is the honest place to show a value the
+model must not see.
+
+**What stays exposed by design.** A payload that is itself a primitive (there is no field to name); a
+handler's *failure* reason, which crosses as capped text through `settlement.error` and not through
+`produced`; the key **names** in a schema-mismatch message (names are the designed disclosure, exactly
+as with `redactedKeys`); and everything your own handler does with the value it is handed — the
+library redacts what it records, never what your app is given. And an auditor recomputing the gate's
+comparison from an exported journal can judge every field they can see; for a hidden one the marker
+tells them precisely which field they cannot.
 </Callout>
 
 ## Two ways to run the approval

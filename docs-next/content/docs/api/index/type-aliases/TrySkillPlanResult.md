@@ -6,7 +6,7 @@ title: TrySkillPlanResult
 
 > **TrySkillPlanResult** = \{ `ok`: `true`; `plan`: [`SkillPlan`](/api/index/interfaces/SkillPlan); \} \| \{ `known`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_SKILL"`; \}
 
-Defined in: [src/atom/types.ts:1335](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1335)
+Defined in: [src/atom/types.ts:1402](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1402)
 
 trySkillPlan()'s answer: the plan, or the unknown-id refusal as a VALUE.
 

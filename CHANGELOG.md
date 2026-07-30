@@ -1,5 +1,42 @@
 # Changelog
 
+## [Unreleased]
+
+### `redactedFields` — the redaction `redactedKeys` never did
+
+`redactedKeys` was consulted for **state keys** and nowhere else. So the data a transition
+carries rode out untouched: a handler's return value reached the model through
+`producedFor()`, the settlement and the wire; `TransitionRecord.payload` reached every
+export door; and 0.7.0's `willUse.input` put the fire's input on the receipts a model
+relays and into the exported confirm journal. The library documented the gap in its own
+voice — *"redactedKeys governs state keys, never payloads"* — and it matters more the
+moment an app returns real data through a handler.
+
+**New, opt-in:** `createSession({ redactedFields: { payload: […], produced: […] } })`.
+Dot paths (footprintjs's own `RedactionPolicy.fields` grammar), applied at the three points
+where a value lands on something a caller can reach: the record's `payload`, the record's
+`produced`, and the receipts' `willUse.input`. A named field that is present arrives as the
+literal `'[REDACTED]'` — exported as `REDACTED`, the same marker a redacted state key
+already shows in guard evidence.
+
+- **Aimed per channel, on purpose.** `payload` governs every rendering of what a fire
+  carries — the record *and* the approval card, because a field hidden from the log that
+  still rides the card is not hidden. `produced` governs what a handler returns. Two lists
+  rather than one, so "hide the token the API returned" can never quietly blank the amount
+  on somebody's confirm card.
+- **The consent gate is untouched, and it is tested.** The ask binds to a faithful detached
+  copy (`bound-input.ts`) and the gate compares the fire against *that*, never against the
+  rendered receipts — so an approved fire still crosses, a laundered one is still
+  `APPROVAL_MISMATCH`, and a marker cannot turn a mismatch into a match.
+- **A marker, never a drop.** An absent or `undefined` field stays absent (marking it would
+  announce a secret that was never sent); `null` is marked; a value the library cannot read
+  faithfully — a `Map`, a class instance — is hidden **whole** rather than reached into.
+- **The human and the model are not separable here**, said plainly in the docs: one receipts
+  pack goes to one caller, and over Mode B that caller is the model. Aim `payload` at fields
+  a person does not need in order to judge the action.
+- **Nothing changes unless you ask.** Absent, 0.7.0 behaviour is byte-identical — including
+  the payload's reference identity on the record — pinned by its own describe block.
+
 ## [0.7.0] - 2026-07-30
 
 **An approval the library cannot prove is not an approval** — the sentence this release is

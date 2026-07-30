@@ -4,7 +4,7 @@ title: HumanApprovalPolicy
 
 # Interface: HumanApprovalPolicy
 
-Defined in: [src/atom/types.ts:402](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L402)
+Defined in: [src/atom/types.ts:461](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L461)
 
 How strict [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) is about a yes given a
 while ago, or in a world that has since moved on.
@@ -23,7 +23,7 @@ refusing to guess the threshold, is the same stance the guard evidence takes.
 
 > `optional` **expiresAfterMs?**: `number`
 
-Defined in: [src/atom/types.ts:404](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L404)
+Defined in: [src/atom/types.ts:463](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L463)
 
 Refuse an approval the human gave longer ago than this. Default: no time limit.
 
@@ -33,7 +33,7 @@ Refuse an approval the human gave longer ago than this. Default: no time limit.
 
 > `optional` **refuseWhenWorldMoved?**: `boolean`
 
-Defined in: [src/atom/types.ts:410](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L410)
+Defined in: [src/atom/types.ts:469](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L469)
 
 Refuse an approval given before the app's state moved on. Compares
 `stateVersion` — not `version`, which also bumps on served-structure changes

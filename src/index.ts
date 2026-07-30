@@ -36,6 +36,9 @@ export { matchRoute } from './graph/route-match.js';
 export type { RoutedPages } from './graph/route-match.js';
 export { Session } from './traverse/session.js';
 export type { RegisteredTools, RegisterToolsOptions } from './traverse/session.js';
+// The marker a redacted field is replaced by — exported so a consumer (and a
+// test) can assert "this was hidden" without hard-coding the string.
+export { REDACTED } from './traverse/redact-fields.js';
 // Growable graph sources — the descriptions the app already owns become graph
 // input: fromRoutes seeds pages (the spine), fromJourneys seeds skills (the
 // overlay), fromLiveStore attaches live actions (last, bind-only). Leaf
@@ -131,6 +134,7 @@ export type {
   PageDef,
   PendingInfo,
   Principal,
+  RedactedFields,
   SessionOptions,
   Settlement,
   Skill,

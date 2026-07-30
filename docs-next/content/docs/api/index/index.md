@@ -56,6 +56,7 @@ title: index
 - [PageNodeDef](/api/index/interfaces/PageNodeDef)
 - [PendingInfo](/api/index/interfaces/PendingInfo)
 - [PresenceHandle](/api/index/interfaces/PresenceHandle)
+- [RedactedFields](/api/index/interfaces/RedactedFields)
 - [RegisteredToolDef](/api/index/interfaces/RegisteredToolDef)
 - [RegisteredTools](/api/index/interfaces/RegisteredTools)
 - [RegisterToolGroupOptions](/api/index/interfaces/RegisterToolGroupOptions)
@@ -112,6 +113,10 @@ title: index
 - [TrySkillPlanResult](/api/index/type-aliases/TrySkillPlanResult)
 - [UpdateResult](/api/index/type-aliases/UpdateResult)
 - [VerifyContract](/api/index/type-aliases/VerifyContract)
+
+## Variables
+
+- [REDACTED](/api/index/variables/REDACTED)
 
 ## Functions
 

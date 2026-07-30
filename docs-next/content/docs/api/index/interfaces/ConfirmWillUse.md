@@ -4,7 +4,7 @@ title: ConfirmWillUse
 
 # Interface: ConfirmWillUse
 
-Defined in: [src/atom/types.ts:1079](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1079)
+Defined in: [src/atom/types.ts:1146](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1146)
 
 WHAT THIS FIRE WILL SEND — the input on the ask card, so the human approves an
 object and not just a verb.
@@ -20,10 +20,18 @@ time, so there is one source of truth and nothing that can fall out of sync —
 and an auditor holding an exported journal can recompute the same comparison.
 
 A NEW EXPOSURE SURFACE, said plainly: the input now rides the receipts to the
-model, to the human, and into the journal export. That is the point of it. An
-input carrying a secret is therefore in the receipts pack — `redactedKeys`
-governs state keys, never payloads, exactly as it never governed
-`TransitionRecord.payload`.
+model, to the human, and into the journal export. That is the point of it — a
+receipt that hides the amount is worse than useless. An input carrying a secret
+is therefore in the receipts pack by default: `redactedKeys` governs state keys
+and never governed a payload, here or on `TransitionRecord.payload`.
+
+WHAT TO DO ABOUT IT: [RedactedFields](/api/index/interfaces/RedactedFields), through
+`SessionOptions.redactedFields.payload` — name the paths and they arrive as the
+`'[REDACTED]'` marker here AND on the record, one list for every rendering of
+the one value. Off unless asked, because the field a person must see to approve
+is exactly the field a default could not be trusted to pick. The gate's own
+comparison is untouched: it binds to the detached copy in `bound-input.ts`, not
+to what is rendered here.
 
 Bounded like every other captured value (depth/breadth/length caps). An input
 too large to hold faithfully is still shown truncated — and the gate then
@@ -35,7 +43,7 @@ refuses to judge a match against it rather than comparing two truncations.
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/atom/types.ts:1081](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1081)
+Defined in: [src/atom/types.ts:1148](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1148)
 
 The payload the confirmed fire will carry. Absent for an input-less action.
 
@@ -45,6 +53,6 @@ The payload the confirmed fire will carry. Absent for an input-less action.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:1083](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1083)
+Defined in: [src/atom/types.ts:1150](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1150)
 
 The row/instance the card is about (an order id), when the action takes one.

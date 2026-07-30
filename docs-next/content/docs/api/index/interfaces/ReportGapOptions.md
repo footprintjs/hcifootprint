@@ -4,7 +4,7 @@ title: ReportGapOptions
 
 # Interface: ReportGapOptions
 
-Defined in: [src/atom/types.ts:1020](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1020)
+Defined in: [src/atom/types.ts:1079](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1079)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1020](https://github.com/footprintjs/hcifootprint
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:1024](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1024)
+Defined in: [src/atom/types.ts:1083](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1083)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:1024](https://github.com/footprintjs/hcifootprint
 
 > `optional` **principal?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1025](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1025)
+Defined in: [src/atom/types.ts:1084](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1084)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:1025](https://github.com/footprintjs/hcifootprint
 
 > `optional` **reason?**: [`GapReason`](/api/index/type-aliases/GapReason)
 
-Defined in: [src/atom/types.ts:1023](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1023)
+Defined in: [src/atom/types.ts:1082](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1082)
 
 ***
 
@@ -36,6 +36,6 @@ Defined in: [src/atom/types.ts:1023](https://github.com/footprintjs/hcifootprint
 
 > **request**: `string`
 
-Defined in: [src/atom/types.ts:1022](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1022)
+Defined in: [src/atom/types.ts:1081](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1081)
 
 The ask that could not be served (length-capped to stay token-lean).

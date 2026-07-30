@@ -4,7 +4,7 @@ title: SkillPlan
 
 # Interface: SkillPlan
 
-Defined in: [src/atom/types.ts:1301](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1301)
+Defined in: [src/atom/types.ts:1368](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1368)
 
 The derived intra-skill dependency DAG with live status.
 
@@ -14,7 +14,7 @@ The derived intra-skill dependency DAG with live status.
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:1303](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1303)
+Defined in: [src/atom/types.ts:1370](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1370)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:1303](https://github.com/footprintjs/hcifootprint
 
 > **skillId**: `string`
 
-Defined in: [src/atom/types.ts:1302](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1302)
+Defined in: [src/atom/types.ts:1369](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1369)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [src/atom/types.ts:1302](https://github.com/footprintjs/hcifootprint
 
 > **steps**: [`SkillPlanStep`](/api/index/interfaces/SkillPlanStep)[]
 
-Defined in: [src/atom/types.ts:1304](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1304)
+Defined in: [src/atom/types.ts:1371](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1371)

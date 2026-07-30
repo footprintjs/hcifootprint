@@ -61,6 +61,7 @@ import type {
   HumanApprovalPolicy,
   PendingInfo,
   Principal,
+  RedactedFields,
   ReportGapOptions,
   SessionEventName,
   SessionEvents,
@@ -85,6 +86,7 @@ import type { ApprovalVerdict, OpenAsk } from './approval-gate.js';
 import { normalizeInput, sameInput } from './same-input.js';
 import { UNCOPYABLE_INPUT, boundInput } from './bound-input.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
+import { redactFields } from './redact-fields.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { expectsOf } from './expects.js';
 import { checkVerify, filterVerdict } from './verify.js';
@@ -236,6 +238,23 @@ export class Session {
   readonly #log: EventLog;
   readonly #counter: ExecutionCounter;
   readonly #redacted: Set<string>;
+  /**
+   * Paths hidden inside the DATA a transition carries (SessionOptions.
+   * redactedFields) — the sibling of #redacted, which governs state keys only.
+   *
+   * Applied at the THREE points where a value is written onto something a caller
+   * can reach: the record's `payload`, the record's `produced`, and the receipts'
+   * `willUse.input`. At the capture site and never at the export door, because
+   * there are nine doors (transitions(), the 'transition' event, three settlement
+   * readers, producedFor(), confirmAsk's return, confirms(), the 'confirm'
+   * listener) and a filter on each is a leak waiting for the tenth. The raw value
+   * simply never lands on the artifact.
+   *
+   * NOT applied to the approval gate's own copies (#openAsks holds
+   * bound-input.ts's faithful clone) — that is what keeps the enforced-consent
+   * gate comparing real values while the rendered copies carry markers.
+   */
+  readonly #redactedFields: RedactedFields;
   readonly #commitValues: 'full' | 'delta';
   readonly #transitions: TransitionRecord[] = [];
   readonly #pending: PendingTransition[] = [];
@@ -361,6 +380,17 @@ export class Session {
     this.#heap = new SharedMemory(undefined, initial);
     this.#counter = createExecutionCounter();
     this.#redacted = new Set(opts.redactedKeys ?? []);
+    // Detached at construction: a consumer mutating the array they passed must not
+    // be able to widen or narrow this session's redaction afterwards (the same
+    // stance every other option takes — the policy is read once).
+    this.#redactedFields = {
+      ...(opts.redactedFields?.payload !== undefined
+        ? { payload: [...opts.redactedFields.payload] }
+        : {}),
+      ...(opts.redactedFields?.produced !== undefined
+        ? { produced: [...opts.redactedFields.produced] }
+        : {}),
+    };
     this.#commitValues = opts.commitValues ?? 'delta';
     this.#warn = opts.onWarn ?? ((message) => console.warn(message));
     this.#registry = new ToolRegistry(this.#warn);
@@ -1135,7 +1165,18 @@ export class Session {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
       cause: { kind: 'fired', affordanceId, principal: source },
       timestamp: Date.now(),
-      payload: opts.payload,
+      // REDACTION POINT 1 of 3 (SessionOptions.redactedFields.payload). The
+      // RECORD's copy only: the handler is still handed `opts.payload` below, and
+      // the gate above already compared the real values. Written redacted here
+      // rather than filtered at each export door, so transitions(), the
+      // 'transition' event, every settlement's `transition`, and any journal
+      // export are covered by one line and a tenth door cannot forget.
+      //
+      // MUTATION PROOF: drop the redactFields() call and four tests in
+      // redacted-fields.test.ts go red with the card number in hand — all three
+      // under "a fire's payload" (the record, every export, the live listener)
+      // plus the one proving a passed array cannot be widened after the fact.
+      payload: redactFields(opts.payload, this.#redactedFields.payload),
       outcome: 'pending',
       evidence: conditions,
       // Unevaluated conditions are taken on faith (the app is the enforcer at
@@ -1310,7 +1351,22 @@ export class Session {
         // looked-up record) rides the DATA channel on the record — sanitized +
         // capped so untrusted content can never become planner instructions.
         if (this.#captureProduced && returnValue !== undefined && returnValue !== null) {
-          record.produced = sanitizeProduced(returnValue);
+          // REDACTION POINT 2 of 3 (SessionOptions.redactedFields.produced).
+          // AFTER the sanitizer, deliberately: sanitizeProduced has already
+          // flattened Maps and class instances into plain objects and dropped
+          // whatever exceeded its caps, so the walk below is over a plain shape
+          // and can never be defeated by an exotic one. Nothing is lost by the
+          // order — a value the sanitizer dropped reaches no audience either —
+          // and the marker survives its later re-sanitizing (it is an 11-char
+          // string, far inside the 200-char cap).
+          //
+          // MUTATION PROOF: drop the redactFields() call and the three tests under
+          // "a handler's return value" (redacted-fields.test.ts) go red — the
+          // model's door, the settlement, and the wire, one each.
+          record.produced = redactFields(
+            sanitizeProduced(returnValue),
+            this.#redactedFields.produced,
+          );
         }
         const entry = this.#pending.find((p) => p.record.id === record.id);
         if (!entry) {
@@ -2772,10 +2828,31 @@ export class Session {
     });
   }
 
-  /** What the card will SEND — bounded exactly like every other captured value. */
+  /**
+   * What the card will SEND — bounded exactly like every other captured value.
+   *
+   * REDACTION POINT 3 of 3 (SessionOptions.redactedFields.payload — the SAME list
+   * as the record's, because this is the same value with a second home, and a
+   * field hidden from the log that still rides the card is not hidden).
+   *
+   * THE CARD IS A RENDERING, NEVER THE BINDING. `confirmAsk` binds the approval to
+   * `boundInput(input)` (bound-input.ts) and the gate compares the fire against
+   * THAT, so a marker here cannot turn a mismatch into a match, and the 0.7.0
+   * gate keeps proving the real values. What it does cost is stated in
+   * RedactedFields: the person reading this card no longer sees the hidden field,
+   * because this library has exactly one channel to hand the pack down.
+   *
+   * MUTATION PROOF: drop the redactFields() call and four tests in
+   * redacted-fields.test.ts go red — both under "the approval card" (the receipts
+   * pack, the exported row, the served ask) and the two under "the gate still
+   * proves the real values" that assert the marker rode the card while the
+   * approval still crossed.
+   */
   #willUse(input: unknown, instance?: string): ConfirmWillUse | undefined {
     const shown: ConfirmWillUse = {
-      ...(input !== undefined ? { input: sanitizeProduced(input) } : {}),
+      ...(input !== undefined
+        ? { input: redactFields(sanitizeProduced(input), this.#redactedFields.payload) }
+        : {}),
       ...(instance !== undefined ? { instance } : {}),
     };
     // Absent stays absent: an ask told nothing shows nothing, rather than an empty
