@@ -7,17 +7,76 @@
 @source '../node_modules/fumadocs-ui/dist/**/*.js';
 
 /* ============================================================
-   hcifootprint identity — the README's gold badge accent on a
-   clean neutral site. Gold is an ACCENT (active states, links),
-   never low-contrast yellow body text.
+   hcifootprint identity — the homepage's palette, so /docs/ is
+   visibly the same product as footprintjs.github.io/hcifootprint/.
+
+   These are the values site/app/globals.css defines: a deep
+   blue-green page, a warm HUMAN hue and a cool AGENT hue. Two
+   separate static exports cannot share a stylesheet, so the block
+   is restated here rather than re-derived. Polarity differs from
+   the site on purpose: there dark is the base and light overrides,
+   here :root IS Fumadocs' light theme and .dark overrides it.
+
+   Fumadocs is themed the way the sibling agentfootprint docs theme
+   it — define the brand tokens, then ALIAS Fumadocs' own
+   --color-fd-* variables onto them. No Fumadocs component rule is
+   overridden, so the docs keep working when Fumadocs changes.
    ============================================================ */
 :root {
-  /* readable brand gold on light (pure yellow text fails contrast on white) */
-  --color-fd-primary: #a67c00;
+  --hp-bg: #e9edec;
+  --hp-panel: #f7f9f8;
+  --hp-ink: #101819;
+  --hp-ink2: #5a6a6b;
+  --hp-rule: #c6cfce;
+  --hp-human: #a96a12;
+  --hp-agent: #14707f;
 }
 .dark {
-  /* the true badge gold reads fine on dark */
-  --color-fd-primary: #f5b301;
+  --hp-bg: #0b1113;
+  --hp-panel: #121a1d;
+  --hp-ink: #e6ecea;
+  --hp-ink2: #8a9a9a;
+  --hp-rule: #253134;
+  --hp-human: #e8a63c;
+  --hp-agent: #4cbacf;
+}
+
+/* One mapping for both themes: every value below is an expression over the
+   tokens, and the tokens are what the theme swaps. A link on the homepage is
+   written in the agent hue, so that is what Fumadocs' primary becomes — docs
+   links, the active sidebar item and the active TOC entry all read as the
+   accent the home page uses. */
+:root,
+.dark {
+  --color-fd-background: var(--hp-bg);
+  --color-fd-foreground: var(--hp-ink);
+  --color-fd-muted-foreground: var(--hp-ink2);
+  --color-fd-border: var(--hp-rule);
+  --color-fd-card: var(--hp-panel);
+  --color-fd-card-foreground: var(--hp-ink);
+  --color-fd-popover: var(--hp-panel);
+  --color-fd-popover-foreground: var(--hp-ink);
+  --color-fd-secondary-foreground: var(--hp-ink);
+  --color-fd-accent-foreground: var(--hp-ink);
+  --color-fd-primary: var(--hp-agent);
+  --color-fd-ring: var(--hp-agent);
+  /* what is written ON a filled accent — the page, exactly as the homepage's
+     solid button inverts: the light page on the deep teal, the dark page on
+     the bright one */
+  --color-fd-primary-foreground: var(--hp-bg);
+  /* the three quiet surfaces (code blocks, search field, hover states) are the
+     rule fading into the panel, and the hover tint is the accent doing the same */
+  --color-fd-muted: color-mix(in oklab, var(--hp-rule) 40%, var(--hp-panel));
+  --color-fd-secondary: color-mix(in oklab, var(--hp-rule) 28%, var(--hp-panel));
+  --color-fd-accent: color-mix(in oklab, var(--hp-agent) 13%, var(--hp-bg));
+}
+
+/* neutral.css hard-codes three greys INSIDE the dark sidebar, which would leave
+   one grey panel on an otherwise blue-green page. Same variables, brand values. */
+.dark #nd-sidebar {
+  --color-fd-muted: color-mix(in oklab, var(--hp-rule) 40%, var(--hp-panel));
+  --color-fd-secondary: color-mix(in oklab, var(--hp-rule) 28%, var(--hp-panel));
+  --color-fd-muted-foreground: var(--hp-ink2);
 }
 
 /* Wordmark: "haci" muted + "footprint" bold, flush — reads as one word. */
