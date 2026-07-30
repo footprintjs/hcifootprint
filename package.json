@@ -19,6 +19,10 @@
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
     },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    },
     "./sensor": {
       "types": "./dist/sensor/index.d.ts",
       "default": "./dist/sensor/index.js"
@@ -66,10 +70,14 @@
     "footprintjs": "^9.10.1"
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": ">=1.0.0"
+    "@modelcontextprotocol/sdk": ">=1.0.0",
+    "react": ">=18"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     }
   },
@@ -77,8 +85,12 @@
     "@anthropic-ai/sdk": ">=0.110.0 <1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^20.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-test-renderer": "^19.1.0",
     "esbuild": "^0.28.1",
     "github-slugger": "^2.0.0",
+    "react": "^19.2.8",
+    "react-test-renderer": "^19.2.8",
     "tsx": "^4.22.5",
     "typedoc": "^0.28.19",
     "typedoc-plugin-markdown": "^4.11.0",
@@ -91,6 +103,9 @@
     "*": {
       "mcp": [
         "dist/mcp.d.ts"
+      ],
+      "react": [
+        "dist/react/index.d.ts"
       ],
       "sensor": [
         "dist/sensor/index.d.ts"

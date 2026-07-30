@@ -1,10 +1,15 @@
 /**
  * The three hooks the UI needs, and nothing more.
  *
- * `useControl` is the load-bearing one: a component tells the store it is on
- * screen, and un-tells it when it leaves. That single line is what makes an
+ * `useRenderedControl` is the load-bearing one: a component tells the store it is
+ * on screen, and un-tells it when it leaves. That single line is what makes an
  * action's existence follow the real UI — no registration lists to maintain, no
  * chance of a control that stopped rendering leaving a live binding behind.
+ *
+ * It answers a DIFFERENT question from the library's `useControl`, and the two sit
+ * side by side in this app: this one says "the desk can do this now" (the action's
+ * existence), the library's says "this element IS that action" (who did it when a
+ * human clicks). One publishes the affordance, the other attributes the act.
  */
 import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import type { ControlId } from '../app/state.js';
@@ -37,7 +42,7 @@ export function useSessionTick(desk: Desk): number {
 }
 
 /** Report this control's presence for as long as it is rendered. */
-export function useControl(desk: Desk, control: ControlId): void {
+export function useRenderedControl(desk: Desk, control: ControlId): void {
   useEffect(() => {
     desk.store.mountControl(control);
     return () => desk.store.unmountControl(control);

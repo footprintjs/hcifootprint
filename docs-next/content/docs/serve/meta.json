@@ -1,5 +1,5 @@
 {
   "title": "Serve",
   "icon": "Plug",
-  "pages": ["sessions", "human-sensor", "modes", "mcp", "receipts", "grounding", "reading-data"]
+  "pages": ["sessions", "human-sensor", "react-binding", "modes", "mcp", "receipts", "grounding", "reading-data"]
 }

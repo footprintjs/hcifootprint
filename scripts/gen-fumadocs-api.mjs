@@ -14,9 +14,9 @@
  * --exit-code) to enforce freshness — see .github/workflows/ci.yml.
  *
  * Unlike agentfootprint's single-entry setup, typedoc.docs-next.json declares EVERY
- * public entry point (., ./mcp, ./sensor, ./testing, ./testing/lint) so the subpath
- * exports are documented too — the gap that forced af to grow a docs-truth ratchet
- * never opens here.
+ * public entry point (., ./mcp, ./react, ./sensor, ./testing, ./testing/lint) so the
+ * subpath exports are documented too — the gap that forced af to grow a docs-truth
+ * ratchet never opens here.
  *
  * Ported from agentfootprint; the pure helpers are exported and the run is guarded
  * so the repo test suite can prove title derivation and link rewriting without
@@ -47,6 +47,8 @@ const FOLDER_TITLES = {
 const MODULE_TITLES = {
   index: 'hcifootprint',
   mcp: 'hcifootprint/mcp',
+  react: 'hcifootprint/react',
+  'react/index': 'hcifootprint/react',
   sensor: 'hcifootprint/sensor',
   'sensor/index': 'hcifootprint/sensor',
   testing: 'hcifootprint/testing',

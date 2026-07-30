@@ -89,6 +89,47 @@ importing it drags no session machinery and no footprintjs (11.9 KB minified, pi
 Purely additive: a new `exports` entry, no existing specifier changes meaning. 251 new tests
 (1032 → 1283), each behaviour with its own mutation proof.
 
+### `hcifootprint/react` — the sensor, one hook per control
+
+The sensor needs no framework, and that stays true. This is the **skin** that makes it
+disappear into a component: `useControl({ edge, value })` returns a ref callback, you put it
+on the element, and the report call leaves your `onClick` for good.
+
+```tsx
+const ref = useControl({ edge: 'compose.send', value: () => draft });
+return <button ref={ref} onClick={send}>Send</button>;
+```
+
+- **The value your component already holds.** The sensor never reads a value off the DOM, so a
+  value-bearing control stays honestly unwatched until an app declares one — and a component
+  is exactly the thing holding it in a variable. The getter is written inline, so its identity
+  changes on every render while the control does not: the hook keeps the **newest** getter and
+  re-declares nothing, so what lands on the ledger is what was on screen when the human acted.
+  The `edge`, the `instance`, the cadence **window** and whether a value exists at all are the
+  control's *identity* — change one of those and it is re-declared.
+- **A skin, not a second brain.** Recognition, payload legality, cadence and one-act-one-row
+  are all still the core's. The subpath is 597 B, reaches the sensor through types alone, and
+  a boundary scan pins the properties it keeps by absence: it never names `fire`, never names
+  `invoke`, and `src/react` is the only folder in the package that resolves `react`.
+- **An optional peer with a real floor** (`react >= 18`) on its own subpath, so a consumer who
+  never writes `from 'hcifootprint/react'` never resolves it — an ordinary static import, no
+  dynamic-specifier hatch.
+- **The first commit has no surface, and that is ordinary.** `watchPage` needs a browser root,
+  so an app builds the watcher in an effect and effects run *after* the refs beneath them.
+  `useControl` returns a ref that does nothing while the watcher is `null` and attaches itself
+  when one arrives — which also covers server rendering, and a component used with no provider
+  above it renders perfectly and reports nothing. StrictMode's setup → cleanup → setup nets to
+  one declaration and one listener set.
+- **Adopted in `demos/live-desk`**, which deleted seven of its nine hand-written report calls
+  and the refusal plumbing with them. The three it keeps are the ones that must refuse
+  **before** they act — a tab flip no DOM listener can honestly claim, and the desk's one
+  guarded action — and those edges are named in `reportedElsewhere`, so one human act still
+  writes one row. The sensor deletes the *wiring*, never the pre-refusal, and the demo shows
+  both side by side rather than papering over the difference.
+
+Purely additive: a new `exports` entry and an optional peer. 33 new tests (1293 → 1326),
+each behaviour with its own mutation proof.
+
 ## [0.7.0] - 2026-07-30
 
 **An approval the library cannot prove is not an approval** — the sentence this release is

@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1293%20passing-f5b301?style=flat" alt="1293 tests passing">
+  <img src="https://img.shields.io/badge/tests-1326%20passing-f5b301?style=flat" alt="1326 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -576,7 +576,23 @@ row per served edge — watching, or unwatched with the sentence saying why. Fra
 Angular are each a skin over four fields and one method), SSR-safe by compiler, and an 11.9 KB leaf that drags
 no engine.
 
-→ [The human sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor)
+**React: one hook per control.** `hcifootprint/react` is a skin over that same core — declare what a control
+*is*, and the report call leaves your `onClick` for good:
+
+```tsx
+const ref = useControl({ edge: 'compose.send', value: () => draft });
+return <button ref={ref} onClick={send}>Send</button>;
+```
+
+`onClick` is your own code, unchanged: the browser runs it, the sensor records that a person did, and nothing
+in the hook can run your handler — so one click can never become two rows. The value your component is already
+holding goes over with the declaration; the DOM is never asked for it. `react` is an *optional* peer (`>=18`)
+named by exactly one folder, and the skin is 597 B over the sensor. Adopting it in the `live-desk` demo deleted
+seven of its nine hand-written report calls; the three it kept are the ones that must refuse *before* they act,
+and the demo says so in the code.
+
+→ [The human sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor) ·
+[The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)
 
 ## Frontend: framework-agnostic
 
@@ -587,8 +603,9 @@ storefront with an AI stylist. Human clicks come in through the
 [sensor above](#-the-human-sensor--every-real-click-on-the-ledger-with-no-shim), which needs no framework at
 all.
 
-**On the roadmap:** framework bindings over that same sensor core (`hcifootprint/react` first), plus a demo
-gallery — the same app wired in Angular, React, Vue, and an iframe, shown as pills on one index page.
+React has a binding already ([`hcifootprint/react`](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)).
+**On the roadmap:** the same skin for Vue and Angular — each is four fields and one method, and a test already
+drives that surface with no framework at all — plus a demo gallery showing one app wired four ways.
 One graph, many frontends.
 
 ## The model — Affordance &amp; Transition

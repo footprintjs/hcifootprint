@@ -1,16 +1,28 @@
 /**
  * The app itself — a support desk that does not know it is a demo.
  *
- * Every component that owns a control declares it with `useControl`, and that
- * is the ONLY registration anywhere in this app: when the compose button stops
- * rendering, its action stops existing; when the modal mounts, its actions
- * appear. Human clicks go through `humanFire` (report, then act).
+ * Every component that owns a control declares it TWICE, and the two say
+ * different things:
+ *
+ * - `useRenderedControl` tells the STORE the control is on screen, which is what
+ *   publishes the action at all. When the compose button stops rendering, its
+ *   action stops existing.
+ * - `useControl` (hcifootprint/react) hands the ELEMENT to the sensor, so a human
+ *   clicking it lands on the ledger as a human. There is no reporting call in this
+ *   file for those controls: the browser runs the app's own onClick, and the
+ *   sensor records that it happened.
+ *
+ * Three controls still go through `humanFire` — the two tab switches and Send —
+ * and ui/act.ts says why each keeps its own door. Those three are named to
+ * `watchPage` as `reportedElsewhere`, so one human act still writes one row.
  */
 import { useState } from 'react';
+import { useControl } from 'hcifootprint/react';
 import { openTickets, archivedTickets } from '../app/state.js';
+import type { Ticket } from '../app/tickets.js';
 import type { Desk } from '../desk/wiring.js';
 import { humanFire } from './act.js';
-import { useControl, useDeskState } from './hooks.js';
+import { useRenderedControl, useDeskState } from './hooks.js';
 
 /** How many rows this list renders. The desk has sixty; a list shows a window. */
 const RENDERED_ROWS = 12;
@@ -46,6 +58,9 @@ function DeskPage({ desk }: { desk: Desk }): React.JSX.Element {
   const { state } = useDeskState(desk);
   const [refusal, setRefusal] = useState<string | null>(null);
 
+  // Kept on the app's own door: a tab flip is reported by this desk's visibility
+  // wire, not by any DOM listener, and the refusal has to arrive before the tab
+  // moves. See ui/act.ts.
   const switchTab = (tab: 'inbox' | 'archive'): void => {
     const id = tab === 'archive' ? 'desk.switch-to-archive' : 'desk.switch-to-inbox';
     setRefusal(humanFire(desk, id, () => desk.store.commands.switchTab(tab)).refusal);
@@ -75,82 +90,85 @@ function DeskPage({ desk }: { desk: Desk }): React.JSX.Element {
 }
 
 function ComposeButton({ desk }: { desk: Desk }): React.JSX.Element {
-  useControl(desk, 'compose-button');
+  useRenderedControl(desk, 'compose-button');
+  const open = useControl({ edge: 'desk.open-compose' });
   return (
-    <button
-      type="button"
-      className="primary"
-      onClick={() => humanFire(desk, 'desk.open-compose', () => desk.store.commands.openCompose())}
-    >
+    <button type="button" className="primary" ref={open} onClick={() => desk.store.commands.openCompose()}>
       Compose
     </button>
   );
 }
 
 function InboxList({ desk }: { desk: Desk }): React.JSX.Element {
-  useControl(desk, 'inbox-list');
+  useRenderedControl(desk, 'inbox-list');
   const { state } = useDeskState(desk);
-  const [refusal, setRefusal] = useState<string | null>(null);
   const open = openTickets(state);
   const shown = open.slice(0, RENDERED_ROWS);
 
   return (
     <div className="list">
       {shown.map((ticket) => (
-        <div className="row" key={ticket.id}>
-          <div className="row-main">
-            <span className="who">{ticket.from}</span>
-            <span className="subject">{ticket.subject}</span>
-          </div>
-          <span className="id">{ticket.id}</span>
-          <button
-            type="button"
-            onClick={() =>
-              setRefusal(
-                humanFire(
-                  desk,
-                  'desk.inbox.tickets.reply-to-ticket',
-                  () => desk.store.commands.reply(ticket.id, { message: 'Thanks — looking into it now.' }),
-                  { instance: ticket.id, payload: { message: 'Thanks — looking into it now.' } },
-                ).refusal,
-              )
-            }
-          >
-            {ticket.replied ? 'Reply again' : 'Reply'}
-          </button>
-          <button
-            type="button"
-            /* The desk's rule, rendered: you may only archive what you answered.
-               The same rule reaches an agent as `enabled: false` on the row,
-               and a fire of it as a typed TOOL_DISABLED. */
-            disabled={!ticket.replied}
-            title={ticket.replied ? 'Archive this ticket' : 'Answer it first'}
-            onClick={() =>
-              setRefusal(
-                humanFire(desk, 'desk.inbox.tickets.archive-ticket', () => desk.store.commands.archive(ticket.id), {
-                  instance: ticket.id,
-                }).refusal,
-              )
-            }
-          >
-            Archive
-          </button>
-        </div>
+        <TicketRow desk={desk} ticket={ticket} key={ticket.id} />
       ))}
       <p className="note">
         Showing {shown.length} of {open.length}. The rest are real: the store publishes an action for every open
         ticket, so ticket <code>t-51</code> can be acted on by id without ever being rendered.
       </p>
-      {refusal ? <p className="refusal">the session refused this: {refusal}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * One row — and a row is why a control has to be HANDED OVER rather than found.
+ *
+ * Sixty rows render the same two buttons with the same two names, so a role and
+ * an accessible name cannot tell one ticket's Reply from another's. The
+ * declaration carries the `instance`, which is the only thing that can.
+ */
+function TicketRow({ desk, ticket }: { desk: Desk; ticket: Ticket }): React.JSX.Element {
+  // The value this desk sends, written once and used twice: the app DECLARES it
+  // to the sensor and hands the same thing to its own command. The sensor never
+  // goes looking for it — not in the row, not in the button, not anywhere.
+  const message = `Thanks ${ticket.from} — looking into it now.`;
+  const reply = useControl({
+    edge: 'desk.inbox.tickets.reply-to-ticket',
+    instance: ticket.id,
+    value: () => ({ message }),
+  });
+  const archive = useControl({ edge: 'desk.inbox.tickets.archive-ticket', instance: ticket.id });
+
+  return (
+    <div className="row">
+      <div className="row-main">
+        <span className="who">{ticket.from}</span>
+        <span className="subject">{ticket.subject}</span>
+      </div>
+      <span className="id">{ticket.id}</span>
+      <button type="button" ref={reply} onClick={() => desk.store.commands.reply(ticket.id, { message })}>
+        {ticket.replied ? 'Reply again' : 'Reply'}
+      </button>
+      <button
+        type="button"
+        ref={archive}
+        /* The desk's rule, rendered: you may only archive what you answered.
+           The same rule reaches an agent as `enabled: false` on the row,
+           and a fire of it as a typed TOOL_DISABLED. */
+        disabled={!ticket.replied}
+        title={ticket.replied ? 'Archive this ticket' : 'Answer it first'}
+        onClick={() => desk.store.commands.archive(ticket.id)}
+      >
+        Archive
+      </button>
     </div>
   );
 }
 
 function ArchivePanel({ desk }: { desk: Desk }): React.JSX.Element {
-  useControl(desk, 'archive-panel');
+  useRenderedControl(desk, 'archive-panel');
   const { state } = useDeskState(desk);
   const [armed, setArmed] = useState(false);
   const archived = archivedTickets(state);
+  const clear = useControl({ edge: 'desk.archive.clear-archive' });
 
   return (
     <div className="list">
@@ -167,6 +185,10 @@ function ArchivePanel({ desk }: { desk: Desk }): React.JSX.Element {
       <button
         type="button"
         className="danger"
+        /* The declaration follows what this button IS right now. Unarmed it asks a
+           question, and a click on it clears nothing — so it is not the clear
+           control yet and the sensor is not handed it. Armed, it is. */
+        ref={armed ? clear : null}
         disabled={archived.length === 0}
         onClick={() => {
           if (!armed) {
@@ -174,7 +196,7 @@ function ArchivePanel({ desk }: { desk: Desk }): React.JSX.Element {
             return;
           }
           setArmed(false);
-          humanFire(desk, 'desk.archive.clear-archive', () => desk.store.commands.clearArchive());
+          desk.store.commands.clearArchive();
         }}
       >
         {armed ? `Really clear ${archived.length}?` : 'Clear archive'}
@@ -184,9 +206,10 @@ function ArchivePanel({ desk }: { desk: Desk }): React.JSX.Element {
 }
 
 function ComposeModal({ desk }: { desk: Desk }): React.JSX.Element {
-  useControl(desk, 'compose-modal');
+  useRenderedControl(desk, 'compose-modal');
   const { state } = useDeskState(desk);
   const [refusal, setRefusal] = useState<string | null>(null);
+  const close = useControl({ edge: 'desk.compose.close-compose' });
 
   return (
     <div className="modal" role="dialog" aria-label="Compose">
@@ -200,6 +223,9 @@ function ComposeModal({ desk }: { desk: Desk }): React.JSX.Element {
         <button
           type="button"
           className="primary"
+          /* Kept on the app's own door: this is the desk's one guarded action, and
+             an empty draft must be refused BEFORE the message is sent rather than
+             recorded alongside it. See ui/act.ts. */
           onClick={() =>
             setRefusal(
               humanFire(desk, 'desk.compose.send-message', () => desk.store.commands.sendMessage(), {
@@ -210,7 +236,7 @@ function ComposeModal({ desk }: { desk: Desk }): React.JSX.Element {
         >
           Send
         </button>
-        <button type="button" onClick={() => humanFire(desk, 'desk.compose.close-compose', () => desk.store.commands.closeCompose())}>
+        <button type="button" ref={close} onClick={() => desk.store.commands.closeCompose()}>
           Close
         </button>
       </div>
@@ -224,19 +250,21 @@ function ComposeModal({ desk }: { desk: Desk }): React.JSX.Element {
 }
 
 function SettingsPage({ desk }: { desk: Desk }): React.JSX.Element {
-  useControl(desk, 'settings-panel');
+  useRenderedControl(desk, 'settings-panel');
   const { state } = useDeskState(desk);
+  const wire = useControl({ edge: 'settings.wire-tab-switch' });
+  const toggle = useControl({ edge: 'settings.toggle-compose-button' });
   return (
     <div className="page settings">
       <label className="switch">
+        {/* The desk's own graph calls these switches; a checkbox reads as a
+            checkbox. Handing the element over settles it — a declaration is the
+            app's statement and needs no name to agree with. */}
         <input
           type="checkbox"
+          ref={wire}
           checked={state.tabSwitcherWired}
-          onChange={(event) =>
-            humanFire(desk, 'settings.wire-tab-switch', () =>
-              desk.store.commands.setTabSwitcherWired(event.target.checked),
-            )
-          }
+          onChange={(event) => desk.store.commands.setTabSwitcherWired(event.target.checked)}
         />
         <span>
           <strong>Tab switch wired</strong>
@@ -249,8 +277,9 @@ function SettingsPage({ desk }: { desk: Desk }): React.JSX.Element {
       <label className="switch">
         <input
           type="checkbox"
+          ref={toggle}
           checked={state.showComposeButton}
-          onChange={() => humanFire(desk, 'settings.toggle-compose-button', () => desk.store.commands.toggleComposeButton())}
+          onChange={() => desk.store.commands.toggleComposeButton()}
         />
         <span>
           <strong>Compose button</strong>

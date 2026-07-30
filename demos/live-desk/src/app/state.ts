@@ -11,9 +11,10 @@ export type TabId = 'inbox' | 'archive';
 
 /**
  * A control the app actually RENDERS. Components report their own mount/unmount
- * (see ui/useControl.ts), and the action store publishes an action only while
- * the control that performs it is on screen — which is what makes a gesture's
- * materialisation follow the real UI instead of a hand-maintained list.
+ * (see ui/hooks.ts `useRenderedControl`), and the action store publishes an
+ * action only while the control that performs it is on screen — which is what
+ * makes a gesture's materialisation follow the real UI instead of a
+ * hand-maintained list.
  */
 export type ControlId = 'compose-button' | 'compose-modal' | 'inbox-list' | 'archive-panel' | 'settings-panel';
 

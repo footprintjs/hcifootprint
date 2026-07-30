@@ -1,0 +1,148 @@
+---
+title: The React binding
+description: A skin over the human sensor — one hook per control, no reporting call in your app, and the value your component already holds handed over rather than read off the DOM.
+---
+
+[The human sensor](doc:human-sensor) needs no framework. `hcifootprint/react` is the skin
+that makes it disappear into a component: your control declares what it *is*, and the
+report call leaves your `onClick` for good.
+
+```tsx
+import { watchPage } from 'hcifootprint/sensor';
+import { ControlSurfaceProvider, useControl } from 'hcifootprint/react';
+
+// once, where your app already builds its session
+const watch = watchPage(session, { root: document.body });
+
+// <ControlSurfaceProvider watch={watch}>…your app…</ControlSurfaceProvider>
+
+function Send({ draft, send }) {
+  const ref = useControl({ edge: 'compose.send', value: () => draft });
+  return <button ref={ref} onClick={send}>Send</button>;
+}
+```
+
+That is the whole adoption. `onClick={send}` is your own code, unchanged — the browser runs
+it, and the sensor records that a person did. There is no `fire()` call anywhere in your
+components, and nothing here can run your handler, so one human click can never become two
+ledger rows.
+
+## Three exports, and one of them is a hook
+
+| | what it is |
+| --- | --- |
+| `ControlSurfaceProvider` | puts a watcher in scope for a subtree. `watch` may be `null`. |
+| `useControl(spec)` | returns a **ref callback**. Put it on the element. |
+| `useControlSurface()` | the watcher in scope, or `null` — for a component that needs to ask |
+
+`useControl`'s spec is the core's own
+[`ControlDeclaration`](/api/sensor/interfaces/ControlDeclaration) minus the element, because
+the ref supplies that: `edge`, and optionally `instance`, `value` and `cadence`. It is
+derived from that type rather than restated, so the two can never drift.
+
+The ref callback takes the structural `SensorElement`, which every `HTMLElement` satisfies —
+so it goes onto a `<button>`, an `<input>` or a `<div>` with no cast.
+
+## The value your component already holds
+
+This is the whole reason a framework binding is worth having. The sensor never reads a value
+off the DOM, so a value-bearing control is honestly unwatched until an app declares one — and
+a component is exactly the thing that already has it in a variable:
+
+```tsx
+const ref = useControl({
+  edge: 'compose.send',
+  value: () => draft,        // your state, handed over
+  cadence: 'commit',         // per-control override (default: commit-on-blur)
+  instance: ticket.id,       // one row of a repeats container
+});
+```
+
+<Callout title="Read at report time, from the render you are looking at">
+Your getter is written inline, so its identity changes on every render while the control does
+not. The hook keeps the **newest** getter and re-declares nothing, so a re-render costs
+nothing and the value on the ledger is the one that was on screen when the human acted. Change
+the `edge`, the `instance`, the `cadence` window, or whether a value exists at all, and it
+*is* a new control — those are the control's identity, and it is re-declared.
+</Callout>
+
+## What you delete, and what you keep
+
+Adopting the hook deletes **reporting**, never behaviour. In the `live-desk` demo it removed
+seven of nine hand-written report calls and the refusal plumbing that went with them; the
+whole page now needs one `watchPage` call and one declaration per control.
+
+What it cannot delete is **refuse-before-perform**. A hand-written wrapper reports first, so a
+guard that does not hold blocks the act. The sensor listens in the capture phase — before your
+handler, but still after the human clicked — so it records what happened and cannot stop it.
+That is a choice, not an accident:
+
+- **Guarded action, and the refusal must arrive first?** Keep your own wrapper, and name that
+  edge in `reportedElsewhere` so the sensor stands down for it. One act, one row.
+- **Everything else?** The hook.
+
+`live-desk` keeps exactly three controls on its own door for that reason, and says so in the
+code.
+
+## Mounting, unmounting, and the first commit
+
+`watchPage` needs a browser root, so an app builds the watcher in an effect — and effects run
+*after* the refs beneath them. The first commit of a real app therefore has **no surface**,
+and that is an ordinary case rather than an edge one: `useControl` returns a ref that does
+nothing while `watch` is `null`, and when the watcher lands, every control below attaches
+itself. Nothing to retry, nothing to guard.
+
+```tsx
+const [watch, setWatch] = useState<PageWatch | null>(null);
+useEffect(() => {
+  const page = watchPage(session, { root: document.body });
+  setWatch(page);
+  return () => {
+    setWatch(null);
+    page.stop();
+  };
+}, [session]);
+```
+
+The same shape covers server rendering (there is no root on a server, so there is no watcher)
+and **StrictMode**, whose double-invoke is setup → cleanup → setup: `watchPage` → `stop()` →
+`watchPage` nets to one live listener set, and attach → detach → attach nets to one
+declaration. A component that uses the hook with no provider above it renders perfectly and
+reports nothing — adopting this subpath can never change whether your app renders.
+
+## An optional peer, and a separate subpath
+
+`react` is an [optional peer](https://nodejs.org/api/packages.html) with a real floor
+(`>=18`), and `hcifootprint/react` is the only place in the package that names it. A consumer
+who never writes `from 'hcifootprint/react'` never resolves react — no dynamic-specifier
+trick, just an ordinary static import in a folder you did not ask for. The skin itself is
+597 B and reaches the sensor through types alone, so it drags neither a watcher nor an engine.
+
+<Callout type="warn" title="Redaction and declared values">
+`redactedKeys` governs **state keys** and never touched a payload. A value you declare here
+rides into `payload`, which is governed by [`redactedFields.payload`](doc:receipts) instead.
+If it must not reach the model or the journal, name its path there — nothing in the hook hides
+it for you.
+</Callout>
+
+## What is deliberately not here
+
+- **No `createControlSurface`.** The one job such a wrapper could do — supply `document.body`
+  as a default root — is impossible inside this package: the library compiles with no DOM
+  types, so naming `document` in `src/` is a compile error. That is exactly why
+  `WatchOptions.root` is required, and a wrapper that only renamed `watchPage` would be a
+  second name for one thing.
+- **No handler registration.** `registerToolGroup` is already the library's one mount door and
+  it needs no framework — call it from your own effect. It stays out of `useControl` because
+  the edge id a declaration needs is the *engine's* to resolve, and neither `registerTool` nor
+  `registerToolGroup` hands the resolved id back. A binding that rebuilt it from `node` and
+  `id` would copy the engine's own rule into every framework skin and be silently wrong for a
+  root tool.
+
+## Vue and Angular
+
+Nothing above is React-only except the scheduling. The framework interface is four fields and
+one method — `watch.attach({ edge, element, instance?, value?, cadence? })` — so Vue is
+`onMounted` / `onScopeDispose` plus a template ref, and Angular is a directive with
+`ElementRef` and `ngOnDestroy`. `test/sensor-framework-interface.test.ts` drives that whole
+surface from a plain object with no framework at all, so "thin" is a test rather than a claim.

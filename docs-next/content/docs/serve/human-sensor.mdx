@@ -60,6 +60,9 @@ Four fields and one method. That is the entire framework interface: Vue is `onMo
 `ngOnDestroy`. `test/sensor-framework-interface.test.ts` drives the whole declared level from a
 plain object with no framework at all, so "thin" is a test rather than a claim.
 
+React has that skin already — [`hcifootprint/react`](doc:react-binding) is one hook per
+control, and the value your component is already holding goes over with it.
+
 **RECOGNISED** — nothing declared. The sensor walks up from the event target, computes role
 and accessible name from documented subsets, and looks up your graph's own
 [element bindings](doc:actuation). Unique match → reported. Two or more → refused. A payload is

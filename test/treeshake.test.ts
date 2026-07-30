@@ -143,10 +143,23 @@ const distSources = ['from-routes.js', 'from-journeys.js', 'from-live-store.js']
 );
 /** Same reason: an old dist would still have dist/index.js and "pass" without this. */
 const distSensor = path.join(repoRoot, 'dist/sensor/index.js');
+const distReact = path.join(repoRoot, 'dist/react/index.js');
 
-/** Bundle symbols from a BUILT entry; return contributors + total bytes. */
-async function bundleFromDist(symbols: string, from: string = distIndex): Promise<{ files: string[]; bytes: number }> {
+/**
+ * Bundle symbols from a BUILT entry; return contributors + total bytes.
+ *
+ * `external` exists for the one subpath that has a peer: a consumer's bundler
+ * never inlines react, it dedupes to the app's own copy. Inlining it here would
+ * measure React's size instead of the skin's, which is the one number this proof
+ * is about.
+ */
+async function bundleFromDist(
+  symbols: string,
+  from: string = distIndex,
+  external: string[] = [],
+): Promise<{ files: string[]; bytes: number }> {
   const result = await build({
+    external,
     stdin: {
       // Absolute dist path: esbuild then resolves this package's own
       // package.json for the sideEffects flag — the consumer's view.
@@ -174,7 +187,7 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
   beforeAll(() => {
     // A gate, never a skip: without dist these tests would prove nothing,
     // and silently skipping would report green on an unproven package.
-    for (const file of [distIndex, ...distSources, distSensor]) {
+    for (const file of [distIndex, ...distSources, distSensor, distReact]) {
       if (!fs.existsSync(file)) {
         throw new Error(`treeshake dist proof needs ${path.relative(repoRoot, file)} — run npm run build first`);
       }
@@ -219,5 +232,24 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
     }
     expect(files, 'probe must actually pull the watcher').toContain('dist/sensor/watch-page.js');
     expect(bytes).toBeLessThanOrEqual(16 * 1024);
+  });
+
+  /**
+   * The skin's own bytes, with react where a consumer's bundler keeps it —
+   * outside. Two separable promises, and this measures both at once: the hook
+   * drags no WATCHER (everything it needs from the sensor is a type, so a page
+   * that imported only the hook would ship no listener), and it drags no ENGINE
+   * behind that. Pinned at 2 KB against a measured 597 B, so honest growth passes
+   * and a value import of the core fails.
+   */
+  it('the shipped react subpath is the hook alone — no sensor, no engine, under 2 KB', async () => {
+    const { files, bytes } = await bundleFromDist('ControlSurfaceProvider, useControl', distReact, ['react']);
+    const leaked = files.filter((f) => !f.startsWith('dist/react/'));
+    expect(leaked, 'modules outside dist/react/** leaked into the react bundle').toEqual([]);
+    for (const forbidden of ['dist/sensor/', 'dist/traverse/', 'dist/tree/', 'node_modules/footprintjs']) {
+      expect(files.filter((f) => f.includes(forbidden)), `bundle must not contain ${forbidden}`).toEqual([]);
+    }
+    expect(files, 'probe must actually pull the hook').toContain('dist/react/use-control.js');
+    expect(bytes).toBeLessThanOrEqual(2 * 1024);
   });
 });

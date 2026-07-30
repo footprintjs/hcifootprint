@@ -27,6 +27,15 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   resolve: {
+    /**
+     * `hcifootprint` is LINKED here (`file:../..`), so `hcifootprint/react`'s
+     * ordinary `import 'react'` resolves from the library's own checkout — a
+     * second copy of React, and two copies mean "invalid hook call" on the first
+     * render. Deduping points both at this app's copy, which is what a consumer
+     * installing from npm gets for free. It is a fact about linking, not about
+     * the subpath.
+     */
+    dedupe: ['react', 'react-dom'],
     alias: {
       'node:module': stub('stub-node-module.ts'),
       'node:fs/promises': stub('stub-node-fs-promises.ts'),
