@@ -100,14 +100,23 @@ a proof the library can offer. It keys on the PRINCIPAL, so a direct
 `fire(id, { source: 'agent' })` IS gated while the app-self-report tier (`'user'`,
 `'system'`, `invoke: false`) is not: hand a model a port built with `source: 'user'` and
 you have disarmed this gate — the library warns and stops claiming the gate, but it cannot
-stop you. One more joined that list on the last pass: the ask binds to a **copy**, but the
-FIRE's payload is not copied — the gate reads it and your handler reads it again a moment
-later, from the same object, so an object with a **getter** can answer the gate with the
-approved value and the handler with another. No JSON boundary can carry one, so it is your
-own code on your own side of the channel; relay a plain snapshot into `fire()` and it cannot
-arise. See [D24](docs/design/d24-enforced-approval.md), whose *Round two* and *Round three*
-sections record every forgery an adversarial review landed against this feature and what each
-one cost to close.
+stop you. See [D24](docs/design/d24-enforced-approval.md), whose *Round two*, *Round three*
+and *Round four* sections record every forgery an adversarial review landed against this
+feature and what each one cost to close.
+
+**The payload the gate proved is the payload that executes.** The last pass found the other
+half of the copy the ask binds to. The FIRE's payload was not copied: the gate read it, and
+`fire()` returns synchronously while the handler runs on the next microtask — so a plain
+`payload.total = 999999` on the following line was enough to have the gate prove `10` and the
+handler receive `999999`, with the confirm journal reading ask → approved → used and
+`transitions()[0].payload` reading `999999` against a card that said `10`. The gate now reads
+your payload **once** and the comparison, the record and the handler all read that one
+reading; a payload it cannot copy faithfully is refused `APPROVAL_MISMATCH` /`cannot-judge`,
+because it cannot prove what such a value will be when the handler reads it. **The one thing
+to know:** in a session with `requireHumanApproval`, a high-effect agent fire hands your
+handler a structural copy rather than your object — send plain data in a high-effect payload,
+not a `Map` or a class instance. Without the option nothing changes: your handler still
+receives your own object, pinned by its own tests.
 
 ## [0.6.0] - 2026-07-29
 

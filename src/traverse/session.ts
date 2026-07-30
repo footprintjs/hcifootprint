@@ -83,7 +83,7 @@ import type { SettlementLatch } from './settlement.js';
 import { checkApproval } from './approval-gate.js';
 import type { ApprovalVerdict, OpenAsk } from './approval-gate.js';
 import { normalizeInput, sameInput } from './same-input.js';
-import { boundInput } from './bound-input.js';
+import { UNCOPYABLE_INPUT, boundInput } from './bound-input.js';
 import { failureReason, isReturnedFailure } from './handler-result.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { expectsOf } from './expects.js';
@@ -1074,9 +1074,55 @@ export class Session {
     // has to re-ask whether the gate said yes.
     let approval: Extract<ApprovalVerdict, { ok: true }> | undefined;
     if (this.#holdsFiresFrom(source) && aff.highEffect && opts.invoke !== false) {
-      const verdict = this.#approvalVerdict(affordanceId, aff, opts);
+      // THE PAYLOAD THE GATE PROVED IS THE PAYLOAD THAT EXECUTES.
+      //
+      // `confirmAsk` detaches the ask's input (bound-input.ts) so the human's yes
+      // binds to a copy the caller cannot reach. That closed one half of the
+      // comparison and left the other half live: the gate judged `opts.payload`
+      // here, and `#invokeHandler` then called `handler(opts.payload)` on the
+      // NEXT MICROTASK, from the same object. A caller that keeps its reference —
+      // an app holding its form state, a relay reusing one args object for the
+      // ask and then the fire — could change it in between. No exotic construct
+      // needed: `fire()` returns synchronously, so a plain `payload.total =
+      // 999999` on the very next line was enough. The gate proved {total:10}, the
+      // handler was handed {total:999999}, and the journal read ask → approved →
+      // used with nothing wrong in it. A getter or a Proxy does the same inside
+      // one statement.
+      //
+      // So the gate reads the caller's object ONCE and everything downstream
+      // reads that copy: the comparison, the record's `payload`, and the handler.
+      // Exactly the rule this function already applies to a `noInput` payload
+      // above ("one normalized truth, because there is one object to read it
+      // from") — the gate is where it was missing.
+      //
+      // AND A VALUE WE CANNOT COPY IS REFUSED, which is the half bound-input.ts
+      // reasoned about on the ask side only. A Proxy over a plain object renders
+      // faithfully through `sameInput` (its prototype IS Object.prototype) and
+      // throws DataCloneError on structuredClone — so keeping the reference for
+      // "the ones we cannot clone" would leave the swap open for the one input
+      // shape built to lie about itself. We cannot prove what such a value will
+      // be when the handler reads it, and an approval we cannot prove is not an
+      // approval. The verdict is asked FIRST so every existing refusal keeps its
+      // own more specific reason (a human's no still reports APPROVAL_DECLINED);
+      // this can only turn an allow into a refusal, never the other way.
+      //
+      // MUTATION PROOF: drop the `opts = proven` line and 'the payload is
+      // swapped after the gate proved it' goes green as a placed order for
+      // 999999. Drop the UNCOPYABLE arm and the Proxy test goes green the same
+      // way.
+      const bound = boundInput(opts.payload);
+      const proven = bound === UNCOPYABLE_INPUT ? opts : { ...opts, payload: bound };
+      const verdict = this.#approvalVerdict(affordanceId, aff, proven);
       if (!verdict.ok) return this.#refuseApproval(affordanceId, verdict, source);
+      if (bound === UNCOPYABLE_INPUT) {
+        return this.#refuseApproval(
+          affordanceId,
+          { ok: false, reason: 'APPROVAL_MISMATCH', askId: verdict.askId, differs: 'cannot-judge' },
+          source,
+        );
+      }
       approval = verdict;
+      opts = proven;
     }
     if (honestNoOp) {
       // Allowed tour fire: the binding the app team still has to build.

@@ -351,6 +351,139 @@ describe('what the approval binds to', () => {
     });
   });
 
+  /**
+   * THE OTHER HALF OF A8/B2 — swap the payload after the GATE proved it.
+   *
+   * A8 closed the ask side: `confirmAsk` detaches its input, so a caller holding
+   * its reference cannot change what the human's yes bound to. The fire side was
+   * still live. The gate read `opts.payload` and `#invokeHandler` then called
+   * `handler(opts.payload)` on the NEXT MICROTASK, from the same object — so the
+   * value was read twice, and the caller owned it in between.
+   *
+   * No exotic construct was needed, which is what makes it worth its own tests:
+   * `fire()` returns synchronously, so a plain assignment on the very next line
+   * beat the handler to the object. The gate proved {total:10}, the handler was
+   * handed {total:999999}, and BOTH ledgers agreed it was fine — the confirm
+   * journal read ask → approved → used, while `transitions()[0].payload` read
+   * 999999. Two ledgers, no disagreement, wrong order placed.
+   *
+   * The fix is the rule fire() already applies to a `noInput` payload: read the
+   * caller's object once, and let every downstream reader read the copy. So the
+   * right outcome here is NOT a refusal — the human approved {total:10} and
+   * {total:10} is what must execute.
+   *
+   * MUTATION PROOF: drop the `opts = proven` line in fire()'s gate block and the
+   * first two go green as a placed order for 999999; drop the UNCOPYABLE arm and
+   * the Proxy one goes green the same way. Verified by running each deletion.
+   */
+  it('the payload is swapped after the gate proved it — the handler still gets the approved value', async () => {
+    const seen: unknown[] = [];
+    const session = shopMap().createSession({
+      node: 'checkout',
+      state: {},
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    session.approveAsk(askId, { by: 'alice@ops' });
+
+    const payload = { total: 10 };
+    const fired = session.fire('checkout.place-order', { source: 'agent', payload, askId });
+    payload.total = 999_999; // fire() has returned; the handler has not run yet
+    await tick();
+
+    // Allowed, because the human really did approve this — and what ran is what
+    // they approved, not what the caller changed it to afterwards.
+    expect(fired).toMatchObject({ ok: true });
+    expect(seen).toEqual([{ total: 10 }]);
+    // The transition ledger and the confirm journal must not be able to disagree:
+    // the record binds to the same proven copy the handler received.
+    const placed = session.transitions().filter((t) => t.cause.affordanceId === 'checkout.place-order');
+    expect(placed.map((t) => t.payload)).toEqual([{ total: 10 }]);
+    expect(kinds(session)).toEqual(['ask', 'approved', 'used']);
+  });
+
+  it('a getter that answers differently each time is read exactly ONCE, at the gate', async () => {
+    const seen: unknown[] = [];
+    const session = shopMap().createSession({
+      node: 'checkout',
+      state: {},
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    session.approveAsk(askId, { by: 'alice@ops' });
+
+    // Answers 10 for as long as anyone is looking, then 999999. Tuning it to the
+    // gate's read count was how the original exhibit worked; counting the reads
+    // is what makes the fix airtight rather than merely re-tuned — one read
+    // cannot disagree with itself.
+    let reads = 0;
+    const payload = {};
+    Object.defineProperty(payload, 'total', { enumerable: true, get: () => (reads++ === 0 ? 10 : 999_999) });
+
+    expect(session.fire('checkout.place-order', { source: 'agent', payload, askId })).toMatchObject({ ok: true });
+    await tick();
+
+    expect(reads).toBe(1);
+    expect(seen).toEqual([{ total: 10 }]);
+  });
+
+  it('a payload the library cannot copy is REFUSED — it cannot prove what would execute', async () => {
+    const seen: unknown[] = [];
+    const session = shopMap().createSession({
+      node: 'checkout',
+      state: {},
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
+    session.approveAsk(askId, { by: 'alice@ops' });
+
+    // The mirror of the B2 case above, on the fire side: a Proxy over a plain
+    // object compares 'same' through sameInput and throws on structuredClone, so
+    // before this it crossed the gate and stayed live all the way to the handler.
+    const fired = session.fire('checkout.place-order', {
+      source: 'agent',
+      payload: new Proxy({ total: 10 }, {}),
+      askId,
+    });
+    await tick();
+
+    expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_MISMATCH', differs: 'cannot-judge' });
+    expect(seen).toEqual([]);
+    expect(kinds(session)).toEqual(['ask', 'approved', 'refused']);
+  });
+
+  it('a durable grant binds what executes too, though it never bound the input', async () => {
+    const seen: unknown[] = [];
+    const session = shopMap().createSession({
+      node: 'checkout',
+      state: {},
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.alwaysApprove('checkout.place-order', { by: 'alice@ops' });
+
+    // A standing grant is deliberately NOT input-bound ("any item, for the next
+    // hour"), so no comparison happens here at all. What the gate SAW is still
+    // what must run: the alternative is a journal whose 'used' row and whose
+    // transition describe different orders.
+    const payload = { total: 10 };
+    expect(session.fire('checkout.place-order', { source: 'agent', payload }).ok).toBe(true);
+    payload.total = 999_999;
+    await tick();
+
+    expect(seen).toEqual([{ total: 10 }]);
+  });
+
   it('instance laundering: approve the card for row o-1, fire o-999 → differs instance', () => {
     const session = ordersMap().createSession({
       node: 'list',

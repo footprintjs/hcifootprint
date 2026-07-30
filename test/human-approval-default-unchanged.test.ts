@@ -241,6 +241,51 @@ describe('none of the new machinery can appear without the option', () => {
     expect(session.confirms()).toHaveLength(before);
   });
 
+  /**
+   * The gate now hands the handler the copy it proved, so that what a person
+   * approved is what runs. That is a change to what a handler RECEIVES, and it
+   * must not reach anyone who did not turn enforcement on — a 0.6 handler is
+   * entitled to the caller's own object, identity and all, and an app that reads
+   * back a live reference (or a payload carrying a class instance, a function, a
+   * DOM node) keeps working exactly as it did.
+   *
+   * MUTATION PROOF: move the binding above the `#holdsFiresFrom` arm in fire()
+   * so it applies to every fire, and both assertions below go red at once.
+   */
+  it('a handler still receives the CALLER’S OWN payload object, not a copy of it', async () => {
+    const seen: unknown[] = [];
+    const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+
+    // A Map survives only by reference — it is exactly what a copy would lose,
+    // so this is the assertion an app with a rich payload would feel first.
+    const payload = { total: 10, notes: new Map([['gift', true]]) };
+    session.fire('checkout.place-order', { source: 'agent', payload });
+    await tick();
+
+    expect(seen[0]).toBe(payload); // the same object, not an equal one
+    expect((seen[0] as typeof payload).notes.get('gift')).toBe(true);
+  });
+
+  /**
+   * And the hole itself, reproduced — deliberately, like the three probes above.
+   * With the option absent the payload stays live all the way to the handler, so
+   * a post-fire mutation still lands. That is 0.6 behaviour; the gate is what
+   * makes it stop, and the gate is opt-in.
+   */
+  it('a payload mutated after fire() still reaches the handler — 0.6 behaviour, reproduced', async () => {
+    const seen: unknown[] = [];
+    const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
+    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+
+    const payload = { total: 10 };
+    session.fire('checkout.place-order', { source: 'agent', payload });
+    payload.total = 999_999;
+    await tick();
+
+    expect(seen).toEqual([{ total: 999_999 }]);
+  });
+
   it('the session reports honestly that it does not enforce', () => {
     expect(atCheckout().requiresHumanApproval).toBe(false);
     expect(shopMap().createSession({ node: 'checkout', requireHumanApproval: false }).requiresHumanApproval).toBe(false);

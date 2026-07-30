@@ -220,24 +220,57 @@ consumer touched — the served tool schema byte for byte, `whats_here`, the who
 The claim is corrected rather than the behaviour reverted.
 
 **A payload that answers differently each time it is read.** `bound-input.ts` detaches the ASK's
-input so a caller cannot swap it after the yes. The FIRE's payload is not detached: the gate reads
-it, `#invokeHandler` reads it again on the next microtask, from the same object. A plain value
-cannot change in between — a getter can. Hand `fire()` an object whose property returns the
-approved `10` to the gate and `999999` to the handler, and the gate allows it, the handler receives
-`999999`, and the journal reads ask (`willUse.input: {total:10}`) → approved → used with nothing
-wrong in it. The same works through an array element.
+input so a caller cannot swap it after the yes. The FIRE's payload was not detached: the gate read
+it, `#invokeHandler` read it again on the next microtask, from the same object. Hand `fire()` an
+object whose property returns the approved `10` to the gate and `999999` to the handler, and the
+gate allowed it, the handler received `999999`, and the journal read ask (`willUse.input:
+{total:10}`) → approved → used with nothing wrong in it.
 
-It is NOT a hole a model can reach: nothing crossing a JSON boundary — the Mode B port, the MCP
-server — can carry a getter, and the exhibit needs `Object.defineProperty` in the host's own
-process. That places it in the same tier as *"if you wire `approveAsk` somewhere a model can
-reach"*: your own code, your own side of the channel. So it is written into **What this does NOT
-prove** rather than papered over, and the honest cure is one line at the call site — relay a plain
-snapshot, not a live object.
+## Round four — the payload the gate proved is the payload that executes
 
-Closing it in code would mean the gate comparing a snapshot and the handler receiving THAT
-snapshot, which changes what every enforced handler is handed (identity, and payloads that do not
-survive a copy). That is a design decision about the handler contract, not a review fix, and it is
-recorded here rather than taken.
+Round three recorded the item above as a documented limitation on the reasoning that it needed
+`Object.defineProperty` in the host's own process, which put it in the same tier as *"if you wire
+`approveAsk` somewhere a model can reach"*. **That reasoning was wrong, and the correction is the
+reason this was closed instead.** No exotic construct is required. `fire()` returns synchronously
+and the handler runs on the NEXT MICROTASK, so a plain assignment on the following line is enough:
+
+```js
+const payload = { total: 10 };
+session.fire('checkout.place-order', { source: 'agent', payload, askId });
+payload.total = 999_999;   // fire() has returned; the handler has not run
+```
+
+Run against the tree at that commit: `ok: true`, the handler receives `{total: 999999}`, the
+confirm journal reads ask → approved → used, **and `transitions()[0].payload` reads `999999` while
+the ask's `willUse.input` reads `10`** — two ledgers describing different orders, neither marked
+wrong. That is not a getter trick in someone's own process; it is the ordinary shape of a caller
+that keeps its own object, which is exactly the case `bound-input.ts` was written for on the ask
+side. The wave had applied its own reasoning to one half of the comparison.
+
+So the gate now reads the caller's object **once** and every downstream reader — the comparison,
+`record.payload`, and the handler — reads that copy. It is the rule `fire()` already applied to a
+`noInput` payload twenty lines above (*"one normalized truth, because there is one object to read
+it from"*); the gate was where it was missing. A payload that cannot be copied faithfully is
+refused `APPROVAL_MISMATCH` / `cannot-judge`, which is the half `bound-input.ts` reasoned about on
+the ask side only: a `Proxy` over a plain object renders faithfully through `sameInput` and throws
+on `structuredClone`, so keeping the reference for "the ones we cannot clone" would have left the
+swap open for the one input shape built to lie about itself.
+
+The verdict is asked FIRST and the binding applied after, so this can only turn an allow into a
+refusal — every existing refusal keeps its own more specific reason, and a human's no still reports
+`APPROVAL_DECLINED`.
+
+**On the handler contract**, which is what round three declined to change. The change is real but it
+is bounded to the fires the gate exists for: enforcement on, high-effect, agent principal, and
+`invoke !== false`. There, a handler receives a structural copy rather than the caller's object.
+Everywhere else — every fire in a session without `requireHumanApproval`, every `source: 'user'` /
+`'system'` self-report, every low-effect action, the record-only sensor tier — the handler still
+receives the caller's own object, pinned by two tests in
+`human-approval-default-unchanged.test.ts` whose mutation proof is moving the binding outside the
+enforcement arm. Weighed against that: a gate that proves a value it does not control at execution
+time is the defect class this whole design exists to refuse, and *"the payload the gate proved is
+the payload that executes"* is a rule an integrator can hold in their head. The docs state the
+copy, and state that a high-effect payload should be plain data.
 
 ## The line this record exists to make true
 

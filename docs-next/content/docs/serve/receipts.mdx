@@ -141,6 +141,19 @@ against a card that said `10`, and the journal would read *ask → approved → 
 wrong in it. A value the library cannot copy faithfully binds to a stand-in that can never match,
 so it is refused too.
 
+**And the payload the gate proved is the payload that executes.** The copy above closes the ask
+side; the fire side is the same rule. Under enforcement the gate reads your payload **once** and
+your handler is then called with *that* reading — so a value that changes between the two cannot
+exist. It could before: `fire()` returns synchronously and the handler runs on the next microtask,
+so a plain `payload.total = 999999` on the following line beat it to the object, and a getter or a
+`Proxy` did the same inside one statement. A payload the library cannot copy faithfully is refused
+`APPROVAL_MISMATCH` / `cannot-judge` here too, because it cannot prove what such a value will be
+when the handler reads it. Two consequences worth knowing: under enforcement a high-effect handler
+receives a structural **copy** of your payload, not your object (so a `Map`, a class instance or a
+function in a high-effect payload will not survive — send plain data); and none of this applies
+without `requireHumanApproval`, where your handler still receives your own object exactly as
+before.
+
 **ALWAYS ALLOW is a policy row, not an approval.** `session.alwaysApprove(id, { by, instance?,
 expiresInMs? })` records a standing grant, scoped to the action (and optionally one instance) and
 deliberately **not** to the input — a grant bound to one input would be indistinguishable from a
@@ -220,14 +233,10 @@ sentence, and is listed rather than implied.
 - **The integrity of your own approval channel — the loudest item.** The option moves approval onto
   a channel the model does not write *by a convention you uphold*, not by a proof we can offer. If
   you wire `approveAsk` somewhere a model can reach, the gate is only as strong as that wiring.
-- **A payload that answers differently each time it is read.** The ask binds to a **copy**, so
-  changing your object after the yes is refused. The *fire's* payload is not copied — the gate reads
-  it, and your handler reads it again a moment later, from the same object. A plain value cannot
-  change in between; a **getter** can. An in-process caller that hands `fire()` an object whose
-  property returns the approved value to the gate and another value to the handler is inside the
-  bullet above, not outside it: it is your own code, on your own side of the channel. Nothing
-  crossing a JSON boundary — the Mode B port, the MCP server — can do it. If you relay a live object
-  straight from your app into `fire()`, hand it a plain snapshot.
+- **What your handler does with what it is handed.** The gate binds the payload — the value it
+  proved is the value your handler receives, and a value it cannot copy is refused. What it cannot
+  bind is what happens next: a handler that re-reads your app's live state instead of its argument
+  is acting on something no gate saw.
 - **A port that stamps a human principal.** Covered at the top of this page: building one **warns**
   through your `onWarn` and serves the *unenforced* `confirm`/`decline` descriptions, because
   telling a model "this app refuses that" through the one port whose fires are exempt would be the
