@@ -669,7 +669,7 @@ the answer).
 
 ```bash
 npm install
-npm test          # vitest — 273 tests
+npm test          # vitest — the whole suite (the count is on the badge above, and gated)
 npm run typecheck # src + tests
 npm run build
 ```

@@ -1,6 +1,53 @@
 # Changelog
 
-## [Unreleased]
+## [0.8.0] - 2026-07-30
+
+**The human's journey lands on the same ledger as the agent's, without boilerplate** — the
+sentence this release is measured by. 0.7.0 made an approval something the library can prove;
+0.8.0 makes a *person's own actions* something it records, and gives the data those actions
+carry a place to be hidden — hidden in the **renderings**, never in the detached copies
+0.7.0's gate compares against, so an enforced approval still proves the real values.
+Entirely **additive**: two new subpaths and one new opt-in option,
+no existing specifier changes meaning and no existing union grows (spelled out under
+*Compatibility* below).
+
+### The four rules, stated as the contract they are
+
+These are not style notes. They came out of a production integration that shipped the wrong
+version of this and had to unship it — so each is now a rule the library **holds**, rather
+than a thing every next consumer rediscovers at their own cost. (Reports are unnamed here by
+house rule; see [`LIBRARY_ASK.md`](LIBRARY_ASK.md).)
+
+1. **The app DECLARES a value. The library never reads the DOM for one.** The first cut
+   interrogated the element for a value the app already held in a variable, and a component
+   library's combobox — which keeps its value in state and its input's `value` empty —
+   reported **empty**. Not an error: a plausible value, on the ledger, indistinguishable from
+   a right one. So a payload rides a fire only from `ControlDeclaration.value()`, and the
+   members a scraper would need (`checked`, `form`, `children`, a per-control `name`) are
+   **absent from the element port** — an absent surface rather than a rule to remember.
+2. **The sensor is record-only, through one canonical door.** Every fire it makes is
+   `RecordOnlyFire` — `invoke` pinned to `false` in the type system, so an executing sensor is
+   *inexpressible* rather than discouraged. The browser already ran the app's handler; the
+   sensor writes the row. Two doors means one human act executed twice, which is exactly what a
+   hand-written shim gets wrong on the call site everyone forgets. `hcifootprint/react`
+   inherits this rather than re-deciding it, and it stays on the record-only side: the hook
+   never calls `fire()` and never runs a handler, so adopting it deletes **reporting** code and
+   leaves behaviour untouched. Registering the handler is deliberately *not* folded in —
+   `registerToolGroup` is already the library's one mount door and it is framework-free, and a
+   skin that re-derived the engine's own edge id would be silently wrong for a root tool.
+3. **The agent's own synthetic clicks are never recorded as human acts.** A dispatched
+   `click()` from a tool call would otherwise land as `principal: 'user'` — the ledger's single
+   worst lie, because it fabricates a person. `isTrusted` is read, and a decline **names the
+   edge it declined**, so a team can delete their own filter and watch this one catch the same
+   events instead of trusting it blind.
+4. **Value-report cadence is a library policy, not a consumer's rediscovery.** "When is a
+   typed value the act?" was being re-answered per integration, wrongly and differently each
+   time. It is now one dial with a stated default: `'commit'` — commit-on-blur, and exactly
+   ONE `change` listener, because the browser already fires `change` when the human finishes
+   and adding a `blur` listener beside it *would be* the double-row bug — or `{ debounceMs }`,
+   or `'per-keystroke'`. Per watcher, overridable per
+   control, and a debounced cadence with no clock is **refused** (`cadence-unavailable`) rather
+   than quietly downgraded.
 
 ### `redactedFields` — the redaction `redactedKeys` never did
 
@@ -156,6 +203,83 @@ return <button ref={ref} onClick={send}>Send</button>;
 
 Purely additive: a new `exports` entry and an optional peer. 43 new tests (1293 → 1336),
 each behaviour with its own mutation proof.
+
+### What the sensor cannot know — in the docs, and here
+
+A recording surface that overstates itself is worse than none, so the limits are stated at the
+same volume as the feature. Restated from
+[the sensor guide](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor):
+
+- **It does not perform anything, ever**, and it **does not read values**.
+- **It cannot refuse.** It listens in the capture phase — before your handler, but still after
+  the human clicked — so it records what happened and cannot stop it. A hand-written wrapper
+  reports *before*, so a guard that does not hold blocks the act; here a guard that does not
+  hold shows up as a refusal **on the row** rather than as an act that was prevented. If you
+  need refuse-before-perform, that belongs to a wrapper door, and the choice is yours to make
+  rather than ours to hide — which is why `demos/live-desk` keeps the three of its nine report
+  calls that must refuse before they act.
+- **It does not write visibility.** `PresenceIndex` is already the presence sensor and its own
+  law applies here too: no amount of mount-counting can see CSS, so visibility stays an
+  explicit signal.
+- **One watcher per shadow root, and this one is a real blind spot.** The DOM *retargets* a
+  composed event that crosses a shadow boundary: a listener on `document.body` reads
+  `event.target` as the **host**, never the control inside it, so the sensor computes the
+  host's role and name and recognises nothing. (`change` does not compose at all, so it never
+  crosses.) Nothing is mis-attributed — a host presenting no role is silence, exactly as
+  clicking prose is — but nothing is reported either, and **`coverage()` cannot see that wall
+  to name it**: coverage speaks about your *graph*, and a locator is never claimed to resolve
+  to a real element. Hand the shadow root itself in.
+- **`watchLocation` is off by default**, because page ids are author-chosen names and not URL
+  paths: handing `location.pathname` to `sync()` unasked moves the cursor to a page that does
+  not exist, `available()` then honestly serves nothing, and the whole agent surface goes quiet.
+
+### Docs, and the intake that produced them
+
+- **A worked example per capability**, not one tour: [the human
+  sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor) and [the React
+  binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding), plus the
+  redaction section on [receipts](https://footprintjs.github.io/hcifootprint/docs/serve/receipts).
+  Every snippet twoslash-compiles against the built types in CI, so a renamed API fails the
+  build rather than the reader.
+- **[A read is an action](https://footprintjs.github.io/hcifootprint/docs/serve/reading-data)** —
+  the question every integration eventually asks (*how does the agent get my app's data?*) now
+  has a page instead of a chat answer. There is no *declare your data* surface, on purpose:
+  declare a tool whose handler **returns** it, and the read inherits the guard, the input
+  contract, the settlement and the ledger row that every action already has.
+- **`LIBRARY_ASK.md`** — the standing intake. Four of this library's releases came out of
+  somebody wiring a real app, hitting a wall, and the wall turning out to be ours; that input
+  lived in chat logs and now lives in the repo. Ask / Evidence / Workaround / Status, with two
+  house rules that matter: **no consumer names**, ever, and **declined entries stay, with the
+  reasoning**, so the next person to propose the same thing finds the answer rather than
+  re-deriving it.
+- **Site:** the header's version badge now **retires itself by measurement** rather than at a
+  guessed breakpoint — it is not drawn the moment the wordmark and the badge stop fitting the
+  space the nav leaves, so no version string can overflow the bar (a fixed 400px cut was right
+  only for the string it was tested against: the first two-digit minor overflowed it). And
+  **npm is back on the shared bar**, in the one `LINKS` array both the homepage and `/story/`
+  render from, so neither page can hold a link the other lacks.
+
+### Compatibility
+
+**No existing union grows in this release** — worth saying precisely, because the last two
+releases could not say it. 0.6.0 grew `GapRecord.kind` and 0.7.0 grew `FireResult`,
+`GapRecord.rejectionReason` and `ConfirmRecord.kind`, each with the same promise attached: a
+new value is a new fact and never an old one relabelled. Here the new unions
+(`SensorReport`, `Cadence`, `BlockedBy`, `EdgeCoverage.status`) live entirely on **new types
+in new subpaths**, which no released consumer can be switching over. An exhaustive `never`
+check written against 0.7.0's types still compiles.
+
+- `redactedFields` absent ⇒ 0.7.0 behaviour, **including the payload's reference identity on
+  the record** (the redactor returns the value untouched when no paths are named), pinned by
+  its own describe block.
+- Two new `exports` entries (`./sensor`, `./react`) with matching `typesVersions`; no existing
+  specifier changes meaning. `attw` is clean on all six entry points.
+- One new **optional** peer, `react`, declared as `*` — deliberately, because `optional` means
+  "need not be installed" and never "version ignored when present", so a floor written there
+  is a rule about a consumer's *whole tree*. Measured in a clean room, `>=18` turned
+  `npm install hcifootprint` into an `ERESOLVE` failure for a React 17 app that never imports
+  the subpath. The subpath's real floor is React 18 (`useInsertionEffect`), enforced by the
+  import itself, where it can only reach someone who actually imports it.
 
 ## [0.7.0] - 2026-07-30
 
