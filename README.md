@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-829%20passing-f5b301?style=flat" alt="829 tests passing">
+  <img src="https://img.shields.io/badge/tests-967%20passing-f5b301?style=flat" alt="967 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -535,6 +535,41 @@ codebase. HACI Footprint doesn't do that:
 
 Token cost tracks the task at hand, not the size of your codebase.
 
+## 👤 Report what the human did — the sensor
+
+An agent's moves land in the ledger because it fires them. A **person's** moves only land there if something
+reports them, and hand-wiring a report beside every `onClick` is where interaction logs rot: one control gets
+forgotten, another gets reported twice, and the record quietly stops being true.
+
+`hcifootprint/sensor` deletes that wiring. One call, no per-control setup:
+
+```ts
+import { watchPage } from 'hcifootprint/sensor';
+
+const watcher = watchPage(session, { root: document.body });
+// …a person clicks a declared button; the session gains a transition with
+// cause { kind: 'fired', principal: 'user' }. Nothing was wired per control.
+watcher.stop();
+```
+
+**It takes no instrumentation config** — no selector map, no id registry. Its whole watch-list is derived from
+`session.available()`, so the graph you already authored *is* the manifest. The only thing you add is DOM truth
+(an ARIA role, an accessible name), which improves the page for every user rather than configuring a library.
+
+Three rules make it safe to leave on:
+
+- **Record-only, in the type system.** The browser already ran your `onClick`; the sensor's fire only *records*
+  (`invoke: false`). The port cannot express an executing fire, so one click can never run your app twice.
+- **It never reads a value off the DOM.** An action that takes a payload is reported from where the value is
+  *declared* — the component that holds it. The DOM is a rendering of your state, not your state, and a
+  plausible-looking wrong payload is worse than none. Such actions are listed as unwatched, with the reason.
+- **It never guesses.** Zero matches, two matches, an untrusted event (an agent's own synthetic click), a
+  gesture it cannot recognize — each is a typed row on `onReport` and a tally in `coverage()`, never an
+  invented session row.
+
+`watcher.coverage()` answers the only question that matters when you adopt it: *of everything I declared, what
+are you actually watching, and why not the rest?*
+
 ## Frontend: framework-agnostic
 
 The core is plain TypeScript and knows nothing about your framework — you connect it through three ordinary
@@ -542,8 +577,8 @@ wires (a store subscription, router events, your existing handlers). The
 [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) shows the whole wiring on a real
 storefront with an AI stylist.
 
-**On the roadmap:** a React adapter (`useMount`) and a DOM actuation adapter (act through the real DOM), plus
-a demo gallery — the same app wired in Angular, React, Vue, and an iframe, shown as pills on one index page.
+The DOM reporting adapter has shipped as [`hcifootprint/sensor`](#-report-what-the-human-did--the-sensor).
+**On the roadmap:** a React binding (`hcifootprint/react`) over that same core, plus a demo gallery — the same app wired in Angular, React, Vue, and an iframe, shown as pills on one index page.
 One graph, many frontends.
 
 ## The model — Affordance &amp; Transition

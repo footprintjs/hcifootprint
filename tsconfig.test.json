@@ -2,6 +2,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    // DOM types for the TESTS ONLY. src/ still compiles under lib ["ES2022"]
+    // (tsconfig.json), which is what makes a free `document` in src/sensor a
+    // compile error rather than a convention — test/sensor-boundary.test.ts pins
+    // that setting. jsdom tests drive real elements and need the real types.
+    "lib": ["ES2022", "DOM"],
     "rootDir": ".",
     // examples/agent-map is the integration the homepage renders. It imports the
     // library the way a consumer does ('hcifootprint'), so the page can never
@@ -14,5 +19,12 @@
     "src",
     "test",
     "examples"
+  ],
+  // test/sensor-probe holds two files that are COMPILED BY A TEST, each under
+  // its own lib setting, and one of them is required to FAIL (it reaches for a
+  // browser global with no lib.dom — that failure is the SSR guarantee being
+  // proved). They are not part of this project's own compilation.
+  "exclude": [
+    "test/sensor-probe"
   ]
 }

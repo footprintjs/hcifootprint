@@ -1,26 +1,36 @@
 import { ThemeToggle } from 'storydeck';
 import { BASE, AUTHOR, AUTHOR_URL } from '../site.config';
+import { version } from '../content/agent-map';
 
-/* The site's shared header/footer.
+/* The site's shared header/footer — the SAME bar the homepage carries.
  *
- * These used to live in the root layout, wrapping every page. The homepage
- * brings its own chrome (its header and footer are part of the design), so the
- * shared chrome moved here and is opted into by the pages that want it —
- * today that is /story/. */
+ * The homepage builds its chrome inline (it is part of that page's design); this
+ * is that chrome for the pages that opt in, today /story/. It carries the same
+ * wordmark, the same version badge, the same five destinations in the same order
+ * and the same theme control, and globals.css draws all of it from the brand
+ * tokens — so crossing home → story changes the content and nothing else.
+ *
+ * `guide` and `honesty` are sections OF the homepage, so from here they are
+ * absolute links back into it. */
+const GITHUB = 'https://github.com/footprintjs/hcifootprint';
+
 export function SiteChrome({ children }) {
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="site-hd">
         <a className="brand" href={`${BASE}/`}>
-          <img src={`${BASE}/logo-foot.png`} alt="" width={26} height={26} />
-          <span>H<span className="a">A</span>CI&nbsp;Footprint</span>
+          <span className="wordmark">hcifootprint</span>
+          <span className="ver">{version}</span>
         </a>
-        <span className="sp" />
-        <a className="nav" href="https://github.com/footprintjs/hcifootprint">GitHub</a>
-        <a className="nav" href="https://www.npmjs.com/package/hcifootprint">npm</a>
-        <a className="nav" href="https://footprintjs.github.io/">footprintjs</a>
-        <ThemeToggle />
+        <nav className="nav-row">
+          <a className="nav" href={`${BASE}/docs/`}>docs</a>
+          <a className="nav is-sec" href={`${BASE}/#integration`}>guide</a>
+          <a className="nav is-sec" href={`${BASE}/#gaps`}>honesty</a>
+          <a className="nav" href={`${BASE}/story/`} aria-current="page">story</a>
+          <a className="nav is-out" href={GITHUB}>github ↗</a>
+          <ThemeToggle />
+        </nav>
       </header>
       {children}
       <footer className="site-ft">

@@ -235,6 +235,9 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
           <a href={DOCS}>docs</a>
           <a className="is-sec" href="#integration">guide</a>
           <a className="is-sec" href="#gaps">honesty</a>
+          {/* a page, not an anchor — so it stays in the bar at every width, next
+              to the other two destinations that leave this page */}
+          <a href={STORY}>story</a>
           <a className="is-out" href={GITHUB}>github ↗</a>
           <button type="button" className="hp-theme" onClick={toggleTheme} aria-label="Switch colour theme">
             <svg className="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -276,15 +279,21 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
             <div className="gate">one gate</div>
           </div>
         </div>
-        <div
-          className="hp-hero-stage"
-          ref={heroRef}
-          style={{ '--hscale': hscale, height: `${Math.round(560 * hscale)}px` }}
-        >
-          <HeroScene />
+        {/* stage + caption travel together: below the headline when stacked,
+            beside it in the second grid column from 1200px up (see home.css).
+            They stay SIBLINGS inside the wrapper, which is what keeps the
+            hold-until-seen switch reaching the caption. */}
+        <div className="hp-hero-scene">
+          <div
+            className="hp-hero-stage"
+            ref={heroRef}
+            style={{ '--hscale': hscale, height: `${Math.round(560 * hscale)}px` }}
+          >
+            <HeroScene />
+          </div>
+          {/* the relay in words, on the relay's own clock (see HeroScene) */}
+          <HeroCaption />
         </div>
-        {/* the relay in words, on the relay's own clock (see HeroScene) */}
-        <HeroCaption />
         <div className="hp-scrollcue">↓ SCROLL — THE OBJECT FLATTENS INTO THE MAP</div>
       </section>
 

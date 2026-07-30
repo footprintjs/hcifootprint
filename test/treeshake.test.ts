@@ -61,6 +61,47 @@ describe('importing one source factory ships only its leaf closure', () => {
     files.forbid('node_modules/footprintjs');
   });
 
+  it('the sensor subpath is a ZERO-value-import leaf: its closure is its own folder', async () => {
+    // The same question test/treeshake.test.ts already asks of fromLiveStore,
+    // asked of a subpath with several modules: bundling its ENTRY may load its
+    // own files and nothing else. `metafile.inputs` lists every file LOADED, so
+    // one engine value-import anywhere in the folder would show up here as
+    // src/traverse/** or node_modules/footprintjs.
+    const result = await build({
+      entryPoints: [path.join(repoRoot, 'src/sensor/index.ts')],
+      bundle: true,
+      write: false,
+      metafile: true,
+      format: 'esm',
+      platform: 'node',
+      logLevel: 'silent',
+    });
+    const loaded = Object.keys(result.metafile!.inputs).sort();
+    const strays = loaded.filter((file) => !file.startsWith('src/sensor/'));
+    expect(strays, 'the sensor must load nothing outside its own folder').toEqual([]);
+    expect(loaded).toContain('src/sensor/watch-page.ts');
+  });
+
+  it('the whole sensor subpath is a ZERO-engine leaf: bundled directly, it is only its own files', async () => {
+    // The sensor is nine small modules rather than one, so the leaf proof is
+    // "nothing from OUTSIDE the folder" rather than "exactly one file". Same
+    // claim, stated at the folder's grain: importing a DOM listener must not
+    // load session machinery, the appmap, or footprintjs.
+    const result = await build({
+      entryPoints: [path.join(repoRoot, 'src/sensor/index.ts')],
+      bundle: true,
+      write: false,
+      metafile: true,
+      format: 'esm',
+      platform: 'node',
+      logLevel: 'silent',
+    });
+    const loaded = Object.keys(result.metafile!.inputs);
+    expect(loaded.length).toBeGreaterThan(1); // it really is several modules
+    const outsiders = loaded.filter((file) => !file.startsWith('src/sensor/'));
+    expect(outsiders, 'the sensor must load nothing outside src/sensor').toEqual([]);
+  });
+
   it('fromLiveStore is a ZERO-value-import leaf: bundled directly, it is the only module', async () => {
     const result = await build({
       entryPoints: [path.join(repoRoot, 'src/graph/sources/from-live-store.ts')],
@@ -118,6 +159,8 @@ const distIndex = path.join(repoRoot, 'dist/index.js');
 const distSources = ['from-routes.js', 'from-journeys.js', 'from-live-store.js'].map((f) =>
   path.join(repoRoot, 'dist/graph/sources', f),
 );
+/** The sensor's built entry — same stale-dist gate, extended to the new subpath. */
+const distSensor = path.join(repoRoot, 'dist/sensor/index.js');
 
 /** Bundle symbols from the BUILT barrel; return contributors + total bytes. */
 async function bundleFromDist(symbols: string): Promise<{ files: string[]; bytes: number }> {
@@ -149,7 +192,7 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
   beforeAll(() => {
     // A gate, never a skip: without dist these tests would prove nothing,
     // and silently skipping would report green on an unproven package.
-    for (const file of [distIndex, ...distSources]) {
+    for (const file of [distIndex, ...distSources, distSensor]) {
       if (!fs.existsSync(file)) {
         throw new Error(`treeshake dist proof needs ${path.relative(repoRoot, file)} — run npm run build first`);
       }
@@ -169,6 +212,62 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
     }
     expect(files.some((f) => f === 'dist/graph/sources/from-routes.js'), 'probe must actually pull the trio').toBe(true);
     expect(bytes).toBeLessThanOrEqual(15 * 1024);
+  });
+
+  it('the shipped sensor subpath carries no engine bytes at all', async () => {
+    // Bundled from dist by absolute path, so esbuild resolves THIS package.json
+    // and honours `sideEffects: false` — the consumer's view, not ours.
+    const result = await build({
+      stdin: { contents: `export { watchPage } from '${distSensor}';`, resolveDir: repoRoot },
+      bundle: true,
+      minify: true,
+      format: 'esm',
+      write: false,
+      metafile: true,
+      outdir: 'out',
+      logLevel: 'silent',
+    });
+    const [output] = Object.values(result.metafile!.outputs);
+    const files = Object.entries(output.inputs)
+      .filter(([, meta]) => meta.bytesInOutput > 0)
+      .map(([file]) => file);
+    // Allowlist, not blocklist: a NEW machinery directory cannot slip past
+    // known-good prefixes the way it would past a list of known-bad ones.
+    const leaked = files.filter((file) => !file.startsWith('dist/sensor/'));
+    expect(leaked, 'the sensor bundle must contain only dist/sensor/**').toEqual([]);
+    expect(files).toContain('dist/sensor/watch-page.js');
+    // A regression pin on measured reality, with headroom (see the header): the
+    // sensor bundled to 7,770 B on the day this number was pinned, and most of
+    // that is the honest-refusal sentences it hands back to a consumer.
+    expect(output.bytes).toBeLessThanOrEqual(12 * 1024);
+  });
+
+  it('the sensor ships only dist/sensor/** — no session machinery reaches a page listener', async () => {
+    const result = await build({
+      stdin: {
+        contents: `export { watchPage } from '${path.join(repoRoot, 'dist/sensor/index.js')}';`,
+        resolveDir: repoRoot,
+      },
+      bundle: true,
+      minify: true,
+      format: 'esm',
+      write: false,
+      metafile: true,
+      outdir: 'out',
+      logLevel: 'silent',
+    });
+    const [output] = Object.values(result.metafile!.outputs);
+    const files = Object.entries(output.inputs)
+      .filter(([, meta]) => meta.bytesInOutput > 0)
+      .map(([file]) => file);
+    // Allowlist, as everywhere else here: a NEW machinery directory cannot slip
+    // past known-good prefixes the way it slips past a list of known-bad ones.
+    const leaked = files.filter((file) => !file.startsWith('dist/sensor/'));
+    expect(leaked, 'modules outside dist/sensor/** leaked into the sensor bundle').toEqual([]);
+    expect(files.some((f) => f === 'dist/sensor/watch-page.js'), 'probe must actually pull the sensor').toBe(true);
+    // A regression pin with headroom, on the day it was measured, so honest
+    // growth passes and a machinery leak fails.
+    expect(output.bytes).toBeLessThanOrEqual(12 * 1024);
   });
 
   it('matchRoute alone stays a sub-kilobyte leaf (regression pin on 510 B)', async () => {
