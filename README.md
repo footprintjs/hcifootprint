@@ -658,6 +658,10 @@ npm run build
 Depends on `footprintjs` ≥ 9.10 (`evaluateFilter` / `normalizeSchema` exports). Sibling of **footprintjs**
 (backend logic) and **agentfootprint** (agents) — one self-explaining trace substrate underneath.
 
+Hit a wall wiring a real app? [`LIBRARY_ASK.md`](LIBRARY_ASK.md) is the standing intake — the ask, the
+evidence, the workaround you're carrying and what it costs; four releases came out of entries like that,
+and declined ones stay there with the reasoning.
+
 ## Built on
 
 [footprintjs](https://github.com/footprintjs/footPrint) — the flowchart pattern for backend code. Every
