@@ -37,8 +37,8 @@ ledger rows.
 
 `useControl`'s spec is the core's own
 [`ControlDeclaration`](/api/sensor/interfaces/ControlDeclaration) minus the element, because
-the ref supplies that: `edge`, and optionally `instance`, `value` and `cadence`. It is
-derived from that type rather than restated, so the two can never drift.
+the ref supplies that: `edge`, and optionally `instance`, `value`, `cadence` and `commits`. It
+is derived from that type rather than restated, so the two can never drift.
 
 The ref callback takes the structural `SensorElement`, which every `HTMLElement` satisfies —
 so it goes onto a `<button>`, an `<input>` or a `<div>` with no cast.
@@ -55,16 +55,44 @@ const ref = useControl({
   value: () => draft,        // your state, handed over
   cadence: 'commit',         // per-control override (default: commit-on-blur)
   instance: ticket.id,       // one row of a repeats container
+  commits: () => armed,      // "is a click on me the act yet?" (see below)
 });
 ```
 
 <Callout title="Read at report time, from the render you are looking at">
 Your getter is written inline, so its identity changes on every render while the control does
-not. The hook keeps the **newest** getter and re-declares nothing, so a re-render costs
-nothing and the value on the ledger is the one that was on screen when the human acted. Change
-the `edge`, the `instance`, the `cadence` window, or whether a value exists at all, and it
-*is* a new control — those are the control's identity, and it is re-declared.
+not. The hook keeps the **newest committed** getter and re-declares nothing, so a re-render
+costs nothing and the value on the ledger is the one that was on screen when the human acted.
+"Committed" is load-bearing: React may begin a render, yield and throw it away, so the newest
+getter and the newest one the human could *see* are different answers — the hook takes the
+second. Change the `edge`, the `instance`, the `cadence` window, or whether a getter exists at
+all, and it *is* a new control — those are the control's identity, and it is re-declared.
 </Callout>
+
+## A control that is not the act yet
+
+The commonest control a binding gets wrong is a confirm button: one element, two clicks, and
+only the second one does anything. The obvious move — hand the element over only once it is
+armed — is the bug. Unarmed, the button rests under the label your action's own locator names,
+so withholding the declaration does not withhold the report: it just moves the answer to the
+[recognised level](doc:human-sensor), which reads that label off the page and records a delete
+that never happened.
+
+So the element goes over **always**, and `commits` is where you say which press is real:
+
+```tsx
+const [armed, setArmed] = useState(false);
+const ref = useControl({ edge: 'archive.clear', commits: () => armed });
+
+<button ref={ref} onClick={() => (armed ? clearArchive() : setArmed(true))}>
+  {armed ? 'Really clear?' : 'Clear archive'}
+</button>
+```
+
+`false` is **silence**, not a report — nothing the graph declares happened. And because a
+declaration outranks a name match on the same element, it closes both evidence levels at once.
+That is the per-element, per-moment stand-down `reportedElsewhere` cannot express: that one is
+per-edge and page-wide.
 
 ## What you delete, and what you keep
 
@@ -112,11 +140,19 @@ reports nothing — adopting this subpath can never change whether your app rend
 
 ## An optional peer, and a separate subpath
 
-`react` is an [optional peer](https://nodejs.org/api/packages.html) with a real floor
-(`>=18`), and `hcifootprint/react` is the only place in the package that names it. A consumer
-who never writes `from 'hcifootprint/react'` never resolves react — no dynamic-specifier
-trick, just an ordinary static import in a folder you did not ask for. The skin itself is
-597 B and reaches the sensor through types alone, so it drags neither a watcher nor an engine.
+`react` is an [optional peer](https://nodejs.org/api/packages.html), and `hcifootprint/react`
+is the only place in the package that names it. A consumer who never writes
+`from 'hcifootprint/react'` never resolves react — no dynamic-specifier trick, just an
+ordinary static import in a folder you did not ask for. The skin itself is 597 B and reaches
+the sensor through types alone, so it drags neither a watcher nor an engine.
+
+The peer range is `*` on purpose, and it is the honest one. `optional` means "need not be
+installed"; it has never meant "version ignored when present", so a floor written there is a
+rule about your **whole tree** — and hcifootprint does not need react at all. Writing `>=18`
+turned `npm install hcifootprint` into an `ERESOLVE` failure for a React 17 app that never
+imports the subpath. The subpath's floor is real and is **React 18** (it uses
+`useInsertionEffect`); it is enforced by the import itself, so it can only reach someone who
+actually imports it.
 
 <Callout type="warn" title="Redaction and declared values">
 `redactedKeys` governs **state keys** and never touched a payload. A value you declare here
@@ -141,8 +177,8 @@ it for you.
 
 ## Vue and Angular
 
-Nothing above is React-only except the scheduling. The framework interface is four fields and
-one method — `watch.attach({ edge, element, instance?, value?, cadence? })` — so Vue is
-`onMounted` / `onScopeDispose` plus a template ref, and Angular is a directive with
+Nothing above is React-only except the scheduling. The framework interface is five fields and
+one method — `watch.attach({ edge, element, instance?, value?, cadence?, commits? })` — so Vue
+is `onMounted` / `onScopeDispose` plus a template ref, and Angular is a directive with
 `ElementRef` and `ngOnDestroy`. `test/sensor-framework-interface.test.ts` drives that whole
 surface from a plain object with no framework at all, so "thin" is a test rather than a claim.

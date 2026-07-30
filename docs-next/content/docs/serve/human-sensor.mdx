@@ -9,14 +9,26 @@ hand means a `humanFire` call per control — a real integration counted 53 line
 
 `hcifootprint/sensor` does it once, for the whole page:
 
-```ts
-import { watchPage } from 'hcifootprint/sensor';
+### Attach it, and release it
 
+```ts twoslash
+import { watchPage } from 'hcifootprint/sensor';
+import type { InteractionSession } from 'hcifootprint';
+
+declare const session: InteractionSession;
+// ---cut---
 const watch = watchPage(session, { root: document.body });
-// …the human clicks a declared button; the session gains a transition with
-// cause { kind: 'fired', principal: 'user' } and nothing else was wired.
-watch.stop();
+
+// …the human clicks a declared button; the session gains a transition whose cause
+// is { kind: 'fired', principal: 'user' }, and nothing else was wired.
+
+watch.stop(); // idempotent — every listener, every pending timer, every declaration
 ```
+
+**What it cannot do here:** refuse. The sensor records *after* the browser ran your handler,
+so a guard that does not hold shows up as a refusal on the row rather than as an act that was
+prevented. If you need refuse-**before**-perform, that is a wrapper door and it stays yours —
+see [what it does not do](#what-it-does-not-do).
 
 It is a **zero-dependency leaf**: importing it drags no session machinery and no footprintjs
 (11.9 KB minified, proved in `test/treeshake.test.ts`). It reaches the engine through a
@@ -51,11 +63,21 @@ const control = watch.attach({
   instance: 't-7',             // one row of a repeats container (optional)
   value: () => draft,          // THE DECLARED VALUE (optional)
   cadence: 'commit',           // per-control override (optional)
+  commits: () => armed,        // is a gesture here the act YET? (optional)
 });
 control.detach();
 ```
 
-Four fields and one method. That is the entire framework interface: Vue is `onMounted` /
+<Callout title="`commits` — the two-step control, and the trap under it">
+A confirm button is one element and two presses, and only the second is the act. Handing the
+element over *only once it is armed* looks right and is the bug: unarmed it rests under the
+label your locator names, so the RECOGNISED level below claims it by name and the ledger gains
+an act that never happened. Hand it over always; answer `false` while the press does nothing.
+A `false` is **silence**, and because a declaration outranks a name match on the same element
+it closes both levels at once — the per-element stand-down `reportedElsewhere` cannot express.
+</Callout>
+
+Five fields and one method. That is the entire framework interface: Vue is `onMounted` /
 `onScopeDispose` plus a template ref; Angular is a directive with `ElementRef` and
 `ngOnDestroy`. `test/sensor-framework-interface.test.ts` drives the whole declared level from a
 plain object with no framework at all, so "thin" is a test rather than a claim.

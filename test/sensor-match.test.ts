@@ -133,6 +133,62 @@ describe('DECLARED beats RECOGNISED, everywhere', () => {
   });
 });
 
+/**
+ * THE TWO-STEP CONTROL — one element, two presses, and only the second is the act.
+ *
+ * The attack these tests exist for is the intuition that looks obviously right and
+ * is not: "while this press is not the act, do not hand the element over". A
+ * confirm button rests under the very label its own locator names, so withholding
+ * the declaration does not withhold the report — it only changes which evidence
+ * level answers, and the ledger gains an act that never happened. `commits` is the
+ * app saying which press is real, and the answer is silence.
+ */
+describe('a two-step control: withholding the declaration does NOT withhold the report', () => {
+  it('the resting label IS the locator, so an undeclared confirm button is claimed by name', () => {
+    // The attack, first: no declaration at all, and the sensor answers anyway.
+    const arming = el('button', { text: 'Send' });
+    expect(ask(arming)).toMatchObject({ kind: 'one', candidate: { edge: desk.send } });
+  });
+
+  it("commits:false is SILENT — and silences the name match on the same element", () => {
+    const declarations = createControlIndex();
+    const button = el('button', { text: 'Send' });
+    declarations.attach({ edge: desk.send, element: button, commits: () => false });
+    // Not 'one' by declaration, and not 'one' by locator either: the declaration
+    // stops the walk, which is the only reason this element is quiet.
+    expect(ask(button, 'click', { declarations }).kind).toBe('silent');
+  });
+
+  it('the same declaration reports the moment the app says this press is the act', () => {
+    const declarations = createControlIndex();
+    const button = el('button', { text: 'Send' });
+    let armed = false;
+    declarations.attach({ edge: desk.send, element: button, commits: () => armed });
+
+    expect(ask(button, 'click', { declarations }).kind).toBe('silent');
+    armed = true;
+    expect(ask(button, 'click', { declarations })).toMatchObject({
+      kind: 'one',
+      candidate: { edge: desk.send },
+    });
+  });
+
+  it('an inner span climbs to it and is silenced too — one control, not one element', () => {
+    const declarations = createControlIndex();
+    const label = el('span', { text: 'Send' });
+    const button = el('button', { children: [label] });
+    declarations.attach({ edge: desk.send, element: button, commits: () => false });
+    expect(ask(label, 'click', { declarations }).kind).toBe('silent');
+  });
+
+  it('an absent commits means always, which is what every ordinary control means', () => {
+    const declarations = createControlIndex();
+    const div = el('div');
+    declarations.attach({ edge: desk.refresh, element: div });
+    expect(ask(div, 'click', { declarations })).toMatchObject({ kind: 'one' });
+  });
+});
+
 describe('the two SILENT answers', () => {
   it('nothing role-bearing was touched — clicking a paragraph is not a missing declaration', () => {
     const paragraph = el('p', { text: 'Send' });

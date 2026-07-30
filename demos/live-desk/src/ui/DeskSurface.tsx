@@ -168,7 +168,17 @@ function ArchivePanel({ desk }: { desk: Desk }): React.JSX.Element {
   const { state } = useDeskState(desk);
   const [armed, setArmed] = useState(false);
   const archived = archivedTickets(state);
-  const clear = useControl({ edge: 'desk.archive.clear-archive' });
+  const clear = useControl({
+    edge: 'desk.archive.clear-archive',
+    // TWO CLICKS, ONE ACT. Unarmed this button asks a question and clears nothing,
+    // so the first click is not the act — and withholding the ref is NOT how you
+    // say that, however much it looks like it. Unarmed the button reads "Clear
+    // archive", which is this action's own locator (app/actions.ts), so with no
+    // declaration in play the sensor recognises it BY NAME and records a clear
+    // that never happened. The element is handed over always; `commits` is where
+    // the app says which press is real.
+    commits: () => armed,
+  });
 
   return (
     <div className="list">
@@ -185,10 +195,7 @@ function ArchivePanel({ desk }: { desk: Desk }): React.JSX.Element {
       <button
         type="button"
         className="danger"
-        /* The declaration follows what this button IS right now. Unarmed it asks a
-           question, and a click on it clears nothing — so it is not the clear
-           control yet and the sensor is not handed it. Armed, it is. */
-        ref={armed ? clear : null}
+        ref={clear}
         disabled={archived.length === 0}
         onClick={() => {
           if (!armed) {

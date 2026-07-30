@@ -9,13 +9,14 @@ import { createBridge, wireName } from './bridge.js';
 const LLM_TOOL_NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
 describe('the tool surface handed to the model', () => {
-  it('is the three fixed generics, and every name is one an LLM will accept', async () => {
+  it('is the four fixed generics, and every name is one an LLM will accept', async () => {
     const desk = await bootDesk();
     const bridge = createBridge(desk.session);
     const names = bridge.tools.map((tool) => tool.schema.name).sort();
     // This desk declares no skills — every action arrives at runtime — so Mode
-    // B's array is exactly its three generics.
-    expect(names).toEqual(['desk__do_action', 'desk__whats_here', 'desk__why']);
+    // B's array is exactly its generics (src/serve/modes.ts builds four:
+    // whats_here, do_action, why, and did_it_work for the settled truth).
+    expect(names).toEqual(['desk__did_it_work', 'desk__do_action', 'desk__whats_here', 'desk__why']);
     for (const name of names) expect(name).toMatch(LLM_TOOL_NAME);
   });
 

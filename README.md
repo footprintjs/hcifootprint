@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1326%20passing-f5b301?style=flat" alt="1326 tests passing">
+  <img src="https://img.shields.io/badge/tests-1336%20passing-f5b301?style=flat" alt="1336 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -572,9 +572,10 @@ still report yourself in `reportedElsewhere`, and the sensor stands down for the
 
 **Honest, or silent — never a guess.** Two live edges answering to one role + name is refused, not picked. The
 agent's own `element.click()` is declined by name rather than recorded as a person. `coverage()` returns one
-row per served edge — watching, or unwatched with the sentence saying why. Framework-free (React, Vue and
-Angular are each a skin over four fields and one method), SSR-safe by compiler, and an 11.9 KB leaf that drags
-no engine.
+row per served edge — watching, or unwatched with the sentence saying why. A two-step control says so with
+`commits`, because withholding the declaration would only hand its resting label to the other level.
+Framework-free (React, Vue and Angular are each a skin over five fields and one method), SSR-safe by compiler,
+and an 11.9 KB leaf that drags no engine.
 
 **React: one hook per control.** `hcifootprint/react` is a skin over that same core — declare what a control
 *is*, and the report call leaves your `onClick` for good:
@@ -586,8 +587,9 @@ return <button ref={ref} onClick={send}>Send</button>;
 
 `onClick` is your own code, unchanged: the browser runs it, the sensor records that a person did, and nothing
 in the hook can run your handler — so one click can never become two rows. The value your component is already
-holding goes over with the declaration; the DOM is never asked for it. `react` is an *optional* peer (`>=18`)
-named by exactly one folder, and the skin is 597 B over the sensor. Adopting it in the `live-desk` demo deleted
+holding goes over with the declaration; the DOM is never asked for it. `react` is an *optional* peer named by
+exactly one folder (the subpath needs React 18+; the range is `*` so it can never refuse the install of a
+consumer who does not use it), and the skin is 597 B over the sensor. Adopting it in the `live-desk` demo deleted
 seven of its nine hand-written report calls; the three it kept are the ones that must refuse *before* they act,
 and the demo says so in the code.
 
@@ -604,7 +606,7 @@ storefront with an AI stylist. Human clicks come in through the
 all.
 
 React has a binding already ([`hcifootprint/react`](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)).
-**On the roadmap:** the same skin for Vue and Angular — each is four fields and one method, and a test already
+**On the roadmap:** the same skin for Vue and Angular — each is five fields and one method, and a test already
 drives that surface with no framework at all — plus a demo gallery showing one app wired four ways.
 One graph, many frontends.
 

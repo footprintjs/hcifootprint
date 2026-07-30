@@ -8,20 +8,22 @@
  * what StrictMode's double-invoke does to all three. So each test below is one
  * scheduling moment, and the answer to it is always "one declaration, one row".
  *
- * THE ONE BEHAVIOUR THAT IS THE HOOK'S OWN is the declared VALUE: a component
- * re-renders constantly and writes its getter inline, so the getter's identity
- * changes on every render while the control does not. Reading the newest getter
- * without re-declaring the control is the thing this file exists to pin, and it is
- * pinned twice over — by the value that lands on the ledger, and by an attach
- * COUNT, because the core nets re-declaration to one entry and would hide the
- * churn otherwise.
+ * THE ONE BEHAVIOUR THAT IS THE HOOK'S OWN is the declared GETTERS — the value,
+ * and the predicate saying whether a gesture is the act yet. A component re-renders
+ * constantly and writes them inline, so their identity changes on every render while
+ * the control does not. Reading the newest getter without re-declaring the control is
+ * the thing this file exists to pin, and it is pinned three times over — by the value
+ * that lands on the ledger, by an attach COUNT (the core nets re-declaration to one
+ * entry and would hide the churn otherwise), and by WHICH render the getter came
+ * from, because "the newest" and "the newest one that COMMITTED" are different
+ * answers exactly when a human acts mid-render.
  */
 import { describe, expect, it } from 'vitest';
 import { createElement, StrictMode } from 'react';
 import { watchPage } from '../src/sensor/index.js';
 import type { SensorReport } from '../src/sensor/index.js';
 import { desk, el, humanClick, humanCommit, mountDesk, recordFires } from './sensor-fixture.js';
-import { Control, countAttachments, declaring, mountTree } from './react-fixture.js';
+import { Control, WhileRendering, countAttachments, declaring, mountTree } from './react-fixture.js';
 
 describe('a declared control puts the human act on the ledger, and nothing else changes', () => {
   it('one click, one row, and the row says a person did it', () => {
@@ -151,6 +153,41 @@ describe('the declared value is the one the human could see', () => {
     watch.stop();
   });
 
+  /**
+   * THE ATTACK: a trusted click that lands while React is rendering the NEXT screen.
+   *
+   * Under concurrent React that window is real and can be long — a `startTransition`
+   * re-render runs while the committed tree is still what the human is looking at,
+   * and React yields between components, so a click really can be dispatched in the
+   * middle of it. A synchronous render is the deterministic stand-in: in both, the
+   * screen is the PREVIOUS commit, and a hook that wrote its latest-ref from the
+   * render body is already holding a getter nobody has seen.
+   *
+   * The probe below is that click, placed where only a render can put it — as the
+   * sibling React renders straight after the control. It is the app's own handler
+   * disagreeing with the sensor, reduced to one assertion.
+   */
+  it('a click landing MID-RENDER reports the screen, not the render in flight', () => {
+    const { session, surface } = mountDesk();
+    const field = el('input', { attrs: { type: 'text' } });
+    surface.mount(field);
+    const { port, fires } = recordFires(session);
+    const watch = watchPage(port, { root: surface });
+
+    const tree = mountTree(declaring(watch, composeSpec('first'), field));
+    // The probe renders after the control and before this render commits: 'second'
+    // is not on screen yet, and may never be.
+    tree.render(
+      declaring(watch, composeSpec('second'), field, createElement(WhileRendering, { act: () => humanCommit(field) })),
+    );
+
+    expect(fires).toHaveLength(1);
+    expect(fires[0]!.opts.payload, 'the ledger must carry what the human could see').toEqual({
+      message: 'first',
+    });
+    watch.stop();
+  });
+
   it('no getter means NO payload key — the hook cannot invent one either', () => {
     const { session, surface } = mountDesk();
     const button = el('button', { text: 'Send' });
@@ -215,6 +252,62 @@ describe('what re-declares a control, and what is only render churn', () => {
 
     tree.render(declaring(watch, { edge: desk.compose, value, cadence: { debounceMs: 80 } }, field));
     expect(counts.attached, 'a different window is a different control').toBe(2);
+    watch.stop();
+  });
+});
+
+/**
+ * A CONFIRM BUTTON, WHICH IS THE COMMONEST CONTROL A HOOK COULD GET WRONG.
+ *
+ * One element, two presses, and only the second one does anything. The intuition
+ * that looks right — hand the element over only once it is armed — is the bug: the
+ * resting label is the action's own locator, so the sensor recognises the unarmed
+ * button BY NAME and records an act that never happened. The declaration stays put
+ * and `commits` says which press is real.
+ */
+describe('a control can say WHEN a gesture on it is the act', () => {
+  /** A fresh inline predicate closed over BY VALUE — what a `useState` flag produces. */
+  function confirmSpec(armed: boolean) {
+    return { edge: desk.send, commits: (): boolean => armed };
+  }
+
+  it('the arming press writes nothing, the confirming press writes one row', () => {
+    const { session, surface } = mountDesk();
+    // Named exactly as the graph's locator names it, which is what makes this the
+    // attack rather than a hypothetical.
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const { port, fires } = recordFires(session);
+    const { watch, counts } = countAttachments(watchPage(port, { root: surface }));
+
+    const tree = mountTree(declaring(watch, confirmSpec(false), button));
+    humanClick(button);
+    expect(fires, 'a press that sends nothing is not a send').toHaveLength(0);
+
+    tree.render(declaring(watch, confirmSpec(true), button));
+    humanClick(button);
+
+    expect(fires.map((fire) => fire.edge)).toEqual([desk.send]);
+    expect(counts.attached, 'arming a control is not a new control').toBe(1);
+    watch.stop();
+  });
+
+  it('gaining the predicate IS a new declaration — a control that learns to wait', () => {
+    const { session, surface } = mountDesk();
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const { port, fires } = recordFires(session);
+    const { watch, counts } = countAttachments(watchPage(port, { root: surface }));
+
+    const tree = mountTree(declaring(watch, { edge: desk.send }, button));
+    tree.render(declaring(watch, confirmSpec(false), button));
+    humanClick(button);
+
+    // Whether the app answers this question at all is the control's identity, so a
+    // hook that left it out of its dependencies would still be serving the old
+    // declaration — which reports.
+    expect(counts.attached).toBe(2);
+    expect(fires).toHaveLength(0);
     watch.stop();
   });
 });

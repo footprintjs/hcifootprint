@@ -2,7 +2,7 @@
  * THINNESS AS A TEST, NOT A CLAIM.
  *
  * The promise is "one brain, two evidence levels, N skins": a React, Vue or Angular
- * binding is a skin over FOUR FIELDS and ONE METHOD, and no framework is required
+ * binding is a skin over FIVE FIELDS and ONE METHOD, and no framework is required
  * to use the core at all. A promise like that decays the moment a skin needs
  * something this file cannot express — so this file drives the whole declared level
  * from a PLAIN OBJECT, with no framework anywhere, and asserts the same rows a
@@ -47,7 +47,7 @@ describe('the declared level, driven with no framework at all', () => {
     watch.stop();
   });
 
-  it('all four declaration fields work through the same one method', () => {
+  it('instance, value and cadence all ride the same one method', () => {
     const { session, surface, time } = mountDesk({ state: { threadIds: ['t-3'] } });
     const row = el('button', { text: 'Reply' });
     const field = el('input', { attrs: { type: 'text' } });
@@ -75,6 +75,27 @@ describe('the declared level, driven with no framework at all', () => {
     expect(fires).toHaveLength(1);
     time.advance(100);
     expect(fires).toHaveLength(1);
+    watch.stop();
+  });
+
+  it('a two-step control needs no framework either — one flag the app already owns', () => {
+    const { session, surface } = mountDesk();
+    // The confirm button in its RESTING state: the label a human reads first is the
+    // very one this action's locator names, so the element has to be handed over
+    // always and `commits` has to be what withholds the arming press.
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const { port, fires } = recordFires(session);
+    const watch = watchPage(port, { root: surface });
+    const confirm = { armed: false };
+
+    componentLike(watch, { edge: desk.send, element: button, commits: () => confirm.armed });
+    humanClick(button);
+    expect(fires, 'the arming press sent nothing, so it writes no row').toHaveLength(0);
+
+    confirm.armed = true;
+    humanClick(button);
+    expect(fires).toMatchObject([{ edge: desk.send, opts: { source: 'user', invoke: false } }]);
     watch.stop();
   });
 

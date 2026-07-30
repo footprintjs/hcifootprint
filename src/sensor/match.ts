@@ -5,8 +5,11 @@
  * TWO EVIDENCE LEVELS, ASKED IN THIS ORDER AT EVERY HOP — the order IS the first
  * requirement drawn as an architecture:
  * 1. DECLARED. Is this element one the app handed over? Object identity, so
- *    there is nothing to compute and nothing to be ambiguous about, and the
- *    declaration may carry a value.
+ *    there is nothing to compute and nothing to be ambiguous about, the
+ *    declaration may carry a value, and it may say that a gesture here is not
+ *    the act yet (`commits`) — the only way a two-step control can withhold one
+ *    press, since withholding the DECLARATION would just hand the element to
+ *    level 2 and its resting label.
  * 2. RECOGNISED. Otherwise, what role and name does this element present, and
  *    does any live edge's locator claim that? Derived, so a value is never legal.
  *
@@ -128,9 +131,13 @@ export function matchElement(
   for (let hops = 0; node !== null && hops < MAX_HOPS; hops += 1) {
     const declaration = controls.declarationFor(node);
     if (declaration !== undefined) {
-      // DECLARED wins here, and its moment is the only thing left to check.
+      // DECLARED wins here, and two things are left to ask: is this the element's
+      // moment, and does the app say a gesture on it is the act right now. Either
+      // "no" is SILENT and STOPS THE WALK, which is the point — a declaration
+      // outranks a name match on the same element, so a two-step control cannot be
+      // claimed by the resting label the graph's own locator names.
       const moment = commitsOnControl(computeRole(node), declaration.cadence ?? cadence);
-      if (moment === eventType) {
+      if (moment === eventType && (declaration.commits?.() ?? true)) {
         return { kind: 'one', candidate: declaredCandidate(declaration), element: node, declaration };
       }
       return { kind: 'silent' };

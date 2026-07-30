@@ -18,12 +18,13 @@
  * ```
  *
  * ONE BRAIN, TWO EVIDENCE LEVELS, N SKINS. No framework is required to use this;
- * a framework binding is a skin over exactly four fields and one method
+ * a framework binding is a skin over exactly five fields and one method
  * ({@link ControlDeclaration} and `attach`). Recognition asks two questions, in
  * this order:
  * - DECLARED — the app handed the element over. Identity is OBJECT identity, so
- *   nothing is computed and nothing can be ambiguous, and the declaration may
- *   carry a value getter, so a payload is legal here.
+ *   nothing is computed and nothing can be ambiguous, the declaration may carry
+ *   a value getter, so a payload is legal here, and it may say a gesture is not
+ *   the act yet (`commits`) — which silences both levels for that element.
  * - RECOGNISED — nothing declared. Walk the ancestors, compute role and
  *   accessible name from documented subsets, look up the graph's own edge
  *   bindings. Unique → report. Two or more → refuse. A payload is NEVER legal

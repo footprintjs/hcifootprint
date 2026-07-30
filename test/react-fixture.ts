@@ -140,7 +140,37 @@ export function countAttachments(inner: PageWatch): { watch: PageWatch; counts: 
   return { watch, counts };
 }
 
-/** A control declared under a watcher — the whole tree most of these tests need. */
-export function declaring(watch: PageWatch | null, spec: ControlSpec, element: FakeElement): ReactElement {
-  return createElement(ControlSurfaceProvider, { watch }, createElement(Control, { spec, element }));
+/**
+ * A component that acts DURING ITS OWN RENDER, which is the one place a test
+ * cannot reach by hand: after a sibling has rendered and before anything has
+ * committed.
+ *
+ * That instant is not an exotic one. Concurrent React yields between components,
+ * so a real trusted event can be dispatched in the middle of a render — and while
+ * it is, the screen is still the PREVIOUS commit. Rendering this after a control
+ * puts a human's act exactly there, deterministically.
+ */
+export function WhileRendering(props: { act: () => void }): null {
+  props.act();
+  return null;
+}
+
+/**
+ * A control declared under a watcher — the whole tree most of these tests need.
+ *
+ * Anything passed after the element renders as a following SIBLING of the control,
+ * which is how {@link WhileRendering} gets to be later in one render pass.
+ */
+export function declaring(
+  watch: PageWatch | null,
+  spec: ControlSpec,
+  element: FakeElement,
+  ...alongside: readonly ReactElement[]
+): ReactElement {
+  return createElement(
+    ControlSurfaceProvider,
+    { watch },
+    createElement(Control, { spec, element }),
+    ...alongside,
+  );
 }

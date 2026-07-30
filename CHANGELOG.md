@@ -63,6 +63,14 @@ importing it drags no session machinery and no footprintjs (11.9 KB minified, pi
   may carry a value and an instance) beats RECOGNISED (role + accessible name against the
   graph's own locators, which may never carry a value). Unique → reported; two or more →
   refused, never picked.
+- **A control can say a gesture is not the act yet** — `ControlDeclaration.commits`, asked at
+  the moment of the gesture. It exists because of the confirm button, where the obvious move is
+  wrong: an app that stops handing the element over while it is unarmed does not stop the
+  report, it only moves the answer to the RECOGNISED level, which reads the button's *resting*
+  label — the action's own locator — and records a delete that never happened. `false` is
+  **silence**, and since a declaration outranks a name match on the same element it closes both
+  levels at once. That is a per-element, per-moment stand-down; `reportedElsewhere` is per-edge
+  and page-wide and could never say it.
 - **Record-only in the type system.** `RecordOnlyFire` pins `invoke` to `false`, so an
   executing fire is *inexpressible* rather than discouraged. No engine change was needed.
 - **One human act, one row** — three collisions, three named answers: `reportedElsewhere` for
@@ -103,17 +111,34 @@ return <button ref={ref} onClick={send}>Send</button>;
 - **The value your component already holds.** The sensor never reads a value off the DOM, so a
   value-bearing control stays honestly unwatched until an app declares one — and a component
   is exactly the thing holding it in a variable. The getter is written inline, so its identity
-  changes on every render while the control does not: the hook keeps the **newest** getter and
-  re-declares nothing, so what lands on the ledger is what was on screen when the human acted.
-  The `edge`, the `instance`, the cadence **window** and whether a value exists at all are the
-  control's *identity* — change one of those and it is re-declared.
+  changes on every render while the control does not: the hook keeps the **newest committed**
+  getter and re-declares nothing, so what lands on the ledger is what was on screen when the
+  human acted. The `edge`, the `instance`, the cadence **window** and whether each getter
+  exists at all are the control's *identity* — change one of those and it is re-declared.
+- **"Committed" is the load-bearing word, and it is why the latest-ref is an effect.** React
+  may begin a render, yield, and throw it away: while a `startTransition` re-render is in
+  flight the screen still shows the previous commit, so a ref written from the render body
+  holds a getter nobody has seen — and a click landing in that window makes the sensor's
+  payload disagree with the app's own handler about what the human just did. The write is an
+  insertion effect, which runs in the mutation phase: after a render actually commits, and
+  **before** React attaches the ref that reads it — a layout effect runs after that ref and
+  would attach the previous render's `edge` instead. It is also the only one of the three that
+  is silent on a server.
+- **A two-step control keeps its declaration and answers `commits`.** Withholding the ref while
+  a confirm button is unarmed is not the way to withhold the press: see the sensor entry above.
 - **A skin, not a second brain.** Recognition, payload legality, cadence and one-act-one-row
   are all still the core's. The subpath is 597 B, reaches the sensor through types alone, and
   a boundary scan pins the properties it keeps by absence: it never names `fire`, never names
   `invoke`, and `src/react` is the only folder in the package that resolves `react`.
-- **An optional peer with a real floor** (`react >= 18`) on its own subpath, so a consumer who
-  never writes `from 'hcifootprint/react'` never resolves it — an ordinary static import, no
-  dynamic-specifier hatch.
+- **An optional peer that can refuse nobody.** The subpath is the only folder that resolves
+  `react`, an ordinary static import with no dynamic-specifier hatch, so a consumer who never
+  writes `from 'hcifootprint/react'` never resolves it. The declared range is `*`, and that is
+  the honest one: `optional` means "need not be installed", never "version ignored when
+  present", so a floor written there is a rule about the consumer's **whole tree** — and
+  hcifootprint does not need react at all. Measured in a clean room, `>=18` turned
+  `npm install hcifootprint` into an `ERESOLVE` failure for a React 17 app that never imports
+  the subpath. The subpath's floor is real and is React 18 (`useInsertionEffect`), enforced by
+  the import itself, where it can only reach someone who actually imports it.
 - **The first commit has no surface, and that is ordinary.** `watchPage` needs a browser root,
   so an app builds the watcher in an effect and effects run *after* the refs beneath them.
   `useControl` returns a ref that does nothing while the watcher is `null` and attaches itself
@@ -124,10 +149,12 @@ return <button ref={ref} onClick={send}>Send</button>;
   and the refusal plumbing with them. The three it keeps are the ones that must refuse
   **before** they act — a tab flip no DOM listener can honestly claim, and the desk's one
   guarded action — and those edges are named in `reportedElsewhere`, so one human act still
-  writes one row. The sensor deletes the *wiring*, never the pre-refusal, and the demo shows
-  both side by side rather than papering over the difference.
+  writes one row. The desk's Clear-archive confirmation is the two-step case, and it keeps its
+  declaration through both presses with `commits: () => armed`. The sensor deletes the
+  *wiring*, never the pre-refusal, and the demo shows both side by side rather than papering
+  over the difference.
 
-Purely additive: a new `exports` entry and an optional peer. 33 new tests (1293 → 1326),
+Purely additive: a new `exports` entry and an optional peer. 43 new tests (1293 → 1336),
 each behaviour with its own mutation proof.
 
 ## [0.7.0] - 2026-07-30

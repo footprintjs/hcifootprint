@@ -1,5 +1,5 @@
 /**
- * THE NEGATIVE SCANS FOR THE SKIN — four properties src/react keeps by NOT
+ * THE NEGATIVE SCANS FOR THE SKIN — five properties src/react keeps by NOT
  * containing something.
  *
  * 1. ONE FOLDER RESOLVES REACT. The optional peer is only genuinely optional if a
@@ -15,6 +15,9 @@
  *    one canonical door is the core's, and a binding that could write a row would
  *    be the second door that double-executes a human's click. It is an absent
  *    surface rather than a rule anyone has to remember.
+ * 5. ITS PEER REFUSES NOBODY. Property 1 one layer down, in package.json instead
+ *    of in the module graph: a consumer who never imports the skin must not even
+ *    have their INSTALL refused over it.
  *
  * The scan is a FULL-SOURCE substring check, not a from-line regex — the same
  * reasoning test/sensor-boundary.test.ts:16-19 gives: it catches side-effect,
@@ -126,5 +129,27 @@ describe('THE RECORD-ONLY PIN — the skin has no way to write a row', () => {
   it('the subpath serves three runtime exports and not one more', async () => {
     const module = await import('../src/react/index.js');
     expect(Object.keys(module).sort()).toEqual(['ControlSurfaceProvider', 'useControl', 'useControlSurface']);
+  });
+});
+
+describe('THE OPTIONAL PEER — a floor here is a claim about the consumer, not about us', () => {
+  it('names a range no install can conflict with', () => {
+    const manifest = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      peerDependencies: Record<string, string>;
+      peerDependenciesMeta: Record<string, { optional?: boolean }>;
+    };
+    expect(manifest.peerDependenciesMeta['react']?.optional).toBe(true);
+    // `optional` means "need not be INSTALLED". It has never meant "version
+    // ignored when present": npm checks the range against whatever react is
+    // already in the tree and FAILS the install on a conflict. So a floor written
+    // here is a rule about the consumer's whole tree, and hcifootprint does not
+    // need react at all — measured, in a clean room: `react: ">=18"` turned
+    // `npm install hcifootprint` into an ERESOLVE failure for a React 17 app that
+    // never imports `hcifootprint/react`.
+    //
+    // The subpath's floor is real and is React 18 — `useInsertionEffect` does not
+    // exist below it — and it is enforced where it can only reach someone who
+    // actually imports the subpath: by the import itself.
+    expect(manifest.peerDependencies['react']).toBe('*');
   });
 });
