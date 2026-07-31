@@ -1,5 +1,295 @@
 # Changelog
 
+## [0.10.0] - 2026-07-31
+
+**Working is not broken, and a clock is not a verdict** — the sentence this release is measured by.
+
+A production integration reported an agent that poked a working control in a loop. The app had put
+the button into its saving state, exactly as it does for a person; the row a model reads had no word
+for that; so the one reader who cannot see a spinner met a mid-flight control the way it meets a
+broken one — and did the two things you do about broken. It fired again. Then it told the human the
+app had failed.
+
+Underneath were four questions with no honest answer available, all of them about the same window:
+**the app is doing something, and nothing a reader could see said so.** Is this control switched
+off? Is it working right now? Is my app still finishing after the receipt was written? And can I
+just have the answer in the turn I asked? Four surfaces answer them now, and **not one of them is a
+timer**: nothing in this library expires a busy label, ages out a work row, or turns a long wait into
+a fate. A fifth thing ships beside them and is deliberately not a surface — a React hook that is a
+lifecycle over two of them, and can never say anything they could not.
+
+Entirely **additive**, and it holds the line 0.8.0 started and 0.9.0 kept: **no existing union
+grows** — no new `FireResult` reason (nor its lockstep twin `GapRecord.rejectionReason`), no new
+`EffectStatus`, no new `Settlement`, no new judgment word (spelled out under *Compatibility*).
+204 new tests (1456 → 1660).
+
+Each item below says what the report asked for, what shipped instead where the two differ, and why.
+Reports are unnamed by house rule; the intake is [`LIBRARY_ASK.md`](LIBRARY_ASK.md).
+
+### The greyed button reaches the model — and the refusal stops being a hole
+
+**The failure.** A disabled control was a fact the library had held since 0.5 and served to
+in-process callers only. Over the wire the agent met it by *firing* it, and got a bare typed refusal:
+`TOOL_DISABLED`, and nothing else. A relay filled the silence in itself — it told its human *"a
+required field is probably empty"*, which nothing in the app had ever said — and then tried again. A
+guess wearing the shape of a diagnosis is the one failure this library exists to make impossible, and
+an answer with a hole in it is where the guess goes.
+
+**Shipped.** `enabled: false` on the `whats_here` action row, from all four wires that already say it
+(registration, the group handle, a live store row, a declared `enabledWhen`), so disabledness is
+disclosed **before** anything is reached for. **Presence-only**, like every other stamp on that row:
+a clickable control carries no key, because `enabled: true` on some rows would make its absence on
+the rest read as *nobody knows*. Reach for it anyway and the refusal now carries **`retriable:
+true`** — a state can change — beside one authored sentence that names what IS true (the app switched
+it off), says out loud what is **not** known (why), and names the move worth a turn.
+
+**What shipped instead, and why.** No cause, ever. The obvious "helpful" version explains *why* a
+control is off, and this library does not know: `enabledWhen` can say which condition failed, four
+other wires can say nothing at all, and one sentence covering both would be a diagnosis on the days
+the app never declared one. So the sentence refuses to supply a reason and tells the reader not to
+invent one — and it is an authored constant, byte-identical across two apps, so no runtime text can
+ride it. → [Guards](https://footprintjs.github.io/hcifootprint/docs/build/guards)
+
+### `busy` — the third state, in the app's own words
+
+**The ask.** *Tell the agent the control is working right now, so it stops re-firing it.*
+
+**Shipped.** `AvailableEdge.busy` on the served row and on the `whats_here` row: the app's own label
+(`'Saving your draft…'`), through the same three wires `enabled` has — `busy:` at registration,
+`handle.setBusy(toolId, label)`, and a live store's `LiveAction.busy`, reconciled on the emission the
+app already sends when the spinner comes up. A flip is world motion (version bump + the structure
+fingerprint), so a plan made against the old row is caught as stale; saying the same thing twice is
+not motion, rewording it is.
+
+**What shipped instead, and why — four refusals, and each one is the feature.**
+
+- **A label, never a flag.** There is deliberately no boolean form. A flag says *something is
+  happening* and leaves the meaning to whoever renders it, which would put the serving layer in the
+  business of authoring a sentence about a state only the app can describe. A boolean, a number, an
+  empty string: refused at all three doors with one warning per action, and the row keeps saying
+  nothing rather than saying a guess. A refused label never clears a standing one — `undefined` is
+  the clear, and nothing else is.
+- **No `busyWhen`.** A condition can prove a **state**; it cannot write **prose**. `enabledWhen`
+  needs no words, so it has a declarative form; this one would have to invent them.
+- **No `TOOL_BUSY`, and nothing is gated.** Busy is what the app *said*, not a door the app *shut*: a
+  busy control that is not disabled still fires, because the library never invents a gate an app did
+  not declare. An app that means *and nobody may press it* disables the control, and the existing
+  refusal answers. A refusal on a control that is **also** busy carries the label as data and the
+  busy sentence **beside** the refusal's own — alongside, never over, and it says out loud that it is
+  not the cause of the refusal it sits next to.
+- **Nothing is read off the screen**, and there is **no timer**. No `aria-busy`, no spinner-hunting —
+  the sensor's own law. And nothing expires a label: a busy that outlives anyone's patience is
+  answered by the row still saying busy and `did_it_work` still saying `still-pending`, which is the
+  truth. The ceiling belongs to the caller, and a caller who stops waiting reports **unfinished** —
+  never done, never failed. →
+  [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/serve/when-a-control-is-busy)
+
+### The app says what it is **still** working on
+
+**The failure.** A fire comes to rest when the app reports its delta — and the app may keep working
+long after: the upload continues, the job runs on, the save's spinner outlives its receipt. Every
+*what is still live?* door answered **nothing** about that window: `pending()` had settled the
+record, the settlement latch had been dropped, and the ask book was never about fires. So a model
+polled `did_it_work`, got a settled receipt, and told the person it was done — about work that was
+still running. A confident emptiness is the answer this library keeps closing.
+
+**Shipped.** A work ledger the app writes: `session.beginWork(label?, { transitionId? })` hands back
+a `WorkHandle`, `work.done()` closes it, and `session.openWork()` is the third live door beside
+`pending()` and `awaitingSettlement()`. Binding is decided at call time from three homes — the
+`transitionId` you name, the fire whose handler you are inside (before its first `await`), or
+**unbound** at principal `'system'` with one dev warning per callsite, because work never runs
+silently and a row that claimed a fire nobody named would claim a relationship nothing can check.
+`did_it_work` gains **`stillWorking: true`** with an authored sentence, on the `still-pending` arm and
+**beside** the settlement receipt exactly as `outcomeNow` does. The facts block gains one line for
+bound rows (the action's own name, registry-derived) and one authored constant for unbound work.
+
+**What shipped instead, and why.**
+
+- **`done()` settles nothing** — not even `done(error)`, which is recorded on the work row only. The
+  failure spine stays the three doors it has always been: a handler throw, a returned `{ok: false}`,
+  `reject()`. A `done()` that resolved a settlement latch would fork first-settlement-wins — two
+  independent things racing to write one receipt — and let an app's note about its own bookkeeping
+  arrive first and *become* the library's verdict on an action.
+- **No recency arm, and no FIFO arm.** A work row is opened by app code that either knows its fire or
+  does not; a guess would be right exactly when nothing was racing, and unfalsifiable precisely when
+  the timing is interesting. Unbound is the honest floor, and it is loud.
+- **No new judgment word**, because the fate already has one: `stillWorking` rides the arms that say
+  it correctly rather than minting a second word for the same thing.
+- **No timer, and the leak is documented rather than fixed by one.** Nothing expires a row — *it has
+  been a while* is neither done nor failed — so an un-closed handle keeps answering *still working*
+  and stays visible in `openWork()` for the session's life, by design. Pair it like a lock
+  (`beginWork` in the `try`, `done()` in the `finally`).
+- **It is not world motion.** Opening or closing work bumps no version and changes no served row: a
+  plan made before the app started working is not stale, and bookkeeping must never refuse a fire. →
+  [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+
+### Waiting for the app — one settled answer, served through two doors
+
+**The ask, as specified.** *Let the tool call wait*: `awaitSettlement: true` and `timeoutMs` as
+arguments on `do_action`, so a caller could ask for the final truth in the turn it fired.
+
+**Why the shape was refused — three settled designs, named plainly.**
+
+1. **The fixed tool array.** Mode B's whole design is a tool set whose bytes never change, which is
+   what keeps a host's prompt cache warm and removes `list_changed` churn. Two new properties on
+   `do_action`'s input schema change those bytes for **every** caller, every turn, including the ones
+   that never wanted the feature.
+2. **`call()` is synchronous by contract.** The port hands back a result, not a promise — that is
+   what lets a relay, a test double or a hand-rolled facade implement `SkillToolsPort` at all. An
+   argument that only means something if the port awaits would make the contract a lie for every
+   implementation that cannot.
+3. **The ceiling is a fact about the waiter, never about the work.** A model-chosen minutes-long wait
+   is worse than useless here: this server sends no progress notifications, so a long ceiling buys no
+   patience from the host — the **client** gives up first and reports an error about an action that
+   may well have succeeded. A clock may decide how long to wait; it may never decide what the answer
+   is.
+
+**The honest core shipped**, in three parts. `port.settledAnswer(transitionId)` is the settled truth
+as a **result** rather than a promise — the same builder `did_it_work` answers from, minus that
+tool's envelope — and `mcpServer`'s fold now spreads it. Before this the fold hand-patched three
+fields it picked out by name, so a remote agent learned strictly **less** from a folded result than
+the same agent learned one poll later: no `outcome`, no `verifyHeld`, no `writesObserved`, no
+`arrival`, and no marker at all on a fire nothing in the app had executed — which reads as *it
+worked*. Where the two overlap the settled facts win (`'pending'` was true at return time and is not
+true now); everything the builder does not serve is left exactly as the port built it, and the one
+fire-time word the settled facts supersede — `settlement` — is dropped rather than left contradicting
+them. Three answers, and they are three different things: the facts for a fire at rest, `undefined`
+while it is still in flight, and a synchronous **throw** on the ids no honest answer exists for —
+one no settlement can ever exist for, and one that names both a fire and a human's open card
+(`AMBIGUOUS_ID`, which `did_it_work` has always refused). Silence on either reads as *not finished*,
+which is how a wrong id becomes a confident wrong answer.
+
+The second part is documentation of a contract that already held and had never been written down in
+one place: **your handler's promise is the completion signal.** Hand `registerToolGroup` the function
+your app already calls and return its promise (`save: (payload) => saveDraft.mutateAsync(payload)`);
+throw or return `{ok: false}` to fail. The third is the work ledger above, for the work that outlives
+the fire. →
+[Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app)
+
+### `useWorking` — the busy flag a component already has, on the ledger
+
+**The ask, in two tiers.** *Give React a hook so an app never writes the `try`/`finally` by hand* —
+and, as tier two, *let the falling edge settle the transition too*, so one flag could report the
+whole outcome.
+
+**Shipped — tier one, reshaped.** `hcifootprint/react` gains a second hook.
+`useWorking({ busy, label, error?, tools?, session, transitionId? })` takes the boolean a component
+**already** renders its own spinner from and turns its two edges into the two calls the core has
+always had: rising, one `beginWork(label)` plus the label on every control handed to `tools`;
+falling, `done(error)` — the error read **by presence at fall time**, because completion and outcome
+arrive together — and the label taken back. Every rise is its own row (a flag that flaps three times
+writes three rows; nothing is reused and nothing is deduped by recency), and StrictMode's
+double-invoke is **one** piece of work: the edge detector is a ref, which survives the simulated
+remount, so the row is re-adopted rather than opened twice.
+
+**Tier two stays declined, and the hook is built so it cannot be smuggled in.** The two doors it
+drives settle nothing — `done(error)` is recorded on the work row and reaches no door that answers
+how a *fire* came to rest — so no arrangement of this hook can report that something worked. That is
+structural rather than a rule: the session type it accepts is `Pick<Session, 'beginWork' | 'warn'>`,
+a scan pins that the folder names no settlement door, and the refusal is asserted again from the
+hook's own side. The failure spine stays a handler throw, a returned `{ ok: false }`, or `reject()`
+(the standing declined entry, `done(error) settles the transition`).
+
+**Each field is read at its own edge, and that is the whole timing contract.** The `transitionId` is
+read where the row **opens** — the core decides where work lands at call time and never revisits a
+correlation — and the `error` where it **closes**, the commit that knows how it ended. So an id that
+arrives one commit late (the ordinary shape: a mutation's `isPending` flips before the function that
+fires has run) does **not** move the row it missed. It is refused **out loud** — one dev warning per
+component, carrying none of the app's own text, naming when the id has to be in hand — rather than
+dropped in silence, because a row that merely looks right while an input the app plainly meant went
+nowhere is the failure a passing suite hides. `null` is read as **absent** beside `undefined`, since
+that is how React's own data layers spell *nothing went wrong* (`mutation.error` is `null` on every
+clean settle) and the hook's headline example passes exactly that field; nothing else is normalized.
+
+**What shipped instead, and why — the unmount asymmetry.** A component going away is **not** the work
+ending, so the row **stays open**: closing it would mint a verdict out of silence, which is the one
+move this library exists to refuse, and no timer will ever end it either. The busy label **is**
+cleared, because a label is a claim about a *control* and the thing that was keeping it true has
+gone. What is unknown stays open; what was claimed is taken back — one principle, two subjects,
+opposite answers — with one dev warning saying so, carrying none of the app's own text.
+
+**And the core stayed framework-free, which is the point.** The hook is a lifecycle over five plain
+lines — `beginWork` / `setBusy` where the flag goes up, `done()` / `setBusy(undefined)` where it
+comes down — and `test/work-framework-interface.test.ts` drives exactly those lines with no framework
+loaded at all. So an Angular or Vue port is those five lines in that framework's own three moments,
+and nothing in the core has to move for one to exist: `hcifootprint/react` imports **types** from the
+core and nothing else, pinned at 2,399 B with no session, no sensor and no engine in the bundle. →
+[Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
+[The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)
+
+### Two laws written down, and a FIFO pin
+
+`docs/design/answer-grammar.md` gains four sections — the two features above, plus two rules that
+were true in the code and nowhere in prose:
+
+- **What mints a `transitionId`** (the consent invariant): only an executed fire. No paused or
+  refused result ever carries one — which is exactly what makes the served await *structurally
+  incapable* of blocking on a person: a needs-confirm returns at once with the ceiling untouched. A
+  test now sweeps every arm the port can produce without firing.
+- **How completion is correlated:** by **call path**, never by recency. The handler rail carries its
+  own identity; the state rail is told one — `updateState(delta, { transitionId })`, the
+  recommendation and the only exact form. Bare FIFO is **oldest**-first, stated rather than
+  incidental: it can mis-attribute, but predictably, and `effectVerified: false` is the designed
+  detector. Recency would be worse than wrong — right exactly when FIFO is right too, and silently
+  wrong whenever the timing is interesting. The order is now pinned by a test, so an optimization to
+  *the latest one* fails loudly. The precise write-match arm is scoped where the code scopes it: it
+  runs only when **every** outstanding fire's handler is still in flight. Mix the queue — one fire
+  awaiting a report, one handler still running — and bare FIFO answers first, whatever keys the delta
+  carries. Two fires in the air is exactly when the id is worth passing.
+
+### Compatibility
+
+**No existing union grows in this release** — a third release holding the line. Every new word lives
+on a new optional field or a new optional member:
+
+- `AvailableEdge.busy`, `LiveAction.busy`, `RegisterToolGroupOptions.busy` and `Registration.busy`
+  are new **optional** fields; `WorkHandle`, `WorkRow` and `BeginWorkOptions` are new interfaces;
+  `Session.beginWork` / `openWork` and `ToolGroup.setBusy` / `ToolHandle.setBusy` are new members.
+- **`hcifootprint/react` serves four runtime exports instead of three** — `useWorking` is added and
+  nothing else changed, alongside the new types `WorkingSpec`, `BusyControl` and `WorkingSession`.
+  The peer range is still `*` and the subpath's real floor is still React 18, so an app that never
+  imports the subpath is untouched. No core signature moved for it: the hook calls `beginWork`,
+  `done` and `setBusy` exactly as an app already could.
+- `FireResult.reason` and `GapRecord.rejectionReason` are **unchanged** — no `TOOL_BUSY`, because
+  busy gates nothing. `EffectStatus`, `Settlement` and `GapReason` are unchanged; `stillWorking` is a
+  result-level fact riding existing arms, not a new judgment. An exhaustive `never` check written
+  against 0.9.0's types still compiles.
+- **`ToolGroup.setBusy` and `ToolHandle.setBusy` are REQUIRED members**, and that is deliberate: both
+  handles are **minted by the library** and never implemented by a consumer (`registerToolGroup` /
+  `registerTool` hand them to you), so every handle in existence can say the third state rather than
+  some of them. The published interfaces a consumer *does* implement grew optional members only —
+  `SkillToolsPort.settledAnswer` is optional there and required on
+  `SkillToolsPortWithSettlement`, which is what `skillsAsTools` returns, so a hand-written port or
+  test double written against 0.9.0 still compiles.
+- **No tool schema structure changed.** No new tool, no new property, no change to `required` — the
+  Mode B array stays byte-identical every turn and the prompt cache stays warm. `awaitSettlement`,
+  `timeoutMs` and `settleWithin` appear in no tool's bytes, pinned by a test.
+- **The MCP fold now carries more fields**: a folded result that used to carry `effectStatus` /
+  `data` / `error` now carries whatever `did_it_work` would say about the same id (`outcome`,
+  `outcomeNow`, `effectVerified`, `writesObserved`, `verifyHeld`, `arrival`, `arrivalMeans`,
+  `materialized` + `why`, `toNode`, `stillWorking` + `stillWorkingMeans`, and — only when the app has
+  since moved the outcome — the `howToAct` that says to go and look). `ok` / `did` / `transitionId`
+  are untouched, a missed ceiling still mints nothing at all, and there is still no way to turn the
+  fold off.
+- **The fold also DROPS one fire-time word**: `settlement`. It answers *does a commit bundle exist
+  **yet**?* — a question whose whole meaning is "as of return time" — so on a folded payload it stood
+  saying `'awaiting-state'` beside `writesObserved: true`, a fact read from the very bundle it said
+  did not exist. Nothing is minted in its place; `did_it_work` has never carried the word either, so
+  the two doors still agree. A result the fold did not touch (missed ceiling, nothing fired) keeps it
+  exactly as before. If you branch on `settlement` over MCP, read `outcome` / `effectStatus` instead.
+- **Three behavioural deltas nobody opts into**, all of them the honesty fixes above rather than new
+  features, and all three visible to a 0.9.0 consumer that declares nothing new:
+  1. a `whats_here` row for a control the app has switched off now carries `enabled: false`, and the
+     `TOOL_DISABLED` refusal carries `retriable: true` and an authored `why`;
+  2. a high-effect control that is **switched off** is refused rather than turned into a human's
+     confirm card — `fire()`'s own order (capability before authority) now holds on the port's
+     confirm arms too, so nobody is asked to approve something nobody can do;
+  3. `port.settledAnswer` refuses — by the throw it already documented — an id this session minted
+     for both a fire and a human's card, which `did_it_work` has always refused as `AMBIGUOUS_ID`.
+     Over MCP the fold honours that refusal silently: the fire's own result stands untouched.
+- Beyond those three, nothing changes unless you ask: absent a `busy` wire and absent a `beginWork`
+  call, every served row, record and facts block is exactly 0.9.0's.
+
 ## [0.9.0] - 2026-07-31
 
 **Everything the person on the page already knew, and the agent had to infer** — the sentence

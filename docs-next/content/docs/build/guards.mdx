@@ -71,10 +71,36 @@ else serves the edge unmarked. A key missing from the state view can only ever w
 answer toward *enabled*: the library refuses an action because the app said so, never because
 it could not look.
 
-Where the marker shows up is worth stating plainly. `available().edges` carries
-`enabled: false` — that is the greyed button an in-process caller can see. Over the
-[Mode B wire](doc:modes) the same fact reaches a model as the `TOOL_DISABLED` refusal when it
-reaches for the control: typed, retriable, and it teaches at the moment of use.
+**The fact travels twice, and both halves matter.** `available().edges` carries `enabled: false`,
+and so does the action row a model reads over the [Mode B wire](doc:modes) — that is the greyed
+button, disclosed *before* anything is reached for. It is presence-only: a clickable control
+carries no key at all, because `enabled: true` on some rows would make silence on the rest read as
+*nobody knows*.
+
+Reach for it anyway and the refusal teaches at the moment of use: `TOOL_DISABLED`, with
+`retriable: true` and one authored sentence.
+
+> The app has this control switched off right now — on screen and not clickable, the way a greyed
+> button is for a person. That is a STATE, not a verdict on what you asked for: it can change, and
+> nothing here knows what would change it. Do not invent a reason it is off. Call whats_here to see
+> where things stand — a switched-off control is served there with enabled: false — and if it is
+> still off, tell the human it is not available yet.
+
+The sentence says what is true, says out loud what is **not** known, and refuses to supply a cause.
+An integration whose relay met the bare refusal filled that hole in itself — it told its human *"a
+required field is probably empty"*, which nothing in the app had ever said, and then tried again.
+A hole in an answer is where a guess goes.
+
+### There is no `busyWhen`
+
+A control that is greyed *because it is working* is a third state, and it has its own wire:
+[`busy`](doc:when-a-control-is-busy), the app's own label for it. It deliberately has **no
+declarative form**. `enabledWhen` proves a state and needs no words; a busy label *is* words, and no
+expression an app could write produces its own prose — a `busyWhen` could only make this library
+author the sentence, which is the one thing the string-only shape exists to prevent.
+
+The two are independent, and both are true at once on a Save button mid-save: `enabledWhen` shuts
+the door, `busy` says what the app is doing. Neither is served as the other's cause.
 
 ## Seed every key — `requiredStateKeys()`
 

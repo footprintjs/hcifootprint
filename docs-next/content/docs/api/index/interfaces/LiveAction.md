@@ -32,6 +32,18 @@ How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
 ***
 
+### busy?
+
+> `optional` **busy?**: `string`
+
+Defined in: [src/graph/sources/types.ts:96](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L96)
+
+The store's own label for "this one is working right now" ('Saving…') — the
+served row's `busy`, on the wire your app already has. Absent says NOTHING
+about the control, never "idle", and there is no boolean form.
+
+***
+
 ### confirm?
 
 > `optional` **confirm?**: `boolean`

@@ -43,7 +43,7 @@ import { noInputFlag, schemaOf, takesNoInput } from './expects.js';
 import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
 import type { NavigationGraph, MapNode, ToolDef } from '../tree/types.js';
-import { Session, UNATTRIBUTED_FIRE, principalOf } from './session.js';
+import { Session, UNATTRIBUTED_FIRE, principalOf, registrationMark } from './session.js';
 import type { ToolHandler } from '../registry/registry.js';
 
 export interface InteractionSessionOptions extends Omit<SessionOptions, 'node'> {
@@ -81,6 +81,17 @@ export interface RegisterToolGroupOptions {
   visible?: boolean;
   /** Initial disabled state per tool (leaf name → enabled). Flip later via handle.setEnabled. */
   enabled?: Record<string, boolean>;
+  /**
+   * Which controls are ALREADY WORKING as this mounts, in your own words (leaf
+   * name — or qualified id — → the label). The registration-time half of
+   * {@link AvailableEdge.busy}, for a component that re-renders mid-flight and
+   * knows it; flip it later through `handle.setBusy`.
+   *
+   * A label, never a flag: there is no boolean form, and a non-string is refused
+   * with one warning rather than turned into a state this library made up. A tool
+   * absent from this map says NOTHING about that control — not "idle".
+   */
+  busy?: Record<string, string>;
   /**
    * What each control HOLDS right now (leaf name — or qualified id — → a reader
    * the served row calls at serve time). The registration-time half of
@@ -237,7 +248,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
     for (const [name, handler] of Object.entries(opts?.handlers ?? {})) {
       const qualifiedId = this.#resolveToolOnNode(path, name);
       const enabled = opts?.enabled?.[name] ?? opts?.enabled?.[qualifiedId] ?? true;
-      this.registry.register(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled);
+      // Through the SAME door a later flip takes, so a label that mounts and a
+      // label that arrives are normalised (and refused) identically.
+      const busy = this.busyLabel(qualifiedId, opts?.busy?.[name] ?? opts?.busy?.[qualifiedId]);
+      this.registry.register(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled, busy);
     }
 
     // 3. Value readers, AFTER the overlay above so a tool declared here-and-now
@@ -288,6 +302,13 @@ export class InteractionSession<Paths extends string = string> extends Session {
         const qualifiedId = this.#resolveToolOnNode(path, toolId);
         this.setToolEnabled(this.#registryKey(qualifiedId, opts?.instance), enabled);
       },
+      // The same key mapping, deliberately: a card of a repeats container says
+      // busy about ITSELF, and it must land on that card's registration rather
+      // than on the base id every other card shares.
+      setBusy: (toolId: string, busy: string | undefined) => {
+        const qualifiedId = this.#resolveToolOnNode(path, toolId);
+        this.setToolBusy(this.#registryKey(qualifiedId, opts?.instance), busy);
+      },
       unregister,
     };
   }
@@ -312,6 +333,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
       ...(group.node !== undefined ? { node: group.node } : {}),
       toolId,
       setEnabled: (enabled: boolean) => group.setEnabled(toolId, enabled),
+      setBusy: (busy: string | undefined) => group.setBusy(toolId, busy),
       unregister: () => group.unregister(),
     };
   }
@@ -937,9 +959,16 @@ export class InteractionSession<Paths extends string = string> extends Session {
       .registrations()
       // Enabled instance-keyed registrations ('id[key]') are excluded (scroll
       // churn is not world motion) — but a DISABLED instance tool IS kept, so a
-      // per-row setEnabled(false) flip changes the fingerprint and flushes.
-      .filter((registration) => !registration.affordanceId.includes('[') || !registration.enabled)
-      .map((registration) => registration.affordanceId + (registration.enabled ? '' : ':off'))
+      // per-row setEnabled(false) flip changes the fingerprint and flushes. A
+      // BUSY instance tool is kept on the same terms and for the same reason:
+      // the app said something about that card, and saying it is not scrolling.
+      .filter(
+        (registration) =>
+          !registration.affordanceId.includes('[') ||
+          !registration.enabled ||
+          registration.busy !== undefined,
+      )
+      .map(registrationMark)
       .sort()
       .join('|');
     return `${handlers}::${this.#presence.fingerprint()}::dyn=${[...this.#dynamic.keys()].sort().join('|')}`;

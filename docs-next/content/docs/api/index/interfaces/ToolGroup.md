@@ -37,6 +37,36 @@ The node path this group is registered on (tree API); undefined for the flat API
 
 ## Methods
 
+### setBusy()
+
+> **setBusy**(`toolId`, `busy`): `void`
+
+Defined in: [src/atom/types.ts:531](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L531)
+
+Say that one tool in this group is WORKING RIGHT NOW, in your own words —
+or hand `undefined` to stop saying it. See [AvailableEdge.busy](/api/index/interfaces/AvailableEdge#busy): the
+label is yours, presence is the whole claim, and there is no boolean form.
+
+Required, exactly like `setEnabled` beside it: this handle is MINTED by the
+library and never implemented by a consumer, so every handle in existence
+can say the third state rather than some of them.
+
+#### Parameters
+
+##### toolId
+
+`string`
+
+##### busy
+
+`string` \| `undefined`
+
+#### Returns
+
+`void`
+
+***
+
 ### setEnabled()
 
 > **setEnabled**(`toolId`, `enabled`): `void`
@@ -65,7 +95,7 @@ Grey out / re-enable one tool in this group (a disabled button).
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:523](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L523)
+Defined in: [src/atom/types.ts:533](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L533)
 
 Remove this group's registrations (call on unmount). Idempotent.
 

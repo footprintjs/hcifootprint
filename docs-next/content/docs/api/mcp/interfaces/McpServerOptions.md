@@ -4,7 +4,7 @@ title: McpServerOptions
 
 # Interface: McpServerOptions
 
-Defined in: [src/serve/mcp-server.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L35)
+Defined in: [src/serve/mcp-server.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L34)
 
 ## Extends
 
@@ -30,7 +30,7 @@ Require confirm:true before firing high-effect steps/actions. Default true.
 
 > `optional` **name?**: `string`
 
-Defined in: [src/serve/mcp-server.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L37)
+Defined in: [src/serve/mcp-server.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L36)
 
 Server name advertised over MCP. Default: the graph id.
 
@@ -40,7 +40,7 @@ Server name advertised over MCP. Default: the graph id.
 
 > `optional` **settleWithinMs?**: `number`
 
-Defined in: [src/serve/mcp-server.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L59)
+Defined in: [src/serve/mcp-server.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L58)
 
 How long a `tools/call` that FIRED something waits for the app to finish
 before it answers. Default 250.
@@ -86,6 +86,6 @@ serves stops claiming a gate it does not have.
 
 > `optional` **version?**: `string`
 
-Defined in: [src/serve/mcp-server.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L39)
+Defined in: [src/serve/mcp-server.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L38)
 
 Server version advertised over MCP. Default '0.1.0'.

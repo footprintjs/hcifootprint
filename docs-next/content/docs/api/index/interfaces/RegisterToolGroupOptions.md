@@ -8,6 +8,23 @@ Defined in: [src/traverse/nav-session.ts:73](https://github.com/footprintjs/hcif
 
 ## Properties
 
+### busy?
+
+> `optional` **busy?**: `Record`\<`string`, `string`\>
+
+Defined in: [src/traverse/nav-session.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L94)
+
+Which controls are ALREADY WORKING as this mounts, in your own words (leaf
+name — or qualified id — → the label). The registration-time half of
+[AvailableEdge.busy](/api/index/interfaces/AvailableEdge#busy), for a component that re-renders mid-flight and
+knows it; flip it later through `handle.setBusy`.
+
+A label, never a flag: there is no boolean form, and a non-string is refused
+with one warning rather than turned into a state this library made up. A tool
+absent from this map says NOTHING about that control — not "idle".
+
+***
+
 ### enabled?
 
 > `optional` **enabled?**: `Record`\<`string`, `boolean`\>
@@ -32,7 +49,7 @@ Bind the app's EXISTING handlers (by reference) to tools declared on this node.
 
 > `optional` **holds?**: `Record`\<`string`, () => `unknown`\>
 
-Defined in: [src/traverse/nav-session.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L99)
+Defined in: [src/traverse/nav-session.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L110)
 
 What each control HOLDS right now (leaf name — or qualified id — → a reader
 the served row calls at serve time). The registration-time half of

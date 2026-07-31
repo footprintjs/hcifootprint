@@ -21,6 +21,7 @@ title: index
 - [AvailableEdge](/api/index/interfaces/AvailableEdge)
 - [AvailableSkill](/api/index/interfaces/AvailableSkill)
 - [AvailableSlice](/api/index/interfaces/AvailableSlice)
+- [BeginWorkOptions](/api/index/interfaces/BeginWorkOptions)
 - [Cause](/api/index/interfaces/Cause)
 - [ConfirmReceipts](/api/index/interfaces/ConfirmReceipts)
 - [ConfirmRecord](/api/index/interfaces/ConfirmRecord)
@@ -85,6 +86,8 @@ title: index
 - [TransitionRecord](/api/index/interfaces/TransitionRecord)
 - [UpdateOptions](/api/index/interfaces/UpdateOptions)
 - [VerifyFailure](/api/index/interfaces/VerifyFailure)
+- [WorkHandle](/api/index/interfaces/WorkHandle)
+- [WorkRow](/api/index/interfaces/WorkRow)
 
 ## Type Aliases
 

@@ -47,10 +47,12 @@ interface Held {
   handle: ToolGroupHandle;
   name: string;
   enabled: boolean;
+  /** The label last pushed through setBusy — undefined means the store has said nothing. */
+  busy: string | undefined;
 }
 
 /** The shape handed to registerToolGroup — a LiveAction minus its addressing fields. */
-type ActionDef = Omit<LiveAction, 'node' | 'name' | 'instance' | 'enabled'>;
+type ActionDef = Omit<LiveAction, 'node' | 'name' | 'instance' | 'enabled' | 'busy'>;
 
 /**
  * What the ledger says when a read failed — an AUTHORED constant, never the
@@ -134,24 +136,37 @@ export function fromLiveStore(store: LiveActionStore): LiveSource {
         for (const [key, action] of desired) {
           const existing = held.get(key);
           const enabled = action.enabled ?? true;
+          // No default, deliberately: an absent label is the store saying
+          // nothing about this control, and `undefined` is exactly how that
+          // travels the rest of the way (never a manufactured "not busy").
+          const busy = action.busy;
           if (existing) {
             // UNCHANGED identity: never re-registered (see module header).
-            // The one tracked mutable bit is `enabled` — a real flip rides
-            // setEnabled, which the session already treats as world motion.
+            // The tracked mutable bits are `enabled` and `busy` — a real flip
+            // of either rides its setter, which the session already treats as
+            // world motion. No new subscription: the store emission that
+            // brought a spinner up is the one that brings the label with it.
             if (enabled !== existing.enabled) {
               existing.handle.setEnabled(existing.name, enabled);
               existing.enabled = enabled;
             }
+            if (busy !== existing.busy) {
+              existing.handle.setBusy(existing.name, busy);
+              existing.busy = busy;
+            }
             continue;
           }
-          const { node, name, instance, enabled: _enabled, ...def } = action;
+          const { node, name, instance, enabled: _enabled, busy: _busy, ...def } = action;
           const handle = register(session, node, name, def, instance);
           // Initial disabled state goes through the handle AFTER registration:
           // the mount-declared path registers handlers enabled, and the handle
           // is the one instance-aware door for flipping that — same door the
           // later flips use, so first-sight and later states take one path.
           if (!enabled) handle.setEnabled(name, false);
-          held.set(key, { handle, name, enabled });
+          // Same reasoning for a control that is ALREADY working when the store
+          // first publishes it (a reload mid-save): one door, one path.
+          if (busy !== undefined) handle.setBusy(name, busy);
+          held.set(key, { handle, name, enabled, busy });
         }
       };
 

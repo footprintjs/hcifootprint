@@ -31,6 +31,12 @@ export interface Registration {
    * but firing it is refused as TOOL_DISABLED. Default true.
    */
   enabled: boolean;
+  /**
+   * The app's own label for "this control is working right now" (the spinner in
+   * the button). Absent means the app has not said — never "not busy". Purely a
+   * carried fact: this layer neither reads it nor times it out.
+   */
+  busy?: string;
 }
 
 export class ToolRegistry {
@@ -41,7 +47,13 @@ export class ToolRegistry {
     this.#warn = warn ?? ((message) => console.warn(message));
   }
 
-  register(group: string, affordanceId: string, handler: ToolHandler, enabled = true): void {
+  register(
+    group: string,
+    affordanceId: string,
+    handler: ToolHandler,
+    enabled = true,
+    busy?: string,
+  ): void {
     const existing = this.#byAffordance.get(affordanceId);
     if (existing) {
       this.#warn(
@@ -50,7 +62,16 @@ export class ToolRegistry {
           `components claiming the same action.`,
       );
     }
-    this.#byAffordance.set(affordanceId, { affordanceId, group, handler, registeredAt: Date.now(), enabled });
+    this.#byAffordance.set(affordanceId, {
+      affordanceId,
+      group,
+      handler,
+      registeredAt: Date.now(),
+      enabled,
+      // Presence-only, all the way down: an unsaid busy is an ABSENT key here
+      // too, so nothing downstream can read a stored `undefined` as a state.
+      ...(busy !== undefined ? { busy } : {}),
+    });
   }
 
   /**
@@ -65,9 +86,28 @@ export class ToolRegistry {
     return true;
   }
 
+  /**
+   * Say (or stop saying) that a registered tool is working right now. Same
+   * contract as setEnabled: true only on a real change, so the caller bumps the
+   * world exactly once. `undefined` DELETES the key rather than storing one —
+   * absence is how this library spells "the app has not said".
+   */
+  setBusy(affordanceId: string, busy: string | undefined): boolean {
+    const reg = this.#byAffordance.get(affordanceId);
+    if (!reg || reg.busy === busy) return false;
+    if (busy === undefined) delete reg.busy;
+    else reg.busy = busy;
+    return true;
+  }
+
   /** Whether a registered tool is currently clickable. Undefined if not registered. */
   isEnabled(affordanceId: string): boolean | undefined {
     return this.#byAffordance.get(affordanceId)?.enabled;
+  }
+
+  /** The app's own busy label for a registered tool, or undefined if it has not said. */
+  busyOf(affordanceId: string): string | undefined {
+    return this.#byAffordance.get(affordanceId)?.busy;
   }
 
   /** Remove every registration currently owned by `group`. Returns the removed ids. */

@@ -4,7 +4,7 @@ title: RegisteredTools
 
 # Interface: RegisteredTools
 
-Defined in: [src/traverse/session.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L223)
+Defined in: [src/traverse/session.ts:269](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L269)
 
 registerTools() output: optional exact-provenance triggers + the group's cleanup.
 
@@ -14,7 +14,7 @@ registerTools() output: optional exact-provenance triggers + the group's cleanup
 
 > **triggers**: `Record`\<`string`, (`payload?`) => [`FireResult`](/api/index/type-aliases/FireResult)\>
 
-Defined in: [src/traverse/session.ts:232](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L232)
+Defined in: [src/traverse/session.ts:278](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L278)
 
 Wrapped manual triggers (same signature as the app's handlers): calling
 one records the action as source 'user' AND invokes the handler — the
@@ -29,7 +29,7 @@ tiers instead (DOM sensor / effect-signature inference).
 
 > **unregister**: () => `void`
 
-Defined in: [src/traverse/session.ts:234](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L234)
+Defined in: [src/traverse/session.ts:280](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L280)
 
 Unregister everything this call registered (call on unmount).
 

@@ -27,8 +27,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { skillsAsTools } from './modes.js';
-import type { SkillToolsOptions, SkillToolsPortWithSettlement } from './modes.js';
-import { errorText } from './error-text.js';
+import type { ServeResult, SkillToolsOptions, SkillToolsPortWithSettlement } from './modes.js';
 import type { FireSettlement } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 
@@ -84,21 +83,54 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
     try {
       const result = port.call(name, args ?? {}) as Record<string, unknown>;
       // If the call FIRED something, give the app its moment and fold the
-      // settled truth INTO the result — the invocation word, the produced data
-      // (search results, a looked-up record) and any failure. A remote client
-      // gets what an in-process caller gets from `whenSettled`; before this,
-      // one macrotask of grace folded produced data only, and the result still
-      // said 'pending' about an action that had already finished or failed.
+      // settled truth INTO the result, so a remote client gets what an
+      // in-process caller gets from `whenSettled`.
+      //
+      // ONLY a result that fired is folded, and `transitionId` is the proof: it
+      // is minted by an executed fire and by nothing else (docs/design/
+      // answer-grammar.md, "What mints a transitionId"). That invariant is what
+      // keeps this await structurally incapable of blocking on a person — a
+      // needs-confirm, a decline and every refusal carry no such id, so they
+      // return at once with the ceiling untouched.
       if (typeof result['transitionId'] === 'string') {
         const settled = await settleWithin(port, result['transitionId'], settleWithinMs);
         if (settled) {
-          result['effectStatus'] = settled.effectStatus;
-          const produced = session.producedFor(result['transitionId']);
-          if (produced !== undefined) result['data'] = produced;
-          if (settled.error !== undefined) result['error'] = errorText(settled.error);
-          // The pointer sent the model to ask did_it_work; it just got the
-          // answer, so leaving it would buy a wasted turn.
-          delete result['howToSettle'];
+          // The SAME answer `did_it_work` gives about this id, from the same
+          // builder — not three fields picked out by name. Hand-patching taught
+          // a remote agent strictly less than one extra poll would have: no
+          // outcome, no verifyHeld, no writesObserved, no arrival, and no marker
+          // at all on a fire nothing in the app executed.
+          //
+          // PRECEDENCE, chosen: the settled facts WIN over the fire-time words
+          // they overlap with. That is the whole point on `effectStatus`
+          // ('pending' was true at return time and is not true now), and it is
+          // the point again on `howToAct` — an outcome the app has since taken
+          // back must not be answered with the frame's generic "pick the next
+          // step". Everything the builder does not serve is left exactly as the
+          // port built it, including `ok`, `did` and `transitionId`.
+          //
+          // REFUSED, on one id: `settledAnswer` throws rather than answer about
+          // an id this session minted for both a fire and a human's card. A
+          // refusal must cost the caller nothing it already had — the fire's own
+          // result stands untouched, `howToSettle` keeps pointing at the door
+          // that explains why, and the model gets the whole sentence there.
+          const answer = foldable(port, result['transitionId']);
+          if (answer) {
+            Object.assign(result, answer);
+            // A FIRE-TIME WORD THE SETTLED FACTS SUPERSEDE, dropped for the same
+            // reason `howToSettle` is. `settlement` answers "does a commit bundle
+            // exist YET?" — a question whose whole meaning is "as of return
+            // time", and this payload no longer describes return time. Left in,
+            // it says 'awaiting-state' beside facts that were read from the very
+            // bundle it says does not exist. The builder has no word for this
+            // axis and one is not invented here: the library simply stops
+            // saying, which is never a lie. A caller that wants it polls nothing
+            // — `did_it_work` has never carried it either.
+            delete result['settlement'];
+            // The pointer sent the model to ask did_it_work; it just got the
+            // answer, so leaving it would buy a wasted turn.
+            delete result['howToSettle'];
+          }
         }
       }
       const misused = result['reason'] === 'UNKNOWN_TOOL';
@@ -115,6 +147,29 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
   });
 
   return server;
+}
+
+/**
+ * The settled answer IF this door may give one — `undefined` where it refuses.
+ *
+ * `settledAnswer` throws by contract on an id it cannot answer about honestly,
+ * and a throw here would be read as "the tool failed": the model would lose the
+ * result of a fire that actually happened, on an app whose only mistake was
+ * naming an action 'ask'. The refusal is honoured instead of relayed — nothing
+ * is folded, nothing the port built is removed, and the pointer the port left on
+ * the result sends the model to `did_it_work`, which answers the refusal in full
+ * words. A caller holding the port meets the throw exactly as documented; only
+ * this transport, which asks on the caller's behalf, absorbs it.
+ */
+function foldable(
+  port: SkillToolsPortWithSettlement,
+  transitionId: string,
+): ServeResult | undefined {
+  try {
+    return port.settledAnswer(transitionId);
+  } catch {
+    return undefined;
+  }
 }
 
 /**

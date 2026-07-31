@@ -147,9 +147,16 @@ Options:
 - `visible?: boolean` — initial visibility signal (same wire as `setVisible`).
 - `enabled?: Record<string, boolean>` — initial per-tool enabled state (grey a button out; flip
   later via `handle.setEnabled(toolId, false)`).
+- `busy?: Record<string, string>` — which controls are ALREADY WORKING as this mounts, in the app's
+  OWN WORDS (`{ save: 'Saving your draft…' }`); flip later via `handle.setBusy(toolId, label)` and
+  clear with `undefined`. A LABEL, never a flag: there is no boolean form, a non-string is refused
+  with one warning, and a tool absent from the map says NOTHING about that control (never "idle").
+  It gates nothing — a busy control that is not disabled still fires — and no clock in this library
+  ever expires it. A live store says the same thing through `LiveAction.busy`.
 
-Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), unregister() }`.
-`registerTool(path, toolId, { handler, ... })` is the single-tool convenience form.
+Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled),
+setBusy(toolId, busy), unregister() }`. `registerTool(path, toolId, { handler, ... })` is the
+single-tool convenience form (its `ToolHandle` carries `setEnabled(enabled)` / `setBusy(busy)`).
 
 ### Reporting reality — fire / updateState / sync / stimulus
 
@@ -185,6 +192,21 @@ Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled), 
   order. NOT the same list as `pending()`: a fire declaring no writes never joins that one while its
   handler runs, so `pending()` alone answers "nothing is live" about an action that is running.
   Every pending fire is awaiting a settlement; not every fire awaiting a settlement is pending.
+- `beginWork(label?, { transitionId? })` → `WorkHandle` `{ workId, done(error?) }` — THE WORK LEDGER:
+  the app says it is working on something and hands back the only thing that closes the row. Pair it
+  like a lock (`beginWork` in the `try`, `done()` in the `finally`). Binding is by CALL PATH and is
+  decided at call time: the `transitionId` you name, else the fire whose handler you are inside
+  BEFORE its first `await`, else UNBOUND at principal `'system'` with one dev warning (never a guess
+  at "the newest fire"). `done()` closes the row and settles NOTHING — not even `done(error)`, which
+  is recorded on the work row only; the failure spine stays a handler throw, a returned `{ok:false}`,
+  or `reject()`. It bumps no version, so bookkeeping can never make a plan stale.
+- `openWork()` → `WorkRow[]` `{ workId, label?, transitionId?, affordanceId?, startedAt, principal }`
+  — the app's OPEN work, oldest first (copies). The third "what is still live?" door: a fire comes to
+  rest when the app reports its delta while the app may keep working, and `pending()` /
+  `awaitingSettlement()` both answer "nothing" about that window. Every row is the APP'S CLAIM —
+  nothing here verifies, measures or ends it, and NO TIMER expires a row (a leaked handle keeps
+  saying "still working" for the session's life, by design). `startedAt` is data; no duration is
+  ever rendered from it.
 - `updateState(delta, opts?)` — the app reports a projected-state delta (router/store tap); pending
   fires settle. `opts` (`UpdateOptions`): `transitionId?` (settle THIS pending precisely — preferred
   over FIFO), `stimulus?`, `principal?`. Returns `UpdateResult`.
@@ -299,7 +321,7 @@ const result = port.call(name, args);           // route a tool_use; return `res
 ### The three call shapes
 
 - **`shop.whats_here` →** `{ ok: true, facts, brief, actions: [{ action, does, goesTo?, holds?,
-  highEffect?, guardUnevaluated?, instances?, enumeration?, activation?, expects? }], skills: [{ skill,
+  enabled?, busy?, highEffect?, guardUnevaluated?, instances?, enumeration?, activation?, expects? }], skills: [{ skill,
   does, feasible, feasibilityUnknownFor? }], youAreOn, version }`. `goesTo?` is the page this edge CLAIMS
   it will move you to (the declared `goTo`; absent when none is declared) — its success evidence is
   PAGE MOTION, because a navigation declares no writes and nothing on the page has to change.
@@ -307,7 +329,15 @@ const result = port.call(name, args);           // route a tool_use; return `res
   was served. Use it instead of asking the human to retype what they can see, and never invent one:
   the key is ABSENT whenever the app declared no way to read the value, so absence means the library
   does not know, not that the box is empty. It is a reading, not a binding — firing still sends the
-  `input` you pass. `expects?` is that action's declared
+  `input` you pass. `enabled?` appears ONLY as `false` — the app has switched that control off, on
+  screen and not clickable (a clickable control carries no key at all); firing it anyway is refused
+  `TOOL_DISABLED` with `retriable: true` and a sentence that names the STATE and refuses to invent a
+  reason for it, because nothing in this library knows one. `busy?` is the app's OWN LABEL for
+  "working on it right now" (`'Saving your draft…'`) — the third state beside clickable and switched
+  off. Presence-only again: an absent key means the library does not know, NEVER "not busy". It gates
+  nothing (a busy control that is not disabled still fires) and nothing here will ever time it out —
+  wait and re-read, or ask `did_it_work` about a fire you already made; do not fire again to find
+  out. `expects?` is that action's declared
   input contract (absent when the action declares none; `'none'` when it takes no input) — the same
   shape a `PAYLOAD_INVALID` rejection teaches, and the same value `available()` serves.
   **`facts`** is `groundTruth().text` (see §2): the app's own record of what was ATTEMPTED and how
@@ -421,7 +451,8 @@ the result names the door out in `howToSettle`. Call `shop.did_it_work` with tha
 POLL, so it answers immediately, one of these ways:
 
 - settled — `{ ok: true, settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
-  writesObserved?, verifyHeld?, arrival?, arrivalMeans?, toNode?, error?, data? }`. THREE axes, none averaged into another:
+  writesObserved?, verifyHeld?, arrival?, arrivalMeans?, stillWorking?, stillWorkingMeans?, toNode?,
+  error?, data? }`. THREE axes, none averaged into another:
   `effectStatus` = did anyone perform it; `effectVerified` = were the declared writes observed;
   `verifyHeld` = did the app's OWN declared `verify` condition hold (absent when no contract was
   declared — silence, never a passing grade). `'refused'` covers FOUR routes, one word: the handler
@@ -442,6 +473,12 @@ POLL, so it answers immediately, one of these ways:
   corroboration, never proof of cause: the sync row that produced it is still an unverified hop.
 - still running — `{ ok: true, settled: false, judgment: 'still-pending', did, howToAct }`. Do NOT perform
   the action again; call again with the same id.
+- still WORKING — `stillWorking: true` (plus the authored `stillWorkingMeans`) rides EITHER of the two
+  arms above when the app has opened a work row for that fire and not closed it (`beginWork`, §2). On
+  the settled arm it sits BESIDE the receipt exactly as `outcomeNow` does: a fire can be at rest while
+  the app is still working, and both are true at once. It is the app's own account, not a verdict on
+  anything else on the result, no judgment word was minted for it, and NOTHING here will time it out —
+  ask again, or re-read `whats_here`; never perform the action again to find out.
 - paused (you passed an `askId`) — `{ ok: true, settled: false, performed: false, judgment, askId, did,
   howToAct }`, where `judgment` is `'awaiting-human'` (nobody has decided), `'approved-not-yet-done'`
   (a yes is on record and nothing has fired), `'approval-no-longer-valid'` (a yes is on record and this
@@ -460,9 +497,24 @@ POLL, so it answers immediately, one of these ways:
   has not answered (asks are not fires, so they join neither of the other two lists).
 
 Over a real MCP server (`mcpServer`) the answer usually arrives without a second call: the server waits up
-to `settleWithinMs` (default 250) and folds the settled word, produced data and any failure into the SAME
-result. In process, `session.settlementOf(transitionId)` is that truth as a promise and
-`session.settlementIfKnown(transitionId)` is it without waiting; both THROW on an id that can never settle.
+to `settleWithinMs` (default 250) and spreads EXACTLY what `did_it_work` would answer about that id into
+the SAME result — one shared builder, so a folded result and a later poll can never teach two different
+things. Where they overlap the settled facts WIN (`'pending'` was true at return time and is not now), and
+two fire-time words are DROPPED because the payload no longer describes the moment they were true:
+`howToSettle` (it pointed at the poll that just happened) and `settlement` (it answers "does a commit bundle
+exist YET?", so leaving it put `'awaiting-state'` beside `writesObserved: true`). Nothing is minted in their
+place — `did_it_work` never carried either, so the two doors still agree.
+Only a result carrying a `transitionId` is folded at all, and that is an invariant: a `transitionId` is
+minted ONLY by an executed fire, so every `needs-confirm`, decline and refusal returns at once with the
+ceiling untouched — **an awaited call is structurally incapable of blocking on a person**. Miss the
+ceiling and NOTHING is minted: `'pending'` stands, `howToSettle` stays, and no settled field appears.
+Keep the ceiling well under the host's own timeout — this server sends no progress notifications, so a
+long one just makes the CLIENT error about an action that may well have succeeded; `did_it_work` is the
+long-running door. In process, `session.settlementOf(transitionId)` is that truth as a promise,
+`session.settlementIfKnown(transitionId)` is it without waiting, and `port.settledAnswer(transitionId)`
+is the same facts as a RESULT for a caller holding only the port (`undefined` while in flight, and a
+synchronous THROW on an id no settlement can exist for — plus one that names BOTH a fire and a human's open
+card, which `did_it_work` refuses as `AMBIGUOUS_ID`); all of them THROW on an id that can never settle.
 
 **And re-`sync()` after any CLAIMED navigation.** A result carrying `toNodeClaimed: true` means the
 cursor moved on the graph's declared `goTo` — a claim about your app, not an observation (a bound
@@ -484,12 +536,20 @@ table by `matchRoute`'s own segment rules. Never a resemblance.
 `BLOCKED_BY_OVERLAY` (a shown modal masks the node),
 `NODE_NOT_VISIBLE`, `STILL_MOUNTING` (RETRIABLE — mounts not arrived yet), `INSTANCE_REQUIRED`,
 `INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out; four wires reach it: `enabled:` at registration,
-`handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`), `NOT_MATERIALIZED` (declared but
+`handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`. Carries
+`retriable: true` and an authored `why` that names the STATE and refuses to invent a cause — the app switched
+it off, and nothing here knows what would change it. Do not guess one; the same fact is served ahead of time
+as `enabled: false` on the action row), `NOT_MATERIALIZED` (declared but
 unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with a
 tool group, or create the session with `allowUnmaterializedFires` for read-only touring). Every
-refused fire is also a gap-ledger row. High-effect steps return `judgment: 'needs-confirm'` — a PAUSE, not a
+refused fire is also a gap-ledger row. **There is no `TOOL_BUSY`, and there will not be**: `busy` is
+what the app SAID, not a door it SHUT, so a working control that is not disabled still fires — a
+refusal on a control the app also called busy carries the label as data and one authored sentence
+BESIDE the refusal's own, never as its cause. High-effect steps return `judgment: 'needs-confirm'` — a PAUSE, not a
 failure (`performed: false`: nothing has been done, and the missing piece is a person, not a fix) — so ask the
-human, then call again with `confirm: true`. While they decide, `shop.did_it_work` with that `askId` says
+human, then call again with `confirm: true`. CAPABILITY BEFORE AUTHORITY: a high-effect control the app has
+SWITCHED OFF is refused `TOOL_DISABLED` and no card is minted, because nobody may be asked to approve
+something nobody can do (`fire()`'s own order, now held on the port's confirm arms too). While they decide, `shop.did_it_work` with that `askId` says
 whether they have answered. By default that `confirm: true` is the agent's own request to proceed and is tied to no
 recorded decision (an agent that never asks crosses on its first call); create the session with `requireHumanApproval`
 and a crossing needs a pointer to an approval the app recorded from a person, or it is refused `APPROVAL_REQUIRED`.
@@ -524,3 +584,10 @@ declared `goTo` claim, unconfirmed), `effectVerified: 'unobservable'` (no report
 predicate that threw; never read as a refusal), `enumeration: 'mounted-window'` (instance list is
 partial). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.
+
+**Absence is a stance, not an oversight.** `enabled`, `busy`, `holds`, `goesTo` and `stillWorking`
+are PRESENCE-ONLY: a key means the app said so, and no key means this library DOES NOT KNOW — never
+"clickable", "not busy", "the box is empty" or "finished". A cheerful default on every row would be a
+claim about a session nobody was asked about. **And no clock is evidence:** nothing here expires a
+`busy` label or a work row, `settleWithinMs` decides how long to wait and never what the answer is,
+and a caller who stops waiting reports UNFINISHED — never done, never failed.

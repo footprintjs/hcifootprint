@@ -4,7 +4,7 @@ title: ToolHandle
 
 # Interface: ToolHandle
 
-Defined in: [src/atom/types.ts:527](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L527)
+Defined in: [src/atom/types.ts:537](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L537)
 
 The handle returned by registerTool — a single-tool ToolGroup.
 
@@ -14,7 +14,7 @@ The handle returned by registerTool — a single-tool ToolGroup.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:528](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L528)
+Defined in: [src/atom/types.ts:538](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L538)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:528](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:529](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L529)
+Defined in: [src/atom/types.ts:539](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L539)
 
 ***
 
@@ -30,15 +30,35 @@ Defined in: [src/atom/types.ts:529](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **toolId**: `string`
 
-Defined in: [src/atom/types.ts:530](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L530)
+Defined in: [src/atom/types.ts:540](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L540)
 
 ## Methods
+
+### setBusy()
+
+> **setBusy**(`busy`): `void`
+
+Defined in: [src/atom/types.ts:544](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L544)
+
+Say this tool is working right now, in your own words — `undefined` stops saying it.
+
+#### Parameters
+
+##### busy
+
+`string` \| `undefined`
+
+#### Returns
+
+`void`
+
+***
 
 ### setEnabled()
 
 > **setEnabled**(`enabled`): `void`
 
-Defined in: [src/atom/types.ts:532](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L532)
+Defined in: [src/atom/types.ts:542](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L542)
 
 Grey out / re-enable this tool.
 
@@ -58,7 +78,7 @@ Grey out / re-enable this tool.
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:533](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L533)
+Defined in: [src/atom/types.ts:545](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L545)
 
 #### Returns
 

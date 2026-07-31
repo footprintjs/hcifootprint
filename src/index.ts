@@ -105,6 +105,7 @@ export type {
   AvailableEdge,
   AvailableSkill,
   AvailableSlice,
+  BeginWorkOptions,
   Binding,
   CanonicalRole,
   Cause,
@@ -153,4 +154,6 @@ export type {
   UpdateResult,
   VerifyContract,
   VerifyFailure,
+  WorkHandle,
+  WorkRow,
 } from './atom/types.js';

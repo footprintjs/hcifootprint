@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1456%20passing-f5b301?style=flat" alt="1456 tests passing">
+  <img src="https://img.shields.io/badge/tests-1660%20passing-f5b301?style=flat" alt="1660 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -332,6 +332,44 @@ binding: firing still sends the `input` the caller passes. And because what a co
 fire's payload one turn early, `redactedFields.payload` hides it there too.
 → [What a control holds](https://footprintjs.github.io/hcifootprint/docs/serve/what-a-control-holds)
 
+**And waiting on your app has one honest shape.** Every action worth firing is asynchronous, and `fire()`
+answers `'pending'` — true at return time, useless to act on. The completion wire is the one your app already
+has: hand `registerToolGroup` your function and **return its promise** — `save: (payload) =>
+saveDraft.mutateAsync(payload)` — where a throw or a returned `{ok: false}` becomes the settlement's reason.
+When your *store* reports the delta instead, thread the id: `updateState(delta, { transitionId })`, because
+bare FIFO settles the **oldest** pending fire and out-of-order completion is ordinary (predictable, and
+`effectVerified: false` is the detector). Over MCP the answer usually lands in the same turn — `settleWithinMs`
+(default 250) folds the settled truth into the result of the call that fired — and that await is
+**structurally incapable of blocking on a person**: only an executed fire mints a `transitionId`, so every
+pause and refusal returns at once. Keep the ceiling well under your host's own timeout — this server sends no
+progress notifications, so a long one just turns a slow success into a client-side error — and use
+`did_it_work` as the long-running door.
+→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app)
+
+**And when the control is working, it says so — in your words.** A control has *three* states a person can
+see: clickable, switched off, and mid-flight. Only two had a wire, so *working* and *broken* were the same
+picture to a reader that cannot see the screen — and the two moves an agent makes about broken (fire it
+again, tell the human it failed) are the two worst moves about working. So a row carries **`busy`**: the
+app's own label (`"Saving your draft…"`), set at registration, through `handle.setBusy(…)`, or from a live
+store. A **string only** — a boolean would leave this library to author a meaning only your app can
+describe — and presence-only, so an absent key means it does not know, never *not busy*. It gates nothing
+(disable the control if you mean that), and **no clock here will ever expire it**: a busy that outlasts your
+patience is answered by the row still saying busy and `did_it_work` still saying `still-pending`. The
+ceiling is yours, and it reports *unfinished* — never done, never failed.
+→ [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/serve/when-a-control-is-busy)
+
+**And when the work outlives the receipt, the app says that too.** A fire comes to rest when your app
+reports its delta — and your app may keep working long after: the upload continues, the job runs on.
+Every "what is still live?" list answered *nothing* about that window. So your app opens a row —
+`const work = session.beginWork('Uploading the attachment')` in the `try`, `work.done()` in the
+`finally` — bound to the fire it belongs to, and `openWork()` serves it beside `pending()` and
+`awaitingSettlement()`. `did_it_work` then carries **`stillWorking: true`** *alongside* the receipt,
+never over it. **Closing a row settles nothing**: your failure spine stays the doors it always was
+(throw, `{ok:false}`, `reject()`), because a `done()` that resolved a latch would let bookkeeping
+race a receipt. And nothing expires a row — a leaked handle keeps saying the last thing your app
+said, where you can see it.
+→ [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+
 ### Plug into any framework — or run a real MCP server
 
 hcifootprint is **not tied to any agent framework**. The library hands your host two functions:
@@ -628,6 +666,64 @@ and the demo says so in the code.
 → [The human sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor) ·
 [The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)
 
+## ⏳ Still working — promises and callbacks, then five lines per framework
+
+The async story is your app's own control flow, and the library never asks you to adopt a second one.
+Saying *"and I am still working"* is two ordinary calls and one label — no framework anywhere:
+
+```ts
+async function save() {
+  const work = session.beginWork('Saving your draft…'); // 1. the app is working
+  saveTool.setBusy('Saving your draft…');               // 2. and this control is the one
+  try {
+    await saveToServer();                               // 3. your own promise, unchanged
+    work.done();                                        // 4. closed — cleanly
+  } catch (failure) {
+    work.done(failure);                                 //    or with what went wrong
+    throw failure;
+  } finally {
+    saveTool.setBusy(undefined);                        // 5. the label comes back down
+  }
+}
+```
+
+That is the whole feature, and `test/work-framework-interface.test.ts` drives exactly those lines
+with no framework loaded — so *framework-free* is a test, not a claim.
+
+**React gets a thin hook over the same five lines.** Hand it the busy flag your component already
+renders its own spinner from, in your own words, with the error you already show:
+
+```tsx
+useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, tools: saveTool, session });
+```
+
+The flag rising opens one work row and stands the label on the control; the flag falling closes that
+row — carrying the error if one is present — and takes the label back. Every rise is its own row, and
+StrictMode's double-invoke is one piece of work.
+
+**Each field is read at its own edge.** The optional `transitionId` is read where the row *opens*
+(binding is decided at call time and never revisited, so an id arriving a commit later is refused out
+loud rather than moving a row it missed), and the error where it *closes* — with `null` counted as
+absent, which is how React's own data layers say nothing went wrong.
+
+**Unmount is deliberately asymmetric, and that asymmetry is the design.** A component going away is
+not the work ending, so the **row stays open** — closing it would mint a verdict out of silence, and
+no timer will ever end it either. The **label is cleared**, because a label is a claim about a
+control and the thing keeping it true has gone. What is *unknown* stays open; what was *claimed* is
+taken back.
+
+**And it can never report that something worked.** The two doors it drives — the work ledger and the
+busy label — settle nothing; `done(error)` is recorded on the work row alone. The failure spine stays
+a handler throw, a returned `{ ok: false }`, or `reject()`.
+
+**An Angular or Vue binding is the same five lines** in that framework's own three moments
+(`onMounted` / `onScopeDispose`, `ngOnInit` / `ngOnDestroy`). Nothing in the core has to change for
+one to exist: `hcifootprint/react` imports **types** from the core and nothing else, which is why a
+second skin is a new folder rather than a new seam.
+
+→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
+[When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+
 ## Frontend: framework-agnostic
 
 The core is plain TypeScript and knows nothing about your framework — you connect it through three ordinary
@@ -648,10 +744,11 @@ now says so: the bindings still on offer are from before the failure, so beside 
 gap row per failure streak instead of serving a stale list in silence.
 → [The invalidation contract](https://footprintjs.github.io/hcifootprint/docs/build/live-bindings#when-it-re-reads--the-invalidation-contract)
 
-React has a binding already ([`hcifootprint/react`](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)).
-**On the roadmap:** the same skin for Vue and Angular — each is five fields and one method, and a test already
-drives that surface with no framework at all — plus a demo gallery showing one app wired four ways.
-One graph, many frontends.
+React has a binding already ([`hcifootprint/react`](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)):
+two hooks, one per half — `useControl` for the human's click, `useWorking` for the wait.
+**On the roadmap:** the same skin for Vue and Angular — the click half is five fields and one method,
+the waiting half is five lines, and a test already drives **each** surface with no framework at all —
+plus a demo gallery showing one app wired four ways. One graph, many frontends.
 
 ## The model — Affordance &amp; Transition
 

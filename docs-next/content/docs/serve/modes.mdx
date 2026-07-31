@@ -51,6 +51,13 @@ saying so: *Nothing has been done. This is a question for the human, not a failu
 read `ok: false` as *the app broke* went looking for another route; the marker is the
 machine-readable half of the fix, and [`did_it_work`](#did-it-work) is the other.
 
+**Capability comes before authority**, here as in `fire()`: a high-effect control the app has
+[switched off](doc:guards#enabledwhen--the-other-question) is refused `TOOL_DISABLED` and **no card
+is minted**. Nobody may
+be asked to approve something nobody can do — and the refusal carries the
+[`busy`](doc:when-a-control-is-busy) label too, if the app said one, which the confirm card never
+would have.
+
 Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEffect?`,
 `guardUnevaluated?`, `materialized?` (false = nothing is bound to execute that step), and
 `expects?` (the [declared input contract](doc:sessions), visible before the fire).
@@ -66,6 +73,15 @@ A `whats_here` **action** row carries those plus two facts about the control its
   already in the box, read when the row was served. Present only where the app declared a way to
   read it, so an absent key means the library does not know, never that the box is empty. It is a
   reading, not a binding — firing still sends the `input` you pass.
+- **`enabled?`** — `false` when the app has [switched the control off](doc:guards#enabledwhen--the-other-question):
+  on screen, not clickable, the greyed button a person sees. Presence-only — a clickable control
+  carries no key — and reaching for it anyway is a `TOOL_DISABLED` refusal carrying
+  `retriable: true` and a sentence that refuses to invent a cause.
+- **`busy?`** — the app's own label for [working on it right now](doc:when-a-control-is-busy)
+  (`"Saving your draft…"`), the third state beside clickable and switched off. Presence-only again,
+  and a string only: an absent key means the library does not know, never *not busy*. It gates
+  nothing — a busy control that is not disabled still fires — and nothing here will ever time it
+  out.
 
 `do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
 promise deliberately does not.
@@ -164,6 +180,11 @@ these ways, and never blocks:
   `verified: true` beside an error saying the app had answered *no*.
 - **still pending** — `{ settled: false, judgment: 'still-pending', did, howToAct }`. Honest,
   immediate, and it tells the model not to repeat the action.
+- **still working** — `stillWorking: true` (plus `stillWorkingMeans`) rides either of the two arms
+  above when your app has [opened a piece of work](doc:when-the-app-is-still-working) for that fire
+  and not closed it. On the settled arm it sits **beside** the receipt exactly as `outcomeNow` does:
+  a fire can be at rest while your app is still working, and both are true at once. No new judgment
+  word was minted for it, and no clock will ever expire it.
 - **paused** — pass an **`askId`** and it answers from [the ask book](doc:paused-not-failed) instead:
   `{ settled: false, performed: false, judgment, askId, did, howToAct }`, where `judgment` is
   `'awaiting-human'` (nobody has decided), `'approved-not-yet-done'` (a yes is on record and
@@ -201,9 +222,17 @@ promise, and `port.whenSettled(transitionId)` is that promise for a caller holdi
 port. Over a real server, [`mcpServer`](doc:mcp) usually settles it for you before the result
 ever leaves.
 
-`skillsAsTools` returns a **`SkillToolsPortWithSettlement`**, where that method is required —
-hold the factory's port and you never check for it. On the published **`SkillToolsPort`**
-itself the method is optional, and that is the whole reason for two names: somebody's object
+**`port.settledAnswer(transitionId)`** is the same truth as a *result* rather than a promise — the
+one builder `did_it_work` answers from, minus that tool's own envelope, for a caller that already
+holds the id and wants the facts to fold into a payload of its own. Three answers, and they are
+three different things: the facts for a fire at rest, `undefined` while it is still in flight
+(*no answer yet*, never a guessed one), and a synchronous **throw** on an id no settlement can ever
+exist for — a mistyped id refused by name, because silence there reads as *not finished* and that
+is how a wrong id becomes a confident wrong answer. It is what [`mcpServer`](doc:mcp) folds with.
+
+`skillsAsTools` returns a **`SkillToolsPortWithSettlement`**, where both methods are required —
+hold the factory's port and you never check for them. On the published **`SkillToolsPort`**
+itself they are optional, and that is the whole reason for two names: somebody's object
 literal implements that interface (a test double, a relay facade), and a required member added
 underneath it would be a compile error in code that never asked for the feature.
 

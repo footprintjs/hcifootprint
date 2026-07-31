@@ -16,6 +16,18 @@ Defined in: [src/registry/registry.ts:24](https://github.com/footprintjs/hcifoot
 
 ***
 
+### busy?
+
+> `optional` **busy?**: `string`
+
+Defined in: [src/registry/registry.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L39)
+
+The app's own label for "this control is working right now" (the spinner in
+the button). Absent means the app has not said — never "not busy". Purely a
+carried fact: this layer neither reads it nor times it out.
+
+***
+
 ### enabled
 
 > **enabled**: `boolean`

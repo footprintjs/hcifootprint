@@ -143,6 +143,27 @@ into a served fact.
 **Status** — `open`, parked for its own design round. It earns that round when someone reports the
 cost of carrying two names; it does not get bolted onto a release built around other seams.
 
+### `did_it_work` that waits — a ceiling on the long-running door
+
+**Ask.** Let the polling door wait a little instead of answering immediately, so an agent watching a
+two-minute upload does not spend a turn per poll.
+
+**Evidence.** The surviving half of the awaited-call ask below. `settleWithinMs` covers the call
+that **fired**; nothing covers the caller that comes back later and finds the same fire still in
+flight, which is exactly the shape a work row describes.
+
+**Workaround.** Poll. Cost: a turn per poll, and the **model** picks the cadence — a clock a model
+set, which is the one hand this library keeps clocks out of.
+
+**Status** — `open / parked`, and the shape is already decided if it is ever built. It cannot be a
+tool **argument** (that is the declined entry below: the fixed tool array's bytes), so it would have
+to be an `mcpServer` option applied to `did_it_work` the way `settleWithinMs` is applied to a fire —
+the ceiling stays the transport's, never the model's. It is parked rather than queued for the reason
+the fold's own documentation gives: this server sends **no progress notifications**, so a ceiling
+long enough to be worth having is long enough for the *client* to give up first and report an error
+about an action that may well have succeeded. It unparks the day there is a progress story, or with
+a field report naming a host whose timeout leaves real room.
+
 ---
 
 ## Declined
@@ -253,6 +274,148 @@ which is the same stance one level up.
 
 **Status** — `declined` as a mechanism. The need it points at is open under `sameAs`, where the
 merge is something the app **declares** and a collision is **reported** rather than resolved.
+
+### `awaitSettlement` / `timeoutMs` as arguments on `do_action`
+
+**Ask.** Two new arguments on the tool a model already calls: wait for the app to finish, up to a
+caller-supplied ceiling, and answer with the settled truth in the same turn.
+
+**Evidence.** Real, and the underlying need shipped (see *Wait for the app before answering the tool
+call*, below). A remote caller that fires and gets `effectStatus: 'pending'` has a receipt for
+something that has not happened, and the turn it spends asking again is a real cost.
+
+**Declined as specified, and why** — three settled designs, any one of which is sufficient:
+
+1. **The fixed tool array.** Mode B's whole design is a tool set whose bytes never change: that is
+   what keeps a host's prompt cache warm and removes `tools/list_changed` churn. Two new properties
+   on `do_action`'s input schema change those bytes for **every** caller, every turn, including the
+   ones that never wanted the feature. Pinned by a test that reads the tool array's bytes and refuses
+   `awaitSettlement`, `timeoutMs` and `settleWithin` (`test/settled-answer.test.ts`).
+2. **`call()` is synchronous by contract.** The port hands back a `ServeResult`, not a promise, and
+   that is what lets a relay, a test double or a hand-rolled facade implement `SkillToolsPort` at
+   all. An argument that only means something when the port awaits would make the published contract
+   a lie for every implementation that cannot.
+3. **The ceiling is a fact about the waiter, never about the work.** A model-chosen minutes-long wait
+   is worse than useless over MCP: this server sends **no progress notifications**, so a long ceiling
+   buys no patience from the host — the **client** gives up first and reports an error about an
+   action that may well have succeeded. A clock may decide how long to wait; it may never decide what
+   the answer is.
+
+**What was taken from it.** All of the need, none of the shape. `port.settledAnswer(transitionId)`
+is the settled truth as a **result** — one builder shared with `did_it_work`, so the two doors cannot
+teach different things — and `mcpServer`'s existing `settleWithinMs` fold now spreads it whole
+instead of hand-patching three fields. The wait itself stays where waiting already belonged: the
+**transport**, one boundary, one ceiling, chosen by the host.
+
+**Status** — `declined` as specified, `shipped in 0.10.0` as the core. Re-proposing the arguments
+means answering reason 1: name how a per-call argument reaches the model without changing the tool
+array every caller reads.
+
+### An off switch for the MCP fold
+
+**Ask.** A way to turn the `settleWithinMs` fold off entirely (`false`, or a `fold: false` option),
+so a result crosses exactly as the port built it.
+
+**Evidence.** Sympathetic and easy to picture: a host doing its own settlement bookkeeping does not
+want a server rewriting results underneath it.
+
+**Declined, and why.** Withholding an answer the session is **already holding** is the only
+dishonest move available at that boundary — the result would say `'pending'` about a fire the library
+knows has finished, and the caller would have to ask again to learn what the server had in hand when
+it answered. That is the confident-staleness failure this library keeps closing, chosen on purpose.
+`0` is therefore the *shortest* ceiling and not an off switch: the timer is a macrotask, so a
+settlement already in hand still wins the race and is still folded in.
+
+**And the unfolded result already has a door.** `skillsAsTools(session)` is the port, and the port
+never folds anything — `mcpServer` is the transport that does. A host that wants the raw result
+holds the port and writes its own transport, which is the same seam every framework binding uses.
+
+**Status** — `declined`.
+
+### `TOOL_BUSY` — a refusal word for a control that is working
+
+**Ask.** When a control is busy, refuse the fire with a `TOOL_BUSY` reason so the agent knows why it
+was turned away.
+
+**Evidence.** Real: the wave that produced `busy` started with an agent re-firing a working control,
+and a refusal is the loudest way to stop that.
+
+**Declined, and why.** **Busy does not refuse anything.** It is what the app *said*, not a door the
+app *shut*, and a library that turns a reported state into a gate has invented a rule the app never
+declared — the control would stop working for the app's own UI reasons at a moment the app chose to
+narrate. An app that means *and nobody may press it* already has the wire: disable the control, and
+the fire is refused as `TOOL_DISABLED` exactly as before.
+
+The second reason is structural. `FireResult.reason` and `GapRecord.rejectionReason` grow in
+**lockstep** (`src/atom/types.ts`), so a word minted for the wire also lands in the triage ledger as
+a refusal class an app never asked for, in every export and every gap report.
+
+**What shipped instead.** On a refusal of a control the app also called busy, the label rides as
+**data** and one authored sentence rides **beside** the refusal's own — never replacing it, and
+saying out loud that busy is not the cause of the refusal it sits next to. Two true things the app
+said, joined by nothing this library invented.
+
+**Status** — `declined`.
+
+### `busyWhen` — a declarative condition for the working state
+
+**Ask.** The `enabledWhen` shape for the third state: declare a condition, and let the library mark
+the row busy when it holds.
+
+**Evidence.** Consistency, and it is a fair point: every other fact about a control has a declarative
+form.
+
+**Declined, and why.** A condition can prove a **state**; it cannot write **prose**. `enabledWhen`
+needs no words — *off* is the whole fact — but `busy` is deliberately a **label**, the app's own
+words for what it is doing, because a flag would leave the meaning to whoever renders it and put the
+serving layer in the business of authoring a sentence about a state only the app can describe. A
+`busyWhen` could only make this library write that sentence, which is the exact conflation the
+string-only shape exists to prevent.
+
+**Status** — `declined`. The two are independent and both true at once on a Save button mid-save:
+`enabledWhen` shuts the door, `busy` says what the app is doing, and neither is served as the other's
+cause.
+
+### Reading `aria-busy` (or a spinner) off the DOM
+
+**Ask.** Have the sensor notice `aria-busy`, a spinner element, or a disabled attribute, so an app
+gets the third state with no wiring at all.
+
+**Evidence.** Real convenience, and the attribute exists precisely to mean this.
+
+**Declined, and why.** It is the sensor's founding law, and this feature is the case it was written
+for: **the DOM is a rendering of the app's state, not the state.** A component library that keeps
+its busy state in a hook and renders a sibling spinner exposes no `aria-busy` at all; another sets
+it on a wrapper; a third sets it and forgets to clear it. Each of those produces a
+plausible-looking answer, on a row a model plans over, that is indistinguishable from a right one —
+and this row's whole job is to stop a reader guessing about a control it cannot see. The same
+refusal `holds` already carries, for the same reason.
+
+**Status** — `declined`. `busy` has three wires that all begin with the app saying so, and no
+element is ever consulted — pinned by a test that shouts `aria-busy` at the sensor and proves the
+row stays silent.
+
+### `done(error)` settles the transition
+
+**Ask.** Let closing a work row with an error mark the fire it belongs to as failed — one call
+instead of two.
+
+**Evidence.** Sympathetic: an app that opens a work row for a fire and then hits an error has said
+everything it needs to say, and writing the failure twice looks like boilerplate.
+
+**Declined, and why.** It would fork **first-settlement-wins**. Two independent things would be
+racing to write one receipt, and the app's note about its own **bookkeeping** could arrive first and
+*become* the library's verdict on the **action** — a settlement minted by a ledger call rather than
+by the doors that mean it. The failure spine stays exactly the three doors it has always been: throw
+from the handler, return `{ ok: false }`, or call `session.reject(transitionId)`. `done(error)`
+records the app's error object on the **work row only**, and it is deliberately served through no
+door that answers *how did this fire come to rest*.
+
+**Status** — `declined`, and it is the load-bearing refusal of the whole work ledger. It was
+re-proposed as the second tier of the React hook — *let the falling edge settle it* — and declined
+again there for the same reason. `useWorking` (shipped, below) drives the work ledger and the busy
+label only: the session type it accepts carries two methods, neither of which can settle anything,
+so the refusal is a shape rather than a rule somebody has to remember.
 
 ---
 
@@ -505,3 +668,150 @@ than throws, and now also files **one gap row per failure streak** with an autho
 naming the consequence — the bindings on offer are from before the failure, and serving them in
 silence is the same confident staleness the re-read exists to end. `GapReason` did not grow for it
 (`reason: 'other'`).
+
+### Say when a control is switched off — before the agent fires it
+
+**Ask.** Put the greyed-button fact on the row a model reads, and make the refusal say something a
+caller can act on.
+
+**Evidence.** The library had held *disabled* since 0.5 and served it to in-process callers only, so
+over the wire an agent could learn it exactly one way: by firing. What came back was a bare typed
+refusal — `TOOL_DISABLED`, and nothing else — and a relay filled the hole itself. It told its human
+*"a required field is probably empty"*, which nothing in the app had ever said, and tried again.
+
+**Workaround.** Exactly that: an invented explanation, plus a retry loop. Cost: a fabricated
+diagnosis presented to a person as the app's own, and repeated fires against a control that was never
+going to accept one.
+
+**Status** — `shipped in 0.10.0`. `enabled: false` on the `whats_here` action row, from all four
+wires that can say it (registration, the group handle, a live store row, a declared `enabledWhen`),
+**presence-only** — a clickable control carries no key, because `enabled: true` on some rows would
+make its absence on the rest read as *nobody knows*. The refusal gained `retriable: true` (a state
+can change) and one authored constant that names what IS true, says out loud what is **not** known,
+and refuses to supply a cause: *"That is a STATE, not a verdict… nothing here knows what would change
+it. Do not invent a reason it is off."* No wire in this library can say **why** a control is off, so
+no sentence pretends to.
+
+### Say when a control is working right now
+
+**Ask.** Tell the agent a control is mid-flight, so it stops re-firing it.
+
+**Evidence.** An agent poked a working control in a loop. The app had put the button into its saving
+state exactly as it does for a person; the served row had no word for that; so the one reader who
+cannot see a spinner met a mid-flight control the way it meets a broken one and did the two things
+you do about broken — fire it again, then tell the human it failed.
+
+**Workaround.** Disable the control while it works, which the app was already doing anyway. Cost:
+*working* and *switched off for any other reason* arrive as the same fact, so a reader cannot tell a
+two-second wait from a permanent block — and the refusal carries nothing to wait on.
+
+**Status** — `shipped in 0.10.0`, **as a label**. `AvailableEdge.busy` / `busy` on the wire carries
+the app's own words (`'Saving your draft…'`) through the same three wires `enabled` has:
+registration, `handle.setBusy`, and a live store's `LiveAction.busy`. Four refusals are the shape: no
+boolean form (a flag would leave this library to author the meaning), no `busyWhen`, no `TOOL_BUSY`
+and no gate (busy is what the app *said*, not a door it *shut*), and nothing read off the DOM. And no
+timer, ever: a busy that outlives anyone's patience is answered by the row still saying busy and
+`did_it_work` still saying `still-pending` — the ceiling belongs to the caller, and a caller who
+stops waiting reports **unfinished**. Presence-only, so an app that never wires it says nothing about
+any of its controls rather than a cheerful *not busy* about all of them.
+→ [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/serve/when-a-control-is-busy)
+
+### Say the app is still working after the fire has settled
+
+**Ask.** A way to say *this is still running* about a fire that has already come to rest.
+
+**Evidence.** A fire settles when the app reports its delta, and the app may keep working long after
+— the upload continues, the job runs on, the save's spinner outlives its receipt. Every *what is
+still live?* door answered **nothing** about that window: `pending()` had settled the record, the
+settlement latch had been dropped, and the ask book was never about fires. So a model polled
+`did_it_work` one call later, got a settled receipt, and told the person it was done about work that
+was still running.
+
+**Workaround.** Push the flag into projected state (`saving: true`) and hope the model reads it.
+Cost: a second copy of in-flight state on a surface built for **committed** state — and guards
+evaluate against that same state, so a bookkeeping key is one authoring mistake away from opening or
+closing an edge. It also says nothing about **which fire** it belongs to.
+
+**Status** — `shipped in 0.10.0`. `session.beginWork(label?, { transitionId? })` hands back a
+`WorkHandle`; `work.done()` closes it; `session.openWork()` is the third live door beside `pending()`
+and `awaitingSettlement()`; and `did_it_work` carries `stillWorking: true` with an authored sentence
+— on the `still-pending` arm and **beside** the settlement receipt exactly as `outcomeNow` does,
+because a fire really can be at rest while the app really is still working. Binding is by **call
+path**: the id you name, or the fire whose handler you are inside (before its first `await`), or
+**unbound** at principal `'system'` with one dev warning — never a guess about which fire is which.
+`done()` settles nothing, no version is bumped (bookkeeping must never make a plan stale), and no
+timer closes a row: pair it like a lock, and a leak stays visible in `openWork()` rather than
+decaying into a fate nobody reported.
+→ [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+
+### Wait for the app before answering the tool call
+
+**Ask.** Let a remote caller have the settled truth in the turn it fired, rather than a receipt for
+something that has not happened yet. (As **specified** it was two new `do_action` arguments — see the
+declined entry above.)
+
+**Evidence.** 0.6.0's fold closed half of this and left the other half open in a way nobody could see
+from outside: it hand-patched three fields it picked out by name, so a remote agent learned strictly
+**less** from a folded result than the same agent learned one poll later — no `outcome`, no
+`verifyHeld`, no `writesObserved`, no `arrival`, and no marker at all on a fire nothing in the app
+had executed, which reads as *it worked*.
+
+**Workaround.** Poll `did_it_work` after every fire, or rebuild the wait outside the library — the
+listener-plus-stopwatch relay of the 0.9.0 entry above. Cost: a turn per fire, or a ceiling that
+decided the *answer* and not just the *wait*.
+
+**Status** — `shipped in 0.10.0`, **reshaped**, in three parts. `port.settledAnswer(transitionId)` is
+the settled truth as a **result** rather than a promise — the same builder `did_it_work` answers
+from, minus that tool's envelope — and `mcpServer`'s fold spreads it whole, so one fire cannot be
+described two ways. Three answers, and they are three different things: the facts for a fire at rest,
+`undefined` while it is in flight, and a synchronous **throw** on an id no settlement can ever exist
+for. Part two is a contract that already held and had never been written in one place — **your
+handler's promise is the completion signal**: return it (`save: (payload) =>
+saveDraft.mutateAsync(payload)`), throw or return `{ ok: false }` to fail, and thread
+`updateState(delta, { transitionId })` when your store reports instead. Part three is the work ledger
+above, for the work that outlives the fire. The wait itself stayed at the transport, and the
+invariant that makes it safe is now written down: a `transitionId` is minted **only** by an executed
+fire, so an awaited call is structurally incapable of blocking on a person.
+→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app)
+
+### A React hook that pairs the app's own async work with the ledger
+
+**Ask, in two tiers.** One hook that opens a [work row](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+when a mutation starts and closes it when the mutation settles, so a React app never writes the
+`try`/`finally` by hand — and, as tier two, let the **falling edge settle the transition too**, so
+one flag could report the whole outcome.
+
+**Evidence.** From the same wave as the work ledger itself: a component wiring `beginWork` around a
+mutation writes the same shape every time, and the line that matters — `work.done()` in the
+`finally` — is the one a refactor drops. A dropped `done()` is not a crash; it is a row that keeps
+saying *still working* for the rest of the session. The component that would carry it already holds
+every input: the busy flag its spinner reads, the words under that spinner, and the error it renders.
+
+**Workaround.** The two lines around the work. Cost: two lines per async control, and a leak that is
+**visible** rather than silent — `openWork()` keeps saying so, and `did_it_work` keeps carrying
+`stillWorking`.
+
+**Status** — **tier one `shipped in 0.10.0`, reshaped; tier two stays `declined`.**
+`useWorking({ busy, label, error?, tools?, session, transitionId? })` takes the boolean the component
+already has and turns its two edges into the calls the core already had: rising, one `beginWork` plus
+the label on each control in `tools`; falling, `done(error)` with the error read **by presence at
+fall time** (`null` is absent, as React's own data layers mean it), and the label taken back. Every
+rise is its own row and StrictMode's double-invoke is one piece of work. Each field is read at its
+own **edge**: the `transitionId` where the row opens, because binding is decided at call time and
+never revisited — an id that arrives a commit later is refused out loud rather than dropped, and the
+row keeps honestly saying *unbound*.
+
+The tier-two half is the standing declined entry above (`done(error) settles the transition`), and
+the hook is built so it cannot be smuggled back in: the session type it accepts is
+`Pick<Session, 'beginWork' | 'warn'>`, a scan pins that the folder names no settlement door, and the
+refusal is asserted again from the hook's own side. **The worst a wrong flag can do is say the app is
+working when it is not — never that something worked.**
+
+Two refusals came with it. **Unmount does not close the row** — a component going away is not the
+work ending, so closing it would mint a verdict out of silence; the busy label *is* cleared, because
+that claim's keeper has gone. What is unknown stays open, what was claimed is taken back, and one dev
+warning says so. And **the core did not grow a framework**: the hook is a lifecycle over five plain
+lines, `test/work-framework-interface.test.ts` drives those lines with no framework loaded, so a Vue
+or Angular skin needs nothing new from the library.
+→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
+[The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)

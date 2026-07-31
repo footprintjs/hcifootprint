@@ -88,15 +88,21 @@ describe('the skin reaches the core through TYPES ONLY', () => {
     });
   }
 
-  it('the only library modules it names at all are the sensor types', () => {
+  it('the only library modules it names at all are the ones its types are spelled in', () => {
     const named = new Set<string>();
     for (const file of reactFiles) {
       for (const match of readFileSync(file, 'utf8').matchAll(/from '(\.\.\/[^']+)'/g)) named.add(match[1]!);
     }
+    // Three sensor modules for the control skin, and two for the working skin —
+    // every one of them reached through `import type`, which the scan above
+    // pins. The list is written out rather than pattern-matched so that ADDING
+    // one is a decision somebody makes in this file, not a diff nobody reads.
     expect([...named].sort()).toEqual([
+      '../atom/types.js',
       '../sensor/control-index.js',
       '../sensor/dom-port.js',
       '../sensor/types.js',
+      '../traverse/session.js',
     ]);
   });
 });
@@ -126,10 +132,38 @@ describe('THE RECORD-ONLY PIN — the skin has no way to write a row', () => {
     });
   }
 
-  it('the subpath serves three runtime exports and not one more', async () => {
+  it('the subpath serves four runtime exports and not one more', async () => {
     const module = await import('../src/react/index.js');
-    expect(Object.keys(module).sort()).toEqual(['ControlSurfaceProvider', 'useControl', 'useControlSurface']);
+    expect(Object.keys(module).sort()).toEqual([
+      'ControlSurfaceProvider',
+      'useControl',
+      'useControlSurface',
+      'useWorking',
+    ]);
   });
+});
+
+/**
+ * THE OTHER HALF OF THE SAME PIN, for the hook that reports about ASYNC WORK
+ * rather than about a click.
+ *
+ * `useWorking` drives two doors — the work ledger and the busy label — and
+ * neither of them settles anything. That is the core's own load-bearing refusal
+ * (`done()` records an error on the work row and resolves no latch), and a skin
+ * is exactly where somebody would later be tempted to "close the loop" by
+ * reaching past it. The temptation has to name one of these words, so the scan
+ * is what makes "it can never report that something worked" a property of the
+ * folder rather than a promise in a paragraph.
+ */
+describe('THE NO-VERDICT PIN — the skin has no way to settle a fire either', () => {
+  for (const file of reactFiles) {
+    it(`${file} names no door that could mint an outcome`, () => {
+      const code = codeOf(file);
+      for (const door of ['updateState', 'reject', 'settlementOf', 'whenSettled', 'settlementIfKnown']) {
+        expect(code, `${file} names ${door}`).not.toContain(door);
+      }
+    });
+  }
 });
 
 describe('THE OPTIONAL PEER — a floor here is a claim about the consumer, not about us', () => {

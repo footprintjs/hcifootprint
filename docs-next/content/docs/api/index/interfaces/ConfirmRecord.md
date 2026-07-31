@@ -4,7 +4,7 @@ title: ConfirmRecord
 
 # Interface: ConfirmRecord
 
-Defined in: [src/atom/types.ts:1342](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1342)
+Defined in: [src/atom/types.ts:1528](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1528)
 
 One row of the confirm journal: the auditable trail of high-effect asks and
 how they were answered. A needs-confirm ask lands an `'ask'` row (carrying
@@ -41,7 +41,7 @@ compiling.
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1363](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1363)
+Defined in: [src/atom/types.ts:1549](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1549)
 
 ***
 
@@ -49,7 +49,7 @@ Defined in: [src/atom/types.ts:1363](https://github.com/footprintjs/hcifootprint
 
 > **askId**: `string`
 
-Defined in: [src/atom/types.ts:1362](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1362)
+Defined in: [src/atom/types.ts:1548](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1548)
 
 Links the ask → decision → fire rows of one high-effect gate. On an
 `'always-approved'` row it is that policy's own id ('grant#1'), carried by
@@ -62,7 +62,7 @@ a standing yes was exercised.
 
 > `optional` **by?**: `string`
 
-Defined in: [src/atom/types.ts:1383](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1383)
+Defined in: [src/atom/types.ts:1569](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1569)
 
 Who answered — an operator id, an email, your host's label. Optional.
 
@@ -72,7 +72,7 @@ Who answered — an operator id, an email, your host's label. Optional.
 
 > `optional` **enforced?**: `true`
 
-Defined in: [src/atom/types.ts:1392](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1392)
+Defined in: [src/atom/types.ts:1578](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1578)
 
 Present (true) on every row the enforcement path wrote — so an auditor can
 separate rows the gate will honour from the pre-enforcement journal's rows,
@@ -84,7 +84,7 @@ without inferring it from a kind.
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [src/atom/types.ts:1407](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1407)
+Defined in: [src/atom/types.ts:1593](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1593)
 
 When a standing grant stops authorizing (epoch ms). Absent = no time limit.
 
@@ -94,7 +94,7 @@ When a standing grant stops authorizing (epoch ms). Absent = no time limit.
 
 > **kind**: `"refused"` \| `"approved"` \| `"declined"` \| `"always-approved"` \| `"ask"` \| `"used"` \| `"revoked"`
 
-Defined in: [src/atom/types.ts:1355](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1355)
+Defined in: [src/atom/types.ts:1541](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1541)
 
 - `'ask'`              — a high-effect gate opened; carries the receipts.
 - `'approved'`         — a human's ALLOW. Single-use: one yes, one fire.
@@ -113,7 +113,7 @@ Defined in: [src/atom/types.ts:1355](https://github.com/footprintjs/hcifootprint
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1366](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1366)
+Defined in: [src/atom/types.ts:1552](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1552)
 
 ***
 
@@ -121,7 +121,7 @@ Defined in: [src/atom/types.ts:1366](https://github.com/footprintjs/hcifootprint
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:1385](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1385)
+Defined in: [src/atom/types.ts:1571](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1571)
 
 Free-text note (length-capped). On a decline, typically why.
 
@@ -131,7 +131,7 @@ Free-text note (length-capped). On a decline, typically why.
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1369](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1369)
+Defined in: [src/atom/types.ts:1555](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1555)
 
 Who asked ('ask'), or the principal that recorded the decision.
 
@@ -141,7 +141,7 @@ Who asked ('ask'), or the principal that recorded the decision.
 
 > `optional` **receipts?**: [`ConfirmReceipts`](/api/index/interfaces/ConfirmReceipts)
 
-Defined in: [src/atom/types.ts:1372](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1372)
+Defined in: [src/atom/types.ts:1558](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1558)
 
 The receipts that rode this ask (present on 'ask' rows).
 
@@ -151,7 +151,7 @@ The receipts that rode this ask (present on 'ask' rows).
 
 > `optional` **rejectionReason?**: `"APPROVAL_REQUIRED"` \| `"APPROVAL_SPENT"` \| `"APPROVAL_MISMATCH"` \| `"APPROVAL_STALE"` \| `"APPROVAL_DECLINED"`
 
-Defined in: [src/atom/types.ts:1415](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1415)
+Defined in: [src/atom/types.ts:1601](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1601)
 
 Why a crossing attempt was refused (`'refused'` rows) — joins the gap ledger.
 
@@ -161,7 +161,7 @@ Why a crossing attempt was refused (`'refused'` rows) — joins the gap ledger.
 
 > `optional` **relayed?**: `true`
 
-Defined in: [src/atom/types.ts:1403](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1403)
+Defined in: [src/atom/types.ts:1589](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1589)
 
 Present (true) on a `'declined'` row that RELAYS a refusal instead of
 recording the human's own decision — an agent's report, or any
@@ -178,7 +178,7 @@ fabricated yes. A human's no (`declineAsk`) never carries this.
 
 > `optional` **scopeInstance?**: `string`
 
-Defined in: [src/atom/types.ts:1405](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1405)
+Defined in: [src/atom/types.ts:1591](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1591)
 
 An ALWAYS ALLOW scoped to one row of a list (an order id). Absent = any instance.
 
@@ -188,7 +188,7 @@ An ALWAYS ALLOW scoped to one row of a list (an order id). Absent = any instance
 
 > `optional` **stateVersion?**: `number`
 
-Defined in: [src/atom/types.ts:1413](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1413)
+Defined in: [src/atom/types.ts:1599](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1599)
 
 The STATE version when the decision was recorded — the anchor for
 [HumanApprovalPolicy.refuseWhenWorldMoved](/api/index/interfaces/HumanApprovalPolicy#refusewhenworldmoved). Stamped always; enforced
@@ -200,7 +200,7 @@ only when asked.
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:1365](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1365)
+Defined in: [src/atom/types.ts:1551](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1551)
 
 Epoch milliseconds when the row was recorded.
 
@@ -210,7 +210,7 @@ Epoch milliseconds when the row was recorded.
 
 > `optional` **transitionId?**: `string`
 
-Defined in: [src/atom/types.ts:1380](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1380)
+Defined in: [src/atom/types.ts:1566](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1566)
 
 The TransitionRecord.id of the fire this row is about. Present on `'used'`
 rows, and on a `'approved'` row written by the pre-enforcement default path
@@ -223,4 +223,4 @@ rows, and on a `'approved'` row written by the pre-enforcement default path
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:1367](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1367)
+Defined in: [src/atom/types.ts:1553](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1553)

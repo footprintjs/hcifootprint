@@ -43,6 +43,7 @@ import type {
   AvailableEdge,
   AvailableSkill,
   AvailableSlice,
+  BeginWorkOptions,
   Binding,
   CommitSkillResult,
   ConfirmReceipts,
@@ -78,6 +79,8 @@ import type {
   TrySkillPlanResult,
   UpdateOptions,
   UpdateResult,
+  WorkHandle,
+  WorkRow,
 } from '../atom/types.js';
 import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
@@ -93,7 +96,7 @@ import { NO_INPUT, expectsOf } from './expects.js';
 import { checkVerify, filterVerdict } from './verify.js';
 import { stepDependencies } from '../graph/skill-deps.js';
 import { ToolRegistry } from '../registry/registry.js';
-import type { ToolHandler } from '../registry/registry.js';
+import type { Registration, ToolHandler } from '../registry/registry.js';
 
 /**
  * Who an UNATTRIBUTED action is charged to.
@@ -133,6 +136,18 @@ const NOTHING_ATTEMPTED = 'No actions have been performed in this app this sessi
 
 /** An id the graph does not have — caller-supplied text, kept out of the authored channel. */
 const UNKNOWN_ACTION = '(an action this app does not have)';
+
+/**
+ * The facts-block line for work the app opened without tying it to any action
+ * ({@link Session.beginWork}, home 3).
+ *
+ * AUTHORED, and it ignores the row's own `label` — that is the app's runtime
+ * text, and this is the block a model is told to trust above its own account
+ * (the same refusal `by` and `note` get on the ask lines). What it says is the
+ * fact and the whole fact: something is running, and nothing named what.
+ */
+const WORK_NOT_TIED_TO_AN_ACTION =
+  'The app is still working on something it did not tie to an action here.';
 
 /**
  * The facts-block line for a row that reported the served action list could not
@@ -194,6 +209,37 @@ type CursorRest =
   | { kind: 'observed'; node: string }
   /** Nobody reported anything: a claimed navigation, or the coalesced structure flush. */
   | { kind: 'unreported' };
+
+/**
+ * One row of the work ledger, as it is HELD (what {@link Session.openWork}
+ * serves is a copy of the open ones, {@link WorkRow}).
+ *
+ * The two extra fields are the closed stamp. They are held and never served:
+ * `closedAt` is what makes `done()` first-close-wins rather than merely
+ * idempotent, and `error` is where a `done(error)` lands — on the work row,
+ * ONLY. Nothing reads it back out, on purpose: every door that could carry it
+ * answers "how did this FIRE come to rest", and an app's note about its own
+ * bookkeeping arriving there would read as a settlement.
+ *
+ * `error` is the app's OWN object, held by reference — the same choice
+ * `#detachSettlement` makes and for the same reason: cloning an Error quietly
+ * drops its stack, and a bounded copy of a thing nobody serves would buy
+ * nothing. The consequence is worth saying out loud, because it is the one
+ * un-summarised app value this ledger keeps: whatever graph you hand `done()`
+ * (a captured DOM node, a response body) stays reachable for the session's
+ * life, alongside the row itself. That is the ledger's disclosed retention
+ * policy — nothing here expires — applied to the value as well as the row.
+ */
+interface WorkEntry {
+  workId: string;
+  label?: string;
+  transitionId?: string;
+  affordanceId?: string;
+  startedAt: number;
+  principal: Principal;
+  closedAt?: number;
+  error?: unknown;
+}
 
 interface PendingTransition {
   record: TransitionRecord;
@@ -327,8 +373,44 @@ export class Session {
    * updateState() called from inside that portion attributes directly to this
    * record (like transitionId targeting) — the fix for the burst-fire race
    * where another handler's report would FIFO-steal an earlier record.
+   *
+   * THE CALL WINDOW. Named, because there are now two windows in this file and
+   * they are different primitives with different lifetimes: this one is open
+   * only while a handler's synchronous portion runs (one turn of the microtask
+   * queue) and answers "which fire is this call inside of?"; the arrival CLAIM
+   * WINDOW (`#navClaim`) lives from a fire until the next fire or the next
+   * observation and answers "which navigation claim could this observation
+   * corroborate?". They must stay two — collapsing them would let a late
+   * observation attribute a call, or a call close a claim.
    */
   #invokingRecordId: string | null = null;
+  /**
+   * THE WORK LEDGER — every piece of work the app said it started, by work id.
+   *
+   * A fire can come to rest while the app is still working (an upload that
+   * reports its delta and keeps uploading, a handler that hands off to a job),
+   * and until this ledger every list here answered "nothing is live" about it:
+   * `#pending` had settled, the latch had been dropped. This is the app's own
+   * imperative statement of what it is doing, held where the readers can see it.
+   *
+   * ONE MAP, TWO STATES. A row STAYS after `done()` closes it, carrying
+   * `closedAt` (and whatever `done(error)` was handed) — the ledger policy this
+   * file already runs on (#settlements above, #transitions, the gap ledger):
+   * ledgers keep their rows, and pruning is how a real past becomes a fabricated
+   * "unknown". {@link Session.openWork} serves the OPEN ones only, which is what
+   * its name promises; the closed stamp is what makes a second `done()` unable
+   * to reopen or re-stamp anything, and it is deliberately served nowhere. A
+   * closed row's `error` is the app's word about WORK, and every door that could
+   * carry it is a door about how a FIRE came to rest.
+   *
+   * It grows for the session's life, and an un-closed row grows with it: nothing
+   * expires work, because a clock is never evidence.
+   */
+  readonly #openWork = new Map<string, WorkEntry>();
+  /** Monotonic counter behind every generated work id (never caller-supplied). */
+  #workSeq = 0;
+  /** Unbound-work complaints already made (the #warnedOnce discipline — see #warnWorkOnce). */
+  readonly #workWarned = new Set<string>();
   /** Closed frames (completed / cancelled / demoted), oldest first. */
   readonly #frames: SkillFrame[] = [];
   readonly #registry: ToolRegistry;
@@ -354,6 +436,8 @@ export class Session {
   readonly #holdsRegistered = new Map<string, { group: string; read: () => unknown }>();
   /** Value-reader complaints already made, keyed `reason:affordanceId` (the #warnedOnce discipline). */
   readonly #holdsWarned = new Set<string>();
+  /** Busy-label complaints already made, keyed `busy:affordanceId` (same discipline). */
+  readonly #busyWarned = new Set<string>();
   readonly #warn: (message: string) => void;
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
@@ -702,6 +786,72 @@ export class Session {
   }
 
   /**
+   * Say — or stop saying — that a registered tool is WORKING RIGHT NOW (the
+   * ToolGroup handle's `setBusy`). A real change is world motion for the same
+   * reason a `setEnabled` flip is: the served row now reads differently, so a
+   * plan made against the old one is stale.
+   *
+   * The label is normalised on the way in, never on the way out, so the
+   * fingerprint below and the served row can never disagree about which bytes
+   * the app said. No timer is started here or anywhere else — see
+   * {@link AvailableEdge.busy}: a clock is not evidence, and the ceiling on
+   * waiting belongs to whoever is waiting.
+   */
+  protected setToolBusy(affordanceId: string, busy: string | undefined): void {
+    const label = this.busyLabel(affordanceId, busy);
+    // A REFUSED label is not a CLEAR. `undefined` in means "stop saying it";
+    // anything else that failed the door leaves the standing word exactly where
+    // it was, because clearing it would be this library deciding, off a
+    // malformed call, that the app had finished.
+    if (label === undefined && busy !== undefined) return;
+    if (this.#registry.setBusy(affordanceId, label)) this.noteStructureChange();
+  }
+
+  /**
+   * THE LABEL, OR NOTHING — the one door every busy wire passes through
+   * (registration, the handle, a live store row), so all three store the same
+   * bytes and none of them can invent a state.
+   *
+   * A STRING IS THE ONLY THING THAT IS A LABEL. `true` is the shape this field
+   * deliberately does not have: a flag says "something is happening" and leaves
+   * the meaning to whoever renders it, which puts the serving layer in the
+   * business of authoring sentences about a state only the app can describe.
+   * So a boolean, a number, an object — anything but a string — is REFUSED, with
+   * one warning that teaches the shape, and the row keeps saying nothing rather
+   * than saying a guess. An all-whitespace label goes the same way: presence
+   * with no content would print an empty box for a state that has words.
+   *
+   * `undefined` is not a refusal — it is the CLEAR, and the only way to stop
+   * saying busy.
+   *
+   * Capped through the same function every app string crosses under, so a runaway
+   * label costs a model 200 characters and not its context window.
+   */
+  protected busyLabel(affordanceId: string, busy: unknown): string | undefined {
+    if (busy === undefined) return undefined;
+    if (typeof busy !== 'string' || busy.trim() === '') {
+      const said = typeof busy === 'string' ? 'an empty label' : `a ${describeKind(busy)}`;
+      this.#warnBusyOnce(
+        affordanceId,
+        `hcifootprint: busy for '${affordanceId}' was ${said}, not a label — so the row says ` +
+          `nothing about it. busy is the app's OWN WORDS for what it is doing ('Saving…'), never a flag: ` +
+          `there is no boolean form, because a flag would leave this library to author the meaning. Pass a ` +
+          `non-empty string, or undefined to stop saying it.`,
+      );
+      return undefined;
+    }
+    return sanitizeProduced(busy) as string;
+  }
+
+  /** One busy warning per action — a store reconcile can call this on every emission. */
+  #warnBusyOnce(affordanceId: string, message: string): void {
+    const key = `busy:${affordanceId}`;
+    if (this.#busyWarned.has(key)) return;
+    this.#busyWarned.add(key);
+    this.#warn(message);
+  }
+
+  /**
    * Whether firing this tool should be refused as TOOL_DISABLED. Protected seam
    * so InteractionSession can consult the INSTANCE-keyed registration first —
    * a per-row disabled button ('id[instance]') must block, not just the base id.
@@ -788,6 +938,13 @@ export class Session {
         ...(this.#registry.isEnabled(aff.id) === false || this.#disabledByDeclaration(aff)
           ? { enabled: false }
           : {}),
+        // THE THIRD STATE, if the app has said it: working right now, in the
+        // app's own words. Read exactly where `enabled` is read (the base
+        // registration for this action) and stamped exactly how it is stamped —
+        // presence only, so silence stays "the library does not know" rather
+        // than becoming a cheerful "not busy". Nothing is derived here: no
+        // declaration proves it, no clock expires it, no element is consulted.
+        ...this.#busyFor(aff.id),
         // What the control HOLDS right now, read HERE — on the fresh row, never
         // stored on `expects` or `binding`, which are shared and deep-frozen so
         // one rendered contract can reach every caller. A value that changes
@@ -806,6 +963,23 @@ export class Session {
       });
     }
     return { version: this.#version, node: this.#node, edges };
+  }
+
+  /**
+   * The app's "working right now" for one action, or NO KEY. Whatever the app
+   * stored is what is served — there is no arithmetic here, and deliberately no
+   * per-instance dimension: one served row stands for every mounted card of a
+   * repeats container, so picking a card's label would name a card nobody asked
+   * about (the reason {@link servesHolds} exists, and the same answer).
+   *
+   * That answer covers the ROW and stops there. A fire names its card, and
+   * `enabled` has a per-instance door that a fire really does consult — `busy`
+   * has none, so a label the app set on one card is absent from that card's
+   * refusal. Stated as a limit on the busy page rather than argued away here.
+   */
+  #busyFor(affordanceId: string): { busy: string } | Record<string, never> {
+    const busy = this.#registry.busyOf(affordanceId);
+    return busy === undefined ? {} : { busy };
   }
 
   // -------------------------------------------------------------------------
@@ -994,11 +1168,13 @@ export class Session {
     group: string,
     node?: string,
     setEnabled?: (toolId: string, enabled: boolean) => void,
+    setBusy?: (toolId: string, busy: string | undefined) => void,
   ): ToolGroup {
     return {
       id: group,
       ...(node !== undefined ? { node } : {}),
       setEnabled: setEnabled ?? ((toolId: string, enabled: boolean) => this.setToolEnabled(toolId, enabled)),
+      setBusy: setBusy ?? ((toolId: string, busy: string | undefined) => this.setToolBusy(toolId, busy)),
       unregister: () => this.unregisterGroup(group),
     };
   }
@@ -2204,6 +2380,245 @@ export class Session {
       affordanceId: p.affordance.id,
       firedAt: p.record.timestamp,
     }));
+  }
+
+  // -------------------------------------------------------------------------
+  // The work ledger — the app says what it is still doing (beginWork/openWork)
+  // -------------------------------------------------------------------------
+
+  /**
+   * SAY THE APP IS WORKING ON SOMETHING, and get back the handle that closes it.
+   *
+   * The imperative sibling of {@link AvailableEdge.busy}. `busy` is a fact about
+   * a CONTROL — the spinner in the button, standing until the app changes it.
+   * This is a fact about a PIECE OF WORK: it opens where the work starts, closes
+   * where the work ends, and while it is open the readers can say so about the
+   * FIRE it belongs to. A fire can come to rest while the app is still working
+   * (the delta is reported, the upload continues), and before this ledger every
+   * list answered "nothing is live" about exactly that.
+   *
+   * ```ts
+   * const work = session.beginWork('Uploading the photo');
+   * try {
+   *   await upload(file);
+   * } finally {
+   *   work.done();
+   * }
+   * ```
+   *
+   * WHERE IT LANDS IS DECIDED AT CALL TIME, and never revisited — three homes:
+   *
+   * 1. `{ transitionId }` — the exact fire, and EXPLICIT WINS, the same order
+   *    {@link Session.updateState} keeps. An id this session does not know as a
+   *    fire binds to nothing (see below).
+   * 2. Inside a handler's synchronous portion — the fire whose handler is
+   *    running, read from the same call window `updateState()` reads. No id to
+   *    pass, no correlation to get wrong.
+   * 3. Neither — an UNBOUND row at principal `'system'`, plus one dev warning.
+   *    Work never runs silently: the row is still opened and still served, it
+   *    simply does not claim a fire nothing named. The warning exists so an app
+   *    cannot believe unbound work is bound.
+   *
+   * TWO CAVEATS ABOUT HOME 2, and both are the window's shape rather than a bug:
+   *
+   * - **Call it before the first `await`.** The window is open for the handler's
+   *   SYNCHRONOUS portion only. Past an await the handler is no longer "the call
+   *   we are inside of" — another fire may be mid-flight — so a later call is
+   *   unbound rather than bound to a record that is merely the most recent. (A
+   *   handler that must open work late passes `{ transitionId }`.)
+   * - **App code around `fire()` is outside the window.** Calling `fire()` and
+   *   then `beginWork()` on the next line is home 3: the handler is deferred, so
+   *   nothing is running yet. Bind it with the `transitionId` the fire result
+   *   just handed you.
+   *
+   * NOTHING ABOUT THIS IS A GATE OR A CLOCK. Opening work refuses no fire,
+   * changes no served row, and does not bump the session version (a plan made
+   * before it is not stale — nothing an agent can act on changed). No timer
+   * expires a row, and a row that outlives everyone's patience keeps saying the
+   * one true thing: the app said it was working and has not said otherwise.
+   */
+  beginWork(label?: string, opts?: BeginWorkOptions): WorkHandle {
+    const workId = `work#${this.#workSeq++}`;
+    const entry: WorkEntry = {
+      workId,
+      ...this.#workLabel(label),
+      ...this.#bindWork(label, opts?.transitionId),
+      // The session's clock, so a test can hold it still — and DATA either way.
+      // Nothing here renders a duration from it and nothing expires a row
+      // because of it: a clock is never evidence (answer-grammar.md, rule 2).
+      startedAt: this.#now(),
+    };
+    this.#openWork.set(workId, entry);
+    return {
+      workId,
+      done: (error?: unknown) => this.#closeWork(workId, error),
+    };
+  }
+
+  /**
+   * Work the app has open RIGHT NOW, oldest first — the third "what is still
+   * live?" door, beside {@link Session.pending} (fires awaiting the app's state
+   * report) and {@link Session.awaitingSettlement} (fires that can still be
+   * asked about), and the cousin of {@link Session.asks} (cards awaiting a
+   * person).
+   *
+   * OPEN ONLY, which is what the name promises: a closed row leaves this list
+   * the moment `done()` runs and never comes back. Copies, so a caller holding
+   * one cannot edit the ledger.
+   *
+   * Every row here is the APP'S CLAIM about itself. Nothing in this library
+   * checks that work is running, measures it, or ends it.
+   */
+  openWork(): WorkRow[] {
+    const rows: WorkRow[] = [];
+    for (const entry of this.#openWork.values()) {
+      if (entry.closedAt !== undefined) continue;
+      rows.push({
+        workId: entry.workId,
+        ...(entry.label !== undefined ? { label: entry.label } : {}),
+        ...(entry.transitionId !== undefined ? { transitionId: entry.transitionId } : {}),
+        ...(entry.affordanceId !== undefined ? { affordanceId: entry.affordanceId } : {}),
+        startedAt: entry.startedAt,
+        principal: entry.principal,
+      });
+    }
+    return rows;
+  }
+
+  /**
+   * Close one row. FIRST CLOSE WINS — a second `done()` finds a closed row and
+   * returns, so a handle passed around cannot resurrect or re-stamp anything.
+   *
+   * WHAT IT DELIBERATELY DOES NOT DO is the whole design. It settles no
+   * transition, resolves no latch, flips no outcome and touches no ask — not
+   * even when an error is handed in. The failure spine stays the doors that have
+   * always been it: a handler throw, a returned `{ ok: false }`, and
+   * {@link Session.reject}. A `done(error)` that resolved a settlement would
+   * fork first-settlement-wins (two independent things racing to write one
+   * receipt) and turn an app's note about its own bookkeeping into the library's
+   * verdict on an action.
+   *
+   * The version is not bumped either, for the reason given on
+   * {@link Session.beginWork}: nothing an agent plans against changed, and a
+   * bumped version is what refuses a fire as STALE_CURSOR.
+   */
+  #closeWork(workId: string, error: unknown): void {
+    const entry = this.#openWork.get(workId);
+    if (entry === undefined || entry.closedAt !== undefined) return;
+    entry.closedAt = this.#now();
+    // Recorded on the WORK ROW, and nowhere else — see WorkEntry.
+    if (error !== undefined) entry.error = error;
+  }
+
+  /**
+   * The app's words for one piece of work, or NO KEY — bounded exactly as every
+   * other app string that crosses is bounded, and never rendered into a
+   * sentence.
+   *
+   * A non-string (a JS caller's object, a thrown-together template that came out
+   * `undefined`) simply does not become a label: the row still opens, because
+   * the row is the point and a name for it is not. No warning is minted here —
+   * unlike `busy`, this string enters no served row and no authored line, so a
+   * bad one costs a reader nothing.
+   */
+  #workLabel(label: unknown): { label: string } | Record<string, never> {
+    if (typeof label !== 'string' || label.trim() === '') return {};
+    return { label: sanitizeProduced(label) as string };
+  }
+
+  /**
+   * WHICH FIRE THIS WORK BELONGS TO — decided here, at call time, once.
+   *
+   * Explicit id, then the call window, then nothing. That order is
+   * {@link Session.updateState}'s own, and it is one law rather than two: what
+   * the caller SAID outranks what the library inferred, everywhere.
+   *
+   * RECENCY IS NOWHERE IN IT. There is no "the newest fire" arm and no FIFO arm:
+   * a work row is opened by app code that either knows its fire or does not, and
+   * a guess would be right exactly when nothing was racing — unfalsifiable
+   * precisely when the answer matters (`docs/design/answer-grammar.md`, "How
+   * completion is correlated"). Unbound is the honest floor, and it is loud.
+   */
+  #bindWork(
+    label: string | undefined,
+    transitionId: string | undefined,
+  ): { transitionId?: string; affordanceId?: string; principal: Principal } {
+    if (transitionId !== undefined) {
+      const record = this.#transitions.find((t) => t.id === transitionId);
+      // A FIRE, specifically. A stimulus row is the world moving with nobody
+      // firing anything, so there is no work "for" it and no did_it_work answer
+      // it could ride — the same line #noSettlementMessage draws, drawn once.
+      if (record !== undefined && record.cause.kind === 'fired') {
+        return {
+          transitionId,
+          ...(record.cause.affordanceId !== undefined
+            ? { affordanceId: record.cause.affordanceId }
+            : {}),
+          principal: record.cause.principal,
+        };
+      }
+      this.#warnWorkOnce(
+        // Keyed by the CALLSITE, like the arm below — never by the id, which is
+        // the one thing here a caller can rotate. `beginWork('save', {
+        // transitionId: job.id })` in a loop is ONE place in the app getting one
+        // thing wrong; keyed by id it warned on every pass and grew the warned
+        // set by one caller-supplied string each time, for the session's life.
+        `unusable-id:${label ?? ''}`,
+        // CAPPED, exactly as the label in this same feature is: the id is app
+        // text too, and a templated one that came out as a whole response body
+        // would cross to onWarn whole.
+        `hcifootprint: beginWork({ transitionId: '${sanitizeProduced(transitionId) as string}' }) names ` +
+          `${record === undefined ? 'no transition in this session' : 'a row nobody fired (the world moved)'}, ` +
+          `so this work row is UNBOUND — it says the app is working and does not say which action. ` +
+          `Pass a transitionId from a fire result. Fires still awaiting a settlement: ` +
+          `${this.awaitingSettlement().join(', ') || '(none)'}.`,
+      );
+      return { principal: 'system' };
+    }
+    if (this.#invokingRecordId !== null) {
+      const record = this.#transitions.find((t) => t.id === this.#invokingRecordId);
+      if (record !== undefined && record.cause.kind === 'fired') {
+        return {
+          transitionId: record.id,
+          ...(record.cause.affordanceId !== undefined
+            ? { affordanceId: record.cause.affordanceId }
+            : {}),
+          principal: record.cause.principal,
+        };
+      }
+    }
+    this.#warnWorkOnce(
+      `nothing-to-bind:${label ?? ''}`,
+      'hcifootprint: beginWork() had nothing to bind to, so this work row is UNBOUND — it says the ' +
+        'app is working, and does not say which action it belongs to. Bind it by calling beginWork() ' +
+        'inside a handler BEFORE its first await, or by passing { transitionId } from the fire result ' +
+        'you are working on (app code around fire() is outside that window — the handler has not run ' +
+        'yet). Nothing was dropped: the row is open, openWork() serves it, and the facts block says ' +
+        'the app is working on something it did not tie to an action.',
+    );
+    return { principal: 'system' };
+  }
+
+  /**
+   * One unbound-work warning per callsite — a save button pressed forty times
+   * must teach once, not forty times.
+   *
+   * Keyed by the LABEL on both arms — prefixed by which arm, so the two
+   * complaints about one label are still two — because the label is the only
+   * thing here that tells one callsite from another: two different labels are
+   * two different places in the app, and one label in a loop is one place. A
+   * stack-frame key would be exact and would also charge every unbound call for
+   * an Error it will usually throw away.
+   *
+   * NOT keyed by the transitionId, which was the earlier shape and the one thing
+   * a caller can rotate: a callsite templating a stale id warned once per CALL
+   * and grew this set by one caller-supplied string each time. A warn-once set
+   * that grows with traffic is not a warn-once set.
+   */
+  #warnWorkOnce(key: string, message: string): void {
+    if (this.#workWarned.has(key)) return;
+    this.#workWarned.add(key);
+    this.#warn(message);
   }
 
   /**
@@ -3686,6 +4101,34 @@ export class Session {
     if (pend.length > 0) {
       lines.push(`Awaiting the app's report: ${pend.map((p) => this.#actionLabel(p.affordanceId)).join(', ')}.`);
     }
+    // WORK THE APP SAYS IT IS STILL DOING — the same shape as the line above,
+    // and for a reason the line above cannot cover: a fire settles when the app
+    // reports its delta, and the app may keep working long after that. Before
+    // this, the block said nothing at all about the one thing still happening.
+    //
+    // TWO LINES, TWO FACTS, neither a substitute for the other. A BOUND row
+    // names its action through #actionLabel — registry-derived, the same door
+    // every other line here uses. An UNBOUND row gets the authored constant,
+    // because the only other thing it carries is the app's own label, and a
+    // runtime string never enters this block.
+    //
+    // CAPPED like the awaiting lines and the attempts list: work rows are minted
+    // by app code, a leaked handle mints them in a loop, and this is the one
+    // block a model is told to weigh above its own memory.
+    const work = this.openWork();
+    const workNames = [
+      ...new Set(
+        work
+          .filter((row) => row.transitionId !== undefined)
+          .map((row) => this.#actionLabel(row.affordanceId)),
+      ),
+    ];
+    if (workNames.length > 0) {
+      lines.push(`The app is still working on: ${workNames.slice(0, max).join(', ')}.`);
+      const moreWork = workNames.length - max;
+      if (moreWork > 0) lines.push(`  … ${moreWork} more the app says it is working on, not listed.`);
+    }
+    if (work.some((row) => row.transitionId === undefined)) lines.push(WORK_NOT_TIED_TO_AN_ACTION);
     return { node: this.#node, version: this.#version, text: lines.join('\n') };
   }
 
@@ -3896,12 +4339,10 @@ export class Session {
    */
   protected structureFingerprint(): string {
     // Include enabled state so a setEnabled() flip is world motion (the served
-    // surface changed), just like a mount/unmount.
-    return this.#registry
-      .registrations()
-      .map((r) => r.affordanceId + (r.enabled ? '' : ':off'))
-      .sort()
-      .join('|');
+    // surface changed), just like a mount/unmount. Busy joins it for the same
+    // reason and on the same terms: the row a planner read now says something
+    // else, whether the app started working, stopped, or reworded the label.
+    return this.#registry.registrations().map(registrationMark).sort().join('|');
   }
 
   /**
@@ -4219,6 +4660,32 @@ function emptyBoxFor(raw: unknown, bounded: unknown): boolean {
   if (Array.isArray(bounded) || Object.keys(bounded).length > 0) return false;
   const proto: unknown = Object.getPrototypeOf(raw as object);
   return proto !== Object.prototype && proto !== null;
+}
+
+/**
+ * ONE registration, as a fingerprint segment — shared by both
+ * {@link Session.structureFingerprint} and the tree layer's override, so the two
+ * can never disagree about what counts as a change.
+ *
+ * BOTH HALVES ARE ESCAPED, and that is what makes the encoding injective. The
+ * fingerprint is a `|`-joined list of `:`-separated parts, and both the id and
+ * the label are app-authored text that may contain either character. Escape only
+ * the label and a tool literally named `save:busy=Saving…` spells, byte for
+ * byte, what `save` carrying that label spells — so the app could flip one on
+ * while the other went away, and the flush would see no change and write no row.
+ * A fingerprint that can be spelled two ways is not a fingerprint.
+ */
+export function registrationMark(registration: Registration): string {
+  return (
+    encodeURIComponent(registration.affordanceId) +
+    (registration.enabled ? '' : ':off') +
+    busyMark(registration.busy)
+  );
+}
+
+/** The busy half of {@link registrationMark}, escaped for the same reason. */
+export function busyMark(busy: string | undefined): string {
+  return busy === undefined ? '' : `:busy=${encodeURIComponent(busy)}`;
 }
 
 /** What kind of thing the app handed back, for the warning only — never served. */

@@ -27,13 +27,14 @@ it, and the sensor records that a person did. There is no `fire()` call anywhere
 components, and nothing here can run your handler, so one human click can never become two
 ledger rows.
 
-## Three exports, and one of them is a hook
+## Four exports, and two of them are hooks
 
 | | what it is |
 | --- | --- |
 | `ControlSurfaceProvider` | puts a watcher in scope for a subtree. `watch` may be `null`. |
 | `useControl(spec)` | returns a **ref callback**. Put it on the element. |
 | `useControlSurface()` | the watcher in scope, or `null` — for a component that needs to ask |
+| [`useWorking(spec)`](#useworking--your-own-spinner-flag-on-the-ledger) | the async half: your busy flag becomes a work row and a busy label |
 
 `useControl`'s spec is the core's own
 [`ControlDeclaration`](/api/sensor/interfaces/ControlDeclaration) minus the element, because
@@ -112,6 +113,85 @@ That is a choice, not an accident:
 `live-desk` keeps exactly three controls on its own door for that reason, and says so in the
 code.
 
+## `useWorking` — your own spinner flag, on the ledger
+
+The second hook is the async half, and it takes nothing you do not already have. A component that
+renders a spinner has a boolean; the words under that spinner; and the error it shows when it fails.
+`useWorking` turns the two **edges** of that boolean into the two calls the core has always had —
+[`beginWork` / `done`](doc:when-the-app-is-still-working) — and stands your
+[`busy` label](doc:when-a-control-is-busy) on the control while it runs.
+
+```tsx
+import { useWorking } from 'hcifootprint/react';
+
+function SaveButton({ session, saveTool }) {
+  const save = useMutation({ mutationFn: saveToServer });
+
+  useWorking({
+    busy: save.isPending,          // your flag — the one the spinner already reads
+    label: 'Saving your draft…',   // your words
+    error: save.error,             // the error you already render
+    tools: saveTool,               // the control that should carry the label
+    session,
+  });
+
+  return <button onClick={() => save.mutate()}>{save.isPending ? 'Saving…' : 'Save'}</button>;
+}
+```
+
+| the field | what it is |
+| --- | --- |
+| `busy` | **your app's real spinner flag.** A boolean kept only for us is a second copy of a fact, and the copy nobody looks at is the one that rots |
+| `label` | your words, carried as data — the work row's label and the control's `busy` |
+| `error` | read **by presence at fall time**; absent closes the row cleanly, and `null` is absent (React's own spelling of *nothing went wrong*) |
+| `tools` | one control handle or many. Omit it for work no single control stands for |
+| `session` | narrowed by its type to two doors: `beginWork` and `warn` |
+| `transitionId` | optional, and read **where the row opens**. Names the fire this work belongs to; without it the row is honestly **unbound** |
+
+**Each field is read at its own edge, and that is the whole timing contract.** The id is read where
+the flag goes **up**, because the core decides where work lands at call time and never revisits it;
+the error is read where the flag comes **down**, because that is the commit that knows how it ended.
+
+<Callout type="warn" title="The id has to be in hand at the rise">
+A mutation's `isPending` flips where you call it, and the id only exists once the function that
+fires has run — one commit later. An id that arrives then does **not** move the row it missed: the
+row keeps saying what it said at the rise (for that component, *unbound*), and the hook warns once
+rather than dropping an input you plainly meant. Bind it by setting the flag and the id from **one**
+state update after the fire result hands the id back, or open the work
+[inside the handler](doc:when-the-app-is-still-working#where-the-row-lands) before its first
+`await`, where it binds itself.
+</Callout>
+
+**Every rise is its own row.** A flag that flaps three times writes three rows — two pieces of work
+at two different times are two facts, and nothing here reuses a row or dedupes by recency.
+StrictMode's double-invoke is *one* piece of work: the edge detector is a ref, which survives the
+simulated remount, so the row is re-adopted rather than opened twice.
+
+**Pointing at a tool inside a group.** `ToolGroup.setBusy` names the tool first, so a group is
+deliberately *not* assignable — passing one is a compile error rather than a call that labels a tool
+named *"Saving…"*. Name the tool where the group already knows how:
+
+```tsx
+tools: { setBusy: (label) => group.setBusy('save', label) }
+```
+
+Written inline like that it is a new object every render, which this hook honestly treats as a new
+control — and it costs nothing: world motion is coalesced and compared by fingerprint, so a
+take-back-and-re-say inside one window cancels to nothing.
+
+<Callout type="warn" title="Unmount is deliberately asymmetric">
+A component going away is **not** the work ending, so the work row **stays open** — `openWork()`
+keeps serving it and `did_it_work` keeps saying `stillWorking`. Closing it would mint a verdict out
+of silence, and no timer will ever end it either. The **busy label is cleared**, because a label is
+a claim about a control and the thing that was keeping it true has gone. What is *unknown* stays
+open; what was *claimed* is taken back. One dev warning says so, once.
+</Callout>
+
+**It cannot report that something worked.** The two doors it drives settle nothing: `done(error)` is
+recorded on the work row and reaches no door that answers how a *fire* came to rest. The failure
+spine stays a handler throw, a returned `{ ok: false }`, or `reject()` — so the worst a wrong flag
+here can do is say the app is working when it is not.
+
 ## Mounting, unmounting, and the first commit
 
 `watchPage` needs a browser root, so an app builds the watcher in an effect — and effects run
@@ -143,8 +223,11 @@ reports nothing — adopting this subpath can never change whether your app rend
 `react` is an [optional peer](https://nodejs.org/api/packages.html), and `hcifootprint/react`
 is the only place in the package that names it. A consumer who never writes
 `from 'hcifootprint/react'` never resolves react — no dynamic-specifier trick, just an
-ordinary static import in a folder you did not ask for. The skin itself is 597 B and reaches
-the sensor through types alone, so it drags neither a watcher nor an engine.
+ordinary static import in a folder you did not ask for. The control skin is 597 B and the
+working hook 2,399 B, and each reaches the core through **types alone** — so a page that
+imports one ships neither the other, nor a watcher, nor an engine. Both ceilings are pinned by
+`test/treeshake.test.ts`, because "it drags no engine" is the kind of promise that only stays
+true while something measures it.
 
 The peer range is `*` on purpose, and it is the honest one. `optional` means "need not be
 installed"; it has never meant "version ignored when present", so a floor written there is a
@@ -177,8 +260,19 @@ it for you.
 
 ## Vue and Angular
 
-Nothing above is React-only except the scheduling. The framework interface is five fields and
-one method — `watch.attach({ edge, element, instance?, value?, cadence?, commits? })` — so Vue
-is `onMounted` / `onScopeDispose` plus a template ref, and Angular is a directive with
-`ElementRef` and `ngOnDestroy`. `test/sensor-framework-interface.test.ts` drives that whole
-surface from a plain object with no framework at all, so "thin" is a test rather than a claim.
+Nothing above is React-only except the scheduling, and that is true of **both** hooks.
+
+For a control, the framework interface is five fields and one method —
+`watch.attach({ edge, element, instance?, value?, cadence?, commits? })` — so Vue is `onMounted` /
+`onScopeDispose` plus a template ref, and Angular is a directive with `ElementRef` and
+`ngOnDestroy`.
+
+For working, it is [five lines](doc:waiting-for-the-app#promises-and-callbacks--and-five-lines-per-framework):
+`beginWork` and `setBusy` where the flag goes up, `done()` and `setBusy(undefined)` where it comes
+down, in whichever of that framework's three moments already exist. There is no subscription to
+adopt and no scheduler to hand over.
+
+Both are driven from a plain object with no framework at all —
+`test/sensor-framework-interface.test.ts` and `test/work-framework-interface.test.ts` — so "thin" is
+a test rather than a claim, and the day a Vue or Angular skin lands, nothing in the core has to move
+for it.

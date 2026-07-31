@@ -1,0 +1,161 @@
+---
+title: When the app is still working
+description: "The work ledger — your app says what it is still doing, bound to the fire it belongs to. A row, never a latch: closing it settles nothing, and no clock here will ever close it for you."
+---
+
+## The failure this prevents
+
+A fire comes to rest when your app reports its delta. Your app may keep working long after that —
+the upload continues, the job runs on, the receipt is written while the save is still saving.
+
+Every "what is still live?" door this library had answered **nothing** about that window:
+
+- [`pending()`](doc:sessions) had already settled the record,
+- `awaitingSettlement()` had already dropped the latch,
+- and the [ask book](doc:paused-not-failed) was never about fires at all.
+
+So a model asked *did it work* one call later, got a settled receipt, and told the person it was
+done — about work that was still running. A confident emptiness is the answer this library keeps
+closing, and this is the door that closes this one.
+
+## Two lines around the work
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { tools: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+});
+const session = graph.createSession({ node: 'compose', state: { draft: null } });
+declare function uploadTheAttachment(): Promise<void>;
+// ---cut---
+session.registerToolGroup('compose', {
+  handlers: {
+    save: async () => {
+      const work = session.beginWork('Uploading the attachment'); // bound to THIS fire
+      try {
+        await uploadTheAttachment();
+      } finally {
+        work.done(); // the only thing that closes it
+      }
+    },
+  },
+});
+```
+
+`beginWork` is the imperative sibling of [`busy`](doc:when-a-control-is-busy). `busy` is a fact
+about a **control** — the spinner in the button, standing until you change it. This is a fact about
+a **piece of work**: it opens where the work starts, closes where the work ends, and while it is
+open, the readers can say so about the **fire** it belongs to.
+
+## Where the row lands
+
+Binding is decided **at call time**, from three homes, and never revisited.
+
+**1. The fire you name.** The exact form, and the one to reach for outside a handler:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { tools: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+});
+const session = graph.createSession({ node: 'compose', state: { draft: null } });
+declare function uploadTheAttachment(): Promise<void>;
+// ---cut---
+const fired = session.fire('compose.save', { source: 'agent' });
+if (fired.ok) {
+  const work = session.beginWork('Uploading', { transitionId: fired.transition.id });
+  void uploadTheAttachment().finally(() => work.done());
+}
+```
+
+It mirrors [`updateState(delta, { transitionId })`](doc:sessions), and **explicit wins** there for
+the same reason it wins here: what you said outranks what the library inferred.
+
+**2. The handler you are inside.** No id to pass — the library reads the same *call window*
+`updateState` reads, and binds to the fire whose handler is running. Two caveats, and both are the
+window's shape rather than a bug:
+
+- **Call it before the first `await`.** The window is open for the handler's *synchronous* portion
+  only. Past an await, your handler is no longer "the call we are inside of" — another fire may be
+  mid-flight — so a later call is **unbound** rather than bound to whichever record is merely most
+  recent. A handler that must open work late passes `{ transitionId }`.
+- **App code around `fire()` is outside the window.** Calling `fire()` and then `beginWork()` on the
+  next line is home 3: the handler is deferred, so nothing is running yet. Use the id the fire
+  result just handed you.
+
+**3. Neither — and the row still opens.** It lands **unbound**, at principal `'system'`, with one
+dev warning per callsite. Work never runs silently: an unbound row still appears in `openWork()` and
+still says so in the [facts block](doc:grounding). What it does not do is claim a fire nobody named
+— there is no "the newest fire" arm, because that guess is right exactly when nothing is racing and
+silently wrong whenever the timing is interesting.
+
+## What the readers say
+
+**`session.openWork()`** — the third live door, beside `pending()` and `awaitingSettlement()`:
+
+```jsonc
+[{ "workId": "work#0", "label": "Uploading the attachment",
+   "transitionId": "compose.save#0", "affordanceId": "compose.save",
+   "startedAt": 1700000000000, "principal": "agent" }]
+```
+
+**`did_it_work`** gains `stillWorking: true` while a bound row is open — on the `still-pending` arm,
+and **beside** the settlement receipt exactly as [`outcomeNow`](doc:modes) does, because a fire can
+be at rest while your app is still working:
+
+```jsonc
+{ "settled": true, "effectStatus": "performed", "outcome": "committed",
+  "stillWorking": true, "stillWorkingMeans": "The app also says it is still working…" }
+```
+
+No new judgment word was minted for it. The vocabulary of fates is closed on purpose — a second word
+for a fate that already has one teaches a model that two payloads mean two things when they mean the
+same thing.
+
+**The facts block** gets one line: `The app is still working on: compose.save.` — and for an unbound
+row, the authored constant `The app is still working on something it did not tie to an action here.`
+
+## `done()` closes the row, and nothing else
+
+This is the load-bearing rule of the whole feature.
+
+`done()` settles no transition, resolves no `whenSettled` promise, flips no outcome and answers no
+human's card — **not even `done(error)`**, which records the error on the work row only. Your
+failure spine is unchanged and is exactly where it always was: throw from the handler, return
+`{ ok: false }`, or call [`session.reject(transitionId)`](doc:receipts).
+
+The reason is structural. A `done()` that resolved a settlement latch would put two independent
+things in a race to write one receipt — and first settlement wins, so your bookkeeping call could
+arrive first and *become* the library's verdict on the action. An app's note about its own work is
+not a settlement, and nothing here will quietly promote it into one.
+
+`done()` is also **first-close-wins**: a second call does nothing, so a handle passed around cannot
+reopen or re-stamp anything.
+
+## The ceiling belongs to the caller
+
+**No timer closes a row.** Not after a minute, not after an hour — a clock is never evidence, and
+there is no state a row could honestly decay into (*it has been a while* is neither done nor
+failed). `startedAt` is served as **data** for you to sort or render; nothing in this library
+renders a duration from it.
+
+So an un-closed `beginWork` keeps answering *still working*, and a leaked handle stays visible in
+`openWork()` for the session's life — **by design**. Pair it like a lock (`beginWork` in the `try`,
+`done()` in the `finally`) and the leak cannot happen; if one does leak, the honest consequence is a
+row that keeps saying the last thing your app told it, where you can see it.
+
+## Honest limits
+
+- **A work row is your app's claim about itself.** Nothing here verifies that work is running,
+  measures it, or ends it. The library says *the app says*, and that is all it ever knows.
+- **The label is data, not instruction.** It never enters an authored sentence, `groundTruth()`, the
+  facts block, or a warning — the same firewall every runtime string in this library sits behind.
+  Capped at 200 characters, like every other app string that crosses.
+- **It is not world motion.** Opening or closing work does not bump the session version and does not
+  change a served row: a plan made before your app started working is not stale, and work
+  bookkeeping must never refuse an agent's fire.
+- **An unbound row rides no fire's answer.** It is visible in `openWork()` and in the facts block,
+  and it will never add `stillWorking` to a `did_it_work` result — because nothing said which fire
+  it was about.

@@ -519,6 +519,16 @@ export interface ToolGroup {
   readonly node?: string;
   /** Grey out / re-enable one tool in this group (a disabled button). */
   setEnabled(toolId: string, enabled: boolean): void;
+  /**
+   * Say that one tool in this group is WORKING RIGHT NOW, in your own words —
+   * or hand `undefined` to stop saying it. See {@link AvailableEdge.busy}: the
+   * label is yours, presence is the whole claim, and there is no boolean form.
+   *
+   * Required, exactly like `setEnabled` beside it: this handle is MINTED by the
+   * library and never implemented by a consumer, so every handle in existence
+   * can say the third state rather than some of them.
+   */
+  setBusy(toolId: string, busy: string | undefined): void;
   /** Remove this group's registrations (call on unmount). Idempotent. */
   unregister(): void;
 }
@@ -530,6 +540,8 @@ export interface ToolHandle {
   readonly toolId: string;
   /** Grey out / re-enable this tool. */
   setEnabled(enabled: boolean): void;
+  /** Say this tool is working right now, in your own words — `undefined` stops saying it. */
+  setBusy(busy: string | undefined): void;
   unregister(): void;
 }
 
@@ -744,6 +756,60 @@ export interface AvailableEdge {
    * is on the record, which is to say it cannot be.
    */
   holds?: unknown;
+  /**
+   * THE THIRD STATE — the app says this control is WORKING RIGHT NOW, and the
+   * value is the app's own label for it ('Saving…', 'Placing your order').
+   *
+   * A control has three states a person can see and an agent could not: it is
+   * clickable, it is switched off, or it is mid-flight — the spinner in the
+   * button. Only the first two had a wire, so working looked exactly like broken
+   * from here, and the two moves an agent makes about broken (re-fire it, or tell
+   * the human it failed) are the two worst moves about working.
+   *
+   * PRESENCE IS THE WHOLE CLAIM, like every other stamp on this row. A key means
+   * the app said so. NO KEY MEANS THE LIBRARY DOES NOT KNOW — never "not busy":
+   * an app that never wired this says nothing about any of its controls, and a
+   * cheerful `busy: false` on all of them would be a claim about every session
+   * that was never asked.
+   *
+   * A STRING, AND ONLY A STRING. There is deliberately no boolean form: a flag
+   * would leave the meaning to whoever renders it, and the serving layer would
+   * have to author a sentence about a state only the app can describe — which is
+   * the exact conflation this field exists to end. The label is the app's word,
+   * carried as DATA, and it never enters an authored sentence, the facts block,
+   * or `groundTruth()`.
+   *
+   * THREE WIRES, mirroring `enabled`'s, so an app says it wherever it already
+   * knows it: `busy:` at registration, `handle.setBusy(toolId, label)`, and a
+   * live store's `LiveAction.busy`. There is deliberately NO declarative
+   * `busyWhen` — a condition can prove a state, but it cannot author a label, and
+   * a library-written label is a library-written meaning. Nothing is read off the
+   * DOM either: no `aria-busy`, no spinner-hunting, the same sensor law `holds`
+   * keeps for the same reason.
+   *
+   * IT DOES NOT GATE THE FIRE. Busy is what the app SAID, not a door the app
+   * shut: a control that is busy and not disabled still fires, because the
+   * library never invents a gate an app did not declare. An app that means "and
+   * do not let anyone press it" already has the wire that says so — disable it,
+   * and the fire is refused as `TOOL_DISABLED` exactly as before.
+   *
+   * THERE IS NO TIMER ON IT, EVER. Nothing in this library expires a busy label,
+   * because a clock is not evidence (docs/design/answer-grammar.md, rule 2): a
+   * long wait proves that waiting happened and nothing whatever about the work.
+   * A busy that outlives anyone's patience is answered by the row still saying
+   * busy and `did_it_work` still saying still-pending — and that pair is the
+   * truth. THE CEILING BELONGS TO THE CALLER: stop waiting whenever you like, and
+   * report UNFINISHED. Never done, never failed.
+   *
+   * CAPPED, NOT REDACTED, and that is a stance rather than an oversight. The
+   * label is authored-style app text, so it crosses under the same 200-character
+   * law an app's error text crosses under (`src/serve/error-text.ts`) — but it is
+   * a bare string, and a redaction path names a field INSIDE a value, so there is
+   * nothing here for `redactedFields` to name (the same honest limit `holds`
+   * already documents above). Write labels a stranger may read: never interpolate
+   * a secret, a customer's name, or the payload into one.
+   */
+  busy?: string;
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
   instances?: string[];
   /**
@@ -1019,6 +1085,126 @@ export interface PendingInfo {
   id: string;
   affordanceId: string;
   firedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// The work ledger — work the app SAID it started and has not closed
+// ---------------------------------------------------------------------------
+
+/**
+ * A handle on one piece of work the app said it started — what
+ * {@link Session.beginWork} hands back, and the only way to close the row it
+ * opened.
+ *
+ * PAIR IT LIKE A LOCK: open in the `try`, close in the `finally`, so a throw on
+ * the way through cannot leave the row open.
+ *
+ * ```ts
+ * const work = session.beginWork('Saving your draft');
+ * try {
+ *   await saveToServer();
+ * } finally {
+ *   work.done();
+ * }
+ * ```
+ *
+ * A handle nobody closes is never cleaned up. No timer expires it, because a
+ * clock is not evidence (`docs/design/answer-grammar.md`, rule 2) and there is
+ * no state it could honestly decay into — *it has been a while* is not evidence
+ * of done and not evidence of failed. So a leaked handle keeps answering "still
+ * working" and stays visible in {@link Session.openWork} for the session's life,
+ * by design: the row says what the app last told it, and nothing here invents an
+ * ending it was never given.
+ */
+export interface WorkHandle {
+  /** This row's id — the same string {@link WorkRow.workId} carries. */
+  readonly workId: string;
+  /**
+   * Close the row. FIRST CLOSE WINS; a second call does nothing.
+   *
+   * `error` is the app's own object for work that ended badly, and it is
+   * recorded on the WORK ROW ONLY. It settles nothing, rejects nothing and
+   * rewords no transition: closing a row is bookkeeping about WORK, never a
+   * verdict about a FIRE. The doors that settle one are exactly the doors that
+   * always did — throw from the handler, return `{ ok: false }`
+   * ({@link FireResult}), or call {@link Session.reject}. A `done()` that
+   * resolved a settlement latch would fork first-settlement-wins and launder an
+   * app's claim about its own bookkeeping into the receipt for an action.
+   */
+  done(error?: unknown): void;
+}
+
+/**
+ * Where a {@link Session.beginWork} call made OUTSIDE a handler belongs.
+ *
+ * The mirror of {@link UpdateOptions.transitionId}, for the same reason:
+ * identity has to travel with the report. Correlation is by CALL PATH, never by
+ * recency — "the newest fire" is right exactly when nothing is racing and
+ * silently wrong whenever the timing is interesting
+ * (`docs/design/answer-grammar.md`, "How completion is correlated"). So a call
+ * with nothing to bind to lands UNBOUND rather than guessing.
+ */
+export interface BeginWorkOptions {
+  /**
+   * The fire this work belongs to — a `transitionId` from a {@link FireResult}.
+   *
+   * EXPLICIT WINS, exactly as it does in {@link Session.updateState}: pass this
+   * from inside a handler and the row binds to the id you named, not to the
+   * handler you happen to be in. An id this session does not know AS A FIRE
+   * binds to nothing — the row lands unbound with one dev warning naming what is
+   * live, because a row pointing at a fire that does not exist would claim a
+   * relationship nothing can check.
+   */
+  transitionId?: string;
+}
+
+/**
+ * One piece of work the app has open RIGHT NOW ({@link Session.openWork}) — the
+ * sibling of {@link PendingInfo} (fires awaiting the app's state report) and
+ * {@link AskStatus} (cards awaiting a person).
+ *
+ * THE HOLE IT FILLS. A fire can come to rest while the app is still working: an
+ * upload that reports its delta and keeps uploading, a handler that hands off to
+ * a background job, a save whose spinner outlives its receipt. Every list this
+ * library had answered "nothing is live" about that — `pending()` had settled it,
+ * `awaitingSettlement()` had dropped the latch — and a confident emptiness is
+ * the one answer this library keeps closing. This row is the app saying so, in
+ * the imperative voice it already has around its own async work.
+ *
+ * IT IS THE APP'S CLAIM, and it is served as one. Nothing here verifies that
+ * work is really running, nothing measures it, and nothing ends it: the row is
+ * open until the app closes it.
+ */
+export interface WorkRow {
+  workId: string;
+  /**
+   * The app's own words for this work, when it gave any — DATA, and only data.
+   * It is never rendered into an authored sentence, into `groundTruth()`, or
+   * into the facts block: a runtime string in the one block a model is told to
+   * trust above its own account is an instruction carrying the app's authority.
+   * Capped like every other app string that crosses (200 characters).
+   */
+  label?: string;
+  /**
+   * The fire this work is bound to. ABSENT MEANS UNBOUND — nothing said which
+   * fire it belongs to, and nothing guessed one.
+   */
+  transitionId?: string;
+  /** The action that fire was about, when the row is bound. */
+  affordanceId?: string;
+  /**
+   * When the app opened the row, on the session's clock — DATA, for a caller
+   * that wants to sort or render it. NOTHING IN THIS LIBRARY RENDERS A DURATION
+   * FROM IT, and nothing expires a row because of it: a clock is never evidence,
+   * and how long something has taken is neither done nor failed.
+   */
+  startedAt: number;
+  /**
+   * Who the bound fire was charged to. `'system'` on an UNBOUND row — not a
+   * guess about who is working, but the honest floor: nobody said, and work
+   * never runs silently.
+   */
+  principal: Principal;
 }
 
 // ---------------------------------------------------------------------------

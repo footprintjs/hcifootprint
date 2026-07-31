@@ -4,7 +4,7 @@ title: ToolRegistry
 
 # Class: ToolRegistry
 
-Defined in: [src/registry/registry.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L36)
+Defined in: [src/registry/registry.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L42)
 
 ## Constructors
 
@@ -12,7 +12,7 @@ Defined in: [src/registry/registry.ts:36](https://github.com/footprintjs/hcifoot
 
 > **new ToolRegistry**(`warn?`): `ToolRegistry`
 
-Defined in: [src/registry/registry.ts:40](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L40)
+Defined in: [src/registry/registry.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L46)
 
 #### Parameters
 
@@ -26,11 +26,31 @@ Defined in: [src/registry/registry.ts:40](https://github.com/footprintjs/hcifoot
 
 ## Methods
 
+### busyOf()
+
+> **busyOf**(`affordanceId`): `string` \| `undefined`
+
+Defined in: [src/registry/registry.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L109)
+
+The app's own busy label for a registered tool, or undefined if it has not said.
+
+#### Parameters
+
+##### affordanceId
+
+`string`
+
+#### Returns
+
+`string` \| `undefined`
+
+***
+
 ### handlerFor()
 
 > **handlerFor**(`affordanceId`): [`ToolHandler`](/api/index/type-aliases/ToolHandler) \| `undefined`
 
-Defined in: [src/registry/registry.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L85)
+Defined in: [src/registry/registry.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L125)
 
 #### Parameters
 
@@ -48,7 +68,7 @@ Defined in: [src/registry/registry.ts:85](https://github.com/footprintjs/hcifoot
 
 > **hasAny**(): `boolean`
 
-Defined in: [src/registry/registry.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L94)
+Defined in: [src/registry/registry.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L134)
 
 True when anything is registered — the signal that materialization is meaningful.
 
@@ -62,7 +82,7 @@ True when anything is registered — the signal that materialization is meaningf
 
 > **isEnabled**(`affordanceId`): `boolean` \| `undefined`
 
-Defined in: [src/registry/registry.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L69)
+Defined in: [src/registry/registry.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L104)
 
 Whether a registered tool is currently clickable. Undefined if not registered.
 
@@ -82,7 +102,7 @@ Whether a registered tool is currently clickable. Undefined if not registered.
 
 > **isRegistered**(`affordanceId`): `boolean`
 
-Defined in: [src/registry/registry.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L89)
+Defined in: [src/registry/registry.ts:129](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L129)
 
 #### Parameters
 
@@ -98,9 +118,9 @@ Defined in: [src/registry/registry.ts:89](https://github.com/footprintjs/hcifoot
 
 ### register()
 
-> **register**(`group`, `affordanceId`, `handler`, `enabled?`): `void`
+> **register**(`group`, `affordanceId`, `handler`, `enabled?`, `busy?`): `void`
 
-Defined in: [src/registry/registry.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L44)
+Defined in: [src/registry/registry.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L50)
 
 #### Parameters
 
@@ -120,6 +140,10 @@ Defined in: [src/registry/registry.ts:44](https://github.com/footprintjs/hcifoot
 
 `boolean` = `true`
 
+##### busy?
+
+`string`
+
 #### Returns
 
 `void`
@@ -130,7 +154,7 @@ Defined in: [src/registry/registry.ts:44](https://github.com/footprintjs/hcifoot
 
 > **registrations**(): [`Registration`](/api/index/interfaces/Registration)[]
 
-Defined in: [src/registry/registry.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L98)
+Defined in: [src/registry/registry.ts:138](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L138)
 
 #### Returns
 
@@ -138,11 +162,38 @@ Defined in: [src/registry/registry.ts:98](https://github.com/footprintjs/hcifoot
 
 ***
 
+### setBusy()
+
+> **setBusy**(`affordanceId`, `busy`): `boolean`
+
+Defined in: [src/registry/registry.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L95)
+
+Say (or stop saying) that a registered tool is working right now. Same
+contract as setEnabled: true only on a real change, so the caller bumps the
+world exactly once. `undefined` DELETES the key rather than storing one —
+absence is how this library spells "the app has not said".
+
+#### Parameters
+
+##### affordanceId
+
+`string`
+
+##### busy
+
+`string` \| `undefined`
+
+#### Returns
+
+`boolean`
+
+***
+
 ### setEnabled()
 
 > **setEnabled**(`affordanceId`, `enabled`): `boolean`
 
-Defined in: [src/registry/registry.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L61)
+Defined in: [src/registry/registry.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L82)
 
 Flip a registered tool between clickable and greyed-out. Returns true if
 the state actually changed (so the caller can bump the version / emit only
@@ -168,7 +219,7 @@ on a real change). No-op + false if the id isn't registered.
 
 > **unregisterGroup**(`group`): `string`[]
 
-Defined in: [src/registry/registry.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L74)
+Defined in: [src/registry/registry.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L114)
 
 Remove every registration currently owned by `group`. Returns the removed ids.
 

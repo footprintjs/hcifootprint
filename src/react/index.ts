@@ -26,6 +26,21 @@
  * perform anything, because the port it drives makes an executing fire
  * inexpressible (`RecordOnlyFire`), so one click can never become two acts.
  *
+ * THE SECOND HOOK IS THE SAME SHAPE FOR THE ASYNC HALF. `useWorking` takes the
+ * busy flag a component already renders its own spinner from and turns its two
+ * edges into the two calls the core has always had:
+ *
+ * ```ts
+ * useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, tools: saveTool, session });
+ * ```
+ *
+ * The core underneath is plain promises and callbacks — `beginWork` in the
+ * `try`, `done()` in the `finally`, `setBusy` around the work — so this hook is
+ * a lifecycle wrapper and nothing else, and an Angular or Vue skin is the same
+ * five lines in that framework's own lifecycle. It drives the work ledger and
+ * the busy label ONLY: neither door settles a transition, so no arrangement of
+ * it can report that something worked.
+ *
  * A SEPARATE SUBPATH SO THE PEER IS GENUINELY OPTIONAL. `react` is an optional
  * peer with a real floor (`>=18`); this is the only folder in the package that
  * names it, and a consumer who never writes `from 'hcifootprint/react'` never
@@ -51,3 +66,5 @@ export { ControlSurfaceProvider, useControlSurface } from './context.js';
 export type { ControlSurfaceProviderProps } from './context.js';
 export { useControl } from './use-control.js';
 export type { ControlRef, ControlSpec } from './use-control.js';
+export { useWorking } from './use-working.js';
+export type { BusyControl, WorkingSession, WorkingSpec } from './use-working.js';

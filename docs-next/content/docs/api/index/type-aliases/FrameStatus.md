@@ -6,4 +6,4 @@ title: FrameStatus
 
 > **FrameStatus** = `"open"` \| `"completed"` \| `"cancelled"` \| `"demoted"`
 
-Defined in: [src/atom/types.ts:1521](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1521)
+Defined in: [src/atom/types.ts:1707](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1707)

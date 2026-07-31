@@ -6,7 +6,7 @@ title: mcpServer
 
 > **mcpServer**(`session`, `opts?`): `Server`
 
-Defined in: [src/serve/mcp-server.ts:66](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L66)
+Defined in: [src/serve/mcp-server.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp-server.ts#L65)
 
 Build an MCP `Server` backed by a live InteractionSession. Attach any
 transport with `server.connect(transport)`.

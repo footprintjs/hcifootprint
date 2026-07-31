@@ -12,6 +12,9 @@
     "paused-not-failed",
     "navigation-claims",
     "what-a-control-holds",
+    "waiting-for-the-app",
+    "when-a-control-is-busy",
+    "when-the-app-is-still-working",
     "reading-data"
   ]
 }

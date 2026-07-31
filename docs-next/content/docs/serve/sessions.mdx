@@ -156,6 +156,9 @@ settle (unknown, or a stimulus/sync row), naming the fires that are live. That r
 deliberate: a promise nobody will ever resolve is exactly how a mistyped id becomes a
 confident lie four seconds later.
 
+The async story end to end — returning your handler's promise, threading a `transitionId` on the
+state rail, and the one served await — is [Waiting for the app](doc:waiting-for-the-app).
+
 A fire the app never reports on keeps its promise **open** — there is no timeout arm, because
 `FireSettlement` excludes `'pending'` by construction, so a timed-out answer could only be a
 guessed `'unobservable'`. Waiting honestly forever is the truthful shape; when you need an

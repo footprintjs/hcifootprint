@@ -4,7 +4,7 @@ title: LiveBindingPort
 
 # Interface: LiveBindingPort
 
-Defined in: [src/graph/sources/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L109)
+Defined in: [src/graph/sources/types.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L115)
 
 What a live source needs from a session — structural and type-only, so
 fromLiveStore stays a zero-value-import leaf. InteractionSession satisfies
@@ -17,7 +17,7 @@ wire (show/setVisible) an app may drive after its own handler flips tabs.
 
 > **registerToolGroup**(`path`, `opts?`): [`ToolGroupHandle`](/api/index/interfaces/ToolGroupHandle)
 
-Defined in: [src/graph/sources/types.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L110)
+Defined in: [src/graph/sources/types.ts:116](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L116)
 
 #### Parameters
 
@@ -39,7 +39,7 @@ Defined in: [src/graph/sources/types.ts:110](https://github.com/footprintjs/hcif
 
 > `optional` **reportGap**(`opts`): `unknown`
 
-Defined in: [src/graph/sources/types.ts:145](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L145)
+Defined in: [src/graph/sources/types.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L151)
 
 File a row in the session's gap ledger — the AGENT-VISIBLE half of a dev
 warning. A live source uses it for one thing: saying out loud that a read
@@ -72,7 +72,7 @@ writing into a ledger whose whole meaning is unmet demand.
 
 > **setVisible**(`path`, `visible`): `void`
 
-Defined in: [src/graph/sources/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L112)
+Defined in: [src/graph/sources/types.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L118)
 
 #### Parameters
 
@@ -94,7 +94,7 @@ Defined in: [src/graph/sources/types.ts:112](https://github.com/footprintjs/hcif
 
 > **show**(`path`): `void`
 
-Defined in: [src/graph/sources/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L111)
+Defined in: [src/graph/sources/types.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L117)
 
 #### Parameters
 
@@ -112,7 +112,7 @@ Defined in: [src/graph/sources/types.ts:111](https://github.com/footprintjs/hcif
 
 > `optional` **whenPageChanges**(`listener`): () => `void`
 
-Defined in: [src/graph/sources/types.ts:128](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L128)
+Defined in: [src/graph/sources/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L134)
 
 Run something each time the app REPORTS that it is on a different page —
 the INVALIDATION half of the contract, and the half an app cannot supply.

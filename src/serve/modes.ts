@@ -117,15 +117,49 @@ export interface SkillToolsPort {
    * which is a strange way to ship a door nobody had yet.
    */
   whenSettled?(transitionId: string): Promise<FireSettlement>;
+  /**
+   * What `did_it_work` would ANSWER about a fire that has come to rest — the
+   * same facts, in the same words, minus that tool's own envelope. For the
+   * caller that already holds the id and wants the settled truth as a result
+   * rather than as a promise: a transport folding the final word into the
+   * result of the call that fired (see {@link SkillToolsPort.whenSettled} for
+   * the wait itself).
+   *
+   * Three answers, and they are three different things:
+   * - the facts, for a fire at rest;
+   * - `undefined` while the fire is still in flight — "no answer yet", never a
+   *   guessed one;
+   * - a synchronous THROW, on the two ids no honest answer exists for: one no
+   *   settlement can ever exist for (the same law {@link Session.settlementOf}
+   *   holds), and one that names BOTH a fire and a human's open card, which
+   *   `did_it_work` refuses as `AMBIGUOUS_ID` and this door refuses in the same
+   *   words. A mistyped id refused by name is the whole point: the alternative
+   *   is silence a caller reads as "not finished", which is how a wrong id
+   *   becomes a confident wrong answer.
+   *
+   * The keys are the ones `did_it_work` documents (`effectStatus`, `outcome`,
+   * `outcomeNow`, `effectVerified`, `writesObserved`, `verifyHeld`, `arrival`,
+   * `arrivalMeans`, `materialized`, `why`, `toNode`, `error`, `data`,
+   * `stillWorking`, `stillWorkingMeans`, and `howToAct` on a moved outcome) —
+   * absent when unknown, never filled in. A LIST IS A THING THAT GOES STALE, so
+   * the one a remote host reads is checked against a real answer by a test
+   * rather than kept in step by hand.
+   *
+   * OPTIONAL here and REQUIRED on {@link SkillToolsPortWithSettlement}, for the
+   * reason stated above: this interface is PUBLISHED, and an object literal
+   * written against an earlier release must keep compiling.
+   */
+  settledAnswer?(transitionId: string): ServeResult | undefined;
 }
 
 /**
- * What {@link skillsAsTools} returns: a port whose settlement door is always
+ * What {@link skillsAsTools} returns: a port whose settlement doors are always
  * there. Name the type only if you are storing the port somewhere typed — the
- * factory's inferred return already has it.
+ * factory's inferred return already has them.
  */
 export interface SkillToolsPortWithSettlement extends SkillToolsPort {
   whenSettled(transitionId: string): Promise<FireSettlement>;
+  settledAnswer(transitionId: string): ServeResult | undefined;
 }
 
 const SKILL_USAGE =
@@ -240,6 +274,71 @@ const NOTHING_EXECUTED_IT =
   'Nothing in the app was wired to execute this action, so it was recorded but never performed. ' +
   'Anything it says about where it goes or what it changes is the app’s declaration, not something ' +
   'that happened. Do not tell the human it is done.';
+
+// A control the app has SWITCHED OFF — a greyed button, on screen and not
+// clickable. The refusal itself has been typed and retriable for releases; what
+// it never carried was the difference between a STATE and a VERDICT, and a
+// relay filled that silence in itself: it told its human "a required field is
+// probably empty", which nothing in the app had ever said. A guess wearing the
+// shape of a diagnosis is the one failure this library exists to make
+// impossible, so the sentence names what IS true (the app switched it off),
+// says out loud what is NOT known (why), and names the move that is worth a
+// turn. Fixed and authored like every other sentence here — an interpolated
+// runtime value would be the app's own text arriving as an instruction.
+const DISABLED_WHY =
+  'The app has this control switched off right now — on screen and not clickable, the way a greyed ' +
+  'button is for a person. That is a STATE, not a verdict on what you asked for: it can change, and ' +
+  'nothing here knows what would change it. Do not invent a reason it is off. Call whats_here to see ' +
+  'where things stand — a switched-off control is served there with enabled: false — and if it is ' +
+  'still off, tell the human it is not available yet.';
+
+// THE THIRD STATE, at the moment of the reach. A control is clickable, switched
+// off, or WORKING — and only the first two ever had a wire, so a reader that
+// cannot see the screen met a mid-flight control as a plain refusal and made one
+// of the two moves that are wrong about working: fire it again, or tell the
+// human it failed.
+//
+// The label itself never appears in here. It rides as DATA on the same result,
+// because it is the app's own runtime text and this is an authored sentence —
+// the two-string-class invariant, at the one place they meet on one payload.
+//
+// It says out loud that it is not a diagnosis of anything else on the result. A
+// switched-off control that is ALSO busy has had two separate things said about
+// it by the app, and joining them into "off BECAUSE busy" would be this library
+// inventing a cause, which is exactly what the sentence above forbids.
+//
+// NO CLOCK APPEARS HERE EITHER. There is no "it should finish soon", because
+// nothing in this library knows that, and no timer will ever expire this state
+// (docs/design/answer-grammar.md — a clock is never evidence). The ceiling on
+// waiting belongs to whoever is waiting, and it reports UNFINISHED.
+const BUSY_WHY =
+  'The app also says it is working on this control right now — its own label for that is on this ' +
+  'result as busy. Working is not broken and not done, and it is not given here as the cause of ' +
+  'anything else. Nothing here will time it out. Wait and call whats_here again, or ask did_it_work ' +
+  'about a fire you already made — do not fire again to find out.';
+
+// THE SAME THIRD STATE, ONE LAYER IN: the app opened a piece of work for THIS
+// fire (Session.beginWork) and has not closed it. `busy` is about a control on
+// screen; this is about the fire the caller is asking after, which is why it can
+// ride an answer about an action nobody can see a button for any more.
+//
+// IT RIDES ALONGSIDE, NEVER OVER. On the still-pending arm it is the second
+// reason the same answer is true. On the SETTLED arm it sits beside the receipt
+// exactly as outcomeNow does — a fire can come to rest (the app reported its
+// delta) while the app keeps working (the upload continues), and both are true
+// at once. So the sentence says out loud that it is not a verdict on the outcome
+// printed next to it: averaging them would destroy the only evidence a reader
+// has that two things are happening.
+//
+// NO NEW JUDGMENT WORD was minted for it, and no clock appears in it. The
+// judgment vocabulary is closed (docs/design/answer-grammar.md); this is a fact
+// riding an existing arm, and a work row that outlives anyone's patience is
+// answered by the row still being open — never by a timer.
+const STILL_WORKING_MEANS =
+  'The app also says it is still working on this action — it opened a piece of work for this fire ' +
+  'and has not closed it. That is the app’s own account of what it is doing, not a verdict on ' +
+  'anything else on this result, and nothing here will time it out. Do not perform the action again ' +
+  'to find out: ask this tool again, or call whats_here to see where things stand.';
 
 // The five requireHumanApproval refusals, in the NOT_MATERIALIZED_WHY shape: name
 // what happened, name the next move, name the option. Every one is a fixed
@@ -538,7 +637,7 @@ export function skillsAsTools(
       };
     }
     const edge = edgeById().get(stepId);
-    if (askBeforeHighEffect && edge?.highEffect && args.confirm !== true) {
+    if (askBeforeHighEffect && edge?.highEffect && args.confirm !== true && !greyedOut(edge)) {
       // A refusal is relayed: record it and do NOT fire. It closes the ask in the
       // default mode; under enforcement it is the caller's report and closes
       // nothing, which relayedDeclineData says out loud in the result.
@@ -613,6 +712,32 @@ export function skillsAsTools(
     };
   }
 
+  /**
+   * Is this control SWITCHED OFF right now — the capability question, asked
+   * before the authority one.
+   *
+   * `fire()` has always ordered the two: "never send a human to approve an
+   * action that is guard-closed, mis-shaped, greyed out or wired to nothing"
+   * ({@link Session.fire}). The confirm arms here return BEFORE `fire()` is
+   * called at all, so on this door the order was inverted for one of the four:
+   * a greyed-out high-effect control summoned a person, took their yes, and
+   * refused the fire afterwards with `TOOL_DISABLED`. Two of this library's own
+   * sentences then disagreed on one screen — the refusal telling the agent to
+   * say the control is not available yet, while its sibling door handed the
+   * human a card for that very control.
+   *
+   * Only the state the served row PROVES: the app said switched off, or the
+   * authored `enabledWhen` proved it. Not "wired to nothing" — a touring session
+   * fires unmaterialized edges on purpose — and not the payload, which is
+   * `fire()`'s to judge. When this is true the arm falls through to `fire()`,
+   * which refuses in the word that was already true, records the gap row, and
+   * carries the busy label if the app said one. Nobody is asked to approve
+   * something nobody can do.
+   */
+  function greyedOut(edge: AvailableEdge): boolean {
+    return edge.enabled === false;
+  }
+
   function callDoAction(args: DoActionArgs): ServeResult {
     const edges = session.available().edges;
     const exact = edges.find((edge) => edge.affordanceId === args.action);
@@ -630,7 +755,7 @@ export function skillsAsTools(
       };
     }
     const edge = matches[0];
-    if (askBeforeHighEffect && edge.highEffect && args.confirm !== true) {
+    if (askBeforeHighEffect && edge.highEffect && args.confirm !== true && !greyedOut(edge)) {
       if (args.decline === true) {
         const declined = session.declineConfirm(edge.affordanceId, { principal: source });
         return {
@@ -801,16 +926,58 @@ export function skillsAsTools(
         judgment: 'still-pending',
         ...(did !== undefined ? { did } : {}),
         howToAct: STILL_PENDING_HOWTO,
+        // ADDITIVE, on the arm that already says the right word: the judgment is
+        // 'still-pending' either way, and this says the app has told us WHY —
+        // it has work open for this fire. No new word for a fate that has one.
+        ...stillWorkingData(transitionId),
         ...positionData(),
       };
     }
+    return {
+      ok: true,
+      settled: true,
+      ...(settled.transition.cause.affordanceId !== undefined
+        ? { did: settled.transition.cause.affordanceId }
+        : {}),
+      ...settledFacts(transitionId, settled),
+      ...positionData(),
+    };
+  }
+
+  /**
+   * THE SETTLED ANSWER — everything true about a fire that has come to rest,
+   * built ONCE and served through two doors.
+   *
+   * Door one is `did_it_work`, which wraps these facts in its own envelope
+   * (`ok`, `settled: true`, `did`, the position). Door two is a transport that
+   * gives the app its moment and folds the final truth into the result of the
+   * very call that fired — `mcpServer`'s `settleWithinMs`. That transport used
+   * to hand-patch three fields it picked out by name, so a remote agent learned
+   * strictly less from a folded result than the same agent learned one call
+   * later from `did_it_work`: no `outcome`, no `verifyHeld`, no `writesObserved`,
+   * no `arrival`, and no marker at all on a fire nothing in the app executed.
+   * One builder ends that: whatever this library knows about a settled fire, it
+   * says the same way wherever it is asked.
+   *
+   * NO ENVELOPE OF ITS OWN, deliberately. A folded result already carries the
+   * fire's `ok`, `did` and `transitionId`, and it carries `settlement` — the
+   * word for "a commit bundle exists". Adding a boolean `settled` beside it
+   * would put two names one letter apart on one payload, answering two
+   * different questions. The envelope belongs to the arm that has one.
+   *
+   * THE RECEIPT IS NEVER REWRITTEN (docs/design/answer-grammar.md). `outcome`
+   * and `effectStatus` are read off the retained settlement; the two facts that
+   * can land after it — `outcomeNow` and `arrival` — are read LIVE and served
+   * beside it, exactly as the law says, whichever door asked.
+   */
+  function settledFacts(transitionId: string, settled: FireSettlement): ServeResult {
     const data = session.producedFor(transitionId);
     const writes = settled.transition.effectVerified;
     // A settlement is a RECEIPT of how the fire came to rest, and first
     // settlement wins — so the record can move on afterwards while the receipt
     // stands (a server rejecting an order the app already reported flips it to
-    // 'rolled-back'). This tool's own question is "did the app actually do it",
-    // so serving the receipt alone would answer "it worked" about something the
+    // 'rolled-back'). The question here is "did the app actually do it", so
+    // serving the receipt alone would answer "it worked" about something the
     // app has since undone — a fact the session is holding right there. The
     // later word rides ALONGSIDE, never over: the receipt is not rewritten, and
     // it appears only when the two genuinely disagree.
@@ -825,11 +992,6 @@ export function skillsAsTools(
     // be 'performed' with arrival still 'claimed', and that pair is the truth.
     const arrival = live?.arrival;
     return {
-      ok: true,
-      settled: true,
-      ...(settled.transition.cause.affordanceId !== undefined
-        ? { did: settled.transition.cause.affordanceId }
-        : {}),
       // THREE axes, side by side, none averaged into another: effectStatus =
       // did anyone perform it, effectVerified = were the declared writes
       // observed, verifyHeld = did the app's OWN condition hold.
@@ -872,11 +1034,39 @@ export function skillsAsTools(
         ? { materialized: false, why: NOTHING_EXECUTED_IT }
         : {}),
       ...(settled.transition.toNode !== undefined ? { toNode: settled.transition.toNode } : {}),
-      // Capped TEXT: an app's error object never crosses a result whole.
+      // Capped TEXT: an app's error object never crosses a result whole. Capped
+      // HERE and nowhere else, so no second door can grow its own idea of how
+      // much of an app's error object is allowed onto a model's context.
       ...(settled.error !== undefined ? { error: errorText(settled.error) } : {}),
       ...(data !== undefined ? { data } : {}),
-      ...positionData(),
+      // The app's own work, read LIVE on the same rail outcomeNow and arrival
+      // ride: a work row can outlive the receipt, and the receipt is not
+      // rewritten to mention it. Alongside, never over.
+      ...stillWorkingData(transitionId),
     };
+  }
+
+  /**
+   * Whether the app has WORK OPEN for this fire, and the sentence that keeps a
+   * reader from turning it into a verdict — served on the two arms about a fire
+   * (still-pending, and settled), absent everywhere else.
+   *
+   * READ AT ANSWER TIME, never from anything this port kept: a work row's whole
+   * value is that it says what is true right now.
+   *
+   * The label never crosses. It is the app's runtime text and it belongs to the
+   * data channel `openWork()` already is — a caller that wants it holds the
+   * session. What crosses here is the FACT (a boolean) and an authored sentence,
+   * which is the two-string-class invariant at the one place they meet.
+   *
+   * `stillWorkingMeans`, not `why`: `why` is already spoken for on this very
+   * builder (the tour marker's sentence), and two facts writing one key would
+   * mean whichever came second silently erased the other. Named for its own
+   * axis, exactly as `arrivalMeans` is.
+   */
+  function stillWorkingData(transitionId: string): ServeResult {
+    const working = session.openWork().some((row) => row.transitionId === transitionId);
+    return working ? { stillWorking: true, stillWorkingMeans: STILL_WORKING_MEANS } : {};
   }
 
   /**
@@ -1160,7 +1350,7 @@ export function skillsAsTools(
         ...askData(id, args),
       };
     }
-    return {
+    return withBusy(edge, {
       ok: false,
       judgment: 'rejected',
       did: id,
@@ -1173,9 +1363,55 @@ export function skillsAsTools(
       ...('differs' in fired ? { differs: fired.differs } : {}),
       ...(fired.reason === 'PAYLOAD_INVALID' ? expectsData(edge) : {}),
       ...(fired.reason === 'STILL_MOUNTING' ? { retriable: true } : {}),
+      // Switched off is a STATE, and a state can change — so it carries the same
+      // marker STILL_MOUNTING does, beside the sentence that stops a reader
+      // inventing the cause it was never given.
+      ...(fired.reason === 'TOOL_DISABLED' ? { retriable: true, why: DISABLED_WHY } : {}),
       // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
       ...(fired.reason === 'NOT_MATERIALIZED' ? { why: NOT_MATERIALIZED_WHY } : {}),
       ...approvalWhy(fired),
+    });
+  }
+
+  /**
+   * The app's "working right now", ON A REFUSAL — the one place the row's third
+   * state and a rejection meet.
+   *
+   * NO NEW REASON WORD, and that is the design rather than a shortcut. Busy does
+   * not refuse anything: an app that means "and nobody may press it" disables the
+   * control, and the refusal is the `TOOL_DISABLED` that already exists. A
+   * `TOOL_BUSY` would be this library inventing a gate the app never declared —
+   * and `FireResult.reason` and `GapRecord.rejectionReason` grow in lockstep, so
+   * a word minted here would land in the triage ledger as a refusal class an app
+   * never asked for.
+   *
+   * WHAT IT ADDS IS THE FACT AND THE TEACHING, never a verdict: the label as
+   * DATA, and one authored sentence. It RIDES ALONGSIDE whatever the refusal
+   * already said — the same rule the settlement receipt keeps — because a
+   * disabled-and-busy control has had two true things said about it and neither
+   * one is the other's cause. Appending is the shape `APPROVAL_MISMATCH` already
+   * uses for a second authored clause; the refusal's own `why` is never replaced.
+   *
+   * Only the REJECTED arm. A needs-confirm result is a person's open question,
+   * not a refusal, and its `why` is about what the human has to do. (A greyed
+   * control never reaches that arm any more — {@link greyedOut} sends it to
+   * `fire()` first — so the two facts about a switched-off busy control now
+   * arrive together rather than one of them at the moment a person decides.)
+   *
+   * READS THE SERVED ROW, which is the base action's — so a `repeats` CARD that
+   * the app labelled through its own handle carries no label here, even though
+   * the caller named that card by instance. The row's own omission is right (one
+   * row stands for many cards); this one is a gap, and it is stated on the busy
+   * page under Honest limits rather than reasoned away. Closing it means a
+   * per-instance busy door, which is a design decision, not a patch.
+   */
+  function withBusy(edge: AvailableEdge | undefined, rejected: ServeResult): ServeResult {
+    if (edge?.busy === undefined) return rejected;
+    const already = rejected['why'];
+    return {
+      ...rejected,
+      busy: edge.busy,
+      why: typeof already === 'string' ? `${already} ${BUSY_WHY}` : BUSY_WHY,
     };
   }
 
@@ -1224,6 +1460,25 @@ export function skillsAsTools(
       ...(edge.holds !== undefined ? { holds: edge.holds } : {}),
       ...(edge.highEffect ? { highEffect: true } : {}),
       ...(edge.guardUnevaluated ? { guardUnevaluated: edge.guardUnevaluated } : {}),
+      // THE GREYED BUTTON, on the agent's row. `available()` has stamped this
+      // from all four wires that can say it (registration, the group handle, a
+      // live store row, the declared `enabledWhen`) — and this projection, the
+      // one surface whose reader cannot see the screen, dropped it. So the
+      // agent met disabledness only by firing, and a refusal with no other fact
+      // on it is exactly where a relay started inventing causes.
+      //
+      // PRESENCE-ONLY, like every other stamp on this row: a clickable control
+      // serves NO key. `enabled: true` on some rows would make its absence on
+      // the rest read as "nobody knows", which is a claim about a session that
+      // was never asked.
+      ...(edge.enabled === false ? { enabled: false } : {}),
+      // THE SPINNER IN THE BUTTON, on the agent's row — the app's own words for
+      // what it is doing, before anything is reached for. Data, like `holds` and
+      // `does` above it: the label is the app's, and no sentence here is built
+      // out of it. Presence-only for the same reason `enabled` is: an app that
+      // never wired this says nothing about any control, and a manufactured
+      // "not busy" would be a claim about a session nobody asked.
+      ...(edge.busy !== undefined ? { busy: edge.busy } : {}),
       // Nothing is bound to execute this one — visible BEFORE the agent fires it.
       ...(edge.materialized === false ? { materialized: false } : {}),
       ...(edge.instances ? { instances: edge.instances, enumeration: edge.enumeration } : {}),
@@ -1295,6 +1550,32 @@ export function skillsAsTools(
     // Straight delegation — the port owns no settlement state of its own, so
     // there is nothing here that could drift from the session's answer.
     whenSettled: (transitionId: string) => session.settlementOf(transitionId),
+    // The POLL beside the wait, and the same builder `did_it_work` answers
+    // from — so a folded result and a later poll cannot say two things about
+    // one fire. `settlementIfKnown` keeps both of its own laws on the way
+    // through: undefined while the question is open, a throw on an id that can
+    // never have an answer.
+    settledAnswer(transitionId: string): ServeResult | undefined {
+      const settled = session.settlementIfKnown(transitionId);
+      // ONE ID, TWO OBJECTS — refused HERE too, and for the reason the whole
+      // door exists: the two doors must not answer differently about one id.
+      // `did_it_work` refuses an id this session minted for BOTH a fire and a
+      // human's card (AMBIGUOUS_ID), and a builder that answered it confidently
+      // would be exactly the wrong-answer class that refusal was written to
+      // prevent — a settled fire reported as the fate of someone's open card.
+      // Checked AFTER the call above so a plain askId still gets
+      // `settlementIfKnown`'s own teaching refusal (nothing fired, so there is
+      // no transition) rather than an ambiguity that is not there.
+      if (session.asks().some((row) => row.askId === transitionId)) {
+        // A THROW, which is arm three of this door's contract, not a new one:
+        // no envelope exists here to carry `ok: false`, and the alternative —
+        // `undefined` — is this door's word for "still in flight", which would
+        // be a second wrong answer on top of the first. The sentence is the one
+        // `did_it_work` serves, so both doors teach the app team the same fix.
+        throw new Error(`hcifootprint: ${AMBIGUOUS_ID_WHY}`);
+      }
+      return settled === undefined ? undefined : settledFacts(transitionId, settled);
+    },
   };
 }
 

@@ -37,6 +37,33 @@ describe('ToolRegistry — the live-binding layer in isolation', () => {
     expect(r.isRegistered('sort-items')).toBe(false);
   });
 
+  it('carries a busy label as a KEY that is there or is not — never a stored undefined', () => {
+    // This layer stores the app's word and reads it back; it does not judge it,
+    // and it certainly does not time it out. Absence is the only "not said", so
+    // clearing DELETES rather than assigning undefined — a stored undefined
+    // would let a downstream `'busy' in reg` read silence as a state.
+    const r = new ToolRegistry(() => {});
+    r.register('desk', 'save', () => 1);
+    expect(r.busyOf('save')).toBeUndefined();
+    expect(r.registrations()[0]).not.toHaveProperty('busy');
+
+    expect(r.setBusy('save', 'Saving…')).toBe(true);
+    expect(r.busyOf('save')).toBe('Saving…');
+    expect(r.setBusy('save', undefined)).toBe(true);
+    expect(r.registrations()[0]).not.toHaveProperty('busy');
+    // …and a registration that arrives already working says so from the start.
+    r.register('desk', 'send', () => 1, true, 'Sending…');
+    expect(r.busyOf('send')).toBe('Sending…');
+  });
+
+  it('setBusy reports a REAL change only — so a caller bumps the world exactly once', () => {
+    const r = new ToolRegistry(() => {});
+    r.register('desk', 'save', () => 1, true, 'Saving…');
+    expect(r.setBusy('save', 'Saving…')).toBe(false); // the same word twice is not motion
+    expect(r.setBusy('save', 'Still saving')).toBe(true);
+    expect(r.setBusy('nobody-registered-this', 'Saving…')).toBe(false);
+  });
+
   it('registrations() returns copies with group ownership visible', () => {
     const r = new ToolRegistry(() => {});
     r.register('g1', 'a', () => 1);

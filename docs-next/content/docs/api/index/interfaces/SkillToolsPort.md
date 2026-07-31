@@ -36,6 +36,55 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 ***
 
+### settledAnswer()?
+
+> `optional` **settledAnswer**(`transitionId`): [`ServeResult`](/api/index/type-aliases/ServeResult) \| `undefined`
+
+Defined in: [src/serve/modes.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L152)
+
+What `did_it_work` would ANSWER about a fire that has come to rest — the
+same facts, in the same words, minus that tool's own envelope. For the
+caller that already holds the id and wants the settled truth as a result
+rather than as a promise: a transport folding the final word into the
+result of the call that fired (see [SkillToolsPort.whenSettled](/api/index/interfaces/SkillToolsPort#whensettled) for
+the wait itself).
+
+Three answers, and they are three different things:
+- the facts, for a fire at rest;
+- `undefined` while the fire is still in flight — "no answer yet", never a
+  guessed one;
+- a synchronous THROW, on the two ids no honest answer exists for: one no
+  settlement can ever exist for (the same law [Session.settlementOf](/api/index/classes/Session#settlementof)
+  holds), and one that names BOTH a fire and a human's open card, which
+  `did_it_work` refuses as `AMBIGUOUS_ID` and this door refuses in the same
+  words. A mistyped id refused by name is the whole point: the alternative
+  is silence a caller reads as "not finished", which is how a wrong id
+  becomes a confident wrong answer.
+
+The keys are the ones `did_it_work` documents (`effectStatus`, `outcome`,
+`outcomeNow`, `effectVerified`, `writesObserved`, `verifyHeld`, `arrival`,
+`arrivalMeans`, `materialized`, `why`, `toNode`, `error`, `data`,
+`stillWorking`, `stillWorkingMeans`, and `howToAct` on a moved outcome) —
+absent when unknown, never filled in. A LIST IS A THING THAT GOES STALE, so
+the one a remote host reads is checked against a real answer by a test
+rather than kept in step by hand.
+
+OPTIONAL here and REQUIRED on [SkillToolsPortWithSettlement](/api/index/interfaces/SkillToolsPortWithSettlement), for the
+reason stated above: this interface is PUBLISHED, and an object literal
+written against an earlier release must keep compiling.
+
+#### Parameters
+
+##### transitionId
+
+`string`
+
+#### Returns
+
+[`ServeResult`](/api/index/type-aliases/ServeResult) \| `undefined`
+
+***
+
 ### tools()
 
 > **tools**(): `MCPToolDescription`[]

@@ -88,6 +88,12 @@ export interface LiveAction extends RegisteredToolDef {
   instance?: string;
   /** False = on screen but greyed out (flows to TOOL_DISABLED). Default true. */
   enabled?: boolean;
+  /**
+   * The store's own label for "this one is working right now" ('Saving…') — the
+   * served row's `busy`, on the wire your app already has. Absent says NOTHING
+   * about the control, never "idle", and there is no boolean form.
+   */
+  busy?: string;
 }
 
 /**
