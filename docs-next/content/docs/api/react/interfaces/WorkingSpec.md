@@ -4,7 +4,7 @@ title: WorkingSpec
 
 # Interface: WorkingSpec
 
-Defined in: src/react/use-working.ts:100
+Defined in: [src/react/use-working.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L100)
 
 What a component says about the work it is doing right now.
 
@@ -14,7 +14,7 @@ What a component says about the work it is doing right now.
 
 > `readonly` **busy**: `boolean`
 
-Defined in: src/react/use-working.ts:110
+Defined in: [src/react/use-working.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L110)
 
 YOUR OWN SPINNER FLAG — the boolean this component already renders from.
 
@@ -30,7 +30,7 @@ screen depended on it being right.
 
 > `readonly` `optional` **error?**: `unknown`
 
-Defined in: src/react/use-working.ts:144
+Defined in: [src/react/use-working.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L144)
 
 The error you are already rendering, if the work ended badly.
 
@@ -60,7 +60,7 @@ does) is already correct; a hand-rolled one clears it where it sets the flag.
 
 > `readonly` **label**: `string`
 
-Defined in: src/react/use-working.ts:120
+Defined in: [src/react/use-working.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L120)
 
 Your own words for what is happening — 'Saving your draft…'.
 
@@ -76,7 +76,7 @@ customer's name, or the payload.
 
 > `readonly` **session**: [`WorkingSession`](/api/react/type-aliases/WorkingSession)
 
-Defined in: src/react/use-working.ts:163
+Defined in: [src/react/use-working.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L163)
 
 The session this component reports to.
 
@@ -86,7 +86,7 @@ The session this component reports to.
 
 > `readonly` `optional` **tools?**: [`BusyControl`](/api/react/type-aliases/BusyControl) \| readonly [`BusyControl`](/api/react/type-aliases/BusyControl)[]
 
-Defined in: src/react/use-working.ts:161
+Defined in: [src/react/use-working.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L161)
 
 The control handle, or handles, that should carry the label while this is
 working — the spinner in the button, said out loud on the row a model reads.
@@ -109,7 +109,7 @@ inside one window cancels to nothing at all.
 
 > `readonly` `optional` **transitionId?**: `string`
 
-Defined in: src/react/use-working.ts:185
+Defined in: [src/react/use-working.ts:185](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L185)
 
 The fire this work belongs to — a `transitionId` from a `FireResult`.
 

@@ -6,7 +6,7 @@ title: BusyControl
 
 > **BusyControl** = `Pick`\<[`ToolHandle`](/api/index/interfaces/ToolHandle), `"setBusy"`\>
 
-Defined in: src/react/use-working.ts:87
+Defined in: [src/react/use-working.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L87)
 
 Anything that can say a control is working — `setBusy` and nothing else.
 

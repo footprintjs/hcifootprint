@@ -6,7 +6,7 @@ title: WorkingSession
 
 > **WorkingSession** = `Pick`\<[`Session`](/api/index/classes/Session), `"beginWork"` \| `"warn"`\>
 
-Defined in: src/react/use-working.ts:97
+Defined in: [src/react/use-working.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L97)
 
 The two session doors this hook drives, and not one more.
 

@@ -6,7 +6,7 @@ title: useWorking
 
 > **useWorking**(`spec`): `void`
 
-Defined in: src/react/use-working.ts:256
+Defined in: [src/react/use-working.ts:256](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L256)
 
 Say the app is working, for as long as your own flag says so.
 
