@@ -16,7 +16,7 @@ holding the port could reuse — and one that answered with a **confident guess*
 was handed was wrong.
 
 The ask that came with it was an `await` on the tool call itself: `awaitSettlement: true`,
-`timeoutMs: 30000`. What shipped instead is this page, because *waiting* is four different
+`timeoutMs: 30000`. What shipped instead is this page, because *waiting* is five different
 questions and only one of them is a clock:
 
 | the question | the door |
@@ -25,6 +25,10 @@ questions and only one of them is a clock:
 | *which fire does this completion belong to?* | `transitionId`, threaded on the state rail |
 | *can the answer arrive in the same turn?* | `settleWithinMs` — the one served await |
 | *is it still running right now?* | [`busy`](doc:when-a-control-is-busy) · [work rows](doc:when-the-app-is-still-working) · [`did_it_work`](doc:modes#did-it-work) |
+| *am I waiting on a **person**?* | [the ask book](doc:paused-not-failed) — and it is [not the same waiting](#waiting-on-a-person-is-a-different-waiting) |
+
+**In a hurry?** [Going async](doc:going-async) is the same material as a four-move recipe. This page
+is the reasoning under it.
 
 ## Your handler's promise **is** the completion signal
 
@@ -314,6 +318,33 @@ turn open until the ceiling expires, and the model that was supposed to go and f
 on a stopped clock instead. A pause carries an [`askId`](doc:paused-not-failed) instead — two id
 families, two different objects, no overlap — and the invariant is pinned by a test that sweeps
 every arm this port can produce without firing.
+
+## Waiting on a person is a different waiting
+
+Everything above is *the app has not finished*. A person is not the app, and the difference is not a
+nicety: **nothing was fired**, so no settlement is coming, no ceiling can help, and the honest thing
+for the caller to do is stop waiting and go and ask.
+
+The door is the same tool with the other id family. Hand [`did_it_work`](doc:modes#did-it-work) an
+**`askId`** and it answers from the ask book instead of the settlement ledger:
+
+```jsonc
+{ "ok": true, "settled": false, "performed": false,
+  "judgment": "awaiting-human", "askId": "ask#1", "did": "checkout.place-order",
+  "howToAct": "Paused, not failed: no outcome exists because nothing was fired. The human has not decided. Do not report this as an error and do not look for another way to do it — show them what it will do and wait for their answer." }
+```
+
+`awaiting-human` is one of three words on that arm — the others are `approved-not-yet-done` (a yes is
+on record and nothing has fired) and `declined`. The same fact is also a **list**: an unknown-id
+refusal carries `awaitingHuman: [{ askId, action }]` for every card nobody has answered, beside
+`pending` and `awaitingSettlement`, precisely so the three kinds of open question are never one pile.
+
+**`awaiting-human`'s referent is the card.** It means a question is in front of a person and the
+system is holding it. That is deliberately narrow, and it is why there is a second, separate idea for
+the case where the system holds *nothing* — where the choice itself is the person's to make and the
+agent's job is to present options and stop. That vocabulary is designed and not yet built; a skill
+frame today serves `readySteps`, `laterSteps` and `awaitingState`, and splits its ready list by no
+other hold.
 
 ## Honest limits
 

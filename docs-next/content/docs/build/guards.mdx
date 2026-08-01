@@ -85,11 +85,40 @@ Reach for it anyway and the refusal teaches at the moment of use: `TOOL_DISABLED
 > nothing here knows what would change it. Do not invent a reason it is off. Call whats_here to see
 > where things stand — a switched-off control is served there with enabled: false — and if it is
 > still off, tell the human it is not available yet.
+> This control also declares a condition for being clickable, and the app’s own state does not meet
+> it — the parts that did not hold ride this result as evidence, named by the app’s own declaration
+> and not guessed here. That is what the app declared, not a promise: meeting it may still leave the
+> control off for a reason nothing here can see. Say what the evidence says, and no more.
 
-The sentence says what is true, says out loud what is **not** known, and refuses to supply a cause.
-An integration whose relay met the bare refusal filled that hole in itself — it told its human *"a
-required field is probably empty"*, which nothing in the app had ever said, and then tried again.
-A hole in an answer is where a guess goes.
+The first sentence says what is true, says out loud what is **not** known, and refuses to supply a
+cause. An integration whose relay met the bare refusal filled that hole in itself — it told its
+human *"a required field is probably empty"*, which nothing in the app had ever said, and then
+tried again. A hole in an answer is where a guess goes.
+
+**The second sentence rides only when `enabledWhen` is what proved it**, and it comes with the
+proof: the conjuncts that did **not** hold, on `evidence`, in the shape `GUARD_FAILED` already
+serves (the table above).
+
+```jsonc
+{ "ok": false, "reason": "TOOL_DISABLED", "retriable": true,
+  "evidence": [{ "key": "project.recipe", "op": "ne", "threshold": "",
+                 "actualSummary": "\"\"", "result": false, "redacted": false }] }
+```
+
+The library evaluated that condition to decide the refusal and used to throw the failing half away
+— so the reader who cannot see the screen was handed a *conclusion* and could not name the field.
+Now it can. Three rules keep it honest, and each one is a test:
+
+- **Only the conjuncts that failed.** The ones that held are not why the control is off.
+- **Absent for the imperative wires.** `enabled:`, `setEnabled(false)` and a live store row declare
+  no conditions, so there is nothing to name and nothing is invented — the bare refusal and its
+  first sentence stand exactly as they did.
+- **Not a promise.** Meeting the condition may still leave the control off through one of those
+  other three wires, none of which declares a reason. The sentence says so rather than sending an
+  agent into a retry loop against a door that never opens.
+
+The refusal's [gap-ledger row](doc:grounding) carries the same evidence, so triage sees what the
+agent saw.
 
 ### There is no `busyWhen`
 

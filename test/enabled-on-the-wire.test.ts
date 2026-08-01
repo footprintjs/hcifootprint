@@ -19,7 +19,14 @@
  * sentence that says what is true (the app switched it off), says what is not
  * known (why), and refuses to supply a cause.
  *
- * MUTATION PROOFS:
+ * AND THE PROOF IT ALREADY HAD. `enabledWhen` is machine-evaluated to decide the
+ * refusal, and the failing conjuncts were then discarded — so the answer was a
+ * conclusion with no field a reader could name, which is the same hole one layer
+ * down. They now ride the refusal in the shape `GUARD_FAILED` has always used,
+ * and only where the app DECLARED the condition: the imperative wires say "off"
+ * and nothing else, so nothing else is said for them.
+ *
+ * MUTATION PROOFS (each one run; the counts are what it actually did):
  * - 'serves enabled: false on the action row' — drop the stamp from edgeData
  *   and the model is back to discovering disabledness by clicking.
  * - 'a clickable control serves no key at all' — emit `enabled: true` and
@@ -28,6 +35,15 @@
  *   the bare word that the field report's relay filled in for itself.
  * - 'the sentence is an authored constant' — interpolate any runtime value into
  *   it and the app's own text starts arriving as an instruction.
+ * - Drop `evidence` from the refusal (leaving the ledger row) → 9 red: every
+ *   reader of the proof, in process and on the wire, plus the page that prints
+ *   the sentence which only rides with it.
+ * - Serve ALL the conjuncts instead of the failing ones → 4 red: a condition
+ *   that HELD, served as evidence, reads as part of the fix.
+ * - Give an imperative `setEnabled(false)` an empty proof (`evidence: []`)
+ *   instead of none → 3 red: the polite form of inventing one.
+ * - Replace the switched-off sentence with the declaration clause instead of
+ *   appending → 3 red: alongside, never over.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -253,6 +269,27 @@ describe('nobody is asked to approve a control that is switched off', () => {
     expect(String(answer['why'])).toContain('The app also says');
   });
 
+  it('a switched-off control the DECLARATION greyed still refuses before any card', () => {
+    // The order holds with evidence riding too: capability first, and the proof
+    // travels with the refusal instead of a person being summoned to a control
+    // nobody can press.
+    const session = buildNavigationGraph('shop', {
+      pages: {
+        checkout: {
+          tools: { pay: { does: 'Pay now', writes: ['paid'], confirm: true, enabledWhen: { total: { gt: 0 } } } },
+        },
+      },
+    }).createSession({ node: 'checkout', state: { paid: false, total: 0 }, onWarn: () => undefined });
+    session.registerToolGroup('checkout', { handlers: { pay: () => undefined } });
+    const port = skillsAsTools(session, { confirmHighEffect: true });
+
+    const answer = port.call('shop.do_action', { action: 'checkout.pay' });
+
+    expect(answer).toMatchObject({ ok: false, reason: 'TOOL_DISABLED', retriable: true });
+    expect(answer['evidence']).toMatchObject([{ key: 'total', op: 'gt', result: false }]);
+    expect(session.asks()).toHaveLength(0);
+  });
+
   it('a clickable high-effect control still asks — the gate is untouched', () => {
     const session = buildNavigationGraph('shop', {
       pages: { checkout: { tools: { pay: { does: 'Pay now', writes: ['paid'], confirm: true } } } },
@@ -265,5 +302,211 @@ describe('nobody is asked to approve a control that is switched off', () => {
     expect(answer).toMatchObject({ judgment: 'needs-confirm', performed: false });
     expect(typeof answer['askId']).toBe('string');
     expect(session.asks()).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The proof the refusal already had
+// ---------------------------------------------------------------------------
+
+/**
+ * `enabledWhen` is MACHINE-EVALUATED to decide the refusal, and the failing half
+ * was thrown away — so the reader was handed a conclusion ("switched off") with
+ * no field it could name, which is the same hole the invented diagnosis went
+ * into one layer up. `GUARD_FAILED` has carried its conditions since 0.3; this
+ * is that shape, on the sibling refusal.
+ */
+function wizardWithTwoConditions(state: Record<string, unknown>) {
+  const map = buildNavigationGraph('wizard', {
+    pages: {
+      setup: {
+        tools: {
+          // Two conjuncts on purpose: one is why it is off, one is not.
+          next: { does: 'Go on to the review step', enabledWhen: { recipe: { ne: '' }, agreed: { eq: true } } },
+          restart: { does: 'Start over' },
+        },
+      },
+    },
+  });
+  const session = map.createSession({ node: 'setup', state, onWarn: () => undefined });
+  const group = session.registerToolGroup('setup', {
+    handlers: { next: () => undefined, restart: () => undefined },
+  });
+  return { session, group, port: skillsAsTools(session) };
+}
+
+describe('a machine-proven refusal carries its proof', () => {
+  it('serves the failing conjuncts on the fire result, in the GUARD_FAILED shape', () => {
+    const { session } = wizardWithTwoConditions({ recipe: '', agreed: true });
+
+    const refused = session.fire('setup.next', { source: 'agent' });
+
+    expect(refused).toMatchObject({ ok: false, reason: 'TOOL_DISABLED', affordanceId: 'setup.next' });
+    expect((refused as { evidence?: unknown }).evidence).toMatchObject([
+      { key: 'recipe', op: 'ne', result: false },
+    ]);
+  });
+
+  it('ONLY the conjuncts that failed — the ones that held are not why it is off', () => {
+    // `agreed` holds. Serving it beside the one that did not would tell a reader
+    // that satisfying it is part of the fix, which is a claim nobody made.
+    const { session } = wizardWithTwoConditions({ recipe: '', agreed: true });
+
+    const refused = session.fire('setup.next', { source: 'agent' }) as { evidence?: { key: string }[] };
+
+    expect(refused.evidence?.map((condition) => condition.key)).toEqual(['recipe']);
+  });
+
+  it('both failing conjuncts ride when both failed', () => {
+    const { session } = wizardWithTwoConditions({ recipe: '', agreed: false });
+
+    const refused = session.fire('setup.next', { source: 'agent' }) as { evidence?: { key: string }[] };
+
+    expect(refused.evidence?.map((condition) => condition.key).sort()).toEqual(['agreed', 'recipe']);
+  });
+
+  it('reaches the wire beside retriable and the sentence — nothing was replaced', () => {
+    const { port } = wizardWithTwoConditions({ recipe: '', agreed: true });
+
+    const refused = port.call('wizard.do_action', { action: 'next' });
+
+    expect(refused).toMatchObject({ ok: false, reason: 'TOOL_DISABLED', retriable: true });
+    expect(refused['evidence']).toMatchObject([{ key: 'recipe', result: false }]);
+    const why = String(refused['why']);
+    // The sentence that is true of EVERY switched-off control survives whole…
+    expect(why).toContain('Do not invent a reason it is off');
+    // …and the clause about the declaration is ADDED to it, never over it.
+    expect(why).toContain('also declares a condition for being clickable');
+    expect(why.indexOf('Do not invent a reason it is off')).toBeLessThan(
+      why.indexOf('also declares a condition for being clickable'),
+    );
+  });
+
+  it('and it promises nothing — meeting the condition is not an open door', () => {
+    // Three other wires can switch the same control off and none of them
+    // declares a reason, so the clause must not read as "set this and it works".
+    const { port } = wizardWithTwoConditions({ recipe: '', agreed: true });
+
+    const why = String(port.call('wizard.do_action', { action: 'next' })['why']);
+
+    expect(why).toContain('not a promise');
+    expect(why).toContain('may still leave the control off');
+    expect(why).not.toMatch(/set .* and it will|then it will work|try again once/i);
+  });
+
+  it('the triage ledger sees what the agent saw', () => {
+    const { session } = wizardWithTwoConditions({ recipe: '', agreed: true });
+
+    session.fire('setup.next', { source: 'agent' });
+
+    const row = session.gaps().find((gap) => gap.rejectionReason === 'TOOL_DISABLED')!;
+    expect(row.evidence).toMatchObject([{ key: 'recipe', result: false }]);
+  });
+
+  it('a redacted state key travels as the marker, never as its value', () => {
+    // The proof is a NEW place a state value can ride out, so the rule that
+    // governs every other one governs it: `redactedKeys` masks the reading and
+    // the key name still travels, because a reader has to know WHICH condition
+    // failed. Same marker as guard evidence — one word, everywhere.
+    const map = buildNavigationGraph('vault', {
+      pages: { home: { tools: { open: { does: 'Open the vault', enabledWhen: { pin: { eq: '1234' } } } } } },
+    });
+    const session = map.createSession({
+      node: 'home',
+      state: { pin: '9999' },
+      redactedKeys: ['pin'],
+      onWarn: () => undefined,
+    });
+    session.registerToolGroup('home', { handlers: { open: () => undefined } });
+
+    const refused = session.fire('home.open', { source: 'agent' }) as {
+      evidence?: { key: string; actualSummary: string; redacted: boolean }[];
+    };
+
+    expect(refused.evidence?.[0]).toMatchObject({ key: 'pin', redacted: true, actualSummary: '[REDACTED]' });
+    expect(JSON.stringify(refused)).not.toContain('9999');
+    expect(JSON.stringify(skillsAsTools(session).call('vault.do_action', { action: 'open' }))).not.toContain('9999');
+  });
+
+  it('the page that documents it prints the sentence the port actually serves', () => {
+    const { port } = wizardWithTwoConditions({ recipe: '', agreed: true });
+    const why = String(port.call('wizard.do_action', { action: 'next' })['why']);
+    const page = readFileSync(path.join(REPO, 'docs-next/content/docs/build/guards.mdx'), 'utf8');
+
+    expect(flatten(page)).toContain(flatten(why));
+  });
+});
+
+describe('an imperative switch-off invents nothing', () => {
+  it('setEnabled(false) carries NO evidence — the app named no condition', () => {
+    // THE ATTACK: filling the hole with conjuncts. A registration, a group
+    // handle and a live store row each say "off" and say nothing else. Reaching
+    // for a reason here is exactly the invented diagnosis this surface exists to
+    // end, and an empty array would be its polite form — so the key is absent.
+    const map = buildNavigationGraph('shop', {
+      pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
+    });
+    const session = map.createSession({ node: 'catalog', state: {}, onWarn: () => undefined });
+    session.registerToolGroup('catalog', {
+      handlers: { 'add-to-cart': () => undefined },
+      enabled: { 'add-to-cart': false },
+    });
+
+    const refused = session.fire('catalog.add-to-cart', { source: 'agent' });
+
+    expect(refused).toMatchObject({ ok: false, reason: 'TOOL_DISABLED' });
+    expect(refused).not.toHaveProperty('evidence');
+    expect(skillsAsTools(session).call('shop.do_action', { action: 'add-to-cart' })).not.toHaveProperty('evidence');
+    expect(session.gaps().find((gap) => gap.rejectionReason === 'TOOL_DISABLED')).not.toHaveProperty('evidence');
+  });
+
+  it('and the bare refusal keeps the sentence it always had, without the added clause', () => {
+    const map = buildNavigationGraph('shop', {
+      pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
+    });
+    const session = map.createSession({ node: 'catalog', state: {}, onWarn: () => undefined });
+    const group = session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    group.setEnabled('add-to-cart', false);
+
+    const why = String(skillsAsTools(session).call('shop.do_action', { action: 'add-to-cart' })['why']);
+
+    expect(why).toContain('Do not invent a reason it is off');
+    expect(why).not.toContain('also declares a condition');
+  });
+
+  it('a DECLARATION that holds while the handle says off is still no evidence', () => {
+    // The sharpest form: the condition is met, so nothing about it failed. The
+    // control is off because the app switched it off, and that is the whole
+    // record — a conjunct served here would be a true-looking lie about the
+    // cause.
+    const { session, group } = wizardWithTwoConditions({ recipe: 'sourdough', agreed: true });
+    group.setEnabled('next', false);
+
+    const refused = session.fire('setup.next', { source: 'agent' });
+
+    expect(refused).toMatchObject({ ok: false, reason: 'TOOL_DISABLED' });
+    expect(refused).not.toHaveProperty('evidence');
+  });
+
+  it('an unevaluable key never becomes a named conjunct', () => {
+    // The state view has never held `recipe`, so nothing about it was read. A
+    // key the library could not look at may not be reported as a key that
+    // failed — the same asymmetry that keeps it from greying the control at all.
+    const { session } = wizardWithTwoConditions({ agreed: false });
+
+    const refused = session.fire('setup.next', { source: 'agent' }) as { evidence?: { key: string }[] };
+
+    expect(refused.evidence?.map((condition) => condition.key)).toEqual(['agreed']);
+  });
+
+  it('no published union grew for any of it', () => {
+    // `FireResult.reason` and `GapRecord.rejectionReason` grow in lockstep, so a
+    // new word here would land in every triage export as a refusal class no app
+    // asked for. This is a FIELD on the arm that already existed.
+    const { session } = wizardWithTwoConditions({ recipe: '', agreed: true });
+    const refused = session.fire('setup.next', { source: 'agent' });
+
+    expect((refused as { reason: string }).reason).toBe('TOOL_DISABLED');
+    expect(session.gaps().at(-1)!.rejectionReason).toBe('TOOL_DISABLED');
   });
 });

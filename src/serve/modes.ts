@@ -292,6 +292,30 @@ const DISABLED_WHY =
   'where things stand — a switched-off control is served there with enabled: false — and if it is ' +
   'still off, tell the human it is not available yet.';
 
+// THE ONE CASE WHERE THE APP DID SAY SOMETHING. `enabledWhen` is machine-
+// evaluated to decide the refusal above, and the failing conjuncts were thrown
+// away — so a reader was handed a conclusion it could not name a field for,
+// which is precisely the hole the invented diagnosis went into. The conjuncts
+// themselves ride as DATA (`evidence`, the shape GUARD_FAILED already serves);
+// this is the sentence that says what they are.
+//
+// APPENDED, NEVER INSTEAD OF — the withBusy shape. The sentence above stays
+// true of every switched-off control, including the three wires that carry no
+// conditions at all, and it is the one that forbids inventing a cause. Read
+// alone, "nothing here knows what would change it" beside a named condition
+// would be two of this library's own sentences disagreeing on one screen; this
+// clause is what keeps them one answer.
+//
+// AND IT PROMISES NOTHING. A met condition is not an open door: the other three
+// wires can still switch the same control off and none of them declares a
+// reason, so the sentence sends the reader back to the row rather than into a
+// retry loop against a door that never opens.
+const DISABLED_EVIDENCE_WHY =
+  'This control also declares a condition for being clickable, and the app’s own state does not meet ' +
+  'it — the parts that did not hold ride this result as evidence, named by the app’s own declaration ' +
+  'and not guessed here. That is what the app declared, not a promise: meeting it may still leave the ' +
+  'control off for a reason nothing here can see. Say what the evidence says, and no more.';
+
 // THE THIRD STATE, at the moment of the reach. A control is clickable, switched
 // off, or WORKING — and only the first two ever had a wire, so a reader that
 // cannot see the screen met a mid-flight control as a plain refusal and made one
@@ -1207,6 +1231,13 @@ export function skillsAsTools(
         return {
           step: step.affordanceId,
           does: step.description,
+          // The SAME claim the action row makes ({@link edgeData}) — a navigating
+          // STEP declares no writes either, so a model inside a skill frame read a
+          // working link as a dead one for exactly the reason the action row was
+          // fixed. This was the last surface still telling the two readers of one
+          // edge different things. A CLAIM, said as one: absent when the app
+          // declared no destination, never inferred.
+          ...(edge?.navigatesTo !== undefined ? { goesTo: edge.navigatesTo } : {}),
           ...(edge?.highEffect ? { highEffect: true } : {}),
           ...(step.guardUnevaluated ? { guardUnevaluated: step.guardUnevaluated } : {}),
           // Declared here but nothing is bound: firing it executes nothing.
@@ -1365,8 +1396,16 @@ export function skillsAsTools(
       ...(fired.reason === 'STILL_MOUNTING' ? { retriable: true } : {}),
       // Switched off is a STATE, and a state can change — so it carries the same
       // marker STILL_MOUNTING does, beside the sentence that stops a reader
-      // inventing the cause it was never given.
-      ...(fired.reason === 'TOOL_DISABLED' ? { retriable: true, why: DISABLED_WHY } : {}),
+      // inventing the cause it was never given. Where the app DECLARED the
+      // condition, the conjuncts that failed rode in through the shared
+      // `evidence` spread above and this arm adds the clause that says what they
+      // are — appended, never replacing the sentence that is true either way.
+      ...(fired.reason === 'TOOL_DISABLED'
+        ? {
+            retriable: true,
+            why: fired.evidence === undefined ? DISABLED_WHY : `${DISABLED_WHY} ${DISABLED_EVIDENCE_WHY}`,
+          }
+        : {}),
       // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
       ...(fired.reason === 'NOT_MATERIALIZED' ? { why: NOT_MATERIALIZED_WHY } : {}),
       ...approvalWhy(fired),

@@ -4,7 +4,7 @@ title: FireResult
 
 # Type Alias: FireResult
 
-> **FireResult** = \{ `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \}
+> **FireResult** = \{ `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \}
 
 Defined in: [src/atom/types.ts:975](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L975)
 
@@ -143,9 +143,34 @@ RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link).
 
 ### Type Literal
 
-\{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \}
+\{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \}
 
 RETRIABLE: the control is registered but currently greyed out (disabled).
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### evidence?
+
+> `optional` **evidence?**: `FilterCondition`[]
+
+The `enabledWhen` conjuncts that did NOT hold — the machine proof of this
+refusal, in the shape `GUARD_FAILED` serves. It exists so a reader can
+name the FIELD instead of relaying a conclusion it cannot explain.
+
+Present only where the app DECLARED a condition. An imperative
+`setEnabled(false)` names no conditions, so this stays absent rather than
+inventing one — and it is never a promise: meeting the condition may
+still leave the control off through a wire that declares no reason.
+
+#### ok
+
+> **ok**: `false`
+
+#### reason
+
+> **reason**: `"TOOL_DISABLED"`
 
 ***
 

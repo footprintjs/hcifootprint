@@ -60,14 +60,16 @@ would have.
 
 Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEffect?`,
 `guardUnevaluated?`, `materialized?` (false = nothing is bound to execute that step), and
-`expects?` (the [declared input contract](doc:sessions), visible before the fire).
-A `whats_here` **action** row carries those plus two facts about the control itself:
+`expects?` (the [declared input contract](doc:sessions), visible before the fire). Four more facts
+are about the control itself. The first, **`goesTo?`**, rides a `readySteps` row as well — a
+navigating *step* is the same working link read as a dead one — and the other three are on the
+`whats_here` **action** row:
 
 - **`goesTo?`** — the page this edge *claims* it will move you to, from the declared `goTo`. It
   matters before the fire, not after: a navigation declares no `writes`, so success looks exactly
   like nothing happening, and an agent watching the control it clicked reads a working link as a
   dead one. The human's [confirm receipt](doc:receipts) has always disclosed this claim
-  (`willDo.navigatesTo`); the agent's row now discloses the same fact, and stays silent when the
+  (`willDo.navigatesTo`); the agent's rows now disclose the same fact, and stay silent when the
   app declared no destination. [The claim and the observation →](doc:navigation-claims)
 - **`holds?`** — [what that control is holding right now](doc:what-a-control-holds): the draft
   already in the box, read when the row was served. Present only where the app declared a way to
@@ -82,6 +84,11 @@ A `whats_here` **action** row carries those plus two facts about the control its
   and a string only: an absent key means the library does not know, never *not busy*. It gates
   nothing — a busy control that is not disabled still fires — and nothing here will ever time it
   out.
+
+There is deliberately **no `kind` field** to switch on: a Pay button can be guarded and high-effect
+and navigating and busy at the same moment, so the kind of an edge *is* the set of declarations it
+carries. Every stamp, the declaration behind it and what would prove it:
+[What kind of edge am I holding?](doc:reading-an-action-row)
 
 `do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
 promise deliberately does not.

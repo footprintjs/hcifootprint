@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1660%20passing-f5b301?style=flat" alt="1660 tests passing">
+  <img src="https://img.shields.io/badge/tests-1687%20passing-f5b301?style=flat" alt="1687 tests passing">
   <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
@@ -322,6 +322,26 @@ So keep the router wired: `session.sync(matchRoute(graph.spec.pages, location.pa
 is the one line that makes `youAreOn` honest and lets a claim ever be corroborated.
 → [A claim is not an observation](https://footprintjs.github.io/hcifootprint/docs/serve/navigation-claims)
 
+**Even when the destination does not exist yet.** *Place order* goes to `/orders/8fa2`, and that address is
+minted by the handler that runs. So the graph declares a page **kind** (`route: '/orders/:id'`), the control
+claims it by **name** (`goTo: 'order-detail'`), and the id your app mints travels back as data on the
+transition (`producedFor`). What the library refuses — loudly, at build — is the half-address:
+`{ kind: 'url', href: '/orders/:id' }` and a `crossLink` to a paramful page are each declined by name,
+because **the library never guesses params** and a half-address is not an address. That is the whole
+cookbook, and the version that silently goes wrong (inventing a literal `'/orders/new'`) is the one nothing
+can catch.
+→ [A destination the app mints](https://footprintjs.github.io/hcifootprint/docs/serve/minted-destinations)
+
+**There is no `kind` field on a row, and that is the design.** A production integration wanted one word to
+switch on — navigating, guarded, high-effect, busy, disabled — and the answer is that those **compose**: a
+Pay button can sit behind a guard, charge a card, go to a receipt page and be mid-charge all at once, and an
+enum has to pick one exactly when all four are true. So each rides its own presence-only stamp
+(`goesTo`, `highEffect`, `enabled: false`, `busy`, plus `materialized`, `guardUnevaluated`, `holds`,
+`expects`, `instances`), each absent when your app declared nothing, and **the kind of an edge is the set of
+declarations it carries**. Every stamp traces to one thing you said, which is what lets its evidence answer
+*that* claim — a `kind` would be this library's own word about your edge, with no declaration behind it.
+→ [What kind of edge am I holding?](https://footprintjs.github.io/hcifootprint/docs/serve/reading-an-action-row)
+
 **And the model can see what the control is holding.** A `whats_here` action row carries **`holds`** — the
 draft already in the box, the option already selected — so the model stops asking a person to retype what
 they are looking at, or inventing a value. Your app declares a *reader* (`registerToolGroup(…, { holds })`,
@@ -502,6 +522,22 @@ Both answers are recorded, so the gate is auditable end to end:
 gated action is consented capability, not unmet demand). `session.onConfirm(fn)` streams rows to your audit
 sink live.
 
+### Turning the gate on — and finding the door
+
+With `requireHumanApproval`, a high-effect fire needs an `askId` pointing at a row a human-side door
+recorded; a caller's own `confirm: true` is the *agent's claim*, not a person's answer, and is refused. An
+integration turned it on and could not get past it: it fired `confirm: true`, read a refusal that named the
+**wall**, and fired again — which reads like the library refusing to work. Nothing was missing from the
+mechanism. What was missing was in the one channel that reaches an app team, so the dev warning now names
+the **door** as well:
+
+```ts
+const { askId, receipts } = session.confirmAsk('checkout.place-order'); // show them the receipts
+session.approveAsk(askId, { by: 'sam@example.com' });                   // their yes (no → declineAsk)
+session.fire('checkout.place-order', { source: 'agent', askId });       // the fire carries it
+```
+
+
 ## 🔒 Honest by construction
 
 Two properties do most of the safety work:
@@ -533,6 +569,17 @@ wired — but it also means an under-seeded projector quietly turns real decisio
 
 So seed every guard key up front. `graph.requiredStateKeys()` returns exactly that set — every key your
 guards and skill preconditions read, sorted and deduped — as the checklist for your state projector.
+
+**A switched-off control now hands over its proof.** `enabledWhen` is machine-evaluated to decide the
+`TOOL_DISABLED` refusal, and the failing half used to be thrown away — so the one reader that cannot see the
+screen was handed a *conclusion* and could not name a field, which is exactly where an integration's relay
+put an invented diagnosis (*"a required field is probably empty"*, which nothing in the app had ever said).
+The conjuncts that did **not** hold now ride the refusal as `evidence`, in the shape `GUARD_FAILED` already
+serves. Three rules keep it honest: only the ones that *failed*; **absent** for the imperative wires
+(`enabled:`, `setEnabled(false)`, a live store row declare no conditions, so nothing is invented); and it is
+**not a promise** — meeting the condition may still leave the control off through a wire that declares no
+reason, and the authored sentence beside it says so rather than starting a retry loop.
+→ [`enabledWhen` — the other question](https://footprintjs.github.io/hcifootprint/docs/build/guards#enabledwhen--the-other-question)
 
 ---
 
@@ -720,6 +767,11 @@ a handler throw, a returned `{ ok: false }`, or `reject()`.
 (`onMounted` / `onScopeDispose`, `ngOnInit` / `ngOnDestroy`). Nothing in the core has to change for
 one to exist: `hcifootprint/react` imports **types** from the core and nothing else, which is why a
 second skin is a new folder rather than a new seam.
+
+**The four moves, in the order most apps need them**: return the promise (the settlement), name the fire
+(`{ transitionId }` on the state rail), say you are working (`setBusy` in a `try/finally`, `useWorking`, or a
+live store's `busy`), and ask later (`did_it_work`). That is the whole adoption, and each move is one line.
+→ [Going async — the adoption recipe](https://footprintjs.github.io/hcifootprint/docs/serve/going-async)
 
 → [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
 [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)

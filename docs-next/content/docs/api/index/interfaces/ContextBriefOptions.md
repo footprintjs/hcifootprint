@@ -4,7 +4,7 @@ title: ContextBriefOptions
 
 # Interface: ContextBriefOptions
 
-Defined in: [src/atom/types.ts:1760](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1760)
+Defined in: [src/atom/types.ts:1775](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1775)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1760](https://github.com/footprintjs/hcifootprint
 
 > `optional` **maxTransitions?**: `number`
 
-Defined in: [src/atom/types.ts:1764](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1764)
+Defined in: [src/atom/types.ts:1779](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1779)
 
 Cap on rendered transitions (default 20); older ones collapse into an omitted count.
 
@@ -22,6 +22,6 @@ Cap on rendered transitions (default 20); older ones collapse into an omitted co
 
 > `optional` **sinceVersion?**: `number`
 
-Defined in: [src/atom/types.ts:1762](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1762)
+Defined in: [src/atom/types.ts:1777](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1777)
 
 Only include transitions created at or after this cursor version (the "since your last turn" cursor).

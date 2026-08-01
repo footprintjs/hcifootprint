@@ -1,5 +1,179 @@
 # Changelog
 
+## [0.11.0] - 2026-08-01
+
+**A refusal that names the wall must also name the door** — the sentence this release is measured by.
+
+The fifth field wave arrived as a list of asks, and the adoption ledger's headline is worth saying
+plainly, and respectfully: **most of what it asked for had already shipped.** The confirm gate. The
+async completion wire. The busy label. The navigation claim. Every one of them was in the library
+already, and every one of them was met by a team that could not find it — one of them firing its own
+`confirm: true` in a loop against a gate working exactly as designed.
+
+That is not a reading failure on their side. **A mechanism a reader cannot find is a mechanism this
+library has not finished shipping**, and the channels that reach an integrator — a dev warning, a
+refusal's own sentence, a page in the docs — are library surface like any other. So this release is
+mostly findability, and the three code changes in it are all the same shape: **a place where the
+library knew something and did not say it.**
+
+Entirely **additive**. **No union grew** — not `FireResult.reason` (nor its lockstep twin
+`GapRecord.rejectionReason`), not `EffectStatus`, `Settlement`, `StepStatus`, `FrameStatus`,
+`GapReason`, nor the `Binding` kinds. No new tool, no schema change, no runtime text on any authored
+sentence. 30 new tests (1660 → 1690).
+
+Each item below says what the report asked for, what shipped instead where the two differ, and why.
+Reports are unnamed by house rule; the intake is [`LIBRARY_ASK.md`](LIBRARY_ASK.md).
+
+### The greyed button hands over its proof
+
+**The failure.** `TOOL_DISABLED` shipped in 0.10.0 with `retriable: true` and one authored sentence
+that refuses to invent a cause. That sentence is right, and for the one wire that *had* declared a
+cause it was leaving the proof on the floor: `enabledWhen` is machine-evaluated to decide the refusal
+and the failing half was thrown away, so the reader who cannot see the screen was handed a
+**conclusion it could not name a field for**. A hole in an answer is where a guess goes, and a relay
+put one there.
+
+**Shipped.** The conjuncts that did **not** hold ride the refusal as `evidence`, in the shape
+`GUARD_FAILED` already serves — and the gap-ledger row carries the same evidence, so triage sees what
+the agent saw. Nothing new is computed: the gate had already computed it.
+
+**What shipped instead, and why.** Three rules, each a test. **Only the failing conjuncts** — the ones
+that held are not why the control is off. **Absent for the imperative wires** — `enabled:`,
+`setEnabled(false)` and a live store row declare no conditions, so nothing is named and nothing is
+invented. **Not a promise** — meeting the condition may still leave the control off through one of
+those wires, and the appended sentence says so rather than starting a retry loop against a door that
+never opens. The 0.10.0 sentence is **appended to, never replaced**: it stays true of every
+switched-off control, and it is the one that forbids inventing a cause.
+→ [Guards](https://footprintjs.github.io/hcifootprint/docs/build/guards#enabledwhen--the-other-question)
+
+### A navigating STEP says where it goes
+
+**The failure.** 0.9.0 put `goesTo` on the `whats_here` action row, because a navigation declares no
+`writes` and an agent watching the control it clicked reads a working link as a dead one. Inside a
+skill frame, `readySteps` **is** the whole surface a planner has — and it did not carry the claim. One
+edge, two readers, and only one of them told: the same failure, one surface further in.
+
+**Shipped.** `goesTo` on a frame's `readySteps` rows, under the same key and the same rule — from the
+declared `goTo`, absent when the app declared no destination, never inferred.
+
+### The gate names the door as well as the wall
+
+**The failure.** A production integration turned `requireHumanApproval` on and could not get past it.
+Its own code fired with `confirm: true`; the gate refused, correctly — that boolean is *the agent's
+claim*, not a person's answer — and the retry fired the same call again. It read as the library
+refusing to work. **Nothing was missing from the mechanism:** `confirmAsk()` → `approveAsk(askId,
+{ by })` / `declineAsk` → `fire({ askId })` shipped whole in 0.7.0, and the refusal was already in both
+ledgers. What was missing was in the one channel that reaches an app team — the dev warning named the
+**gate** and not the **door**.
+
+**Shipped.** The warning appends an authored sentence naming `session.confirmAsk()` and the two calls
+after it. **No wire changed and no result grew**: the reader who needed this is the integrator, and a
+warning is where the library talks to them.
+
+**What shipped instead, and why.** The appended half is an **authored constant** — interpolation-free,
+byte-identical whatever the app calls its actions — while the half it joins names the action and the
+reason word on purpose. It is the same three calls in every app, so it is the same bytes in every app,
+and a hostile action description can never turn a console message into an instruction.
+→ [Confirms &amp; receipts](https://footprintjs.github.io/hcifootprint/docs/serve/receipts#requirehumanapproval--make-approve-enforceable)
+
+### The row has no `kind` — and now there is a page that says why
+
+**The ask.** *Put a `kind` on every served row — `navigating`, `guarded`, `high-effect`, `busy`,
+`disabled` — so a consumer can branch on one field instead of reading several optional stamps.* Real,
+and from a team rendering the action list by hand.
+
+**Declined, and what shipped instead.** The kinds **compose**: a Pay button can sit behind a guard,
+charge a card, go to a receipt page and be mid-charge all at once, and an enum has to pick one exactly
+when all four are true. **The kind of an edge is the set of declarations it carries** — and that set is
+already on the row. The second reason is the deeper one: every stamp traces to one thing the app said,
+which is what lets its evidence answer *that* claim. A `kind` would be this library's own word about
+someone else's edge, and the question a reader may always ask here — *who said this?* — would have no
+answer.
+
+The table was still owed. It shipped as a **reading guide**: every stamp, the declaration behind it,
+and what would prove it, in one page — with a test that walks a real served row and fails naming any
+stamp the guide does not carry.
+→ [What kind of edge am I holding?](https://footprintjs.github.io/hcifootprint/docs/serve/reading-an-action-row)
+
+### A destination the app mints
+
+**The failure.** *Place order* creates order `8fa2` and goes to `/orders/8fa2` — an address that does
+not exist until the handler runs. The library refuses every attempt to declare it in advance, and a
+team read those refusals as *this library cannot describe my app*. Both exits cost them the thing they
+were protecting: dropping the destination hands an agent a working link that looks dead, and inventing
+a literal (`'/orders/new'`) navigates somewhere real and wrong, which **nothing here can catch**.
+
+**Shipped.** The cookbook, as the four declarations it actually is: a page **kind** (`route:
+'/orders/:id'`), a claim by **name** (`goTo`), an `element` gesture through your own handler, and the
+minted id travelling back as data (`producedFor`). Corroboration needs no special case —
+`sync(matchRoute(…) ?? path)` places `/orders/8fa2` on the page by the route it declared.
+
+**And the anti-pattern, named.** A minted destination is never a `url` binding and never a
+`crossLink`: both refuse it by name rather than letting a half-address through as something that looks
+wired, because **a half-address is not an address**. Both refusals are quoted in the page and pinned by
+a test against what the library throws.
+→ [A destination the app mints](https://footprintjs.github.io/hcifootprint/docs/serve/minted-destinations)
+
+### Going async — the recipe under the reference
+
+**The failure.** The async story was documented in full and adopted in part. A team rebuilt the missing
+half by hand — a transition listener and a four-second stopwatch — and shipped an answer that
+**guessed** whenever the id it was handed was wrong. Every signal it was reconstructing was already a
+line in its own control flow.
+
+**Shipped.** A recipe page: four moves in the order most apps need them — return the promise (it *is*
+the settlement), name the fire (`{ transitionId }` on the state rail), say you are working
+(`setBusy` in a `try/finally`, `useWorking`, or a live store's `busy`), ask later (`did_it_work`) —
+with a *what not to build* table naming each reflex and the door it already has. The reasoning stays
+where it was; this is the page you read first.
+→ [Going async](https://footprintjs.github.io/hcifootprint/docs/serve/going-async)
+
+### Waiting on a person is a different waiting
+
+**Shipped.** The waiting page's table gains its fifth row. Everything else on it is *the app has not
+finished*; a person is not the app, and the difference is not a nicety — **nothing was fired**, so no
+settlement is coming and no ceiling helps. `did_it_work` answers from the ask book when handed an
+`askId`, and the authored sentence a caller receives is now quoted where the question is asked.
+
+### Decision ownership — designed, not built
+
+**The hole.** `requireHumanApproval` answers *may the agent act*. It says nothing about the other way a
+person is inside a flow: **some choices are the person's to make** — which plan, which shipping speed,
+whether to sell at all — and the agent's correct move there is to present options and stop. Every near
+word the library has (`awaiting-human`, blocked, disabled) describes something the **system** holds: a
+card, a gate, a grey button. Here the system holds nothing.
+
+**What shipped: a design note, and nothing else.** The two concepts are named apart, and neither ever
+borrows the other's words — one vocabulary for both would teach a model that presenting options is a
+form of asking permission. The resumption law is written down: a maker is named **only** by the
+identity-bearing rungs of the attribution ladder, and absent everywhere else — never inferred, never
+defaulted, never `'user'` unless a door that carries identity said so. And nothing would fire by itself.
+
+**No API shipped — not even a type.** There is no `humanDecides`, no `session.decisions()`, no
+`session.skillStanding()`, no frame list and no facts line. An earlier cut of this release carried the
+*types* ahead of the runtime; they were removed before release, because a field an author can declare
+and the library silently ignores is the very failure this wave was reported to us for. The design is
+settled and the implementation is a later release.
+
+**Why disclosure rather than a gate, decided in advance.** Enforcement mints refusal words, and
+`FireResult.reason` and `GapRecord.rejectionReason` grow only in lockstep — the cost that keeps a
+refusal word expensive. An agent that fills the decision anyway will be **disclosed as the agent**,
+which is a posture that survives.
+→ [the design note](docs/design/human-decisions.md)
+
+### Compatibility
+
+- **No published union grew.** `FireResult['reason']`, `GapRecord['rejectionReason']`, `EffectStatus`,
+  `Settlement`, `StepStatus`, `FrameStatus`, `GapReason` and `Binding['kind']` are byte-identical.
+- **`TOOL_DISABLED` gained an optional `evidence` field.** Every existing arm reads exactly as before;
+  the key is absent wherever the app declared no condition.
+- **`readySteps` rows gained an optional `goesTo`.** Absent when the app declared no destination.
+- **One dev warning got longer.** Text on the `onWarn` channel, appended to what it already said.
+- **New types are declarations only.** `HumanDecides`, `DecisionStatus` and `SkillStanding` describe a
+  runtime that does not exist yet; nothing reads them, and no behavior changes for an app that declares
+  nothing. They are **not exported from the package root** — a type nothing reads should not look
+  importable either — and each one's TSDoc says so where a hover will find it.
+
 ## [0.10.0] - 2026-07-31
 
 **Working is not broken, and a clock is not a verdict** — the sentence this release is measured by.

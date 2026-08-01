@@ -1,0 +1,181 @@
+---
+title: Going async — the adoption recipe
+description: "Four moves, in the order most apps need them. Return the promise, name the fire, say you are working, ask later. Everything here is your app's own control flow — there is no async wire to adopt."
+---
+
+## The failure this prevents
+
+Every action worth firing is asynchronous, and the library's honest answer at return time is
+`effectStatus: 'pending'` — true, and useless to act on. A reader that cannot see the screen is left
+holding a receipt for something that has not happened, and it has two moves available, **both
+wrong**: fire it again, or tell the person it failed.
+
+A production integration met this and built the missing half by hand — a transition listener and a
+four-second stopwatch, rewriting results on its relay's send path. None of it was needed. Every
+signal it was reconstructing is a line in your app's own control flow, and this page is those lines
+in the order you need them.
+
+[Waiting for the app](doc:waiting-for-the-app) is the full reasoning. **This page is the recipe.**
+
+## The four moves
+
+| # | the move | the line | what you get |
+|---|---|---|---|
+| 1 | **Return the promise** | `handler: (p) => save.mutateAsync(p)` | the settlement, from your app, on the call path that started it |
+| 2 | **Name the fire** | `updateState(delta, { transitionId })` | attribution that cannot be mismatched |
+| 3 | **Say you are working** | `setBusy(…)` in a `try/finally` | a mid-flight control that does not read as a broken one |
+| 4 | **Ask later** | `did_it_work` / `settleWithinMs` | an answer whenever you want one, and never a guessed one |
+
+Do 1 and 3 and you have the whole story for a single-action-at-a-time app. Add 2 the moment two
+fires can be in the air at once.
+
+### 1. Return the promise — it **is** the settlement
+
+There is no separate async wire, and that is deliberate: your app already has one.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { tools: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+});
+const session = graph.createSession({ node: 'compose', state: { draft: null } });
+declare const saveDraft: { mutateAsync(input: unknown): Promise<unknown> };
+// ---cut---
+session.registerToolGroup('compose', {
+  handlers: { save: (payload) => saveDraft.mutateAsync(payload) },
+});
+```
+
+**The one mistake to avoid** is handing over the fire-and-forget half. React Query's `mutate` returns
+`undefined` — which tells this library the work is **finished** — and `mutateAsync` returns the
+promise. Everything downstream would otherwise be answering honestly about a call that came back
+early.
+
+Failure is your app's word too: **throw**, or return `{ ok: false }`. Both take the same path, the
+outcome flips to rejected, and the reason becomes the settlement's.
+
+### 2. Name the fire — one property, on the state rail
+
+The handler rail carries identity for free (the promise *is* that fire's). The **state** rail cannot:
+by the time your store reports a delta the call path is gone, so identity travels with the report.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { tools: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+});
+const session = graph.createSession({ node: 'compose', state: { draft: null } });
+declare function saveToServer(): Promise<{ body: string }>;
+// ---cut---
+const fired = session.fire('compose.save', { source: 'user' });
+if (fired.ok) {
+  const id = fired.transition.id;
+  void saveToServer().then((saved) => {
+    session.updateState({ draft: saved.body }, { transitionId: id }); // exact, always
+  });
+}
+```
+
+Skip it with **one** fire outstanding and nothing goes wrong. Skip it with two and the library falls
+back to oldest-first FIFO — [predictable, and predictably capable of being
+wrong](doc:waiting-for-the-app#bare-fifo-is-oldest-first-and-it-can-be-wrong). No clock is consulted,
+ever: recency would be wrong exactly when the timing is interesting, and silently.
+
+### 3. Say you are working — the three shapes, pick one
+
+**Plain, no framework** — two calls around your own `await`, and the label comes down in `finally`:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { tools: { save: { does: 'Save the draft' } } } },
+});
+const session = graph.createSession({ node: 'compose' });
+declare function saveToServer(): Promise<void>;
+// ---cut---
+const group = session.registerToolGroup('compose', { handlers: { save } });
+
+async function save() {
+  const work = session.beginWork('Saving your draft…');  // the app is working
+  group.setBusy('save', 'Saving your draft…');           // and this control is the one
+  try {
+    await saveToServer();
+    work.done();
+  } catch (failure) {
+    work.done(failure);
+    throw failure;
+  } finally {
+    group.setBusy('save', undefined);                    // `undefined` is the only clear
+  }
+}
+```
+
+**React** — the same two edges, taken from the boolean your component already renders from:
+
+```tsx
+import { useWorking } from 'hcifootprint/react';
+
+useWorking({
+  busy: save.isPending,          // the flag your spinner already reads
+  label: 'Saving your draft…',   // your words
+  error: save.error,             // the error you already render
+  tools: saveTool,
+  session,
+});
+```
+
+**A [live action store](doc:live-bindings)** — put `busy` on the row and let the emission your app
+already sends carry it:
+
+```ts twoslash
+import type { LiveAction } from 'hcifootprint';
+// ---cut---
+const actions: LiveAction[] = [
+  { node: 'compose', name: 'save', does: 'Save the draft', busy: 'Saving your draft…' },
+];
+```
+
+All three land on the same served key. **`busy` is a label, never a flag** — there is no boolean form
+and no `busyWhen`, because a condition can prove a state but cannot write prose. And it gates
+nothing: if you also mean *nobody may press it*, `setEnabled(false)` is the wire that says so.
+[The third state, in full](doc:when-a-control-is-busy).
+
+### 4. Ask later — a poll, not a wait
+
+```jsonc
+// the fire's own result told you the door:
+{ "effectStatus": "pending", "transitionId": "compose.save#0", "howToSettle": "did_it_work" }
+```
+
+[`did_it_work`](doc:modes#did-it-work) answers **immediately**, every time, and never blocks:
+`settled: true` with the receipt, `still-pending` while that is the truth (with
+`stillWorking: true` beside it when your app has opened a piece of work), or a refusal **by name** for
+an id no settlement can exist for. In process the same truths are `settlementOf` (a promise),
+`settlementIfKnown` (now, or nothing) and `port.settledAnswer(id)`.
+
+Over MCP, `settleWithinMs` folds a settlement that lands quickly into the same result — **keep the
+ceiling well under your host's own timeout**, because this server sends no progress notifications, so
+a long ceiling only means the client gives up first and reports an error about an action that may
+well have succeeded.
+
+## What not to build
+
+Each of these was tried by a real integration, and each has a door already:
+
+| the reflex | why it goes wrong | the door |
+|---|---|---|
+| a stopwatch that calls it failed | *it has been a while* is not evidence of **done** or **failed** | `did_it_work`, for as long as you like |
+| a transition listener that rewrites results | you are re-deriving a settlement the session already holds | `settlementOf` / `settledAnswer` |
+| a boolean kept only for the library | a second copy of a fact, and the copy nobody looks at is the one that rots | pass the flag your screen already depends on |
+| attributing a report to the newest fire | right only when handlers finish in order — the case FIFO already handles — and unfalsifiable otherwise | `{ transitionId }` |
+
+## Honest limits
+
+- **`fire()` is synchronous and the handler is always deferred**, so `effectStatus` at return time is
+  never `'performed'`. The final truth arrives on the settlement.
+- **No promise here rejects, and none of them times out.** A fire your app never reports on waits
+  forever, on purpose — a timed-out answer could only be a guessed one.
+- **A tapless session cannot verify.** `'performed'` there means our side ran to completion;
+  `effectVerified` stays `'unobservable'` because nothing exists to check against.
+- **Nothing in this library expires anything.** Not a busy label, not a work row, not a claim. Every
+  ceiling belongs to the caller who set it, and none of them is ever a verdict.

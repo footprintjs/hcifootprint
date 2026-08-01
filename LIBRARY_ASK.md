@@ -246,6 +246,39 @@ is answered by mechanisms that already ship and are now easier to find: `verify:
 **Status** — `declined`. Re-proposing it means naming a gesture whose kind alone lets this library
 *observe* that the app did the thing. If one exists, this entry is wrong.
 
+### An edge-KIND enum — one word for what an action is
+
+**Ask.** Put a `kind` on every served row — `navigating`, `guarded`, `high-effect`, `busy`,
+`disabled` — so a consumer can branch on one field instead of reading several optional stamps.
+
+**Evidence.** Real, and the same shape as the table above one surface further out: a production
+integration rendering the action list wanted one word to switch on, and was deriving it from the
+stamps by hand.
+
+**Declined, and why** — two reasons, either sufficient:
+
+1. **The kinds COMPOSE.** One control can be guarded **and** high-effect **and** navigating **and**
+   busy at the same moment: a Pay button behind a guard, that charges a card, that goes to a receipt
+   page, mid-charge. An enum has to pick one, and whichever it picks, the other three go invisible
+   exactly when all four are true. **The kind of an edge IS the set of declarations it carries** —
+   and that set is already on the row, one stamp per declaration, each absent when the app declared
+   nothing.
+2. **Evidence follows the declared claim, never a new classification.** Every stamp is traceable to
+   one thing the app said, and its evidence answers *that* claim: `goesTo` ← `goTo`, `enabled: false`
+   ← `enabledWhen` (carrying the conjuncts that failed) or a registration, `busy` ← the app's own
+   label, `highEffect` ← `confirm:` (`highEffect:` on the flat authoring surface). A `kind` would be
+   **this library's** word about the edge, a served fact with no declaration behind it — and the
+   first question a reader may always ask here, *who said this?*, would have no answer.
+
+**What was taken from it.** The table is worth having, and it shipped in **0.11.0**. It is a **docs
+reading guide** — every stamp, the declaration behind it, and what it is evidence of, in one place
+(`docs-next/content/docs/serve/reading-an-action-row.mdx`) — not a field on the wire. A test walks a
+real served row and fails naming any stamp the guide does not carry, so the guide cannot fall behind
+the thing it describes.
+
+**Status** — `declined`. Re-proposing it means naming a control on which those four cannot be true
+at once.
+
 ### Auto-merging two action declarations by object identity
 
 **Ask.** When the same action reaches the session twice — a graph-declared tool and a live store's
@@ -375,6 +408,40 @@ string-only shape exists to prevent.
 **Status** — `declined`. The two are independent and both true at once on a Save button mid-save:
 `enabledWhen` shuts the door, `busy` says what the app is doing, and neither is served as the other's
 cause.
+
+### A `busy` GETTER — let the library read the working state instead of being told it
+
+**Ask.** Declare a **reader** for the third state the way `holds` declares one —
+`busy: () => isSaving ? 'Saving…' : undefined` — and let the library call it when it serves a row,
+instead of the app calling `setBusy` on both edges of its own work.
+
+**Evidence.** Sympathetic, and from the same wave as the React hook: the line that matters is the one
+on the **falling** edge, and that is the line a refactor drops. A component that already renders a
+spinner from a hook is holding the value; being made to push it twice is bookkeeping it can forget.
+
+**Declined, and why. A sampled value cannot announce its own flip.** A row is re-served because
+something told the session the world moved, and the label is part of the structure fingerprint
+precisely so that a flip bumps the version and every reader is offered the new row. A getter is read
+when somebody happens to ask — so the two moments that matter, the control *starting* and the control
+*stopping*, reach nobody. A model holding the last `whats_here` would be holding a row that has
+quietly stopped being true, and the two moves it makes about a stale busy are the two worst ones:
+fire again, or tell the human it failed. The suite pins this as law rather than preference — leave
+`busy` out of the structure fingerprints and three tests go red, because *a flip that nobody is told
+about is a stale row served as current* (`test/busy.test.ts`).
+
+**`holds` is not the precedent it looks like.** It is a **draft** read at serve time, and its whole
+contract is *a reading, not a binding*: read late, never cached, absent by default. Nothing plans
+against a *change* in `holds` — it is the value in the box at the moment somebody asked. With `busy`
+the change **is** the news.
+
+**And the feature already exists with the motion intact.** `busy:` at registration, `handle.setBusy`,
+a live store's `LiveAction.busy` (re-read when the app reports the world moved), and `useWorking`,
+which takes the boolean a component already holds and turns its two edges into those calls — which is
+the ergonomics this ask actually wanted. An app that has a getter has a value; handing it to
+`setBusy` is the same line, and it is the line that also says **when**.
+
+**Status** — `declined`. Re-proposing it means naming how a value nobody has read announces the
+moment it changed.
 
 ### Reading `aria-busy` (or a spinner) off the DOM
 
@@ -544,6 +611,18 @@ audit asks.
 fire unless it carries an `askId` pointing at a journal row a human-side door recorded;
 `approveAsk` / `declineAsk` / `alwaysApprove` each stamp `principal: 'user'` with **no argument
 to override it**. `confirm` is deliberately absent from `FireOptions` and will stay absent.
+
+**The refused-confirm deadlock — an ADOPTION gap, not a missing feature.** A production integration
+turned the gate on and then could not get past it: its own code fired with `confirm: true`, the gate
+refused (correctly — that boolean is the agent's claim, not a person's answer), and the retry fired
+the same call again. It read as the library refusing to work. Nothing was missing from the mechanism:
+`confirmAsk()` → `approveAsk(askId, { by })` / `declineAsk` → `fire({ askId })` shipped whole in
+0.7.0, and the refusal was already in both ledgers. What was missing was in the one channel that
+reaches an app team — the dev warning named the **gate** and not the **door**, so the team reading it
+learned that only a recorded approval crosses and not how to record one. Closed in **0.11.0**: the
+warning now appends an authored sentence naming `session.confirmAsk()` and the two calls after it
+(`src/traverse/session.ts`). No wire changed and no result grew — the reader who needed this is the
+integrator, and a warning is where the library talks to them.
 
 ### `redactedFields` — hiding a field inside the data
 

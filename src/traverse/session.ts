@@ -164,6 +164,24 @@ const READ_FAILED_LINE =
   'before that.';
 
 /**
+ * HOW TO OPEN A CARD — the second half of the refused-crossing warning.
+ *
+ * The first half names the GATE ("only an approval it recorded from a person can
+ * cross"). An integration read that, kept firing its own `confirm: true`, and got
+ * the same refusal every time: the message named the wall and not the door, so
+ * the loop it produced looked like the library refusing to work. The mechanism
+ * had shipped whole — this sentence is the part that says where it is.
+ *
+ * AUTHORED and interpolation-free, unlike the half it joins (which names the
+ * action and the reason word). It is the same three calls in every app, so it is
+ * the same bytes in every app.
+ */
+const HOW_TO_OPEN_A_CARD =
+  ' To put the decision in front of a person, call session.confirmAsk(affordanceId): it hands back the ' +
+  'receipts to show them, their yes goes in through session.approveAsk(askId, { by }) (their no through ' +
+  'session.declineAsk), and the fire then carries that askId.';
+
+/**
  * How many times a page-change broadcast will run again for a listener that
  * moved the cursor from inside it. Two listeners CAN bounce a cursor between
  * them forever; this is where the library stops and says so.
@@ -888,6 +906,46 @@ export class Session {
   }
 
   /**
+   * WHICH CONJUNCTS proved it — the evidence behind a `TOOL_DISABLED` refusal.
+   *
+   * `enabledWhen` is machine-evaluated to decide that refusal and the failing
+   * half was then thrown away, so the one reader who cannot see the screen was
+   * handed a CONCLUSION it could not name a field for. That hole is where an
+   * integration's relay put an invented diagnosis. The proof existed the whole
+   * time; nothing new is computed here that the gate did not already compute.
+   *
+   * THE FAILING CONJUNCTS ONLY, in the shape `GUARD_FAILED` already serves. The
+   * ones that held are not why the control is off. Unevaluable keys cannot
+   * appear at all — `#evalGuard` drops them before evaluating — so this can
+   * never name a key the library did not read.
+   *
+   * DECLARATION-DRIVEN ONLY, which is the honesty half. An imperative
+   * `setEnabled(false)` (registration, group handle, live store row) declares no
+   * conditions, and there is nothing to infer from: the app switched the control
+   * off and said nothing about why, so the refusal says exactly that much and
+   * the authored sentence beside it keeps forbidding a guess.
+   *
+   * Re-read on the refusal path rather than threaded through
+   * {@link isToolDisabled}: that seam is a boolean a subclass overrides
+   * (nav-session.ts), and this asks the same declaration against the same state
+   * view one statement later, so the two cannot disagree.
+   */
+  #disabledEvidence(affordanceId: string): FilterCondition[] | undefined {
+    const enabledWhen = this.spec.affordances[affordanceId]?.enabledWhen;
+    if (!enabledWhen) return undefined;
+    const evaluation = this.#evalGuard(enabledWhen);
+    if (filterVerdict(evaluation) !== 'failed') return undefined;
+    // Copy the condition objects: the same shapes ride the gap ledger, and a
+    // consumer annotating a refusal must never rewrite the trace.
+    const failing = evaluation.conditions
+      .filter((condition) => !condition.result)
+      .map((condition) => ({ ...condition }));
+    // An `enabledWhen: {}` proves disabled while naming nothing (evaluateFilter
+    // never matches an empty filter). No conjuncts, no key — absence, not [].
+    return failing.length > 0 ? failing : undefined;
+  }
+
+  /**
    * Re-baseline the coalesced structure fingerprint. A subclass whose
    * structureFingerprint() override reads its OWN fields must call this once
    * at the end of its constructor (the base constructor cannot: a virtual
@@ -1531,9 +1589,15 @@ export class Session {
     // fires (agent/user) — the record-only DOM sensor (invoke:false) still logs
     // whatever actually happened. Retriable: the app may enable it next tick.
     // Instance-aware via the protected seam (a disabled repeats-row button).
+    //
+    // WITH ITS PROOF where the app declared one: the `enabledWhen` conjuncts
+    // that did not hold ride the refusal and the ledger row exactly as
+    // GUARD_FAILED's do above, so a reader can NAME the field instead of being
+    // told a conclusion. Absent for the imperative wires — see #disabledEvidence.
     if (opts.invoke !== false && this.isToolDisabled(affordanceId, opts)) {
-      this.recordRejection(affordanceId, 'TOOL_DISABLED', source);
-      return { ok: false, reason: 'TOOL_DISABLED', affordanceId };
+      const evidence = this.#disabledEvidence(affordanceId);
+      this.recordRejection(affordanceId, 'TOOL_DISABLED', source, evidence);
+      return { ok: false, reason: 'TOOL_DISABLED', affordanceId, ...(evidence ? { evidence } : {}) };
     }
     // The session is an AGENT's only actuator: with nothing bound and invoke
     // wanted, firing would execute nothing — a success-shaped no-op. Fail closed
@@ -3738,7 +3802,8 @@ export class Session {
     this.#warnOnceAboutApproval(
       affordanceId,
       verdict.reason,
-      `hcifootprint: refused a high-effect fire of '${affordanceId}' — ${verdict.reason}. This session runs with requireHumanApproval, so only an approval it recorded from a person can cross that gate.`,
+      `hcifootprint: refused a high-effect fire of '${affordanceId}' — ${verdict.reason}. This session runs with requireHumanApproval, so only an approval it recorded from a person can cross that gate.` +
+        HOW_TO_OPEN_A_CARD,
     );
     switch (verdict.reason) {
       case 'APPROVAL_MISMATCH':

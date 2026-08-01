@@ -82,10 +82,15 @@ describe('enabledWhen — a greyed button is served, not hidden', () => {
 describe('enabledWhen — firing it is the refusal the library already had', () => {
   it('refuses an execution fire as TOOL_DISABLED, and lands the gap row', () => {
     const session = wired({ recipe: '' });
+    // The WHOLE refusal, pinned: the word, the id, and — because the app
+    // declared the condition — the conjunct the library proved false to reach
+    // it. Nothing else. (The proof is asserted in full, and its absence for the
+    // imperative wires attacked, in test/enabled-on-the-wire.test.ts.)
     expect(session.fire('setup.next', { source: 'agent' })).toEqual({
       ok: false,
       reason: 'TOOL_DISABLED',
       affordanceId: 'setup.next',
+      evidence: [{ key: 'recipe', op: 'ne', threshold: '', actualSummary: '""', result: false, redacted: false }],
     });
     expect(session.gaps().at(-1)).toMatchObject({
       kind: 'fire-rejected',

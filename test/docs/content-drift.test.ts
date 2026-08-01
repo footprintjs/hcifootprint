@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildNavigationGraph, skillsAsTools } from '../../src/index.js';
+import { buildNavigationGraph, fromRoutes, skillsAsTools } from '../../src/index.js';
 import { VERIFY_FAILED_EXPLANATION } from '../../src/traverse/verify.js';
 import { checkNoInput } from '../../src/traverse/payload-shape.js';
 
@@ -215,5 +215,165 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
       expect(warnings[0]).toContain(fix);
       expect(liveBindings).toContain(fix);
     }
+  });
+});
+
+describe('the minted-destination cookbook quotes the refusals it teaches around', () => {
+  // The whole page turns on two build-time refusals. A page that paraphrases
+  // them teaches an author to search their console for a sentence nobody emits,
+  // which is the same failure as a doc quoting a reworded runtime string.
+  const page = flatten(read('docs-next/content/docs/serve/minted-destinations.mdx'));
+
+  const threw = (act: () => unknown): string => {
+    try {
+      act();
+    } catch (failure) {
+      return (failure as Error).message;
+    }
+    throw new Error('the library no longer refuses this — the cookbook is teaching a dead rule');
+  };
+
+  it('the paramful url-binding refusal is the one the compiler throws', () => {
+    const message = threw(() =>
+      buildNavigationGraph('orders', {
+        pages: {
+          orders: {
+            route: '/orders',
+            tools: { open: { does: 'Open an order', binding: { kind: 'url', href: '/orders/:id' } } },
+          },
+          'order-detail': { route: '/orders/:id' },
+        },
+      }),
+    );
+    expect(page).toContain(flatten(message));
+  });
+
+  it('the crossLinks refusal is the one fromRoutes throws', () => {
+    const message = threw(() =>
+      fromRoutes({ orders: '/orders', 'order-detail': '/orders/:id' }, { crossLinks: ['order-detail'] }),
+    );
+    expect(page).toContain(flatten(message));
+  });
+
+  it('the shape the page teaches really works — a paramful PAGE is legal, and its claim is served', () => {
+    // The page is a cookbook, so the recipe is run rather than described: a page
+    // whose route carries a param compiles, an element-bound control claims it,
+    // and the claim reaches the row a model reads.
+    const graph = buildNavigationGraph('desk', {
+      pages: {
+        orders: {
+          route: '/orders',
+          tools: {
+            'place-order': {
+              does: 'Place the order',
+              goTo: 'order-detail',
+              binding: { kind: 'element', locator: { role: 'button', name: 'Place order' } },
+            },
+          },
+        },
+        'order-detail': { route: '/orders/:id' },
+      },
+    });
+    const session = graph.createSession({ node: 'orders', onWarn: () => undefined });
+    session.registerToolGroup('orders', { handlers: { 'place-order': () => ({ orderId: '8fa2' }) } });
+
+    const row = skillsAsTools(session).call('desk.whats_here', {})['actions'] as Record<string, unknown>[];
+    expect(row[0]!['goesTo']).toBe('order-detail');
+    // …and the address the app mints is what the route table reads back.
+    expect(session.sync('order-detail').node).toBe('order-detail');
+  });
+});
+
+describe('the reading guide documents every stamp a served row can carry', () => {
+  // The ask this page answers was for a `kind` enum. It was declined because the
+  // kinds COMPOSE — so the page's claim is that the stamps ARE the taxonomy, and
+  // a stamp the row can carry that the page never names would falsify exactly
+  // that. Add a key to edgeData and this goes red naming it.
+  const page = read('docs-next/content/docs/serve/reading-an-action-row.mdx');
+
+  it('the four that compose are all true of one control at one moment', () => {
+    const graph = buildNavigationGraph('shop', {
+      pages: {
+        checkout: {
+          route: '/checkout',
+          tools: {
+            pay: {
+              does: 'Pay for the order',
+              confirm: true,
+              goTo: 'receipt',
+              enabledWhen: { 'checkout.address': { ne: '' } },
+            },
+          },
+        },
+        receipt: { route: '/receipt' },
+      },
+    });
+    const session = graph.createSession({ node: 'checkout', state: { 'checkout.address': '' } });
+    session.registerToolGroup('checkout', { handlers: { pay: () => undefined }, busy: { pay: 'Charging your card…' } });
+
+    const row = (skillsAsTools(session).call('shop.whats_here', {})['actions'] as Record<string, unknown>[])[0]!;
+    expect(row).toMatchObject({ goesTo: 'receipt', highEffect: true, enabled: false, busy: 'Charging your card…' });
+    // The page's headline example is that row, so it has to BE that row.
+    for (const [key, value] of Object.entries(row)) {
+      expect(page, `the page's example no longer shows ${key}`).toContain(`"${key}": ${JSON.stringify(value)}`);
+    }
+  });
+
+  it('every stamp key on a real row is named in the table', () => {
+    const graph = buildNavigationGraph('desk', {
+      pages: {
+        home: {
+          tools: {
+            unbound: { does: 'Nothing is wired to this', when: { neverSeeded: { eq: true } } },
+            typed: { does: 'Takes a payload', input: 'none' },
+            box: { does: 'Holds a draft' },
+          },
+          areas: { cards: { repeats: true, tools: { remove: { does: 'Remove this card' } } } },
+        },
+      },
+    });
+    const session = graph.createSession({ node: 'home', onWarn: () => undefined });
+    session.registerToolGroup('home', { handlers: { typed: () => undefined, box: () => undefined } });
+    session.registerToolGroup('home.cards', { instance: 'c-1', handlers: { remove: () => undefined } });
+    session.declareHolds('home.box', () => 'a draft');
+
+    const rows = skillsAsTools(session).call('desk.whats_here', {})['actions'] as Record<string, unknown>[];
+    const stamps = new Set(rows.flatMap((row) => Object.keys(row)));
+    // The two identity keys are described in prose, not as stamps.
+    stamps.delete('action');
+    stamps.delete('does');
+    expect(stamps.size).toBeGreaterThan(3); // a passing gate over an empty set is not a gate
+
+    for (const stamp of stamps) {
+      expect(page, `the reading guide never names the '${stamp}' stamp`).toContain(`**\`${stamp}`);
+    }
+  });
+});
+
+describe('the async recipe and the page under it teach the same sentences', () => {
+  it('the page that names the ask-book arm quotes the sentence the port serves', () => {
+    // waiting-for-the-app now names the fifth kind of waiting — a person — and
+    // prints the howToAct a caller receives. It is an authored constant, so a
+    // rewording that never reached the page leaves the page teaching a sentence
+    // nobody is handed.
+    const session = buildNavigationGraph('shop', {
+      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true } } } },
+    }).createSession({ node: 'checkout', onWarn: () => undefined });
+    const port = skillsAsTools(session);
+    const asked = port.call('shop.do_action', { action: 'place-order' });
+    const paused = port.call('shop.did_it_work', { transitionId: asked['askId'] as string });
+
+    expect(paused['judgment']).toBe('awaiting-human');
+    expect(flatten(read('docs-next/content/docs/serve/waiting-for-the-app.mdx'))).toContain(
+      flatten(String(paused['howToAct'])),
+    );
+  });
+
+  it('the recipe points at the reference and the reference points back', () => {
+    // Two pages over one subject is a maintenance hazard unless each says what
+    // the other is for. Both directions are asserted so neither can be orphaned
+    // by a later edit.
+    expect(read('docs-next/content/docs/serve/going-async.mdx')).toContain('doc:waiting-for-the-app');
+    expect(read('docs-next/content/docs/serve/waiting-for-the-app.mdx')).toContain('doc:going-async');
   });
 });

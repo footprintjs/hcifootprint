@@ -1013,7 +1013,22 @@ export type FireResult =
   | { ok: false; reason: 'INSTANCE_REQUIRED'; instances: string[] }
   | { ok: false; reason: 'INSTANCE_UNKNOWN'; instances: string[] }
   /** RETRIABLE: the control is registered but currently greyed out (disabled). */
-  | { ok: false; reason: 'TOOL_DISABLED'; affordanceId: string }
+  | {
+      ok: false;
+      reason: 'TOOL_DISABLED';
+      affordanceId: string;
+      /**
+       * The `enabledWhen` conjuncts that did NOT hold — the machine proof of this
+       * refusal, in the shape `GUARD_FAILED` serves. It exists so a reader can
+       * name the FIELD instead of relaying a conclusion it cannot explain.
+       *
+       * Present only where the app DECLARED a condition. An imperative
+       * `setEnabled(false)` names no conditions, so this stays absent rather than
+       * inventing one — and it is never a promise: meeting the condition may
+       * still leave the control off through a wire that declares no reason.
+       */
+      evidence?: FilterCondition[];
+    }
   /** Declared but nothing is bound: an agent fire would execute NOTHING (register
    *  a tool group, or opt the session into read-only touring via
    *  allowUnmaterializedFires). The app-self-report tier (source 'user'/'system'
