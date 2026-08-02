@@ -172,11 +172,29 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
     const el = heroRef.current;
     if (!el || stillRef.current) return undefined;
     el.classList.add('is-waiting');
+    /* THE RELAY REPLAYS. It used to disconnect after the first reveal, so a
+       reader who scrolled past and came back met the end frame — correct as a
+       poster, but the story it tells only exists while it is moving, and the
+       one thing that reader just asked for was to see it again.
+       So the observer stays connected: leaving parks it at frame 0, returning
+       plays it. `stillRef` still short-circuits the whole effect, which is what
+       keeps a reduced-motion reader (and any viewport the stylesheet freezes)
+       exactly as still as they asked to be — this adds motion only where motion
+       was already running. */
     const io = new IntersectionObserver(
       (entries) => {
-        if (!entries.some((e) => e.isIntersecting)) return;
-        el.classList.remove('is-waiting');
-        io.disconnect();
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            el.classList.remove('is-waiting');
+          } else if (!el.classList.contains('is-waiting')) {
+            /* Park AND rewind. Pausing alone would resume mid-relay on the way
+               back, which reads as a glitch rather than a replay; dropping the
+               animations for one frame is what actually returns them to zero. */
+            el.classList.add('is-waiting', 'is-rewinding');
+            void el.offsetWidth; // one reflow, so the drop is observed
+            el.classList.remove('is-rewinding');
+          }
+        }
       },
       { rootMargin: '0px 0px -18% 0px', threshold: 0 },
     );

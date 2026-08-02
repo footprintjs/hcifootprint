@@ -326,3 +326,13 @@
    which is how this was first written and how the browser caught it. */
 html:not(.view-product) .v-prod { display: none; }
 html.view-product .v-tech { display: none; }
+
+/* One frame with no animations at all, which is what actually rewinds them:
+   `animation-play-state: paused` holds a timeline where it stands, so a hero
+   parked halfway would resume halfway on the reader's way back. Dropping the
+   declaration and forcing a reflow returns every timeline to zero, and the
+   class is gone again before the next paint. */
+.hp-hero-stage.is-rewinding, .hp-hero-stage.is-rewinding ~ .hp-hero-caption,
+.hp-hero-stage.is-rewinding .hs-a, .hp-hero-stage.is-rewinding ~ .hp-hero-caption .hs-a {
+  animation: none !important;
+}
