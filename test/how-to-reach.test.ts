@@ -243,10 +243,14 @@ describe('the route reaches the agent, on the call it already makes', () => {
     // The fixed tool set is what every caller sees every turn. A route answer
     // must ride an existing tool's RESULT; if it ever grew the array, every
     // consumer's prompt would change underneath them.
-    const before = JSON.stringify(port().tools);
     const p = port();
+    const before = JSON.stringify(p.tools());
+    // Guard the guard: a vacuous version of this test (comparing two
+    // `undefined`s, because `tools` is a METHOD) would pass while proving
+    // nothing. Assert there is really an array of tools here first.
+    expect(p.tools().length).toBeGreaterThan(0);
     p.call('shop.whats_here', { routeTo: 'checkout' });
-    expect(JSON.stringify(p.tools)).toBe(before);
+    expect(JSON.stringify(p.tools())).toBe(before);
   });
 
   it('the wire keeps the laws: what a route MEANS is said, and never as permission', () => {

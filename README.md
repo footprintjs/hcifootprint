@@ -47,10 +47,16 @@ An agent can already reach your app. The question is how it *operates* one.
 | How agents drive a UI today | The cost |
 |---|---|
 | Screenshot the page, reason over pixels | slow, fragile, redone every turn |
-| Dump the DOM into the prompt | ~100k tokens, and it still guesses what does what |
+| Dump the DOM into the prompt | every wrapper and class, re-sent each turn — and it still guesses what does what |
 | Hard-coded selectors, RPA scripts | break on the next redesign |
 
-All three relearn your app from scratch on every visit. A returning human doesn't — they carry a
+All three relearn your app from scratch on every visit.
+
+**Measured, on a real page**: a five-page demo's rendered DOM is 2,027 tokens; what this library
+sends for the same page is 332 — **6.1× less per turn**, at 41.5 tokens per available action. That is
+one page of one small app whose DOM is dominated by its shell, so treat it as a floor rather than a
+headline; the script is in the repo (`node bench/token-cost/token-cost.mjs`) and the honest way to
+know your own number is to run it against your own app. A returning human doesn't — they carry a
 mental model of where things are and what they're allowed to do. **Your app holds that same map. This
 hands it to the agent.**
 
