@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-2135%20passing-f5b301?style=flat" alt="2135 tests passing">
+  <img src="https://img.shields.io/badge/tests-2198%20passing-f5b301?style=flat" alt="2198 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -86,8 +86,11 @@ pages: {
 journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] } },
 ```
 
-Already have a route table, a journey list, a live action store? `fromRoutes`, `fromJourneys` and
-`fromLiveStore` adopt them under one documented merge order — nobody re-types anything.
+Already have a route table, a router's own nested route tree, a journey list, a live action store?
+`fromRoutes`, `fromReactRouter`, `fromJourneys` and `fromLiveStore` adopt them under one documented
+merge order — nobody re-types anything. `fromReactRouter` transcribes a page name from a fully-static
+address (`/projects/new` → `projects-new`) and refuses, naming both doors, wherever there is nothing
+to transcribe — a `:param`, a `*`, the root. It never guesses a name.
 
 **Wire: nothing.** A map is static data. It validates and freezes in one call, so it can be linted in
 CI and argued about in a pull request before your app runs at all.

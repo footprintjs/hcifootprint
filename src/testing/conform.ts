@@ -80,6 +80,9 @@ import type {
 // the route table's REAL shape, so that manifest tracks the factory instead of a
 // hand copy of it. Erased at build — this drags no module in.
 import type { fromRoutes } from '../graph/sources/from-routes.js';
+// Same rule, for the second door into the same source kind: the fixture hands a
+// route TREE to fromReactRouter, and this names its shape without importing it.
+import type { RouteObjectLike } from '../graph/sources/from-react-router.js';
 
 // ---------------------------------------------------------------------------
 // The manifest — compile-locked so it cannot drift
@@ -185,6 +188,15 @@ export interface ConformanceFixture {
   store: LiveActionStore;
   /** A route table naming both fixture pages — for a routes source. */
   routes: Record<string, { route: string; does: string }>;
+  /**
+   * The same two pages as a nested route TREE — for a route-tree source
+   * (`fromReactRouter`). DERIVED from {@link ConformanceFixture.routes} rather
+   * than written out again, so the two inputs cannot describe different pages:
+   * each route carries its label in the handle and lets the factory transcribe
+   * the page name from the address, which is exactly the round-trip the routes
+   * seam then reads back.
+   */
+  routeObjects: readonly RouteObjectLike[];
   /** A journey list whose one journey steps through the fixture action — for a journeys source. */
   journeys: Record<string, JourneyDef>;
   /** The journey id in {@link ConformanceFixture.journeys}. */
@@ -213,8 +225,16 @@ const GUARD_KEY = 'conformance.here';
 /** The key `enabledWhen` reads — seeded false, so the fixture row is switched off. */
 const ENABLED_KEY = 'conformance.enabled';
 
+/**
+ * The second page's own segment. One constant, three readings: the flat table's
+ * route (`/page/elsewhere`), the route tree's relative `path`, and the page NAME
+ * a route-tree source transcribes from that address (`page-elsewhere`) — so the
+ * two inputs cannot come to describe different pages.
+ */
+const LEAF = 'elsewhere';
+
 function makeFixture(page: string): ConformanceFixture {
-  const destination = `${page}-elsewhere`;
+  const destination = `${page}-${LEAF}`;
   const name = 'conformance-action';
   const journeyId = 'conformance-journey';
   const action: FullActionDef = {
@@ -245,6 +265,10 @@ function makeFixture(page: string): ConformanceFixture {
   // `node`, and the compiled affordance's `on` is derived from that node's page.
   const { on: _on, ...forLiveStore } = action;
   const liveAction: LiveAction = { node: page, name, ...forLiveStore };
+  const routes = {
+    [page]: { route: `/${page}`, does: 'The conformance fixture page' },
+    [destination]: { route: `/${page}/${LEAF}`, does: 'The conformance fixture destination' },
+  };
   return {
     page,
     destination,
@@ -255,10 +279,17 @@ function makeFixture(page: string): ConformanceFixture {
       subscribe: () => () => undefined,
       actions: () => [liveAction],
     },
-    routes: {
-      [page]: { route: `/${page}`, does: 'The conformance fixture page' },
-      [destination]: { route: `/${page}/elsewhere`, does: 'The conformance fixture destination' },
-    },
+    routes,
+    // The same two pages, nested: the child's address composes through the
+    // parent's, and each page NAMES ITSELF by transcription from that address —
+    // the route-tree door's own contract, exercised rather than described.
+    routeObjects: [
+      {
+        path: routes[page].route,
+        handle: { hcifootprint: { does: routes[page].does } },
+        children: [{ path: LEAF, handle: { hcifootprint: { does: routes[destination].does } } }],
+      },
+    ],
     journeys: {
       [journeyId]: {
         does: 'Conformance fixture: a journey carrying every declarable field',
@@ -701,9 +732,10 @@ function conformRoutes(
 ): ConformanceReport {
   excludeAll(
     DECLARABLE_ACTION_FIELDS,
-    'a route table contributes PAGES, never controls. fromRoutes refuses an action-shaped key BY NAME rather ' +
-      'than reading two keys and discarding the rest — that refusal IS this source kind\'s conformance, and ' +
-      'there is no action declaration here to drop. Its own vocabulary is checked under the page.* fields.',
+    'a route table contributes PAGES, never controls. fromRoutes (and fromReactRouter, the same law one door ' +
+      'over) refuses an action-shaped key BY NAME rather than reading two keys and discarding the rest — that ' +
+      "refusal IS this source kind's conformance, and there is no action declaration here to drop. Its own " +
+      'vocabulary is checked under the page.* fields.',
     report,
   );
   const graph = buildNavigationGraph(GRAPH_ID, { sources: [source] } satisfies NavigationGraphDef);

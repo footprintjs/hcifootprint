@@ -59,10 +59,14 @@ export type { RegisteredHandlers, RegisterHandlersOptions } from './traverse/ses
 // test) can assert "this was hidden" without hard-coding the string.
 export { REDACTED } from './traverse/redact-fields.js';
 // Growable graph sources — the descriptions the app already owns become graph
-// input: fromRoutes seeds pages (the spine), fromJourneys seeds journeys (the
-// overlay), fromLiveStore attaches live actions (last, bind-only). Leaf
-// modules: importing one never drags session machinery.
+// input: fromRoutes seeds pages (the spine), fromReactRouter seeds the same
+// spine from a nested route TREE, fromJourneys seeds journeys (the overlay),
+// fromLiveStore attaches live actions (last, bind-only). Leaf modules:
+// importing one never drags session machinery — and fromReactRouter imports
+// nothing from any router, so it needs no subpath of its own.
 export { fromRoutes } from './graph/sources/from-routes.js';
+export { fromReactRouter } from './graph/sources/from-react-router.js';
+export type { RouteObjectLike, ReactRouterOptions } from './graph/sources/from-react-router.js';
 export { fromJourneys } from './graph/sources/from-journeys.js';
 export { fromLiveStore } from './graph/sources/from-live-store.js';
 export type {

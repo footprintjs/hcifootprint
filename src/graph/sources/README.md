@@ -1,8 +1,9 @@
 # graph/sources — the graph grows from what the app already has
 
-**Job:** turn the three descriptions an app already owns — a route table, a set
-of journeys, a live action store — into graph input, so nobody re-types them
-into the definition (glue that drifts every time either side edits).
+**Job:** turn the descriptions an app already owns — a route table, a router's
+own route tree, a set of journeys, a live action store — into graph input, so
+nobody re-types them into the definition (glue that drifts every time either
+side edits).
 
 **Depends on:** `graph/guards` + `graph/route-match` (shared authoring law);
 type-only on `tree/` and `traverse/`.
@@ -10,13 +11,18 @@ type-only on `tree/` and `traverse/`.
 factories never import appmap and appmap never value-imports the factories —
 a bundler includes only the sources a consumer actually called.
 
-## The three doors
+## The four doors
 
 | factory | contributes | when |
 |---|---|---|
 | `fromRoutes(app.routes)` | pages — the spine (plus link actions, if `crossLinks` asked) | build (folded before the walk) |
+| `fromReactRouter(app.routes)` | the same spine, read from a nested route TREE | build (folded before the walk) |
 | `fromJourneys(app.journeys)` | journeys — the overlay | build (compiled by the existing journeys pass) |
 | `fromLiveStore(app.actionStore)` | live bindings per node | attach (every `createSession()`); release via `detachSources()` |
+
+Two doors, one source kind: `fromReactRouter` returns the same `RoutesSource`
+`fromRoutes` does, so the merge, `crossLinks`, the url gesture and `matchRoute`
+all needed no changes to serve it.
 
 ## The documented merge order (enforced in merge.ts)
 
@@ -85,10 +91,45 @@ an authored `request` naming the consequence) through
 read that works: a store that throws on every emission is one broken read, not
 forty unmet demands.
 
+## A name is TRANSCRIBED, never guessed (`fromReactRouter`)
+
+`fromRoutes` reads a FLAT table whose keys ARE the page names. A router's own
+config is neither flat nor named: addresses compose through children, and no
+name is written anywhere. `fromReactRouter` reads that tree — duck-typed
+(`RouteObjectLike` is declared here; no router is imported, which is why this
+needs no subpath of its own), pages only, `path` / `index` / `children` /
+`handle.hcifootprint.{name,does}` and nothing else.
+
+The naming line is narrower than "never derive". A fully-static address is
+TRANSCRIBED — `/projects/new` → `projects-new`, every byte from the app's own
+route, joined with one authored `-` (not on the segment law's reserved list, and
+`segmentFault` is still asked rather than assumed). The moment there is nothing
+to transcribe the derivation STOPS: a `:param`, a `*`, an optional `?`, the
+root's zero segments, or a segment carrying a reserved character. Those refuse,
+naming the path and the same two doors every time — `nameOf` at the call, or
+`handle: { hcifootprint: { name } }` on the route the app owns.
+
+The root refuses on purpose. Transcription has zero bytes to work with there, so
+any name for it (`home`, `dashboard`, `landing`) would be a word the LIBRARY
+chose — the one thing this factory does not do. One line at the call fixes it.
+
+Composition rules, all three the router's own: a child path extends its parent's
+address unless it starts with `/` (absolute — it replaces the prefix); a route
+with no path of its own is a LAYOUT and contributes no page (declaring
+`handle.hcifootprint` on one is refused — a page is an address); an index route
+renders at its parent's address, so two routes at ONE address are ONE page (the
+fold), and `path: ''` folds identically. Names are unique: two addresses arriving
+at one id refuse naming both, never last-wins.
+
+What it costs: page ids are derived at RUNTIME, so a graph whose spine comes from
+here has `string` node paths instead of a literal union. `fromRoutes` stays the
+door for a spine you want typed.
+
 ## Leaf modules by construction
 
-Each factory is its own module with at most the shared authoring guards as
-value imports; `fromLiveStore` has ZERO value imports — it drives the session
+Each factory is its own module with at most the shared authoring guards (plus,
+for `fromReactRouter`, the matcher's segment law) as value imports;
+`fromLiveStore` has ZERO value imports — it drives the session
 instance it is handed through the type-only `LiveBindingPort` (the shape
 `InteractionSession` already satisfies: registerActions + show/setVisible,
 plus the two optional members `whenPageChanges` and `reportGap`).

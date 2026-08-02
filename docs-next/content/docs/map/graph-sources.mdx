@@ -1,13 +1,13 @@
 ---
 title: Graph sources & the merge order
-description: fromRoutes, fromJourneys and fromLiveStore turn the descriptions your app already owns into graph input — under one documented merge order, so nobody re-types anything.
+description: "fromRoutes, fromReactRouter, fromJourneys and fromLiveStore turn the descriptions your app already owns into graph input — under one documented merge order, so nobody re-types anything."
 ---
 
-An app already owns descriptions of itself: a **route table** its router navigates by, a set
-of **journeys** its team designs, often a **live store** of the actions currently on screen.
-Until sources existed, each had to be re-typed by hand into the graph definition — glue that
-drifts the moment either side edits. With sources, the graph **reads the owner's truth
-instead of copying it**.
+An app already owns descriptions of itself: a **route table** its router navigates by (or the
+router's own nested **route tree**), a set of **journeys** its team designs, often a **live
+store** of the actions currently on screen. Until sources existed, each had to be re-typed by
+hand into the graph definition — glue that drifts the moment either side edits. With sources,
+the graph **reads the owner's truth instead of copying it**.
 
 ```ts twoslash
 import { buildNavigationGraph, fromRoutes, fromJourneys } from 'hcifootprint';
@@ -163,6 +163,149 @@ Cross-links are also the cheapest cure for a
 [dead-end page](doc:live-bindings#dead-end-a-page-where-nothing-can-act): a room whose only
 door is one nobody wired. Worked end to end in
 [Guarded journeys](doc:guarded-journeys).
+
+## `fromReactRouter` — the route tree you already declared
+
+`fromRoutes` reads a **flat table whose keys are the page names**. A router's own configuration
+is neither flat nor named: addresses compose through `children`, and nowhere in it does anybody
+write down what a screen is *called*. So an app with a real router had to hand-copy its route
+tree into a flat table — the exact duplication sources exist to delete, and it drifts the first
+time somebody adds a route.
+
+`fromReactRouter` reads the tree itself. It returns the same `RoutesSource` `fromRoutes` does,
+so the merge order, `crossLinks`, the url gesture and `matchRoute` all serve it unchanged.
+
+```ts twoslash
+import { buildNavigationGraph, fromReactRouter } from 'hcifootprint';
+
+const graph = buildNavigationGraph('app', {
+  sources: [
+    fromReactRouter(
+      [
+        {
+          path: '/',
+          // element, Component, lazy, loader, errorElement — never read
+          handle: { hcifootprint: { name: 'home', does: 'your dashboard' } },
+          children: [
+            { path: 'projects', handle: { hcifootprint: { does: 'the Projects list' } } },
+            { path: 'projects/new' },
+            { path: 'projects/:id', handle: { hcifootprint: { name: 'project' } } },
+          ],
+        },
+      ],
+      { crossLinks: true },
+    ),
+  ],
+});
+
+graph.spec.pages['projects-new'].route; // '/projects/new'
+```
+
+Four pages: `home`, `projects`, `projects-new`, `project`. Two of those names the library
+worked out on its own; two it was told.
+
+<Callout title="It imports nothing from any router">
+  `RouteObjectLike` is a structural type declared by this package, so a v6-shaped table, a
+  v7-shaped one and a hand-rolled config all walk — and there is no
+  `hcifootprint/react-router` subpath, because there is no dependency to isolate.
+  `element`, `Component`, `lazy`, `loader` and `errorElement` are never *read* — not ignored
+  after reading: never touched.
+</Callout>
+
+### A name is TRANSCRIBED, never guessed
+
+`fromRoutes`' law still holds: *auto-deriving a name from `/orders/:id` would be a guess, and
+this library does not guess.* What a fully-static address gets here is not a guess but a
+**transcription** — every byte of `/projects/new` → `projects-new` came out of your own route,
+in order, with one `-` between segments. Nothing is inferred, nothing is prettified, and the
+same input always transcribes to the same name.
+
+The moment there is nothing to transcribe, the derivation **stops** and refuses:
+
+| the address | name |
+|---|---|
+| `/projects/new` — fully static | `projects-new`, transcribed |
+| `/projects/:id` — a `:param` | **refuses** |
+| `/files/*` — a splat | **refuses** |
+| `/docs/:id?` — optional | **refuses** |
+| `/` — zero segments | **refuses** |
+| `/files.json` — a reserved character | **refuses** |
+
+Every one of those refusals names the path and then the same two doors, in the same words:
+
+```
+hcifootprint: fromReactRouter cannot name the page at route '/orders/:id': a dynamic segment
+(':param', '*', an optional '?') is not bytes — the address is not known until a URL supplies
+it, and a page name that changes per URL is not a name. This library does not guess. Name it
+at the call — fromReactRouter(routes, { nameOf: (route, path) => … }) — or declare it on the
+route your app already owns: handle: { hcifootprint: { name: 'order-detail' } }.
+```
+
+**The root refuses on purpose.** Transcription has zero bytes to work with at `/`, so any name
+for it — `home`, `dashboard`, `landing` — would be a word *the library* chose rather than one
+your app wrote. That is the one thing this factory does not do. One line at the call settles it:
+
+```ts twoslash
+import { fromReactRouter } from 'hcifootprint';
+const routes = [{ path: '/' }];
+// ---cut---
+fromReactRouter(routes, { nameOf: (route, path) => (path === '/' ? 'home' : undefined) });
+```
+
+### The two doors, in order
+
+`nameOf` (the first field of `ReactRouterOptions`) is asked first — it is the call-site
+override, so it also **renames** a page the transcription could have named. Returning
+`undefined` falls through to
+`handle.hcifootprint.name`, the literal on the route your app already owns; and if neither
+spoke, a static address transcribes and a dynamic one refuses. `nameOf` is asked about **places
+only** — never about a layout route, which is not one.
+
+### How addresses compose
+
+Three rules, each of them the router's own:
+
+- **A child path extends its parent's address** — unless it starts with `/`, which every
+  router reads as absolute, so it *replaces* the inherited prefix rather than doubling it.
+- **A route with no `path` of its own is a LAYOUT, not a place.** It contributes no page and
+  only passes its parent's address down. Declaring `handle.hcifootprint` on one is refused: a
+  page is an address, and a layout has none.
+- **An index route folds into its parent.** `index: true` means "renders at my parent's
+  address", so two routes at *one* address are *one* page — the index child's `name` and `does`
+  land on the page its parent contributed (`path: ''` folds identically). Two folded routes
+  declaring **different** names refuse: one place, one name.
+
+Two different addresses arriving at one page id also refuse, naming both paths. Never
+last-wins — a silently replaced page is a place an agent can never be told about.
+
+### Pages only, and the refusal says so
+
+A route contributes a **page, never a control** — the same law `fromRoutes` states one door
+over. `handle.hcifootprint` declares exactly `name` and `does`; anything else is refused **by
+name**:
+
+```
+hcifootprint: fromReactRouter: route '/catalog' declares handle.hcifootprint.actions, which is
+not a key a route declares — a route contributes a PAGE, never a control. Author actions and
+journeys on the page in your graph definition (mergeSources composes the two); a route says
+only what to call its page ('name') and what it does ('does').
+```
+
+A route handle is free-form and nothing typechecks it, so the refusal is the only thing that
+can stop a declared control from vanishing. `conformSource` pins that: a route-tree source is
+run through the real compiler, its page vocabulary round-trips, and every action field is
+excluded **with the reason stated** rather than passed over. See [Testing](doc:testing).
+
+### What it costs
+
+Page ids are derived at **runtime**, so a graph whose spine comes from here has `string` node
+paths instead of the literal union `fromRoutes` carries — there is no literal in the call to
+read names from, and minting one at the type level would encode the transcription twice and
+drift. If you want the typed spine, `fromRoutes` is still the door.
+
+`crossLinks` behaves exactly as it does on `fromRoutes`, including both refusals; the names you
+list are **page ids** (the ones transcribed or declared), because page ids are the graph's
+vocabulary.
 
 ## `fromJourneys` — journeys overlay, and may only add
 

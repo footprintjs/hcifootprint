@@ -7,6 +7,7 @@
  * must die loudly.
  */
 import { isParam, segmentsOf } from './route-match.js';
+import type { RoutedPages } from './route-match.js';
 
 export const FILTER_OPERATORS = new Set(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn']);
 
@@ -41,6 +42,24 @@ export class GraphValidationError extends Error {
 /** Segment names become path/registry/MCP identities — keep the delimiters out. */
 const BAD_SEGMENT = /[.[\]#/|]/;
 
+/** Which of the two ways a name fails the segment law — or nothing, if it is usable. */
+export type SegmentFault = 'empty' | 'reserved';
+
+/**
+ * ONE reading of "is this a usable name", asked at two kinds of place: the
+ * authoring doors (which THROW, below) and a DERIVATION that must know whether
+ * the name it is about to mint would be refused before it mints it
+ * (fromReactRouter transcribes a page name out of a route's own segments). The
+ * fault-code shape is {@link blockedBecauseFault}'s, for its reason: whatever
+ * the compiler would refuse is what a derivation must not produce, and two
+ * copies of the same conditions would drift.
+ */
+export function segmentFault(name: string): SegmentFault | undefined {
+  if (!name || !name.trim()) return 'empty';
+  if (BAD_SEGMENT.test(name)) return 'reserved';
+  return undefined;
+}
+
 /**
  * The ONE segment-name law. It lived inside buildNavigationGraph; it lives
  * here (the shared authoring-enforcement leaf) so graph sources can refuse a
@@ -48,11 +67,51 @@ const BAD_SEGMENT = /[.[\]#/|]/;
  * at build — one law, two doors, zero drift.
  */
 export function checkSegment(owner: string, name: string): void {
-  if (!name || !name.trim()) throw new GraphValidationError(`${owner}: empty name.`);
-  if (BAD_SEGMENT.test(name)) {
+  const fault = segmentFault(name);
+  if (fault === 'empty') throw new GraphValidationError(`${owner}: empty name.`);
+  if (fault === 'reserved') {
     throw new GraphValidationError(
       `${owner}: '${name}' contains a reserved character (. [ ] # / |) — names become path identities.`,
     );
+  }
+}
+
+/**
+ * The `crossLinks:` ask, judged at the FACTORY — shared by every factory that
+ * reads pages out of an app's own routing (fromRoutes' table, fromReactRouter's
+ * route tree), so the two stances and their words cannot drift apart.
+ *
+ * Refused HERE for the same reason page names are: the author is looking at
+ * this call, not at a build three files away. Only the NAMED form is answered
+ * for — a blanket `true` meets the literal-address law as a documented FILTER
+ * (see each factory's own doc for why), because it asked for whatever is
+ * linkable rather than for a page that cannot be linked to.
+ *
+ * `owner` is the only thing that differs between the doors, exactly as
+ * {@link validateBlockedBecause} does it: a reader who learned the refusal at
+ * one factory has learned it at the other.
+ */
+export function checkCrossLinks(
+  owner: string,
+  pages: RoutedPages,
+  crossLinks: true | readonly string[] | undefined,
+): void {
+  if (crossLinks === undefined || crossLinks === true) return;
+  for (const pageId of crossLinks) {
+    if (!Object.hasOwn(pages, pageId)) {
+      throw new GraphValidationError(
+        `${owner} crossLinks names '${pageId}', which this route table does not declare. ` +
+          `Known pages: ${Object.keys(pages).join(', ')}.`,
+      );
+    }
+    const { route } = pages[pageId];
+    if (route !== undefined && !isLiteralRoute(route)) {
+      throw new GraphValidationError(
+        `${owner} crossLinks names '${pageId}', whose route '${route}' has a ':param' segment — ` +
+          `a link to it could never be built (the library never guesses params). Drop it from crossLinks, ` +
+          `or author a tool that supplies the param.`,
+      );
+    }
   }
 }
 

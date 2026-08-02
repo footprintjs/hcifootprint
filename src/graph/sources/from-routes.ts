@@ -18,7 +18,7 @@
  * LEAF MODULE on purpose: value-imports only the shared authoring guards.
  * Importing fromRoutes must never drag session machinery into a bundle.
  */
-import { GraphValidationError, checkSegment, isLiteralRoute } from '../guards.js';
+import { GraphValidationError, checkCrossLinks, checkSegment } from '../guards.js';
 import type { PageNodeDef } from '../../tree/types.js';
 import type { RoutesSource } from './types.js';
 
@@ -91,27 +91,9 @@ export function fromRoutes<const R extends Record<string, string | { route: stri
     pages[pageId] = Object.freeze(does !== undefined ? { route, does } : { route });
   }
   const crossLinks = options?.crossLinks;
-  if (crossLinks !== undefined && crossLinks !== true) {
-    // Refused HERE for the same reason page names are: the author is looking
-    // at this call, not at a build three files away. Only the NAMED form is
-    // answered for — see the option's doc for why `true` filters instead.
-    for (const pageId of crossLinks) {
-      if (!Object.hasOwn(pages, pageId)) {
-        throw new GraphValidationError(
-          `fromRoutes crossLinks names '${pageId}', which this route table does not declare. ` +
-            `Known pages: ${Object.keys(pages).join(', ')}.`,
-        );
-      }
-      const { route } = pages[pageId];
-      if (route !== undefined && !isLiteralRoute(route)) {
-        throw new GraphValidationError(
-          `fromRoutes crossLinks names '${pageId}', whose route '${route}' has a ':param' segment — ` +
-            `a link to it could never be built (the library never guesses params). Drop it from crossLinks, ` +
-            `or author a tool that supplies the param.`,
-        );
-      }
-    }
-  }
+  // The two stances (blanket FILTERS, named REFUSES) live in the shared guard,
+  // so fromReactRouter one door over asks the same question in the same words.
+  checkCrossLinks('fromRoutes', pages, crossLinks);
   return Object.freeze({
     kind: 'routes',
     pages: Object.freeze(pages),

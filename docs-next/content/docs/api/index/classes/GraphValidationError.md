@@ -4,7 +4,7 @@ title: GraphValidationError
 
 # Class: GraphValidationError
 
-Defined in: [src/graph/guards.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/guards.ts#L34)
+Defined in: [src/graph/guards.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/guards.ts#L35)
 
 Every authoring refusal this package throws — from buildNavigationGraph, from
 the source factories, and from mount-time declaration. Named for the thing it
@@ -20,7 +20,7 @@ judges (a graph), not for one of the vocabularies that reach it.
 
 > **new GraphValidationError**(`message`): `GraphValidationError`
 
-Defined in: [src/graph/guards.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/guards.ts#L35)
+Defined in: [src/graph/guards.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/guards.ts#L36)
 
 #### Parameters
 

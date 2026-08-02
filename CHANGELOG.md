@@ -1,5 +1,115 @@
 # Changelog
 
+## [1.5.0] - 2026-08-02
+
+**A route table with names in it is a thing somebody typed twice. The router already has the
+tree; it just never says what anything is called.**
+
+`fromRoutes` reads a FLAT table whose keys ARE the page names — which is exactly right when you
+are writing the table for this library, and exactly wrong when the app already has a router. A
+real route config is nested (addresses compose through `children`), it has index routes and
+layout routes, and nowhere in it does anybody write down what a screen is *called*. So an app
+with a router had to hand-copy its own tree into a flat table, invent names on the way, and keep
+the copy in step forever. That copy is the duplication graph sources exist to delete, and it
+drifts the first time somebody adds a route.
+
+### `fromReactRouter(routes, opts?)` — the tree itself becomes the spine
+
+```ts
+import { buildNavigationGraph, fromReactRouter } from 'hcifootprint';
+
+buildNavigationGraph('app', {
+  sources: [
+    fromReactRouter(routes, {
+      nameOf: (route, path) => (path === '/' ? 'home' : undefined),
+    }),
+  ],
+});
+// → home, projects, projects-new — two names transcribed, one told
+```
+
+It returns the same `RoutesSource` `fromRoutes` does, so **nothing downstream changed**: the
+merge order, `crossLinks`, the url gesture, `matchRoute` and the compiler all serve it exactly
+as they serve a route table. New exports on the root entry: `fromReactRouter` and the types
+`RouteObjectLike`, `ReactRouterOptions`.
+
+### A name is TRANSCRIBED, never guessed — and that line is narrower than "never derive"
+
+`fromRoutes`' law still holds word for word: *auto-deriving a name from `/orders/:id` would be a
+guess, and this library does not guess.* What a fully-static address gets here is not a guess
+but a **transcription**: every byte of `/projects/new` → `projects-new` came out of the app's
+own route, in order, with one authored `-` between segments (not on the segment law's reserved
+list — and `segmentFault` is still *asked*, never assumed). Nothing is inferred, nothing is
+prettified, the same input always gives the same name.
+
+The moment there is nothing to transcribe, the derivation **stops**: a `:param`, a `*`, an
+optional `?`, a segment carrying a reserved character — and **the root**, whose zero segments
+mean any name for it (`home`, `dashboard`, `landing`) would be a word *the library* chose rather
+than one your app wrote. Each of those refuses, naming the path and then the same two doors in
+byte-identical words: `nameOf` at the call, or `handle: { hcifootprint: { name } }` on the route
+you already own. A reader learns the refusal once.
+
+### The router's own rules, read the router's own way
+
+- A child path **extends** its parent's address — unless it starts with `/`, which every router
+  reads as absolute, so it *replaces* the prefix rather than doubling it.
+- A route with no `path` of its own is a **LAYOUT, not a place**: it contributes no page and
+  only passes the address down. Declaring `handle.hcifootprint` on one is refused — a page is an
+  address, and a layout has none.
+- An **index route folds into its parent**: two routes at one address are one page, and the
+  index child's `name`/`does` land on the page the parent contributed (`path: ''` folds
+  identically). Two folded routes declaring *different* names refuse — one place, one name.
+- Two different addresses arriving at one page id refuse, **naming both paths**. Never
+  last-wins: a silently replaced page is a place an agent can never be told about.
+
+### Pages only — and it says the key's name out loud
+
+A route contributes a **page, never a control**. `handle.hcifootprint` declares exactly `name`
+and `does`; `actions`, `tools`, `skills`, anything else is refused **by name**, with the
+sentence that says where controls do belong. A route handle is free-form and nothing typechecks
+it, so that refusal is the only thing standing between a declared control and a silent
+disappearance — the same law `fromRoutes` and the `tools:`/`skills:` rename state at their own
+doors.
+
+### It imports nothing from any router
+
+`RouteObjectLike` is a **structural type declared by this package**, so a v6-shaped config, a
+v7-shaped one and a hand-rolled table all walk, and the package gains no dependency and needs no
+subpath of its own (the `./react` subpath exists because React is a real peer import; this is
+not). `element`, `Component`, `lazy`, `loader` and `errorElement` are never *read* — not ignored
+after reading, never touched, which is pinned by walking a route table whose framework fields
+are throwing getters.
+
+### Born conformant
+
+1.4.0's `conformSource` pins this source on the day it ships: the fixture grew a
+`routeObjects` input (the same two pages as a nested tree, derived from the flat table so the
+two cannot describe different pages), the page vocabulary round-trips through the real compiler,
+and every action field is excluded **with the reason stated** — now naming both doors into the
+routes kind rather than one.
+
+### What it costs, said out loud
+
+Page ids are derived at **runtime**, so a graph whose spine comes from here has `string` node
+paths instead of the literal union `fromRoutes` carries. There is no literal in the call to read
+names from, and minting one at the type level would encode the transcription twice and drift.
+`fromRoutes` remains the door for a spine you want typed.
+
+### The second-adapter rule
+
+React Router earned this adapter the way anything gets built here: a real consumer had the
+duplication, in production, and the shape of the hole came from their tree. **The next adapter
+is earned the same way.** A `fromNextRouter`, a `fromTanStackRouter`, a `fromVueRouter` are not
+owed by symmetry — this library does not ship an adapter for a router nobody has brought it yet,
+because an adapter written against a guess is a guess with a version number. Until then the two
+existing doors cover it: `fromRoutes` for a table you write, and `fromReactRouter` for any
+nested `{ path, index, children, handle }` tree, which is duck-typed and therefore not actually
+React-Router-only.
+
+Additive: nothing that compiled at 1.4.0 compiles differently, and `fromRoutes` is byte-for-byte
+unchanged in behaviour (its `crossLinks` refusals moved into the shared authoring guard so both
+doors ask the same question in the same words).
+
 ## [1.4.0] - 2026-08-02
 
 **A dropped field does not error. The app declares it, the agent never sees it, and nothing anywhere

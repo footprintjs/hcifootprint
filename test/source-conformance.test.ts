@@ -20,7 +20,7 @@
  * source whether its declarations arrived.
  */
 import { describe, expect, it } from 'vitest';
-import { fromJourneys, fromLiveStore, fromRoutes, GraphValidationError } from '../src/index.js';
+import { fromJourneys, fromLiveStore, fromReactRouter, fromRoutes, GraphValidationError } from '../src/index.js';
 import type { JourneysSource, LiveBindingPort, LiveSource } from '../src/index.js';
 import { conformSource, expectConformance, DECLARABLE_ACTION_FIELDS } from '../src/testing/index.js';
 import type { ConformanceFixture, FullActionDef, SourceUnderTest } from '../src/testing/index.js';
@@ -316,6 +316,38 @@ describe('every first-party source round-trips what it carries', () => {
     }
   });
 
+  /**
+   * BORN CONFORMANT — the second door into the routes kind is pinned by the same
+   * run as the first, on the day it shipped. A route TREE composes and
+   * transcribes its own page names, so this asks the question that matters for
+   * an adapter that derives rather than copies: did the page the app declared
+   * come out the other side under the id and label the derivation promised?
+   */
+  it('fromReactRouter round-trips the page vocabulary and excludes action fields by name', () => {
+    const report = conformSource((fixture) => fromReactRouter(fixture.routeObjects));
+    expect(report.dropped).toEqual([]);
+    expect(report.checked).toEqual([
+      { field: 'page.route', seam: 'compile' },
+      { field: 'page.does', seam: 'compile' },
+    ]);
+    for (const field of DECLARABLE_ACTION_FIELDS) {
+      const stated = report.excluded.filter((row) => row.field === field);
+      expect(stated.length, `'${field}' is excluded with a reason`).toBe(2);
+      expect(stated[0].because).toMatch(/contributes PAGES, never controls/);
+      // Both doors into this source kind are named, so a reader of the report
+      // never has to guess which factory the refusal law belongs to.
+      expect(stated[0].because).toMatch(/fromReactRouter/);
+    }
+  });
+
+  it('names a route-tree source that dropped the page it was handed', () => {
+    const report = conformSource(() => fromReactRouter([{ path: '/somewhere' }]));
+    expect(report.dropped).toEqual([
+      { field: 'page.route', seam: 'compile' },
+      { field: 'page.does', seam: 'compile' },
+    ]);
+  });
+
   it('names a journeys source that dropped the journey it was handed', () => {
     const report = conformSource(() => fromJourneys({}));
     expect(report.dropped).toEqual([
@@ -349,6 +381,15 @@ describe('a route table refuses an action-shaped key by name — its conformance
     >;
     expect(() => fromRoutes(table)).toThrow(GraphValidationError);
     expect(() => fromRoutes(table)).toThrow(/'actions' is not a key a route table declares/);
+  });
+
+  it('a route TREE refuses the same key by name, one door over', () => {
+    // Same law, different door: on a route object the free-form slot is
+    // `handle.hcifootprint`, and nothing typechecks it — so the refusal is the
+    // only thing that can keep a declared control from vanishing.
+    const tree = [{ path: '/catalog', handle: { hcifootprint: { actions: { browse: { does: 'Browse' } } } } }];
+    expect(() => fromReactRouter(tree)).toThrow(GraphValidationError);
+    expect(() => fromReactRouter(tree)).toThrow(/handle\.hcifootprint\.actions, which is not a key a route declares/);
   });
 
   it('says so in the conformance report too, so a reader never has to infer it', () => {

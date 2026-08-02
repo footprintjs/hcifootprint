@@ -52,6 +52,24 @@ describe('importing one source factory ships only its leaf closure', () => {
     files.forbid('node_modules/footprintjs');
   });
 
+  /**
+   * The route-TREE door, and it guards one extra promise: this factory is named
+   * for a router it does not import. Everything it knows about a route object is
+   * a structural type it declares itself, so a consumer's bundle gains no
+   * dependency — and there is no `./react-router` subpath because there is
+   * nothing to isolate.
+   */
+  it('fromReactRouter drags no session machinery, no router, no footprintjs', async () => {
+    const files = contributedFilesAssertable(await contributedFiles('fromReactRouter'));
+    expect(files.some((f) => f.endsWith('graph/sources/from-react-router.ts'))).toBe(true);
+    files.forbid('traverse/session.ts');
+    files.forbid('traverse/nav-session.ts');
+    files.forbid('tree/appmap.ts');
+    files.forbid('graph/sources/from-live-store.ts');
+    files.forbid('node_modules/react-router');
+    files.forbid('node_modules/footprintjs');
+  });
+
   it('fromLiveStore drags no session machinery and no footprintjs either', async () => {
     const files = contributedFilesAssertable(await contributedFiles('fromLiveStore'));
     expect(files.some((f) => f.endsWith('graph/sources/from-live-store.ts'))).toBe(true);
@@ -138,8 +156,8 @@ function contributedFilesAssertable(files: string[]) {
 const distIndex = path.join(repoRoot, 'dist/index.js');
 // dist/graph/sources/*.js must ALSO exist — an older dist would still have
 // dist/index.js, and a probe against it would "pass" by testing stale bytes.
-const distSources = ['from-routes.js', 'from-journeys.js', 'from-live-store.js'].map((f) =>
-  path.join(repoRoot, 'dist/graph/sources', f),
+const distSources = ['from-routes.js', 'from-react-router.js', 'from-journeys.js', 'from-live-store.js'].map(
+  (f) => path.join(repoRoot, 'dist/graph/sources', f),
 );
 /** Same reason: an old dist would still have dist/index.js and "pass" without this. */
 const distSensor = path.join(repoRoot, 'dist/sensor/index.js');
@@ -194,18 +212,22 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
     }
   });
 
-  it('the source trio ships only dist/index.js + dist/graph/** — and stays under 15 KB', async () => {
-    const { files, bytes } = await bundleFromDist('fromRoutes, fromJourneys, fromLiveStore');
+  it('every source factory ships only dist/index.js + dist/graph/** — and stays under 15 KB', async () => {
+    const { files, bytes } = await bundleFromDist('fromRoutes, fromReactRouter, fromJourneys, fromLiveStore');
     // Allowlist beats a blocklist: a NEW machinery directory would slip past
     // a list of known-bad prefixes, but cannot slip past known-good ones.
     const leaked = files.filter((f) => f !== 'dist/index.js' && !f.startsWith('dist/graph/'));
-    expect(leaked, 'modules outside dist/index.js + dist/graph/** leaked into the trio bundle').toEqual([]);
+    expect(leaked, 'modules outside dist/index.js + dist/graph/** leaked into the sources bundle').toEqual([]);
     // Belt to the allowlist's braces: name the classic offenders so a failure
     // in a future refactor reads as the sentence it is.
     for (const forbidden of ['dist/traverse/', 'dist/tree/', 'dist/serve/', 'dist/presence/', 'dist/registry/', 'node_modules/footprintjs']) {
       expect(files.filter((f) => f.includes(forbidden)), `bundle must not contain ${forbidden}`).toEqual([]);
     }
-    expect(files.some((f) => f === 'dist/graph/sources/from-routes.js'), 'probe must actually pull the trio').toBe(true);
+    expect(files.some((f) => f === 'dist/graph/sources/from-routes.js'), 'probe must actually pull them').toBe(true);
+    expect(
+      files.some((f) => f === 'dist/graph/sources/from-react-router.js'),
+      'probe must actually pull the route-tree door too',
+    ).toBe(true);
     expect(bytes).toBeLessThanOrEqual(15 * 1024);
   });
 
