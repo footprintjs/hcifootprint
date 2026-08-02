@@ -4,7 +4,7 @@ title: ConformanceReport
 
 # Interface: ConformanceReport
 
-Defined in: src/testing/conform.ts:148
+Defined in: [src/testing/conform.ts:148](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L148)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/testing/conform.ts:148
 
 > **checked**: `object`[]
 
-Defined in: src/testing/conform.ts:155
+Defined in: [src/testing/conform.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L155)
 
 The field/seam pairs this run actually put to the test — the pass's denominator.
 
@@ -30,7 +30,7 @@ The field/seam pairs this run actually put to the test — the pass's denominato
 
 > **dropped**: `object`[]
 
-Defined in: src/testing/conform.ts:153
+Defined in: [src/testing/conform.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L153)
 
 Every declared field the source did not thread through, named with the seam
 that lost it. Empty is the whole pass condition.
@@ -49,7 +49,7 @@ that lost it. Empty is the whole pass condition.
 
 > **excluded**: `object`[]
 
-Defined in: src/testing/conform.ts:160
+Defined in: [src/testing/conform.ts:160](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L160)
 
 The field/seam pairs there was nothing to read at, each with the stated
 reason. A pass is never silent about the part of itself that was vacuous.

@@ -6,7 +6,7 @@ title: FullActionDef
 
 > **FullActionDef** = [`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef) & `Partial`\<`NonNullable`\<[`NavigationGraphDef`](/api/index/interfaces/NavigationGraphDef)\[`"actions"`\]\>\[`string`\]\>
 
-Defined in: src/testing/conform.ts:94
+Defined in: [src/testing/conform.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L94)
 
 Everything an action declaration may carry: `ActionDef` PLUS its two extension
 points — the root-level multi-attach `on` (a graph definition's own `actions:`
