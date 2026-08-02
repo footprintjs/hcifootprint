@@ -8,7 +8,7 @@
  *   lintGraph(graph)   — STATIC. No app, no run, no test code. The cheap CI
  *                        gate: flags stale logic provable from the graph alone
  *                        (a control gated on state nothing produces, a guard
- *                        that can never be true, a skill that can never finish,
+ *                        that can never be true, a journey that can never finish,
  *                        a page nothing can reach).
  *
  *   testApp(graph)     — DYNAMIC. "Playwright for your interaction logic, minus
@@ -29,7 +29,7 @@
 export { lintGraph, formatFindings, expectNoStaleLogic } from './model/lint.js';
 export type { LintFinding, LintOptions, LintCode, LintSeverity } from './model/lint.js';
 export { checkGraph } from './model/check.js';
-export type { GraphHealth, SkillHealth, DriftType } from './model/check.js';
+export type { GraphHealth, JourneyHealth, DriftType } from './model/check.js';
 export { testApp } from './harness.js';
 export type {
   TestApp,

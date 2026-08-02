@@ -39,7 +39,7 @@
  * Drop the appended half of that warning → 2 red.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { ConfirmRecord, NavigationGraph, Session } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -48,7 +48,7 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       checkout: {
-        tools: {
+        actions: {
           'place-order': {
             does: 'Place the order',
             confirm: true,
@@ -76,7 +76,7 @@ function ordersMap(): NavigationGraph {
           row: {
             repeats: true,
             instances: (s) => (s['ids'] as string[]) ?? [],
-            tools: { refund: { does: 'Refund this order', confirm: true, writes: ['refunds'] } },
+            actions: { refund: { does: 'Refund this order', confirm: true, writes: ['refunds'] } },
           },
         },
       },
@@ -103,7 +103,7 @@ function enforcedShop(
     ...(now ? { now } : {}),
     onWarn: (message: string) => warnings?.push(message),
   });
-  session.registerToolGroup('checkout', {
+  session.registerActions('checkout', {
     handlers: {
       'place-order': () => undefined,
       'add-note': () => undefined,
@@ -126,8 +126,8 @@ const row = (session: Session, kind: ConfirmRecord['kind']): ConfirmRecord | und
 describe('the reported forgery', () => {
   it('is REPRODUCED with the option absent: confirm:true on the FIRST call executes and the journal stays empty', async () => {
     const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
-    const port = skillsAsTools(session);
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+    const port = serveToAgent(session);
 
     const fired = port.call('shop.do_action', { action: 'place-order', input: { total: 42 }, confirm: true });
     await tick();
@@ -139,7 +139,7 @@ describe('the reported forgery', () => {
 
   it('the forged fire is refused: bare confirm on the first call, no ask ever landed', async () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     const answer = port.call('shop.do_action', { action: 'place-order', input: { total: 42 }, confirm: true });
     await tick();
@@ -315,7 +315,7 @@ describe('what the approval binds to', () => {
    */
   it('B2: a caller reusing its args object between the ask and the fire is refused', async () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const args: { action: string; input: Record<string, unknown>; confirm?: boolean } = {
       action: 'place-order',
       input: { total: 10 },
@@ -390,7 +390,7 @@ describe('what the approval binds to', () => {
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.registerActions('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
 
     const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
     session.approveAsk(askId, { by: 'alice@ops' });
@@ -419,7 +419,7 @@ describe('what the approval binds to', () => {
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.registerActions('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
 
     const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
     session.approveAsk(askId, { by: 'alice@ops' });
@@ -447,7 +447,7 @@ describe('what the approval binds to', () => {
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.registerActions('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
 
     const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 10 } });
     session.approveAsk(askId, { by: 'alice@ops' });
@@ -475,7 +475,7 @@ describe('what the approval binds to', () => {
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.registerActions('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
     session.alwaysApprove('checkout.place-order', { by: 'alice@ops' });
 
     // A standing grant is deliberately NOT input-bound ("any item, for the next
@@ -497,8 +497,8 @@ describe('what the approval binds to', () => {
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('list.row', { instance: 'o-1', handlers: { refund: () => undefined } });
-    session.registerToolGroup('list.row', { instance: 'o-999', handlers: { refund: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-1', handlers: { refund: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-999', handlers: { refund: () => undefined } });
 
     const { askId, receipts } = session.confirmAsk('list.row.refund', { source: 'agent', instance: 'o-1' });
     expect(receipts.willUse).toEqual({ instance: 'o-1' });
@@ -583,7 +583,7 @@ describe('what the approval binds to', () => {
 describe('the decline path', () => {
   it('decline burial: an agent-relayed decline closes NOTHING and the card stays live', () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     port.call('shop.do_action', { action: 'place-order', input: { total: 42 } }); // the ask
 
     const declined = port.call('shop.do_action', { action: 'place-order', input: { total: 42 }, decline: true });
@@ -733,7 +733,7 @@ describe('the decline path', () => {
    */
   it('B7 served: a source:"user" port’s relayed decline is still a report, and the result says so', () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session, { source: 'user' });
+    const port = serveToAgent(session, { source: 'user' });
     port.call('shop.do_action', { action: 'place-order', input: { total: 42 } });
 
     const declined = port.call('shop.do_action', { action: 'place-order', input: { total: 42 }, decline: true });
@@ -860,8 +860,8 @@ describe('a durable grant', () => {
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('list.row', { instance: 'o-1', handlers: { refund: () => undefined } });
-    session.registerToolGroup('list.row', { instance: 'o-2', handlers: { refund: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-1', handlers: { refund: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-2', handlers: { refund: () => undefined } });
     session.alwaysApprove('list.row.refund', { by: 'alice@ops', instance: 'o-1' });
 
     expect(session.fire('list.row.refund', { source: 'agent', instance: 'o-1' }).ok).toBe(true);
@@ -973,7 +973,7 @@ describe('a refused crossing is visible in BOTH ledgers', () => {
     const session = enforcedShop(true, undefined, warnings);
 
     // The self-certified confirm, from the door a model actually uses.
-    skillsAsTools(session).call('shop.do_action', {
+    serveToAgent(session).call('shop.do_action', {
       action: 'place-order',
       input: { total: 42 },
       confirm: true,
@@ -1006,14 +1006,14 @@ describe('a refused crossing is visible in BOTH ledgers', () => {
 
     const nastyWarnings: string[] = [];
     const nasty = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { 'place-order': { does: hostile, writes: ['orders'], confirm: true } } } },
+      pages: { checkout: { actions: { 'place-order': { does: hostile, writes: ['orders'], confirm: true } } } },
     }).createSession({
       node: 'checkout',
       state: {},
       requireHumanApproval: true,
       onWarn: (message: string) => nastyWarnings.push(message),
     });
-    nasty.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    nasty.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
     nasty.fire('checkout.place-order', { source: 'agent', payload: { total: 1 } });
 
     const nastyTail = tail(nastyWarnings.find((m) => m.includes('APPROVAL_REQUIRED'))!);
@@ -1029,7 +1029,7 @@ describe('a refused crossing is visible in BOTH ledgers', () => {
       requireHumanApproval: true,
       onWarn: (m) => warnings.push(m),
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
 
     for (let i = 0; i < 3; i++) session.fire('checkout.place-order', { source: 'agent', payload: { total: 1 } });
 
@@ -1101,7 +1101,7 @@ describe('a refused crossing is visible in BOTH ledgers', () => {
 
   it('incoherent config: confirmHighEffect:false plus enforcement still ASKS, and still refuses', async () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session, { confirmHighEffect: false });
+    const port = serveToAgent(session, { confirmHighEffect: false });
 
     const asked = port.call('shop.do_action', { action: 'place-order', input: { total: 42 } });
     expect(asked).toMatchObject({ ok: false, judgment: 'needs-confirm' });
@@ -1112,9 +1112,9 @@ describe('a refused crossing is visible in BOTH ledgers', () => {
   });
 
   it('the served confirm argument tells the truth about the session it belongs to', () => {
-    const plain = skillsAsTools(shopMap().createSession({ node: 'checkout', state: {} }));
-    const strict = skillsAsTools(enforcedShop());
-    const confirmDoc = (port: ReturnType<typeof skillsAsTools>): string => {
+    const plain = serveToAgent(shopMap().createSession({ node: 'checkout', state: {} }));
+    const strict = serveToAgent(enforcedShop());
+    const confirmDoc = (port: ReturnType<typeof serveToAgent>): string => {
       const tool = port.tools().find((t) => t.name === 'shop.do_action')!;
       const schema = tool.inputSchema as { properties: { confirm: { description: string } } };
       return schema.properties.confirm.description;
@@ -1133,7 +1133,7 @@ describe('a refused crossing is visible in BOTH ledgers', () => {
 describe('end to end over the serving layer', () => {
   it('ask → the app records the human’s ALLOW → the agent’s confirm crosses, once', async () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     const asked = port.call('shop.do_action', { action: 'place-order', input: { total: 42 } });
     expect(asked).toMatchObject({ ok: false, judgment: 'needs-confirm' });
@@ -1167,7 +1167,7 @@ describe('end to end over the serving layer', () => {
 
   it('a mismatched fire over the port teaches which join failed', async () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const asked = port.call('shop.do_action', { action: 'place-order', input: { total: 42 } });
     session.approveAsk(asked['askId'] as string, { by: 'alice@ops' });
 
@@ -1198,10 +1198,10 @@ describe('end to end over the serving layer', () => {
  *
  * MUTATION PROOF: remove the `awaitingShown < max` arm and 'C2' fails at 40 lines.
  */
-describe('C2: the FACTS block is bounded where an agent can mint lines', () => {
+describe('the FACTS block stays bounded where an agent could otherwise mint lines', () => {
   it('forty asks do not become forty lines, and the block says how many it withheld', () => {
     const session = enforcedShop();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     for (let i = 0; i < 40; i++) port.call('shop.do_action', { action: 'place-order', input: { total: i } });
 
     const facts = session.groundTruth().text;
@@ -1242,5 +1242,94 @@ describe('C2: the FACTS block is bounded where an agent can mint lines', () => {
     }
     const facts = session.groundTruth().text;
     expect(facts.split('\n').filter((line) => line.startsWith('The human declined'))).toHaveLength(25);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Two cards about one action, and the person's LAST word
+// ---------------------------------------------------------------------------
+
+describe('the person answered twice, and not in the order the cards were made', () => {
+  it('refuses with the LAST no, not with the newest card', () => {
+    // Two cards can only coexist when their inputs are not the same one — here
+    // they are inputs the library cannot even compare (a Map renders to nothing
+    // it can read), which is exactly the case it must not treat as "different".
+    let clock = 1_000;
+    const session = enforcedShop(true, () => clock);
+    const first = session.confirmAsk('checkout.place-order', { source: 'agent', input: new Map([['a', 1]]) });
+    const second = session.confirmAsk('checkout.place-order', { source: 'agent', input: new Map([['b', 2]]) });
+    expect(first.askId).not.toBe(second.askId);
+
+    clock = 2_000;
+    expect(session.declineAsk(second.askId, { by: 'alice@ops' }).ok).toBe(true);
+    clock = 3_000; //                        the person came back to the FIRST card
+    expect(session.declineAsk(first.askId, { by: 'alice@ops' }).ok).toBe(true);
+
+    const refused = session.fire('checkout.place-order', { source: 'agent', payload: new Map([['b', 2]]) });
+    expect(refused).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED' });
+    // The no that stands is the one answered LAST, whichever card was made first.
+    expect(refused.ok === false && refused.reason === 'APPROVAL_DECLINED' && refused.askId).toBe(
+      first.askId,
+    );
+  });
+});
+
+describe('withdrawing a standing yes', () => {
+  it('refuses an askId nobody in this session ever handed out', () => {
+    const session = enforcedShop();
+    expect(session.declineAsk('ask#404', { by: 'alice@ops' })).toMatchObject({
+      ok: false,
+      reason: 'UNKNOWN_ASK',
+    });
+  });
+
+  it('withdraws only the ROW the revocation names, and keeps the reason on the record', () => {
+    const session = ordersMap().createSession({
+      node: 'list',
+      state: { ids: ['o-1', 'o-2'] },
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerActions('list.row', { instance: 'o-1', handlers: { refund: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-2', handlers: { refund: () => undefined } });
+    session.alwaysApprove('list.row.refund', { by: 'alice@ops', instance: 'o-1' });
+    session.alwaysApprove('list.row.refund', { by: 'alice@ops', instance: 'o-2' });
+
+    const revoked = session.revokeAlwaysApprove('list.row.refund', {
+      by: 'alice@ops',
+      instance: 'o-1',
+      note: 'that customer disputed it',
+    });
+    expect(revoked).toMatchObject({ ok: true });
+    if (!revoked.ok) throw new Error('unreachable');
+    // The record says which row it was about and why — an auditor reading the
+    // journal never has to go and ask.
+    expect(revoked.record).toMatchObject({
+      kind: 'revoked',
+      scopeInstance: 'o-1',
+      note: 'that customer disputed it',
+    });
+
+    expect(session.fire('list.row.refund', { source: 'agent', instance: 'o-1' })).toMatchObject({
+      reason: 'APPROVAL_REQUIRED',
+    });
+    expect(session.fire('list.row.refund', { source: 'agent', instance: 'o-2' }).ok).toBe(true);
+  });
+});
+
+describe('the ask book, read back', () => {
+  it('names the row a card was about, so two cards for two rows are never one', () => {
+    const session = ordersMap().createSession({
+      node: 'list',
+      state: { ids: ['o-1', 'o-2'] },
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerActions('list.row', { instance: 'o-1', handlers: { refund: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-2', handlers: { refund: () => undefined } });
+    session.confirmAsk('list.row.refund', { source: 'agent', instance: 'o-1' });
+    session.confirmAsk('list.row.refund', { source: 'agent', instance: 'o-2' });
+
+    expect(session.asks().map((a) => a.instance)).toEqual(['o-1', 'o-2']);
   });
 });

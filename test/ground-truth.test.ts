@@ -34,7 +34,7 @@
  *   gone from the one block a model is told to trust most.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { InteractionSession, NavigationGraph } from '../src/index.js';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -43,21 +43,21 @@ function experiment(): NavigationGraph {
   return buildNavigationGraph('lab', {
     pages: {
       setup: {
-        tools: {
+        actions: {
           'set-name': { does: 'Name the experiment', writes: ['name'], input: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
           'pick-recipe': { does: 'Pick the recipe', verify: { recipe: { ne: '' } } },
           next: { does: 'Go to the review step', goTo: 'review', enabledWhen: { name: { ne: '' } } },
         },
       },
-      review: { tools: { submit: { does: 'Submit the experiment', writes: ['submitted'], confirm: true } } },
+      review: { actions: { submit: { does: 'Submit the experiment', writes: ['submitted'], confirm: true } } },
     },
-    skills: { run: { does: 'Run an experiment end to end', steps: ['set-name', 'submit'] } },
+    journeys: { run: { does: 'Run an experiment end to end', steps: ['set-name', 'submit'] } },
   });
 }
 
 function wired(state: Record<string, unknown>, handlers?: Record<string, () => unknown>): InteractionSession {
   const session = experiment().createSession({ node: 'setup', state, onWarn: () => undefined });
-  session.registerToolGroup('setup', {
+  session.registerActions('setup', {
     handlers: {
       'set-name': handlers?.['set-name'] ?? (() => undefined),
       'pick-recipe': handlers?.['pick-recipe'] ?? (() => undefined),
@@ -94,10 +94,10 @@ describe('groundTruth — the authority claim, and the sentence for silence', ()
 
   it('adds the tree layer’s Focus to the cursor section, as the brief already does', () => {
     const graph = buildNavigationGraph('lab', {
-      pages: { setup: { modals: { confirm: { tools: { yes: { does: 'Yes' } } } } } },
+      pages: { setup: { modals: { confirm: { actions: { yes: { does: 'Yes' } } } } } },
     });
     const session = graph.createSession({ node: 'setup', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('setup.confirm', { handlers: { yes: () => undefined }, visible: true });
+    session.registerActions('setup.confirm', { handlers: { yes: () => undefined }, visible: true });
     session.fire('setup.confirm.yes', { source: 'agent' });
 
     const lines = session.groundTruth().text.split('\n');
@@ -191,12 +191,12 @@ describe('groundTruth — every attempt, including the ones no transition record
     const graph = buildNavigationGraph('lab', {
       pages: {
         setup: {
-          tools: { pick: { does: 'Pick the recipe', writes: ['touched'], verify: { recipe: { ne: '' } } } },
+          actions: { pick: { does: 'Pick the recipe', writes: ['touched'], verify: { recipe: { ne: '' } } } },
         },
       },
     });
     const session = graph.createSession({ node: 'setup', state: { recipe: '' }, onWarn: () => undefined });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     session.fire('setup.pick', { source: 'agent' });
     session.updateState({ touched: true }); // a real report: the commit is evidence-backed
@@ -343,15 +343,44 @@ describe('groundTruth — ordered, capped, and honest about what is still open',
     expect(session.groundTruth().text).not.toContain("Awaiting the human's decision");
   });
 
-  it('records a refused skill COMMIT as an attempt to start it, not as a fire', () => {
+  it('drops the approved line once that yes has been used — a spent card is not still on the board', () => {
+    const session = experiment().createSession({
+      node: 'review',
+      state: { name: 'trial-7', recipe: '' },
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerActions('review', { handlers: { submit: () => undefined } });
+    const { askId } = session.confirmAsk('review.submit', { source: 'agent' });
+    session.approveAsk(askId, { by: 'ada@ops' });
+    expect(session.groundTruth().text).toContain('Approved by the human, not yet done: review.submit');
+
+    expect(session.fire('review.submit', { source: 'agent', askId }).ok).toBe(true);
+    expect(session.groundTruth().text).not.toContain('Approved by the human, not yet done');
+  });
+
+  it('records a refused journey COMMIT as an attempt to start it, not as a fire', () => {
     const session = experiment().createSession({ node: 'setup', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('setup', { handlers: { next: () => undefined } }); // set-name unwired
-    const committed = session.commitSkill('run', { source: 'agent' });
+    session.registerActions('setup', { handlers: { next: () => undefined } }); // set-name unwired
+    const committed = session.commitJourney('run', { source: 'agent' });
     expect(committed.ok).toBe(false);
 
     expect(session.groundTruth().text).toContain(
       "did NOT happen — agent's attempt to start run was refused: ENTRY_NOT_MATERIALIZED (its first step is setup.set-name)",
     );
+  });
+
+  it('says out loud that the human refused a card, so nobody re-asks the same question', () => {
+    const session = experiment().createSession({
+      node: 'setup',
+      state: { name: '', recipe: '' },
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    const { askId } = session.confirmAsk('review.submit');
+    session.declineAsk(askId, { by: 'ada@ops' }); // the human's own no, through the app
+
+    expect(session.groundTruth().text).toContain('The human declined: review.submit');
   });
 });
 
@@ -361,7 +390,7 @@ describe('groundTruth — ordered, capped, and honest about what is still open',
 
 describe('groundTruth — Mode B carries it on the call the model already makes', () => {
   it('the tool DESCRIPTION points at it — a block nobody reads grounds nobody', () => {
-    const port = skillsAsTools(wired({ name: '', recipe: '' }));
+    const port = serveToAgent(wired({ name: '', recipe: '' }));
     const tool = port.tools().find((candidate) => candidate.name === 'lab.whats_here')!;
     expect(tool.description).toContain('authoritative record');
     expect(tool.description).toContain('trust facts over your own account');
@@ -369,7 +398,7 @@ describe('groundTruth — Mode B carries it on the call the model already makes'
 
   it('whats_here gains facts, and the refusals ride it', async () => {
     const session = wired({ name: '', recipe: '' });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     port.call('lab.do_action', { action: 'next' }); // refused: enabledWhen
     await flush();
 
@@ -384,7 +413,7 @@ describe('groundTruth — Mode B carries it on the call the model already makes'
 
   it('honours sinceVersion on the same call', async () => {
     const session = wired({ name: '', recipe: '' });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     port.call('lab.do_action', { action: 'next' }); // refused
     port.call('lab.do_action', { action: 'set-name', input: { name: 'x' } });
     session.updateState({ name: 'x' });

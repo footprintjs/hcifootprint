@@ -1,0 +1,177 @@
+---
+title: Ground truth — facts the model cannot argue with
+description: groundTruth() is the app's own record of what was attempted and how each attempt came to rest, in words a model is told outrank the conversation — and it rides every whats_here result as `facts`.
+---
+
+## Never feed the model its own prose
+
+Reported from a production integration, with no library bug in it: given nothing to check
+itself against, the model narrated an entire flow — *name set, recipe selected* — having
+called **zero** tools. Its own earlier sentences had become its context, and on the next turn
+it read them as history.
+
+That is the failure mode this page exists for, and it is structural rather than careless. A
+model weighs everything in its window; unless something in there says *which source wins*, the
+conversation competes with the app on equal terms. And the friendly narrative beside it could
+not have prevented it either: **a refused fire is a gap-ledger row, not a transition**, so a
+narrative built from transitions can never show a failed attempt. The model saw successes and
+silence, and filled the silence.
+
+`session.groundTruth()` is the counter: one block, both ledgers, every attempt — refusals
+included — under a header that states the ranking outright.
+
+## The block, anatomy first
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('wizard', { pages: { wizard: {} } });
+const session = graph.createSession();
+// ---cut---
+const facts = session.groundTruth({ sinceVersion: 7 }); // → { node, version, text }
+facts.text;
+```
+
+`text` reads, in this order:
+
+1. **the header** — the sentence that makes it a floor rather than another opinion: every line
+   below is the app's own record, and where anything said in the conversation disagrees with
+   it, *these lines are what actually happened; the conversation is a claim about them*;
+2. **where you are** — the cursor (and, on the tree API, the focus below page level);
+3. **every attempt, one line each**, oldest first;
+4. **where a human decision stands** — one line per confirm ask, by action and `askId`, in three
+   shapes: *Awaiting the human's decision*, *Approved by the human, not yet done*, and *The human
+   declined*. The two answered shapes exist because marking an ask answered would otherwise go
+   silent in exactly the window that matters — a recorded approval nothing has acted on yet, and a
+   no an agent might quietly re-ask around;
+5. **what the app has not answered** — any fire still awaiting its state report.
+
+The *awaiting* lines obey the same `maxAttempts` dial as the attempts list, because under
+[enforced approval](doc:receipts#requirehumanapproval--make-approve-enforceable) an agent mints a
+new ask per distinct input and could otherwise inflate the one block a model is told to trust above
+its own account. The **oldest** cards are kept — burying the question a person is actually looking
+at under forty fresh ones is the move this refuses — and the omitted count is stated outright.
+Answered lines are never capped: only a human-side door writes one, so hiding a recorded decision
+is the one thing this block must never do. `by` and `note` are not rendered here; they are the
+audit fields, and this block carries structural facts only.
+
+With nothing attempted it says so, in as many words:
+
+```text
+No actions have been performed in this app this session.
+```
+
+That line is said outright because a silence is exactly what a model fills with invention. It
+claims the whole session, so it is only used where that is true: behind a `sinceVersion`
+cursor that would hide real earlier attempts, the block reports the cursor's own truth and
+counts what it hid instead. A block a model is told to trust above its own memory can never be
+the thing that denies what happened.
+
+## Nothing is rounded up
+
+Every attempt is graded, and the grades are deliberately unglamorous:
+
+| the line reads | when |
+|---|---|
+| **DID happen** | committed, and the declared effect was actually observed |
+| ran, but the declared effect was NOT observed | committed; the delta did not carry the keys it claimed |
+| ran, but the effect was unobservable | committed; nothing reported an effect to check it against |
+| **did NOT happen** | refused at the gate (with the typed reason), rejected, rolled back, a tour no-op — or the app's own [`verify` contract](doc:sessions#verify-proving-the-click-did-something) did not hold |
+| not yet known | the app has not reported back yet |
+
+A fire nobody could check says so rather than borrowing the stronger word — that grading is
+the whole reason the block is worth trusting. Attribution rides along too: a step attributed
+by effect-signature inference is marked *attributed by inference, not observed*.
+
+A **blocked forgery lands here as a fact, not as silence.** Under
+[enforced approval](doc:receipts#requirehumanapproval--make-approve-enforceable) a high-effect fire
+carrying no approval the library can prove is refused, and the refusal reads
+
+```text
+did NOT happen — agent's fire of checkout.place-order was refused: APPROVAL_REQUIRED
+```
+
+so the next turn cannot narrate the order as placed, which is the exact failure this page exists
+for.
+
+Attempts are ordered by **cursor version**, which is a proof rather than a heuristic: a
+refusal never bumps the version and a recorded fire bumps it immediately, so every row
+carrying version *V* sits inside the window that one transition closed — refusals first, the
+transition last. Timestamps could only tie at millisecond grain and invent an order.
+
+## What it leaves out, and why
+
+As deliberate as what it holds:
+
+- **state values and payloads** — the two-string-class invariant, extended to history;
+- **produced data** — that is [the data channel](doc:reading-data) (`producedFor`), not the facts
+  channel;
+- **available actions and journeys** — options are `whats_here`'s other half. Facts are what
+  *happened*; keeping the two non-overlapping is what keeps both lean;
+- **`reported` gap rows and all runtime free text** — a user's own words are data, never
+  something to hand a planner as instruction. With one exception, and it carries no free text
+  either: a row marked
+  [`actionsMayBeStale`](doc:live-bindings#the-error-stance--split-by-who-is-on-the-stack) prints
+  one **authored** line saying the app's list of actions could not be re-read. Every other line
+  here is about what happened; that one is about whether the room being described is still the
+  room, which is the one thing a reader of this block cannot afford to be missing;
+- **interpretation** — one line per occurrence, no advice, no summary.
+
+An id the graph does not have renders as a constant — *(an action this app does not have)* —
+rather than echoing a model's own invention back at it in the one block it is told to trust.
+
+### An attempt is a fire the session was asked to make
+
+Every line here comes from one of the two ledgers, and `fire()` writes both — the transition
+it recorded, or the gap row it refused. A reach that never gets that far leaves no line, and
+Mode B has exactly one such reach: [`do_action`](doc:modes#reading-a-result) resolves an
+action name against what is being **served**, so a name matching none of them is refused by
+the port before any fire. That refusal teaches in the turn it happens — it names whether the
+app has the action elsewhere or on this page with its conditions unmet, with the same evidence
+a `GUARD_FAILED` fire carries — but it is not an attempt, and the ledgers hold what the
+session was asked to *do*. A name it could not resolve was never something it could act on.
+
+## Wiring it per turn
+
+Over Mode B there is nothing to wire: **every `whats_here` result already carries `facts`**,
+first in the result, on the call a model makes anyway. Pass `{ sinceVersion }` and it narrows
+with the rest of the result.
+
+Driving a loop yourself, inject it once per turn, and label it so the ranking survives the
+trip:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('wizard', { pages: { wizard: {} } });
+const session = graph.createSession();
+declare function callModel(messages: Array<{ role: 'user'; content: string }>): Promise<string>;
+declare const userTurn: string;
+let lastSeen = 0;
+// ---cut---
+const facts = session.groundTruth({ sinceVersion: lastSeen });
+const brief = session.contextBrief({ sinceVersion: lastSeen });
+lastSeen = facts.version;
+
+void callModel([{ role: 'user', content: `${facts.text}\n\n${brief.text}\n\n${userTurn}` }]);
+```
+
+Two blocks, two jobs. [`contextBrief`](doc:sessions) is the friendly narrative — position,
+options, what happened lately. `groundTruth` is the record. Send both; they do not overlap.
+
+Three rules make the difference between a floor and more noise:
+
+1. **Send it every turn.** Grounding a model once grounds it for one turn.
+2. **Send it verbatim.** The header is the part that ranks it; paraphrasing it away leaves you
+   with an unlabelled list of sentences competing with the model's own.
+3. **Never feed the model its own prose as history.** A summary of the assistant's earlier
+   turns is a claim; this block is the record. If they disagree, the block is right — which is
+   exactly what its header tells the model.
+
+## It is not a permission system
+
+The facts block is accountability for a **cooperating** model, not a boundary. It tells a
+model that is trying to be right what is true, and it makes a model that narrates instead of
+acting visibly wrong on the next turn. Enforcement lives where it always did: the guard, the
+[confirm gate](doc:receipts), and your server.
+
+Worked end to end — with a refusal, a silent no-op and a real success in the same block — in
+[Guarded journeys](doc:guarded-journeys).

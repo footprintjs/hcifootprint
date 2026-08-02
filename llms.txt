@@ -2,26 +2,61 @@
 
 > Agents and humans: this single page is meant to be read INSTEAD of the source. It is
 > verified against the code; where a claim cites a source file, that file is the authority.
-> Package: `hcifootprint`. Beta, pre-1.0. Zero-dependency core.
+> Package: `hcifootprint` 1.0. Zero-dependency core.
 
 ## What this is
 
-hcifootprint turns a web app's interaction surface into a typed, traversable **skill graph**
+hcifootprint turns a web app's interaction surface into a typed, traversable **journey graph**
 an LLM agent can plan over and act on — as the signed-in user, through the app's own buttons
-and handlers. You author a navigation tree in your own vocabulary (pages, containers, tools);
-the library derives the agent-facing skill graph, gates every action on a serializable guard,
+and handlers. You author a navigation tree in your own vocabulary (pages, containers, actions);
+the library derives the agent-facing journey graph, gates every action on a serializable guard,
 and records each occurrence in a footprintjs commit log. Nothing is hidden silently: anything
 the runtime derives rather than observes is stamped with an honesty marker, and every refused
 action returns a typed reason. It is not tied to any agent framework — you get a fixed
 MCP-shaped tool surface any host can drive.
 
+**TWO WORDS, EACH WITH ONE JOB (1.0).** You author **actions** (`actions:`) and you name
+**journeys** (`journeys:`). "Tool" means only what is SERVED to a model, which is why
+`toMCPTools`, `edgesToMCPTools` and `MCPToolDescription` keep the word. The pre-1.0 spellings
+`tools:` / `skills:` are GONE — not deprecated: they no longer type-check, and a definition that
+reaches the runtime with one throws `GraphValidationError` naming the key to write instead.
+
+## The six entry points
+
+Everything below §1 is the ROOT entry point. The other five are separate imports so nothing you do
+not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships).
+
+- `hcifootprint` — authoring, session, serving, graph sources. §1–§7 below.
+- `hcifootprint/mcp` — `mcpServer(session, opts?)`, `McpServerOptions`. A real MCP server; needs the
+  `@modelcontextprotocol/sdk` peer dep, which is why it is not in the root (§5 covers `settleWithinMs`).
+- `hcifootprint/react` — `ControlSurfaceProvider`, `useControlSurface`, `useControl`, `useWorking`;
+  types `ControlSurfaceProviderProps`, `ControlRef`, `ControlSpec`, `BusyControl`, `WorkingSession`,
+  `WorkingSpec`. `useWorking({ busy, label, error?, actions?, session, transitionId? })` puts the flag a
+  component already has on the work ledger; **`actions:` here is the 1.0 spelling of what was `tools:`.**
+- `hcifootprint/sensor` — `watchPage(session, opts)` and its types (`WatchOptions`, `PageWatch`, `SensorReport`,
+  `SensorSession`, `Coverage`, `EdgeCoverage`, `BlockedBy`, `Cadence`, `ControlDeclaration`,
+  `ControlAttachment`, `RecordOnlyFire`, plus the duck-typed DOM interfaces `SensorDocument`,
+  `SensorElement`, `SensorEvent`, …). Records real human clicks; `WatchOptions.root` is REQUIRED
+  because the library itself never names `document`.
+- `hcifootprint/testing` — `testApp(graph, opts?)` (drive the app like the planning LLM, through the
+  real serve port: `agent.tools()`, `agent.whatsHere()`, `agent.journey(id, args?)`, `agent.do(action,
+  args?)`, plus `expectAvailable`, `expectRejected`, `expectJourneyCompleted`, `expectClean`), and the
+  static gates re-exported from lint below.
+- `hcifootprint/testing/lint` — engine-free static gate: `lintGraph(graph, opts?)` → `LintFinding[]`
+  (`LintCode`, `LintSeverity`, `LintOptions`), `formatFindings(findings)`,
+  `expectNoStaleLogic(graph, { failOn? })`,
+  `checkGraph(graph, opts?)` → `GraphHealth` (`{ ok, errors, warnings, findings, byType, journeys:
+  JourneyHealth[], unreachablePages, summary }`, `DriftType`). Codes: `dangling-guard-key`,
+  `unsatisfiable-guard`, `uncompletable-journey`, `journey-step-order`, `journey-step-cycle`,
+  `unreachable-page`, `dead-end-page`, `unconsumed-write`.
+
 ---
 
-## 1. Authoring — `buildNavigationGraph` (canonical, D18)
+## 1. Authoring — `buildNavigationGraph`
 
 `buildNavigationGraph(id, def)` validates and freezes one object literal in a single call (no
 `.build()`). Node names in the literal become a typed path union, so a typo in a later
-`registerToolGroup('catalog.filtr-rail')` is a COMPILE error, not a silent no-op.
+`registerActions('catalog.filtr-rail')` is a COMPILE error, not a silent no-op.
 
 Source: `src/tree/appmap.ts`, `src/tree/types.ts`.
 
@@ -31,18 +66,18 @@ import { buildNavigationGraph } from 'hcifootprint';
 const graph = buildNavigationGraph('shop', {
   pages: {
     catalog: {
-      tools: {
+      actions: {
         'search':      { does: 'Search dresses by name or color' },
         'add-to-cart': { does: 'Add the open dress to the cart', when: { authenticated: { eq: true } } },
       },
     },
     checkout: {
       modals: {
-        'confirm-order': { tools: { 'place-order': { does: 'Place the order', confirm: true } } },
+        'confirm-order': { actions: { 'place-order': { does: 'Place the order', confirm: true } } },
       },
     },
   },
-  skills: {
+  journeys: {
     purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
   },
 });
@@ -52,24 +87,25 @@ Authoring vocabulary (all optional except where noted):
 
 - `pages` (REQUIRED) — top-level route targets. Each page is a container node.
 - Container buckets inside any node: `areas` (coexist, AND), `tabs` (at most one shown),
-  `modals` (overlay; a shown blocking modal masks sibling tools — `blocks: false` = popover).
-- `tools` — leaf actions on a node. A tool's fields (source: `ToolDef`, `src/tree/types.ts`):
+  `modals` (overlay; a shown blocking modal masks sibling actions — `blocks: false` = popover).
+- `actions` — the leaf controls on a node. Fields (source: `ActionDef`, `src/tree/types.ts`):
   - `does` (REQUIRED) — one authored sentence; it is BOTH your label and the tool description
     the LLM reads. It is a source-code literal, never runtime text (injection firewall).
   - `when` — availability guard (a flat WhereFilter; see §4). AND-composed with every ancestor `when`.
   - `enabledWhen` — is it CLICKABLE right now? A different question from `when`: a failed `when`
-    HIDES the tool, a false `enabledWhen` SERVES it greyed out (`enabled: false` on the edge) and
+    HIDES the action, a false `enabledWhen` SERVES it greyed out (`enabled: false` on the edge) and
     refuses a fire as `TOOL_DISABLED` (retriable). Declare it from the same expression that renders
     `<button disabled={…}>`. NOT composed with ancestor `when`s. Keys it cannot evaluate never
     disable anything — the library does not guess a control greyed out.
-  - `writes` — state keys this tool claims to change (verified at settlement).
+  - `writes` — state keys this action claims to change (verified at settlement).
   - `verify` — the app's OWN check that firing really did something, evaluated at settlement. Either
     a WhereFilter over projected state (`{ 'wizard.recipe': { ne: '' } }`) or a SYNCHRONOUS predicate
     `(state) => boolean` handed a DETACHED snapshot (its closure may read the app's own DOM). If it
     does not hold, the settlement is `effectStatus: 'refused'` — an existing word — instead of the
     'performed' a handler earns merely by returning. What it cannot evaluate (an unknown key, a
     predicate that threw) is `verifyHeld: 'unevaluable'`, never a refusal.
-  - `goTo` — page id this tool claims to navigate to.
+  - `goTo` — page id this action claims to navigate to. It is also THE EDGE: pages declare no edges
+    to one another, so `session.howToReach(pageId)` (§2) is walked from these claims.
   - `confirm` — high-effect gate: requires explicit confirmation before firing.
   - `input` — payload contract (Zod, JSON Schema, any `.safeParse`/`.parse` validator) — or the
     literal `'none'`, meaning this control takes NO input. A caller that sends one anyway is refused
@@ -77,22 +113,29 @@ Authoring vocabulary (all optional except where noted):
     before it can reach the handler and override the app's own defaults. OMITTING `input` says
     something different: the library does not know the shape, so it advertises nothing.
   - `binding` — how to reach it on screen (ARIA role + name first); optional (handlers don't need it).
-- Root-level `tools` (multi-attach): a tool offered on several pages, each entry needs `on: string | string[]`.
-- `skills` — named multi-step flows. Fields (source: `JourneyDef`): `does` (REQUIRED planner text),
-  `steps` (REQUIRED, tool ids by qualified path or unambiguous suffix), `when` (precondition guard).
-- `repeats: true` on a container = a template (one parameterized tool for N cards). Optional
+- Root-level `actions` (multi-attach): one action offered on several pages, each entry needs
+  `on: string | string[]`.
+- `journeys` — named multi-step flows. Fields (source: `JourneyDef`): `does` (REQUIRED planner text),
+  `steps` (REQUIRED, action ids by qualified path or unambiguous suffix), `when` (precondition guard).
+  A journey is the ONE relational thing you declare: a preferred order toward a goal is meaning, and
+  meaning is yours. Everything else relational (step dependencies, what unblocks a control, routes
+  between pages) is DERIVED from declarations you already made.
+- `repeats: true` on a container = a template (one parameterized action for N cards). Optional
   `instances: (state) => string[]` is the complete instance set; without it, served lists fall
   back to the mounted window (marked `enumeration: 'mounted-window'`).
 
-Returns a `NavigationGraph` (source: `src/tree/types.ts`): `{ id, spec, nodes, toolNodes,
+Returns a `NavigationGraph` (source: `src/tree/types.ts`): `{ id, spec, nodes, actionNodes,
 createSession(opts?), requiredStateKeys() }`. All referential/shape mistakes (unknown `goTo`,
-guard-operator typos, ambiguous skill steps, contradictory ancestor/descendant guards) throw at
-build time.
+guard-operator typos, ambiguous journey steps, contradictory ancestor/descendant guards) throw at
+build time as `GraphValidationError` — the one type every authoring refusal arrives as, from every
+door (`src/graph/guards.ts`).
 
-**v1 `skillGraph()` is legacy sugar.** The fluent `skillGraph('id').page(...).affordance(...).build()`
-builder (source: `src/graph/builder.ts`) still ships and works, but `buildNavigationGraph` is the
-canonical authoring surface — it adds the container tree (modals/tabs/repeats), typed node paths,
-and mount-time tool declaration. Prefer it for new work.
+**The v1 fluent `skillGraph()` builder is GONE at 1.0** (`SkillGraphBuilder`, `SkillGraph`,
+`AffordanceDef` and `SkillGraphValidationError` with it). `buildNavigationGraph` is the one authoring
+door. Migration: each `.page(id, …)` → an entry under `pages:`, each `.affordance(id, …)` → an entry
+in that page's `actions:` (`description` → `does`, `guard` → `when`, `effect.writes` → `writes`,
+`effect.navigatesTo` → `goTo`), each `.skill(…)` → an entry under `journeys:`, and `.build()` goes
+away.
 
 ---
 
@@ -131,32 +174,43 @@ Extends the base `SessionOptions` (source: `src/atom/types.ts`) plus two tree-on
 - `now?: () => number` — the clock the grace timers and the confirm chain read (epoch ms). Default
   `Date.now`. Inject a controllable clock for deterministic staleness tests.
 
-### `registerToolGroup(path, opts?)` — `RegisterToolGroupOptions`
+### `registerActions(path, opts?)` — `RegisterActionGroupOptions`
 
-Call when a component that renders `path` mounts. You NEVER name a group — this returns a
-`ToolGroupHandle` that IS the identity; hold it and call `.unregister()` on unmount. `path` is
+Call when a component that renders `path` mounts. You NEVER name a group — this returns an
+`ActionGroupHandle` that IS the identity; hold it and call `.unregister()` on unmount. `path` is
 typed against the graph's node paths. Source: `src/traverse/nav-session.ts`.
 
 Options:
 
-- `handlers?: Record<string, ToolHandler>` — bind the app's EXISTING functions (by reference) to
-  tools declared on this node. `ToolHandler = (payload?) => unknown | Promise<unknown>`.
-- `tools?: Record<string, RegisteredToolDef>` — declare NEW leaf tools here-and-now (the
-  register-with-just-a-description path). `RegisteredToolDef` = a `ToolDef` plus an optional `handler`.
+- `handlers?: Record<string, ActionHandler>` — bind the app's EXISTING functions (by reference) to
+  actions declared on this node. `ActionHandler = (payload?) => unknown | Promise<unknown>`.
+- `actions?: Record<string, RegisteredActionDef>` — declare NEW leaf actions here-and-now (the
+  register-with-just-a-description path). `RegisteredActionDef` = an `ActionDef` plus an optional `handler`.
 - `instance?: string` — instance key when registering one card of a `repeats` container (e.g. `'o-123'`).
 - `visible?: boolean` — initial visibility signal (same wire as `setVisible`).
-- `enabled?: Record<string, boolean>` — initial per-tool enabled state (grey a button out; flip
-  later via `handle.setEnabled(toolId, false)`).
+- `enabled?: Record<string, boolean>` — initial per-action enabled state (grey a button out; flip
+  later via `handle.setEnabled(actionId, false)`).
 - `busy?: Record<string, string>` — which controls are ALREADY WORKING as this mounts, in the app's
-  OWN WORDS (`{ save: 'Saving your draft…' }`); flip later via `handle.setBusy(toolId, label)` and
+  OWN WORDS (`{ save: 'Saving your draft…' }`); flip later via `handle.setBusy(actionId, label)` and
   clear with `undefined`. A LABEL, never a flag: there is no boolean form, a non-string is refused
-  with one warning, and a tool absent from the map says NOTHING about that control (never "idle").
+  with one warning, and an action absent from the map says NOTHING about that control (never "idle").
   It gates nothing — a busy control that is not disabled still fires — and no clock in this library
   ever expires it. A live store says the same thing through `LiveAction.busy`.
+- `holds?: Record<string, () => unknown>` — what each control HOLDS right now (leaf name, or qualified
+  id, → a reader the served row calls at serve time), so the agent reads the draft already in the box
+  instead of asking the human to retype it. KEEP IT A READ: it runs once per served row on a hot path
+  — return the variable you already hold, never compute, fetch or write. Released with the group on
+  `unregister()`; a reader that throws costs that row its value and nothing else.
 
-Returns `ToolGroupHandle`: `{ id, node, instance?, setEnabled(toolId, enabled),
-setBusy(toolId, busy), unregister() }`. `registerTool(path, toolId, { handler, ... })` is the
-single-tool convenience form (its `ToolHandle` carries `setEnabled(enabled)` / `setBusy(busy)`).
+Returns `ActionGroupHandle`: `{ id, node, instance?, setEnabled(actionId, enabled),
+setBusy(actionId, busy), unregister() }`. `registerAction(path, actionId, { handler, ... })` is the
+single-action convenience form (its `ActionHandle` carries `actionId`, `setEnabled(enabled)` and
+`setBusy(busy)`).
+
+On the flat `Session` (no container tree) the same door is `registerHandlers({ group, handlers })` →
+`RegisteredHandlers` — `{ triggers, setEnabled, unregister }`, where a trigger wraps one
+handler so calling it records the act as `source: 'user'` AND invokes the handler (wire a trigger IN
+PLACE OF the handler; keeping both runs it twice). `unregisterGroup(group)` releases by name.
 
 ### Reporting reality — fire / updateState / sync / stimulus
 
@@ -231,10 +285,26 @@ single-tool convenience form (its `ToolHandle` carries `setEnabled(enabled)` / `
   validator, in-process only; `expects?` = the same contract WIRE-shaped — zod normalized, JSON
   Schema detached, a non-serializable validator named in one sentence, `'none'` for an input-less
   action), and honesty stamps: `guardUnevaluated?`, `activation?`, `presence?: 'unknown'`,
-  `materialized?`, `enabled?`, `instances?`/`enumeration?`. `expects` is byte-for-byte what Mode B
-  serves, from one shared derivation — never re-derive it.
-- `availableSkills()`, `contextBrief(opts?)` (token-lean prompt context, authored strings only),
-  `explain(id)`, `why(key)` (footprint backward causal slice).
+  `materialized?`, `enabled?`, `busy?`, `holds?`, `instances?`/`enumeration?`. `expects` is
+  byte-for-byte what Mode B serves, from one shared derivation — never re-derive it.
+- `availableJourneys()` → `{ version, node, journeys: AvailableJourney[] }`, `contextBrief(opts?)`
+  (token-lean prompt context, authored strings only), `explain(id)`, `why(key)` (footprint backward
+  causal slice).
+- **`whatUnblocks(actionId)` → `DependencyEdge[]`** `{ affordanceId, viaKeys }` — WHAT WOULD FREE THIS
+  CONTROL: every declared action whose `writes` touch a key this one's `guard` or `enabledWhen` is
+  waiting on, with the specific keys. DERIVED, never authored: both halves already exist for other
+  reasons, so it cannot drift from the graph. `[]` is the honest "nothing here claims to change it",
+  never an invented suggestion. A CLAIM, NOT A PROMISE (`writes` is what the app says), and NOT A PLAN
+  (the list is unordered — ordering intent is a journey, which you declare). Scope is every declared
+  action, including ones on other pages, because the control that frees a greyed button usually lives
+  elsewhere. Source: `src/graph/step-deps.ts`.
+- **`howToReach(pageId)` → `RouteStep[] | null`** `{ action, to }` — the fewest declared hops from the
+  cursor, each naming the action whose `goTo` claim makes it. `[]` = you are already there. `null` =
+  nobody declares a route, which is honest absence, NOT "it cannot be reached". Ties break by
+  declaration order, so one graph always answers the same way. A route is not a plan (fewest hops is
+  arithmetic) and not a permission (a hop whose guard is closed is still reported as DECLARED —
+  whether it is open is answered on the row of the action you actually reach for, and is never guessed
+  for a page this session has not visited). Source: `src/graph/reach.ts`.
 - `groundTruth(opts?)` → `{ node, version, text }` — the AUTHORITATIVE facts block: position, then
   every ATTEMPT and how it came to rest, in plain words ("DID happen", "ran, but the effect was
   unobservable", "did NOT happen — … was refused: TOOL_DISABLED", "not yet known"), then any
@@ -244,10 +314,10 @@ single-tool convenience form (its `ToolHandle` carries `setEnabled(enabled)` / `
   for a model that would otherwise fill the silence with its own prose. Options:
   `{ sinceVersion?, maxAttempts? }` (default 20). Excludes state values, payloads, produced data,
   available actions (that is `whats_here`'s job) and all interpretation.
-- `skillPlan(id)` → the derived dependency DAG with live per-step status; THROWS on an unknown id.
-  `trySkillPlan(id)` is the same plan for an id you did not author (a model's, a URL's):
-  `{ ok: true, plan }` or `{ ok: false, reason: 'UNKNOWN_SKILL', known }` — the identical failure
-  shape `commitSkill()` returns.
+- `journeyPlan(id)` → the derived dependency DAG with live per-step status; THROWS on an unknown id.
+  `tryJourneyPlan(id)` is the same plan for an id you did not author (a model's, a URL's):
+  `{ ok: true, plan }` or `{ ok: false, reason: 'UNKNOWN_JOURNEY', known }` — the identical failure
+  shape `commitJourney()` returns.
 - Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
   unsubscribe fn. A throwing listener is isolated, never aborts the session.
 - Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire (`kind: 'fire-rejected'`), every
@@ -275,7 +345,7 @@ single-tool convenience form (its `ToolHandle` carries `setEnabled(enabled)` / `
   'revoked'`. One yes = one fire (a replay is `APPROVAL_SPENT`); an ALWAYS ALLOW is scoped to the action,
   never to the input, and every exercise lands a `'used'` row. The gate keys on the PRINCIPAL: a direct
   `session.fire(id, {source:'agent'})` is gated; `source: 'user'`/`'system'` and the record-only sensor
-  (`invoke:false`) are the app-self-report tier and are not — so `skillsAsTools(session, {source:'user'})`
+  (`invoke:false`) are the app-self-report tier and are not — so `serveToAgent(session, {source:'user'})`
   is a port whose fires are NOT gated: it warns when built and serves the unenforced `confirm`/`decline`
   descriptions (`session.requiresHumanApprovalFrom(principal)` is the honest question for a port,
   `requiresHumanApproval` the one about the session). The ask binds a detached COPY of the input, so
@@ -286,16 +356,16 @@ single-tool convenience form (its `ToolHandle` carries `setEnabled(enabled)` / `
 
 ---
 
-## 3. Mode B serving — `skillsAsTools`
+## 3. Mode B serving — `serveToAgent`
 
-`skillsAsTools(session, opts?)` projects the session as a FIXED set of MCP-shaped tools whose bytes
+`serveToAgent(session, opts?)` projects the session as a FIXED set of MCP-shaped tools whose bytes
 never change for the life of a conversation (keeps the prompt cache warm). Disclosure rides the
 RESULT channel. Source: `src/serve/modes.ts`.
 
 ```ts
-import { skillsAsTools } from 'hcifootprint';
+import { serveToAgent } from 'hcifootprint';
 
-const port = skillsAsTools(session);            // opts: { confirmHighEffect?: boolean=true, source?: Principal='agent' }
+const port = serveToAgent(session);            // opts: { confirmHighEffect?: boolean=true, source?: Principal='agent' }
 // Leave `source` at 'agent' for any port a MODEL drives. It stamps the principal on every fire the
 // port makes, and the NOT_MATERIALIZED guarantee keys off it: a port stamping 'user'/'system' is
 // declaring app self-report, so its unbound fires are deliberately NOT gated and the success-shaped
@@ -306,11 +376,11 @@ const result = port.call(name, args);           // route a tool_use; return `res
 
 `tools()` returns, for graph id `shop`:
 
-- one tool per skill: `shop.skill.<id>` (input: `{ step?, input?, confirm?, decline?, instance? }`)
+- one tool per journey: `shop.journey.<id>` (input: `{ step?, input?, confirm?, decline?, instance? }`)
 - `shop.whats_here` — describe the current position. Optional `{ sinceVersion }`: pass a version
   from any previous result and the reply narrates only the DELTA since it (who did what since the
   model's last look) — cheaper re-grounding after write-steps.
-- `shop.do_action` — perform one available action outside any skill flow (`{ action, input?, confirm?, decline?, instance? }`)
+- `shop.do_action` — perform one available action outside any journey flow (`{ action, input?, confirm?, decline?, instance? }`)
 - `shop.why` — the causal backward slice for a state key (`{ key }`)
 - `shop.did_it_work` — how an action came to rest (`{ transitionId }`, taken from that action's
   result — or the `askId` from a `needs-confirm` result, to learn whether the human has decided).
@@ -321,7 +391,8 @@ const result = port.call(name, args);           // route a tool_use; return `res
 ### The three call shapes
 
 - **`shop.whats_here` →** `{ ok: true, facts, brief, actions: [{ action, does, goesTo?, holds?,
-  enabled?, busy?, highEffect?, guardUnevaluated?, instances?, enumeration?, activation?, expects? }], skills: [{ skill,
+  enabled?, unblockedBy?, busy?, highEffect?, guardUnevaluated?, instances?, enumeration?, activation?,
+  expects? }], journeys: [{ journey,
   does, feasible, feasibilityUnknownFor? }], youAreOn, version }`. `goesTo?` is the page this edge CLAIMS
   it will move you to (the declared `goTo`; absent when none is declared) — its success evidence is
   PAGE MOTION, because a navigation declares no writes and nothing on the page has to change.
@@ -332,7 +403,15 @@ const result = port.call(name, args);           // route a tool_use; return `res
   `input` you pass. `enabled?` appears ONLY as `false` — the app has switched that control off, on
   screen and not clickable (a clickable control carries no key at all); firing it anyway is refused
   `TOOL_DISABLED` with `retriable: true` and a sentence that names the STATE and refuses to invent a
-  reason for it, because nothing in this library knows one. `busy?` is the app's OWN LABEL for
+  reason for it, because nothing in this library knows one. `unblockedBy?` rides ONLY that
+  switched-off row and says WHAT WOULD FREE IT: `[{ action, writes, inFlight? }]` — the declared
+  actions whose `writes` touch a key this control's conditions are waiting on, ids only (an id carries
+  its node, so read that action's own row rather than trusting a description copied here). Absent when
+  the control is live, and absent when nothing declares such a write — silence, never a guess. Do NOT
+  read it as a plan or a promise: it is what the app CLAIMS changes those keys. `inFlight: true` means
+  that action is already running, from two observed signals only (a fire awaiting its report, or the
+  app's own `busy` label) — so the move is to WAIT and re-read, not to re-fire. There is no
+  `inFlight: false`; absence means nothing here knows. `busy?` is the app's OWN LABEL for
   "working on it right now" (`'Saving your draft…'`) — the third state beside clickable and switched
   off. Presence-only again: an absent key means the library does not know, NEVER "not busy". It gates
   nothing (a busy control that is not disabled still fires) and nothing here will ever time it out —
@@ -344,10 +423,10 @@ const result = port.call(name, args);           // route a tool_use; return `res
   each attempt came to rest, under a header declaring it authoritative over anything said in the
   conversation. Trust it over your own memory of the turn — including refused fires, which the
   `brief` cannot show. `{ sinceVersion }` narrows both.
-- **`shop.skill.<id>` with no `step` →** opens the skill frame and returns `frameData`:
-  `{ ok: true, skill, frame: 'open', judgment, readySteps: [...], laterSteps: [...], howToAct,
+- **`shop.journey.<id>` with no `step` →** opens the journey frame and returns `frameData`:
+  `{ ok: true, journey, frame: 'open', judgment, readySteps: [...], laterSteps: [...], howToAct,
   awaitingState?, youAreOn, version }`.
-- **`shop.skill.<id>` with `step` →** fires that step: merges `frameData` + `fireData` + position.
+- **`shop.journey.<id>` with `step` →** fires that step: merges `frameData` + `fireData` + position.
 - **`shop.do_action` with `action` →** fires one action: `fireData` + position.
 
 ### `ServeResult` shape
@@ -357,7 +436,7 @@ Text fields are authored strings only; runtime values (state, payloads, instance
 produced data) are structured DATA fields. Fields you will encounter (source: `src/serve/modes.ts`):
 
 - `ok: boolean` and `judgment` — the routing discriminant on `ok: false`:
-  `'blocked'` (skill precondition fails), `'error'` (unknown step/action, bad tool), `'needs-confirm'`
+  `'blocked'` (journey precondition fails), `'error'` (unknown step/action, bad tool), `'needs-confirm'`
   (high-effect step awaiting `confirm: true` — carries `askId` + `receipts` + `performed: false` + an
   authored `why`: NOTHING has been done and this is a question for the human, not a failure — never
   report it as an error; `decline: true` records the refusal and returns `judgment: 'declined'`),
@@ -440,7 +519,7 @@ the real delta via `updateState(...)`. Until then:
 - any downstream step whose guard depends on that write is NOT `ready` yet — it only becomes ready
   after the app reports state back.
 
-**Therefore an agent MUST re-read `whats_here` (or re-open the skill tool) after any write-step** —
+**Therefore an agent MUST re-read `whats_here` (or re-open the journey tool) after any write-step** —
 the readySteps in the write-step's own result were computed before the app moved, so they are stale
 for what comes next. (When there is no state tap, or the step declares no writes, `fire()` returns
 `settlement: 'settled'` immediately and no re-read wait applies — but re-reading is always safe.)
@@ -536,12 +615,12 @@ table by `matchRoute`'s own segment rules. Never a resemblance.
 `BLOCKED_BY_OVERLAY` (a shown modal masks the node),
 `NODE_NOT_VISIBLE`, `STILL_MOUNTING` (RETRIABLE — mounts not arrived yet), `INSTANCE_REQUIRED`,
 `INSTANCE_UNKNOWN`, `TOOL_DISABLED` (RETRIABLE — greyed out; four wires reach it: `enabled:` at registration,
-`handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`. Carries
+`handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ActionDef.enabledWhen`. Carries
 `retriable: true` and an authored `why` that names the STATE and refuses to invent a cause — the app switched
 it off, and nothing here knows what would change it. Do not guess one; the same fact is served ahead of time
 as `enabled: false` on the action row), `NOT_MATERIALIZED` (declared but
-unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with a
-tool group, or create the session with `allowUnmaterializedFires` for read-only touring). Every
+unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with
+`registerActions`, or create the session with `allowUnmaterializedFires` for read-only touring). Every
 refused fire is also a gap-ledger row. **There is no `TOOL_BUSY`, and there will not be**: `busy` is
 what the app SAID, not a door it SHUT, so a working control that is not disabled still fires — a
 refusal on a control the app also called busy carries the label as data and one authored sentence
@@ -558,17 +637,17 @@ and a crossing needs a pointer to an approval the app recorded from a person, or
 
 ## 7. `requiredStateKeys()` — the projector seeding checklist
 
-Present on BOTH graph types (source: `src/graph/builder.ts` for `skillGraph`,
-`src/tree/appmap.ts` for `buildNavigationGraph`):
+On the graph `buildNavigationGraph` returns (source: `src/tree/appmap.ts`):
 
 ```ts
 graph.requiredStateKeys();   // → sorted, deduped string[] of every guard key the graph reads
 ```
 
-It is the sorted, deduped set of state keys every guard reads — across all tool `when`s,
-container-node `when`s (they AND-compose into descendant tools), and skill preconditions — whether
-or not the node is currently mounted. Seed each of these keys in your state projector so guards
-decide instead of deferring (see §4). This is the one call that closes the guard-honesty loop.
+It is the sorted, deduped set of state keys every guard reads — across all action `when`s,
+container-node `when`s (they AND-compose into every descendant action's guard), and journey
+preconditions — whether or not the node is currently mounted. Seed each of these keys in your state
+projector so guards decide instead of deferring (see §4). This is the one call that closes the
+guard-honesty loop.
 
 ---
 
@@ -585,9 +664,16 @@ predicate that threw; never read as a refusal), `enumeration: 'mounted-window'` 
 partial). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.
 
-**Absence is a stance, not an oversight.** `enabled`, `busy`, `holds`, `goesTo` and `stillWorking`
-are PRESENCE-ONLY: a key means the app said so, and no key means this library DOES NOT KNOW — never
-"clickable", "not busy", "the box is empty" or "finished". A cheerful default on every row would be a
-claim about a session nobody was asked about. **And no clock is evidence:** nothing here expires a
-`busy` label or a work row, `settleWithinMs` decides how long to wait and never what the answer is,
-and a caller who stops waiting reports UNFINISHED — never done, never failed.
+**Absence is a stance, not an oversight.** `enabled`, `busy`, `holds`, `goesTo`, `unblockedBy`,
+`inFlight` and `stillWorking` are PRESENCE-ONLY: a key means the app said so, and no key means this
+library DOES NOT KNOW — never "clickable", "not busy", "the box is empty", "nothing would free it" or
+"finished". A cheerful default on every row would be a claim about a session nobody was asked about.
+**And no clock is evidence:** nothing here expires a `busy` label or a work row, `settleWithinMs`
+decides how long to wait and never what the answer is, and a caller who stops waiting reports
+UNFINISHED — never done, never failed.
+
+**Derived, never authored.** Three reads join declarations the app already made for other reasons, so
+none of them can drift from the graph and none of them is a thing to maintain: `journeyPlan`'s step
+dependencies, `whatUnblocks` (§2), and `howToReach` (§2). There is no edge API in this library — not
+between pages, not between actions. The one relational thing you declare is a `journeys:` entry,
+because a preferred order toward a goal is meaning, and meaning is yours.

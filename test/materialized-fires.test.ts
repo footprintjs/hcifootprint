@@ -3,9 +3,9 @@
  * rejection, and a tour that opts in tells the truth about it.
  *
  * The bug this kills (reported from a live Bedrock agent): in guide mode — a
- * session wired with no tool group — firing a declared-but-unbound tool
+ * session wired with no handler group — firing a declared-but-unbound action
  * returned {ok:true, settlement:'settled'}. The model read that as success and
- * told the human "done", while the real app never moved; a goTo tool ALSO slid
+ * told the human "done", while the real app never moved; a goTo action ALSO slid
  * the session cursor on a claim, so the library's position silently diverged
  * from the app's.
  *
@@ -15,25 +15,25 @@
  * false), ledger the missing binding, and disclose claimed navigation.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { Binding, NavigationGraph } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-/** The tester's shape: a goTo tool an agent can call through Mode B. */
+/** The tester's shape: a goTo action an agent can call through Mode B. */
 function tourMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
           'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] },
         },
       },
-      checkout: { tools: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
+      checkout: { actions: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
     },
-    skills: { purchase: { does: 'Buy a dress', steps: ['go-checkout', 'place-order'] } },
+    journeys: { purchase: { does: 'Buy a dress', steps: ['go-checkout', 'place-order'] } },
   });
 }
 
@@ -44,7 +44,7 @@ function tourMap(): NavigationGraph {
 describe('the reported repro: a success-shaped no-op', () => {
   it('guide mode, no handlers: an agent goTo fire is rejected NOT_MATERIALIZED and the cursor stays put', () => {
     const session = tourMap().createSession({ node: 'catalog', onWarn: () => undefined });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     const result = port.call('shop.do_action', { action: 'go-checkout' });
 
@@ -74,27 +74,31 @@ describe('the reported repro: a success-shaped no-op', () => {
 
 describe('the gate — every arm where nothing would execute', () => {
   function armsGraph() {
-    return skillGraph('g')
-      .page('a')
-      .page('b')
-      .affordance('go', { on: 'a', description: 'Go to b', binding, effect: { navigatesTo: 'b' } })
-      .affordance('save', { on: 'a', description: 'Save', binding, effect: { writes: ['saved'] } })
-      .build();
+    return buildNavigationGraph('g', {
+      pages: {
+        a: {},
+        b: {},
+      },
+      actions: {
+        go: { on: 'a', does: 'Go to b', binding, goTo: 'b' },
+        save: { on: 'a', does: 'Save', binding, writes: ['saved'] },
+      },
+    });
   }
 
-  it('a navigation-only tool (no declared writes) is refused', () => {
+  it('a navigation-only action (no declared writes) is refused', () => {
     const s = armsGraph().createSession({ node: 'a' });
     expect(s.fire('go', { source: 'agent' })).toMatchObject({ ok: false, reason: 'NOT_MATERIALIZED', affordanceId: 'go' });
     expect(s.node).toBe('a');
   });
 
-  it('a declared-writes tool in a TAPLESS session is refused (it would settle a lie)', () => {
+  it('a declared-writes action in a TAPLESS session is refused (it would settle a lie)', () => {
     const s = armsGraph().createSession({ node: 'a' });
     expect(s.fire('save', { source: 'agent' })).toMatchObject({ ok: false, reason: 'NOT_MATERIALIZED' });
     expect(s.transitions()).toHaveLength(0);
   });
 
-  it('a declared-writes tool in a TAPPED session is refused — the pend-forever hang dies with it', () => {
+  it('a declared-writes action in a TAPPED session is refused — the pend-forever hang dies with it', () => {
     const s = armsGraph().createSession({ node: 'a', stateTap: true });
     expect(s.fire('save', { source: 'agent' })).toMatchObject({ ok: false, reason: 'NOT_MATERIALIZED' });
     expect(s.pending()).toEqual([]); // nothing would ever have reported
@@ -119,7 +123,7 @@ describe('allowUnmaterializedFires — the guide/tour rung, told honestly', () =
 
   it('the tour walks: the cursor moves on the claim and the next page serves its edges', () => {
     const s = tourMap().createSession({ node: 'catalog', allowUnmaterializedFires: true, onWarn: () => undefined });
-    const port = skillsAsTools(s);
+    const port = serveToAgent(s);
     const result = port.call('shop.do_action', { action: 'go-checkout' });
 
     expect(result).toMatchObject({
@@ -207,11 +211,11 @@ describe('allowUnmaterializedFires — the guide/tour rung, told honestly', () =
 // 4. Claimed navigation is disclosed on BOUND fires too (the secondary bug)
 // ---------------------------------------------------------------------------
 
-describe('toNodeClaimed on the Mode B result', () => {
+describe('A CLAIM IS NEVER A FACT: a navigating fire discloses where it CLAIMS to go', () => {
   it('a BOUND navigating fire still discloses the claim — only sync() confirms position', () => {
     const s = tourMap().createSession({ node: 'catalog', onWarn: () => undefined });
-    s.registerToolGroup('catalog', { handlers: { 'go-checkout': () => undefined } });
-    const port = skillsAsTools(s);
+    s.registerActions('catalog', { handlers: { 'go-checkout': () => undefined } });
+    const port = serveToAgent(s);
 
     const result = port.call('shop.do_action', { action: 'go-checkout' });
     expect(result).toMatchObject({ ok: true, toNodeClaimed: true, youAreOn: 'checkout' });
@@ -224,8 +228,8 @@ describe('toNodeClaimed on the Mode B result', () => {
 
   it('a non-navigating bound fire carries no claim flag', () => {
     const s = tourMap().createSession({ node: 'catalog', state: { cart: [] }, onWarn: () => undefined });
-    s.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
-    const port = skillsAsTools(s);
+    s.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    const port = serveToAgent(s);
     const result = port.call('shop.do_action', { action: 'add-to-cart' });
     expect(result['ok']).toBe(true);
     expect(result['toNodeClaimed']).toBeUndefined();
@@ -260,7 +264,7 @@ describe('what the gate never touches', () => {
 
   it('a registered handler satisfies the gate — plain success, no markers', () => {
     const s = tourMap().createSession({ node: 'catalog', onWarn: () => undefined });
-    s.registerToolGroup('catalog', { handlers: { 'go-checkout': () => undefined } });
+    s.registerActions('catalog', { handlers: { 'go-checkout': () => undefined } });
     const fired = s.fire('catalog.go-checkout', { source: 'agent' });
     expect(fired.ok).toBe(true);
     if (!fired.ok) throw new Error('unreachable');
@@ -286,14 +290,14 @@ describe('what the gate never touches', () => {
             card: {
               repeats: true,
               instances: (state) => (state['ids'] as string[]) ?? [],
-              tools: { cancel: { does: 'Cancel this order' } },
+              actions: { cancel: { does: 'Cancel this order' } },
             },
           },
         },
       },
     });
     const s = map.createSession({ node: 'list', state: { ids: ['o-1', 'o-2'] }, onWarn: () => undefined });
-    s.registerToolGroup('list.card', { instance: 'o-1', handlers: { cancel: () => undefined } });
+    s.registerActions('list.card', { instance: 'o-1', handlers: { cancel: () => undefined } });
     await tick();
     expect(s.fire('list.card.cancel', { source: 'agent', instance: 'o-1' }).ok).toBe(true);
     // A row that exists but is not mounted keeps its BETTER answer: mounts are
@@ -314,8 +318,8 @@ describe('taxonomy order — the new gate never masks a better answer', () => {
     return buildNavigationGraph('shop', {
       pages: {
         catalog: {
-          areas: { rail: { tools: { 'set-color': { does: 'Filter by color' } } } },
-          tools: { help: { does: 'Open help' } },
+          areas: { rail: { actions: { 'set-color': { does: 'Filter by color' } } } },
+          actions: { help: { does: 'Open help' } },
         },
       },
     });
@@ -323,16 +327,16 @@ describe('taxonomy order — the new gate never masks a better answer', () => {
 
   it("a node whose mounts have not arrived still answers STILL_MOUNTING (retriable)", () => {
     const s = mountingMap().createSession({ node: 'catalog', onWarn: () => undefined });
-    s.registerToolGroup('catalog', { handlers: { help: () => undefined } }); // the session runs on mounts
+    s.registerActions('catalog', { handlers: { help: () => undefined } }); // the session runs on mounts
     expect(s.fire('catalog.rail.set-color', { source: 'agent' })).toMatchObject({
       ok: false,
       reason: 'STILL_MOUNTING',
     });
   });
 
-  it('a registered-but-greyed tool still answers TOOL_DISABLED', () => {
+  it('a registered-but-greyed action still answers TOOL_DISABLED', () => {
     const s = mountingMap().createSession({ node: 'catalog', onWarn: () => undefined });
-    s.registerToolGroup('catalog', { handlers: { help: () => undefined }, enabled: { help: false } });
+    s.registerActions('catalog', { handlers: { help: () => undefined }, enabled: { help: false } });
     expect(s.fire('catalog.help', { source: 'agent' })).toMatchObject({ ok: false, reason: 'TOOL_DISABLED' });
   });
 
@@ -346,7 +350,7 @@ describe('taxonomy order — the new gate never masks a better answer', () => {
 // 7. Availability — say it BEFORE the agent fires
 // ---------------------------------------------------------------------------
 
-describe('availability stamping', () => {
+describe('the row says whether the act could reach the app at all', () => {
   it('a touring session stamps materialized:false on every served edge', () => {
     const s = tourMap().createSession({ node: 'catalog', allowUnmaterializedFires: true, onWarn: () => undefined });
     expect(s.available().edges.map((e) => e.materialized)).toEqual([false, false]);
@@ -354,13 +358,13 @@ describe('availability stamping', () => {
 
   it('Mode B surfaces it in whats_here actions and in readySteps', () => {
     const s = tourMap().createSession({ node: 'catalog', allowUnmaterializedFires: true, onWarn: () => undefined });
-    const port = skillsAsTools(s);
+    const port = serveToAgent(s);
     const here = port.call('shop.whats_here');
     expect((here['actions'] as Array<Record<string, unknown>>)[0]).toMatchObject({
       action: 'catalog.go-checkout',
       materialized: false,
     });
-    const opened = port.call('shop.skill.purchase', {});
+    const opened = port.call('shop.journey.purchase', {});
     expect((opened['readySteps'] as Array<Record<string, unknown>>)[0]).toMatchObject({
       step: 'catalog.go-checkout',
       materialized: false,
@@ -378,7 +382,7 @@ describe('availability stamping', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * The reported bug arrived as a goTo tool, and a reader could reasonably come
+ * The reported bug arrived as a goTo action, and a reader could reasonably come
  * away thinking the gate is about navigation — that it exists because the
  * CURSOR moved on a claim. It is not. The check asks one question, about
  * actuation: with `invoke` wanted and nothing bound, firing executes nothing.
@@ -393,30 +397,38 @@ describe('the gate does not care what the affordance claims to do', () => {
   const clicky: Binding = { kind: 'element', locator: { role: 'button', name: 'B' }, actuation: 'click' };
 
   function kindsGraph() {
-    return skillGraph('g')
-      .page('a')
-      .page('b')
-      .affordance('save-draft', {
-        on: 'a',
-        description: 'Save the draft',
-        binding: clicky,
-        effect: { writes: ['draft'] }, // writes only — the cursor never moves
-        role: 'action',
-      })
-      .affordance('open-b', {
-        on: 'a',
-        description: 'Open page b',
-        binding: clicky,
-        effect: { navigatesTo: 'b' }, // navigation only
-      })
-      .affordance('submit-and-go', {
-        on: 'a',
-        description: 'Submit and continue',
-        binding: clicky,
-        effect: { writes: ['order'], navigatesTo: 'b' }, // both
-      })
-      .affordance('open-help', { on: 'a', description: 'Open the help panel', binding: clicky }) // neither
-      .build();
+    return buildNavigationGraph('g', {
+      pages: {
+        a: {},
+        b: {},
+      },
+      actions: {
+        'save-draft': {
+          on: 'a',
+          does: 'Save the draft',
+          binding: clicky,
+          writes: ['draft'],
+          // writes only — the cursor never moves
+          role: 'action',
+        },
+        'open-b': {
+          on: 'a',
+          does: 'Open page b',
+          binding: clicky,
+          goTo: 'b',
+          // navigation only,
+        },
+        'submit-and-go': {
+          on: 'a',
+          does: 'Submit and continue',
+          binding: clicky,
+          writes: ['order'],
+          goTo: 'b',
+          // both,
+        },
+        'open-help': { on: 'a', does: 'Open the help panel', binding: clicky },
+      },
+    });
   }
 
   it('refuses a write-only click with no handler, and ledgers it like any other', () => {
@@ -462,7 +474,7 @@ describe('the gate does not care what the affordance claims to do', () => {
     // The lookup is per affordance, not per kind or per group: proof that the
     // gate reads bindings and nothing else about the edge.
     const s = kindsGraph().createSession({ node: 'a', state: { draft: null }, stateTap: true });
-    s.registerTools({ group: 'app', tools: { 'save-draft': () => undefined } });
+    s.registerHandlers({ group: 'app', handlers: { 'save-draft': () => undefined } });
 
     expect(s.fire('save-draft', { source: 'agent' })).toMatchObject({ ok: true });
     expect(s.fire('open-b', { source: 'agent' })).toMatchObject({ ok: false, reason: 'NOT_MATERIALIZED' });

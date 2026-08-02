@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { shop, initialState, okUpdate, wire } from './fixture.js';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { ConfirmReceipts, ConfirmRecord, NavigationGraph } from '../src/index.js';
 
 // A nav graph mirroring modes.test: place-order is a high-effect step on checkout.
@@ -23,16 +23,16 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           'add-to-cart': { does: 'Add the selected dress to the cart', writes: ['cart'] },
           'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
         },
       },
       checkout: {
-        tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } },
+        actions: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } },
       },
     },
-    skills: {
+    journeys: {
       purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'go-checkout', 'place-order'] },
     },
   });
@@ -41,17 +41,17 @@ function shopMap(): NavigationGraph {
 /** Drive a Mode B port all the way to a needs-confirm on place-order. */
 function atNeedsConfirm() {
   const session = shopMap().createSession({ state: { cart: [] }, onWarn: () => undefined });
-  // The app binds its buttons: an agent fire of an unbound tool is refused.
-  session.registerToolGroup('catalog', {
+  // The app binds its buttons: an agent fire of an unbound action is refused.
+  session.registerActions('catalog', {
     handlers: { 'add-to-cart': () => undefined, 'go-checkout': () => undefined },
   });
-  session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
-  const port = skillsAsTools(session);
-  port.call('shop.skill.purchase', {});
-  port.call('shop.skill.purchase', { step: 'add-to-cart' });
+  session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+  const port = serveToAgent(session);
+  port.call('shop.journey.purchase', {});
+  port.call('shop.journey.purchase', { step: 'add-to-cart' });
   session.updateState({ cart: ['dress'] });
-  port.call('shop.skill.purchase', { step: 'go-checkout' }); // navigate to checkout
-  const asked = port.call('shop.skill.purchase', { step: 'place-order' });
+  port.call('shop.journey.purchase', { step: 'go-checkout' }); // navigate to checkout
+  const asked = port.call('shop.journey.purchase', { step: 'place-order' });
   return { session, port, asked };
 }
 
@@ -252,7 +252,7 @@ describe('Mode B — receipts + decline over the serve layer', () => {
 
   it('confirm: true fires it and links the transition back to the ask', () => {
     const { session, port, asked } = atNeedsConfirm();
-    const fired = port.call('shop.skill.purchase', { step: 'place-order', confirm: true });
+    const fired = port.call('shop.journey.purchase', { step: 'place-order', confirm: true });
     expect(fired['did']).toBe('checkout.place-order');
 
     const chain = session.confirms();
@@ -265,7 +265,7 @@ describe('Mode B — receipts + decline over the serve layer', () => {
 
   it('decline: true records the refusal and does NOT fire', () => {
     const { session, port } = atNeedsConfirm();
-    const declined = port.call('shop.skill.purchase', { step: 'place-order', decline: true });
+    const declined = port.call('shop.journey.purchase', { step: 'place-order', decline: true });
     expect(declined).toMatchObject({ ok: false, judgment: 'declined', step: 'checkout.place-order' });
     expect(session.confirms().map((c) => c.kind)).toEqual(['ask', 'declined']);
     // nothing fired: no place-order transition, no 'orders' write
@@ -275,13 +275,13 @@ describe('Mode B — receipts + decline over the serve layer', () => {
 
   it('do_action gates a high-effect action with receipts, confirm, and decline symmetrically', () => {
     const map = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
-      skills: {},
+      pages: { checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
+      journeys: {},
     });
     // ask
     const s1 = map.createSession({ state: {} });
-    s1.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
-    const p1 = skillsAsTools(s1);
+    s1.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+    const p1 = serveToAgent(s1);
     const asked = p1.call('shop.do_action', { action: 'place-order' });
     expect(asked).toMatchObject({ ok: false, judgment: 'needs-confirm', action: 'checkout.place-order' });
     expect((asked['receipts'] as ConfirmReceipts).willDo.does).toBe('Place the order');
@@ -291,8 +291,8 @@ describe('Mode B — receipts + decline over the serve layer', () => {
     expect(s1.confirms().map((c) => c.kind)).toEqual(['ask', 'approved']);
     // decline (fresh session)
     const s2 = map.createSession({ state: {} });
-    s2.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
-    const p2 = skillsAsTools(s2);
+    s2.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+    const p2 = serveToAgent(s2);
     p2.call('shop.do_action', { action: 'place-order' });
     const declined = p2.call('shop.do_action', { action: 'place-order', decline: true });
     expect(declined).toMatchObject({ ok: false, judgment: 'declined', action: 'checkout.place-order' });
@@ -301,17 +301,17 @@ describe('Mode B — receipts + decline over the serve layer', () => {
 
   it('a NON-high-effect edge is untouched — no ask, no receipts, no confirm rows', () => {
     const session = shopMap().createSession({ state: { cart: [] }, onWarn: () => undefined });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: { 'add-to-cart': () => undefined, 'go-checkout': () => undefined },
     });
-    const port = skillsAsTools(session);
-    port.call('shop.skill.purchase', {});
-    const step = port.call('shop.skill.purchase', { step: 'add-to-cart' }); // low-effect
+    const port = serveToAgent(session);
+    port.call('shop.journey.purchase', {});
+    const step = port.call('shop.journey.purchase', { step: 'add-to-cart' }); // low-effect
     expect(step['did']).toBe('catalog.add-to-cart');
     expect(step).not.toHaveProperty('receipts');
     expect(step).not.toHaveProperty('askId');
     session.updateState({ cart: ['dress'] });
-    const nav = port.call('shop.skill.purchase', { step: 'go-checkout' }); // low-effect
+    const nav = port.call('shop.journey.purchase', { step: 'go-checkout' }); // low-effect
     expect(nav['did']).toBe('catalog.go-checkout');
     expect(session.confirms()).toHaveLength(0); // the confirm machinery never engaged
   });

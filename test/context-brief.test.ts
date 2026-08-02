@@ -5,6 +5,7 @@
  * to history.
  */
 import { describe, expect, it } from 'vitest';
+import { buildNavigationGraph } from '../src/index.js';
 import { shop, initialState, okUpdate, wire } from './fixture.js';
 import type { Session } from '../src/index.js';
 
@@ -21,7 +22,7 @@ function interleavedSession(): { s: Session; afterLogin: number } {
   return { s, afterLogin };
 }
 
-describe('contextBrief() — who did what since the last turn', () => {
+describe('who did what since the model last looked', () => {
   it('narrates the interleaved user/agent/system path with position and availability', () => {
     const { s } = interleavedSession();
     const brief = s.contextBrief();
@@ -81,16 +82,16 @@ describe('contextBrief() — who did what since the last turn', () => {
       state: { ...initialState, authenticated: true },
     });
     wire(s, 'add-to-cart'); // entry materialised (0.4.x never-trap commit gate)
-    s.commitSkill('purchase');
+    s.commitJourney('purchase');
     let brief = s.contextBrief();
-    expect(brief.frame?.skillId).toBe('purchase');
-    expect(brief.text).toContain('Open skill: purchase — Buy the items currently in the cart (0/4 steps done).');
-    expect(brief.text).toContain('leave-skill');
+    expect(brief.frame?.journeyId).toBe('purchase');
+    expect(brief.text).toContain('Open journey: purchase — Buy the items currently in the cart (0/4 steps done).');
+    expect(brief.text).toContain('leave-journey');
 
     okUpdate(s.updateState({ authenticated: false }, { stimulus: 'push' })); // demotes
     brief = s.contextBrief();
     expect(brief.frame).toBeNull();
-    expect(brief.text).toContain('Note: skill purchase was demoted — its precondition no longer holds.');
+    expect(brief.text).toContain('Note: journey purchase was demoted — its precondition no longer holds.');
   });
 
   it('caps rendered transitions and reports the omitted count', () => {
@@ -116,7 +117,7 @@ describe('contextBrief() — who did what since the last turn', () => {
  * That sends the reader hunting a bug that isn't there; the line now says which
  * ordinary thing happened.
  */
-describe('contextBrief() — a report that changed nothing says so', () => {
+describe('a turn in which nothing moved says exactly that', () => {
   const NO_CHANGE =
     '(no observable change — same-value writes and undefined-valued keys net out before the commit)';
 
@@ -155,5 +156,43 @@ describe('contextBrief() — a report that changed nothing says so', () => {
       okUpdate(s.updateState({ cartCount: 0 }, { stimulus: 'push' }));
       expect(s.contextBrief().text).toContain(NO_CHANGE);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What the brief adds to a line it cannot leave plain
+// ---------------------------------------------------------------------------
+
+describe('the two things a plain "who fired what" line would hide', () => {
+  it('flags a fire whose declared write never arrived — the commit stands, the claim does not', () => {
+    // Both halves are true and neither is averaged: the app really did report,
+    // so the row commits; the action claimed a key that never came, so the line
+    // says the claim was not observed. A brief that printed only "agent fired
+    // add-to-cart" would read as done.
+    const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
+    s.fire('add-to-cart', { source: 'user', payload: { productId: 'p1' } });
+    okUpdate(s.updateState({ cart: [{ id: 'p1' }] })); // declared cartCount never arrived
+
+    expect(s.contextBrief().text).toContain('[declared effect not observed]');
+  });
+
+  it('notes a journey the world demoted, and drops the note once the reader has moved past it', () => {
+    // The precondition is what a journey is FOR, so a world change that breaks
+    // it closes the frame — and a model that opened that journey has to be told,
+    // or it goes on planning steps inside a room that shut behind it.
+    const map = buildNavigationGraph('lab', {
+      pages: { setup: { actions: { go: { does: 'Start the run', writes: ['started'] } } } },
+      journeys: { run: { does: 'Run it end to end', steps: ['setup.go'], when: { rigOnline: { eq: true } } } },
+    });
+    const session = map.createSession({ node: 'setup', state: { rigOnline: true }, onWarn: () => undefined });
+    session.registerActions('setup', { handlers: { go: () => undefined } });
+    expect(session.commitJourney('run').ok).toBe(true);
+
+    session.updateState({ rigOnline: false }, { stimulus: 'push' }); // the rig went offline
+    expect(session.contextBrief().text).toContain('journey run was demoted');
+    expect(session.contextBrief({ sinceVersion: 0 }).text).toContain('journey run was demoted');
+    // …and a reader asking only about what happened AFTER the demotion is not
+    // told about it a second time.
+    expect(session.contextBrief({ sinceVersion: session.version + 1 }).text).not.toContain('demoted');
   });
 });

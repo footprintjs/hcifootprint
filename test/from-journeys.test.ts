@@ -1,8 +1,8 @@
 /**
- * fromJourneys() — the journeys the app already owns become skills, overlaid
+ * fromJourneys() — the journeys the app already owns become journeys, overlaid
  * on the spine. One authoring vocabulary (does/steps/when — the JourneyDef
  * shape), and one judge: a journey's MEANING is validated by the
- * compiler's existing skills pass, so unknown and ambiguous steps die in the
+ * compiler's existing journeys pass, so unknown and ambiguous steps die in the
  * builder's existing voice, not a second dialect of it.
  *
  * Every test is a mutation proof against pre-sources code: fromJourneys did
@@ -13,32 +13,32 @@ import { buildNavigationGraph, fromJourneys } from '../src/index.js';
 
 const PAGES = {
   catalog: {
-    tools: {
+    actions: {
       'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] },
       'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
     },
   },
   checkout: {
-    tools: { 'place-order': { does: 'Place the order', confirm: true } },
+    actions: { 'place-order': { does: 'Place the order', confirm: true } },
   },
 };
 
-describe('fromJourneys — the factory', () => {
+describe('journeys declared away from the graph, and read back into it', () => {
   it('reads JourneyDef field names as-is and freezes the snapshot', () => {
     const journey = { does: 'Buy end to end', steps: ['add-to-cart'], when: { authenticated: { eq: true } } };
     const src = fromJourneys({ purchase: journey });
     expect(src.kind).toBe('journeys');
-    expect(src.skills.purchase).toEqual(journey);
+    expect(src.journeys.purchase).toEqual(journey);
     // Snapshot: the author's later edits change nothing that was read.
     journey.steps.push('place-order');
     journey.when.authenticated.eq = false;
-    expect(src.skills.purchase.steps).toEqual(['add-to-cart']);
-    expect(src.skills.purchase.when).toEqual({ authenticated: { eq: true } });
+    expect(src.journeys.purchase.steps).toEqual(['add-to-cart']);
+    expect(src.journeys.purchase.when).toEqual({ authenticated: { eq: true } });
     expect(Object.isFrozen(src)).toBe(true);
-    expect(Object.isFrozen(src.skills.purchase)).toBe(true);
+    expect(Object.isFrozen(src.journeys.purchase)).toBe(true);
   });
 
-  it('refuses journey names the compiler would refuse — skill ids feed MCP tool names', () => {
+  it('refuses journey names the compiler would refuse — journey ids feed MCP tool names', () => {
     expect(() => fromJourneys({ 'bad.id': { does: 'x', steps: ['a'] } })).toThrow(/reserved character/);
     expect(() => fromJourneys({ '': { does: 'x', steps: ['a'] } })).toThrow(/empty name\./);
   });
@@ -50,8 +50,8 @@ describe('fromJourneys — the factory', () => {
   });
 });
 
-describe('fromJourneys — the overlay, through buildNavigationGraph', () => {
-  it('journeys compile through the EXISTING skills pass: suffix steps resolve, when becomes the precondition', () => {
+describe('those journeys landing on a graph that was authored elsewhere', () => {
+  it('journeys compile through the EXISTING journeys pass: suffix steps resolve, when becomes the precondition', () => {
     const graph = buildNavigationGraph('shop', {
       pages: PAGES,
       sources: [
@@ -64,33 +64,33 @@ describe('fromJourneys — the overlay, through buildNavigationGraph', () => {
         }),
       ],
     });
-    expect(graph.spec.skills.purchase.steps).toEqual([
+    expect(graph.spec.journeys.purchase.steps).toEqual([
       'catalog.add-to-cart',
       'catalog.go-checkout',
       'checkout.place-order',
     ]);
-    expect(graph.spec.skills.purchase.precondition).toEqual({ authenticated: { eq: true } });
+    expect(graph.spec.journeys.purchase.precondition).toEqual({ authenticated: { eq: true } });
   });
 
   it('an unknown step dies in the builder\'s existing voice', () => {
     expect(() =>
       buildNavigationGraph('shop', {
         pages: PAGES,
-        sources: [fromJourneys({ ghost: { does: 'x', steps: ['no-such-tool'] } })],
+        sources: [fromJourneys({ ghost: { does: 'x', steps: ['no-such-action'] } })],
       }),
-    ).toThrow(/skill 'ghost' step 'no-such-tool' matches no tool/);
+    ).toThrow(/journey 'ghost' step 'no-such-action' matches no action/);
   });
 
   it('an ambiguous step dies in the builder\'s existing voice', () => {
     const graph = () =>
       buildNavigationGraph('shop', {
         pages: {
-          a: { tools: { save: { does: 'Save A' } } },
-          b: { tools: { save: { does: 'Save B' } } },
+          a: { actions: { save: { does: 'Save A' } } },
+          b: { actions: { save: { does: 'Save B' } } },
         },
         sources: [fromJourneys({ keep: { does: 'x', steps: ['save'] } })],
       });
-    expect(graph).toThrow(/skill 'keep' step 'save' is ambiguous — qualify it/);
+    expect(graph).toThrow(/journey 'keep' step 'save' is ambiguous — qualify it/);
   });
 
   it('a journey may only ADD — the page spine is untouched by the overlay', () => {

@@ -1,11 +1,35 @@
+/**
+ * WHAT CAN BE DONE FROM HERE — the offer a model reads before it reaches.
+ *
+ * A page's declared actions are not all reachable at once. A guard says what
+ * must be true for one to be offered, and `available()` is the answer to the
+ * only question a planner asks first: of everything this app declares, what
+ * could I act on standing where I am standing?
+ *
+ * That answer is arithmetic over declared conditions and reported state. It
+ * expresses no preference, ranks nothing, and recommends nothing — ordering
+ * intent toward a goal is a JOURNEY, which is authored. This is the set, and
+ * beside each member the evidence that put it there.
+ *
+ * THREE HONESTY LAWS LIVE HERE, each pinned below:
+ * - UNKNOWABLE BECOMES ABSENCE, NOT FALSE. A guard reading a key the app has
+ *   never reported is UNEVALUABLE. The edge is served WITH the marker, never
+ *   silently withheld — hiding it would be this library deciding, from missing
+ *   information, that a real control does not exist.
+ * - A REFUSAL TEACHES. `explain()` answers why an edge is not offered by naming
+ *   the conditions that failed, so a planner can act on the answer rather than
+ *   re-firing to discover it.
+ * - REDACTION HOLDS ON EVERY CHANNEL. Evidence is a channel like any other: a
+ *   hidden key's value cannot ride out through the reason an edge passed.
+ */
 import { describe, expect, it } from 'vitest';
-import { skillGraph } from '../src/index.js';
+import { buildNavigationGraph } from '../src/index.js';
 import { shop, initialState } from './fixture.js';
 
 const binding = { kind: 'element', locator: { role: 'button', name: 'Go' } } as const;
 
-describe('available() — the guard-filtered action space', () => {
-  it('offers only on-node, guard-passing edges', () => {
+describe('the set of actions a planner may reach for right now', () => {
+  it('offers only what is declared on this page AND whose guard passes', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const slice = s.available();
     expect(slice.node).toBe('catalog');
@@ -13,7 +37,7 @@ describe('available() — the guard-filtered action space', () => {
     expect(slice.edges.map((e) => e.affordanceId)).toEqual(['login']);
   });
 
-  it('the action space changes as projected state changes', () => {
+  it('the offer moves when the world moves — a plan made against the old set is stale', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     s.updateState({ authenticated: true, cartCount: 2 }, { stimulus: 'push' });
     const ids = s.available().edges.map((e) => e.affordanceId);
@@ -22,7 +46,7 @@ describe('available() — the guard-filtered action space', () => {
     expect(ids).not.toContain('login'); // eq:false now fails
   });
 
-  it('a multi-page affordance is offered on its second page too', () => {
+  it('an action the author put on two pages is offered on both, and fireable on both', () => {
     const s = shop().createSession({ node: 'cart', state: initialState });
     const ids = s.available().edges.map((e) => e.affordanceId);
     expect(ids).toContain('login');
@@ -30,7 +54,16 @@ describe('available() — the guard-filtered action space', () => {
     expect(s.fire('login', { source: 'user' })).toMatchObject({ ok: true, settlement: 'awaiting-state' });
   });
 
-  it('serves per-condition evidence — why each edge is passable', () => {
+  it('reading the state a caller was served can never edit the state the guards read', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    const snap = s.state();
+    (snap as Record<string, unknown>)['authenticated'] = true;
+    expect(s.available().edges.map((e) => e.affordanceId)).toEqual(['login']);
+  });
+});
+
+describe('every offer arrives with the evidence that put it there', () => {
+  it('names each condition, what it compared, and how it came out', () => {
     const s = shop().createSession({ node: 'catalog', state: { ...initialState, cartCount: 3 } });
     const edge = s.available().edges.find((e) => e.affordanceId === 'go-to-cart');
     expect(edge).toBeDefined();
@@ -39,7 +72,7 @@ describe('available() — the guard-filtered action space', () => {
     ]);
   });
 
-  it('surfaces the highEffect marker on the edge', () => {
+  it('an action the author marked hard-to-undo says so on the row, before it is fired', () => {
     const s = shop().createSession({
       node: 'checkout',
       state: { ...initialState, authenticated: true, cartCount: 1 },
@@ -48,7 +81,10 @@ describe('available() — the guard-filtered action space', () => {
     expect(edge).toMatchObject({ highEffect: true, role: 'action' });
   });
 
-  it('explain() answers why an edge is NOT available, with failing conditions', () => {
+});
+
+describe('EVERY REFUSAL TEACHES: why an action is not on the list', () => {
+  it('names the conditions that failed, and separately whether the action is even here', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const why = s.explain('add-to-cart');
     expect(why.available).toBe(false);
@@ -61,11 +97,21 @@ describe('available() — the guard-filtered action space', () => {
     expect(s.explain('place-order').offeredOnThisNode).toBe(false);
   });
 
-  it('a guard on a key ABSENT from state is served WITH guardUnevaluated — never silently hidden (D18)', () => {
-    const g = skillGraph('g')
-      .page('a')
-      .affordance('x', { on: 'a', description: 'd', binding, guard: { missingKey: { eq: true } } })
-      .build();
+});
+
+describe('UNKNOWABLE BECOMES ABSENCE: a guard on a key the app never reported', () => {
+  // The alternative is this library reading missing information as `false` and
+  // withholding a control that may well be live — a verdict drawn from silence,
+  // which is the one inference the house forbids.
+  it('is served WITH the unevaluable marker, never silently withheld', () => {
+    const g = buildNavigationGraph('g', {
+      pages: {
+        a: {},
+      },
+      actions: {
+        x: { on: 'a', does: 'd', binding, when: { missingKey: { eq: true } } },
+      },
+    });
     const s = g.createSession({ node: 'a', state: {} });
     // The session's state view has never contained missingKey: the condition is
     // UNEVALUABLE, not false. The edge is offered, honestly marked, and the app
@@ -84,7 +130,10 @@ describe('available() — the guard-filtered action space', () => {
     expect(s.explain('x').guardUnevaluated).toBeUndefined();
   });
 
-  it('redacted keys show [REDACTED] in evidence, never the raw value', () => {
+});
+
+describe('REDACTION HOLDS ON THE EVIDENCE CHANNEL TOO', () => {
+  it('a hidden key cannot leak its value through the reason an action passed', () => {
     const s = shop().createSession({
       node: 'catalog',
       state: { ...initialState, authenticated: true },
@@ -95,21 +144,17 @@ describe('available() — the guard-filtered action space', () => {
     expect(edge!.evidence[0].actualSummary).toBe('[REDACTED]');
   });
 
-  it('availableSkills() discloses skill-level feasibility for the planner', () => {
+});
+
+describe('which journeys are worth committing to from here', () => {
+  it('separates "the precondition holds" from "the first step can actually be taken"', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
-    let skills = s.availableSkills().skills;
-    expect(skills).toHaveLength(1);
-    expect(skills[0]).toMatchObject({ id: 'purchase', preconditionPassed: false, entryAvailable: false });
+    let journeys = s.availableJourneys().journeys;
+    expect(journeys).toHaveLength(1);
+    expect(journeys[0]).toMatchObject({ id: 'purchase', preconditionPassed: false, entryAvailable: false });
 
     s.updateState({ authenticated: true }, { stimulus: 'push' });
-    skills = s.availableSkills().skills;
-    expect(skills[0]).toMatchObject({ id: 'purchase', preconditionPassed: true, entryAvailable: true });
-  });
-
-  it('state() returns a detached snapshot — mutating it cannot corrupt the session', () => {
-    const s = shop().createSession({ node: 'catalog', state: initialState });
-    const snap = s.state();
-    (snap as Record<string, unknown>)['authenticated'] = true;
-    expect(s.available().edges.map((e) => e.affordanceId)).toEqual(['login']);
+    journeys = s.availableJourneys().journeys;
+    expect(journeys[0]).toMatchObject({ id: 'purchase', preconditionPassed: true, entryAvailable: true });
   });
 });

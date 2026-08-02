@@ -29,8 +29,8 @@ export interface GapRow {
   rejectionReason?: string;
   /** Which gesture nothing was wired to perform. */
   gestureKind?: string;
-  /** The skill a refused commit was reaching for (entry-gate rows). */
-  skillId?: string;
+  /** The journey a refused commit was reaching for (entry-gate rows). */
+  journeyId?: string;
   principal?: string;
   request?: string;
 }
@@ -68,7 +68,7 @@ export function readGapBacklog(gaps: readonly GapRecord[]): GapBacklog {
       ...(gap.affordanceId !== undefined ? { affordanceId: gap.affordanceId } : {}),
       ...(gap.rejectionReason !== undefined ? { rejectionReason: gap.rejectionReason } : {}),
       ...(gap.gestureKind !== undefined ? { gestureKind: gap.gestureKind } : {}),
-      ...(gap.skillId !== undefined ? { skillId: gap.skillId } : {}),
+      ...(gap.journeyId !== undefined ? { journeyId: gap.journeyId } : {}),
       ...(gap.principal !== undefined ? { principal: gap.principal } : {}),
       ...(gap.request !== undefined ? { request: gap.request } : {}),
     })),

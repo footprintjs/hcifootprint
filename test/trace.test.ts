@@ -17,7 +17,7 @@ function playSession(commitValues?: 'full' | 'delta'): Session {
     redactedKeys: ['user'],
     ...(commitValues ? { commitValues } : {}),
   });
-  // The app has bound its buttons (Phase 1) — an agent fire of an unbound tool
+  // The app has bound its buttons (Phase 1) — an agent fire of an unbound action
   // is a NOT_MATERIALIZED rejection since 0.3.0.
   wire(s, 'add-to-cart', 'go-to-cart', 'proceed-to-checkout', 'place-order');
   s.fire('login', { source: 'user' });

@@ -12,7 +12,7 @@ session** (never a copy), in two layers.
 ## 1. `lintGraph` / `checkGraph` — static, no test code
 
 Read the graph alone and report stale logic: a control gated on state nothing produces, a
-guard that can never be true, a skill that can never finish, a page nothing can reach. This
+guard that can never be true, a journey that can never finish, a page nothing can reach. This
 is the cheap CI gate. It's **advisory by default** and only escalates to hard errors once you
 tell it the starting state — it never cries "dead" over a key it can't see.
 
@@ -48,14 +48,14 @@ const app = testApp(graph, {
 
 await app.user.fire('add-to-cart');                        // drive like a human
 app.expectState({ cartCount: 1 });
-await app.agent.skill('purchase', { step: 'go-to-cart' }); // drive like the LLM
+await app.agent.journey('purchase', { step: 'go-to-cart' }); // drive like the LLM
 app.expectOn('cart');
 app.report();                                              // { ok, effectDrift, unevaluatedGuards, gaps }
 ```
 
 ## The honest boundary
 
-This tests interaction **logic** above the binding — guards, skills, navigation, effect
+This tests interaction **logic** above the binding — guards, journeys, navigation, effect
 claims, typed rejections. It does **not** verify pixels, the DOM, or that a binding resolves
 to a real element — that stays Playwright's job, and this complements it rather than
 replacing it. A green `lintGraph` proves the graph is internally consistent, **not** that the

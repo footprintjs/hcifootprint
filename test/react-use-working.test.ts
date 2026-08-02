@@ -61,8 +61,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { Fragment, createElement, StrictMode } from 'react';
 import type { ReactElement } from 'react';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
-import type { InteractionSession, NavigationGraph, ToolHandle } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { InteractionSession, NavigationGraph, ActionHandle } from '../src/index.js';
 import { useWorking } from '../src/react/index.js';
 import type { WorkingSession, WorkingSpec } from '../src/react/index.js';
 import { WhileRendering, mountTree } from './react-fixture.js';
@@ -79,7 +79,7 @@ function deskMap(): NavigationGraph {
   return buildNavigationGraph('desk', {
     pages: {
       compose: {
-        tools: {
+        actions: {
           save: { does: 'Save the draft', writes: ['draft'] },
           discard: { does: 'Throw the draft away' },
         },
@@ -90,8 +90,8 @@ function deskMap(): NavigationGraph {
 
 interface Wired {
   session: InteractionSession;
-  save: ToolHandle;
-  discard: ToolHandle;
+  save: ActionHandle;
+  discard: ActionHandle;
   warnings: string[];
   /** The app's word on one action row, as an in-process caller reads it. */
   busyOf(action: string): string | undefined;
@@ -106,8 +106,8 @@ function wired(): Wired {
   });
   return {
     session,
-    save: session.registerTool('compose', 'save', { does: 'Save the draft', handler: () => undefined }),
-    discard: session.registerTool('compose', 'discard', { does: 'Throw the draft away', handler: () => undefined }),
+    save: session.registerAction('compose', 'save', { does: 'Save the draft', handler: () => undefined }),
+    discard: session.registerAction('compose', 'discard', { does: 'Throw the draft away', handler: () => undefined }),
     warnings,
     busyOf: (action) => session.available().edges.find((edge) => edge.affordanceId === action)?.busy,
   };
@@ -174,10 +174,10 @@ describe('the flag going up says the app is working', () => {
   it('opens exactly one work row, in the app’s own words', () => {
     const { session, save } = wired();
 
-    const tree = mountTree(working({ busy: false, label: 'Saving your draft…', tools: save, session }));
+    const tree = mountTree(working({ busy: false, label: 'Saving your draft…', actions: save, session }));
     expect(session.openWork(), 'a flag that is down says nothing').toEqual([]);
 
-    tree.render(working({ busy: true, label: 'Saving your draft…', tools: save, session }));
+    tree.render(working({ busy: true, label: 'Saving your draft…', actions: save, session }));
 
     expect(session.openWork()).toEqual([
       {
@@ -194,7 +194,7 @@ describe('the flag going up says the app is working', () => {
   it('stands the same label on every control the component pointed at', () => {
     const { session, save, discard, busyOf } = wired();
 
-    mountTree(working({ busy: true, label: 'Saving…', tools: [save, discard], session }));
+    mountTree(working({ busy: true, label: 'Saving…', actions: [save, discard], session }));
 
     expect(busyOf('compose.save')).toBe('Saving…');
     expect(busyOf('compose.discard')).toBe('Saving…');
@@ -203,7 +203,7 @@ describe('the flag going up says the app is working', () => {
   it('mounting ALREADY busy is a rise — the component that mounts mid-flight says so', () => {
     const { session, save, busyOf } = wired();
 
-    mountTree(working({ busy: true, label: 'Placing your order', tools: save, session }));
+    mountTree(working({ busy: true, label: 'Placing your order', actions: save, session }));
 
     expect(session.openWork()).toHaveLength(1);
     expect(busyOf('compose.save')).toBe('Placing your order');
@@ -218,16 +218,16 @@ describe('the flag going up says the app is working', () => {
     expect(busyOf('compose.save'), 'work no control stands for labels no control').toBeUndefined();
   });
 
-  it('a JS caller’s null tools is "no controls" — not a TypeError from inside an effect', () => {
+  it('a JS caller’s null actions is "no controls" — not a TypeError from inside an effect', () => {
     const { session, busyOf } = wired();
 
-    // Untyped callers are not held to `WorkingSpec`, and `tools: null` is how
+    // Untyped callers are not held to `WorkingSpec`, and `actions: null` is how
     // half of them write "none": `'setBusy' in null` throws, from an effect,
     // which trips an error boundary and teaches nothing. The core tolerates the
     // JS caller at every other crossing (a non-string label keeps its row); this
     // is the same duty one layer out.
     mountTree(
-      working({ busy: true, label: 'Syncing in the background', tools: null, session } as unknown as WorkingSpec),
+      working({ busy: true, label: 'Syncing in the background', actions: null, session } as unknown as WorkingSpec),
     );
 
     expect(session.openWork()).toHaveLength(1);
@@ -239,7 +239,7 @@ describe('the flag going up says the app is working', () => {
     const id = fireIt(session);
     const { port, calls } = recordWork(session);
 
-    mountTree(working({ busy: true, label: 'Saving…', tools: save, session: port, transitionId: id }));
+    mountTree(working({ busy: true, label: 'Saving…', actions: save, session: port, transitionId: id }));
 
     expect(session.openWork()).toEqual([
       {
@@ -258,7 +258,7 @@ describe('the flag going up says the app is working', () => {
     const { session, save } = wired();
     const { port, calls } = recordWork(session);
 
-    mountTree(working({ busy: true, label: 'Saving…', tools: save, session: port }));
+    mountTree(working({ busy: true, label: 'Saving…', actions: save, session: port }));
 
     expect(calls).toEqual([{ kind: 'begin', label: 'Saving…', transitionId: undefined, named: false }]);
   });
@@ -266,7 +266,7 @@ describe('the flag going up says the app is working', () => {
   it('the core’s unbound-work teaching is not suppressed by the skin', () => {
     const { session, save, warnings } = wired();
 
-    mountTree(working({ busy: true, label: 'Saving…', tools: save, session }));
+    mountTree(working({ busy: true, label: 'Saving…', actions: save, session }));
 
     expect(warnings.filter((line) => line.includes('UNBOUND'))).toHaveLength(1);
   });
@@ -280,8 +280,8 @@ describe('the flag coming down ends what the flag going up started', () => {
   it('closes the row and takes the label back', () => {
     const { session, save, busyOf } = wired();
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session }));
-    tree.render(working({ busy: false, label: 'Saving…', tools: save, session }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session }));
+    tree.render(working({ busy: false, label: 'Saving…', actions: save, session }));
 
     expect(session.openWork()).toEqual([]);
     expect(busyOf('compose.save')).toBeUndefined();
@@ -291,8 +291,8 @@ describe('the flag coming down ends what the flag going up started', () => {
     const { session, save } = wired();
     const { port, calls } = recordWork(session);
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session: port }));
-    tree.render(working({ busy: false, label: 'Saving…', tools: save, session: port }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session: port }));
+    tree.render(working({ busy: false, label: 'Saving…', actions: save, session: port }));
 
     expect(calls.filter((call) => call.kind === 'done')).toEqual([{ kind: 'done', error: undefined }]);
   });
@@ -302,11 +302,11 @@ describe('the flag coming down ends what the flag going up started', () => {
     const { port, calls } = recordWork(session);
     const failed = new Error('the save failed');
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session: port }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session: port }));
     // The ordinary shape of a `catch`: React batches both updates into ONE
     // commit, which is what makes "completion and outcome arrive together" the
     // default rather than a rule to remember.
-    tree.render(working({ busy: false, label: 'Saving…', error: failed, tools: save, session: port }));
+    tree.render(working({ busy: false, label: 'Saving…', error: failed, actions: save, session: port }));
 
     expect(calls.filter((call) => call.kind === 'done')).toEqual([{ kind: 'done', error: failed }]);
   });
@@ -319,8 +319,8 @@ describe('the flag coming down ends what the flag going up started', () => {
     // the hook's own headline example passes exactly that field. Forwarded as
     // written it would put a present-but-empty failure on a row that succeeded:
     // the example shipping the bug.
-    const tree = mountTree(working({ busy: true, label: 'Saving…', error: null, tools: save, session: port }));
-    tree.render(working({ busy: false, label: 'Saving…', error: null, tools: save, session: port }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', error: null, actions: save, session: port }));
+    tree.render(working({ busy: false, label: 'Saving…', error: null, actions: save, session: port }));
 
     expect(calls.filter((call) => call.kind === 'done')).toEqual([{ kind: 'done', error: undefined }]);
   });
@@ -333,8 +333,8 @@ describe('the flag coming down ends what the flag going up started', () => {
     // app whose error channel carries a string, a code, an empty one — that is a
     // value it chose to render, and a hook that decided which of them "count"
     // would be judging the app's own bookkeeping.
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session: port }));
-    tree.render(working({ busy: false, label: 'Saving…', error: '', tools: save, session: port }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session: port }));
+    tree.render(working({ busy: false, label: 'Saving…', error: '', actions: save, session: port }));
 
     expect(calls.filter((call) => call.kind === 'done')).toEqual([{ kind: 'done', error: '' }]);
   });
@@ -347,7 +347,7 @@ describe('the flag coming down ends what the flag going up started', () => {
       busy,
       label: 'Saving…',
       error,
-      tools: save,
+      actions: save,
       session: port,
     });
 
@@ -376,8 +376,8 @@ describe('the flag coming down ends what the flag going up started', () => {
     // A component that still renders last time's error while the retry runs. The
     // row is about THIS attempt, so the fall is what is read — and by then the
     // app has cleared it.
-    const tree = mountTree(working({ busy: true, label: 'Saving…', error: stale, tools: save, session: port }));
-    tree.render(working({ busy: false, label: 'Saving…', tools: save, session: port }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', error: stale, actions: save, session: port }));
+    tree.render(working({ busy: false, label: 'Saving…', actions: save, session: port }));
 
     expect(calls.filter((call) => call.kind === 'done')).toEqual([{ kind: 'done', error: undefined }]);
   });
@@ -396,8 +396,8 @@ describe('an id that arrives after the rise', () => {
     // The shape a mutation library actually produces: `isPending` flips true
     // where the app calls it, and the id only exists once the function that
     // fires has run — one commit later. The row was already standing by then.
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session: port }));
-    tree.render(working({ busy: true, label: 'Saving…', tools: save, session: port, transitionId: id }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session: port }));
+    tree.render(working({ busy: true, label: 'Saving…', actions: save, session: port, transitionId: id }));
 
     expect(calls, 'one row, opened once, with what was in hand then').toEqual([
       { kind: 'begin', label: 'Saving…', transitionId: undefined, named: false },
@@ -417,7 +417,7 @@ describe('an id that arrives after the rise', () => {
     const spec = (transitionId?: string): WorkingSpec => ({
       busy: true,
       label: 'SENTINEL-label',
-      tools: save,
+      actions: save,
       session,
       transitionId,
     });
@@ -439,7 +439,7 @@ describe('an id that arrives after the rise', () => {
   it('the same id, said again while the row stands, is not a mistake and says nothing', () => {
     const { session, save, warnings } = wired();
     const id = fireIt(session);
-    const spec = (): WorkingSpec => ({ busy: true, label: 'Saving…', tools: save, session, transitionId: id });
+    const spec = (): WorkingSpec => ({ busy: true, label: 'Saving…', actions: save, session, transitionId: id });
 
     const tree = mountTree(working(spec()));
     tree.render(working(spec()));
@@ -457,7 +457,7 @@ describe('an id that arrives after the rise', () => {
     const spec = (transitionId: string): WorkingSpec => ({
       busy: true,
       label: 'Saving…',
-      tools: save,
+      actions: save,
       session: port,
       transitionId,
     });
@@ -477,7 +477,7 @@ describe('an id that arrives after the rise', () => {
     const spec = (busy: boolean, transitionId?: string): WorkingSpec => ({
       busy,
       label: 'Saving…',
-      tools: save,
+      actions: save,
       session: port,
       transitionId,
     });
@@ -505,7 +505,7 @@ describe('an id that arrives after the rise', () => {
       createElement(
         StrictMode,
         null,
-        working({ busy: true, label: 'Saving…', tools: save, session, transitionId: id }),
+        working({ busy: true, label: 'Saving…', actions: save, session, transitionId: id }),
       ),
     );
 
@@ -521,7 +521,7 @@ describe('an id that arrives after the rise', () => {
 describe('closing a work row is never a verdict about a fire', () => {
   it('a fall carrying an error settles nothing — the fire is still pending', async () => {
     const { session, save } = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const fired = session.fire('compose.save', { source: 'user' });
     if (!fired.ok) throw new Error('fixture');
     const id = fired.transition.id;
@@ -531,14 +531,14 @@ describe('closing a work row is never a verdict about a fire', () => {
     void fired.whenSettled.then((settlement) => (settledWith = settlement));
 
     const tree = mountTree(
-      working({ busy: true, label: 'Saving…', tools: save, session, transitionId: id }),
+      working({ busy: true, label: 'Saving…', actions: save, session, transitionId: id }),
     );
     tree.render(
       working({
         busy: false,
         label: 'Saving…',
         error: new Error('the save failed'),
-        tools: save,
+        actions: save,
         session,
         transitionId: id,
       }),
@@ -557,12 +557,12 @@ describe('closing a work row is never a verdict about a fire', () => {
 
   it('and a clean fall does not report a success either', async () => {
     const { session, save } = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const id = fireIt(session);
     await flush();
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session, transitionId: id }));
-    tree.render(working({ busy: false, label: 'Saving…', tools: save, session, transitionId: id }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session, transitionId: id }));
+    tree.render(working({ busy: false, label: 'Saving…', actions: save, session, transitionId: id }));
     await flush();
 
     expect(session.settlementIfKnown(id)).toBeUndefined();
@@ -589,7 +589,7 @@ describe('every rise is its own piece of work', () => {
   it('a flag that flaps writes a row per cycle — never one reused', () => {
     const { session, save } = wired();
     const { port, calls } = recordWork(session);
-    const spec = (busy: boolean): WorkingSpec => ({ busy, label: 'Saving…', tools: save, session: port });
+    const spec = (busy: boolean): WorkingSpec => ({ busy, label: 'Saving…', actions: save, session: port });
 
     const tree = mountTree(working(spec(true)));
     const first = session.openWork()[0]!.workId;
@@ -608,7 +608,7 @@ describe('every rise is its own piece of work', () => {
   it('a flag held up across re-renders is still ONE row', () => {
     const { session, save } = wired();
     const { port, calls } = recordWork(session);
-    const spec = (): WorkingSpec => ({ busy: true, label: 'Saving…', tools: save, session: port });
+    const spec = (): WorkingSpec => ({ busy: true, label: 'Saving…', actions: save, session: port });
 
     const tree = mountTree(working(spec()));
     tree.render(working(spec()));
@@ -628,7 +628,7 @@ describe('a component going away is not the work ending', () => {
     const { session, save, busyOf } = wired();
     const { port, calls } = recordWork(session);
 
-    const tree = mountTree(working({ busy: true, label: 'Uploading the photo', tools: save, session: port }));
+    const tree = mountTree(working({ busy: true, label: 'Uploading the photo', actions: save, session: port }));
     tree.unmount();
 
     // Nobody said the upload finished, so nothing here says it did. The row is
@@ -642,7 +642,7 @@ describe('a component going away is not the work ending', () => {
   it('says so once, and the warning is authored text carrying none of the app’s', () => {
     const { session, save, warnings } = wired();
 
-    const tree = mountTree(working({ busy: true, label: 'SENTINEL-label', tools: save, session }));
+    const tree = mountTree(working({ busy: true, label: 'SENTINEL-label', actions: save, session }));
     tree.unmount();
 
     const torn = warnings.filter((line) => line.includes('torn down while its work row was still open'));
@@ -653,8 +653,8 @@ describe('a component going away is not the work ending', () => {
   it('unmounting with nothing open says nothing at all', () => {
     const { session, save, warnings, busyOf } = wired();
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session }));
-    tree.render(working({ busy: false, label: 'Saving…', tools: save, session }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session }));
+    tree.render(working({ busy: false, label: 'Saving…', actions: save, session }));
     tree.unmount();
 
     expect(warnings.filter((line) => line.includes('torn down'))).toEqual([]);
@@ -666,7 +666,7 @@ describe('a component going away is not the work ending', () => {
     // The documented cure, asserted: nothing here strands the work. The app that
     // owns it closes it from wherever it owns it.
     const { session, save } = wired();
-    const tree = mountTree(working({ busy: true, label: 'Uploading', tools: save, session }));
+    const tree = mountTree(working({ busy: true, label: 'Uploading', actions: save, session }));
     tree.unmount();
 
     expect(session.openWork()).toHaveLength(1);
@@ -687,7 +687,7 @@ describe('React’s development double-invoke does not double-register anything'
     // React's own order: setup, teardown, setup — every effect, not just the
     // ones whose dependencies changed.
     mountTree(
-      createElement(StrictMode, null, working({ busy: true, label: 'Saving…', tools: save, session: port })),
+      createElement(StrictMode, null, working({ busy: true, label: 'Saving…', actions: save, session: port })),
     );
 
     expect(session.openWork(), 'one piece of work, whatever React did to the effects').toHaveLength(1);
@@ -699,7 +699,7 @@ describe('React’s development double-invoke does not double-register anything'
   it('a rise AFTER a StrictMode mount is one row too', () => {
     const { session, save } = wired();
     const { port, calls } = recordWork(session);
-    const spec = (busy: boolean): WorkingSpec => ({ busy, label: 'Saving…', tools: save, session: port });
+    const spec = (busy: boolean): WorkingSpec => ({ busy, label: 'Saving…', actions: save, session: port });
 
     const tree = mountTree(createElement(StrictMode, null, working(spec(false))));
     tree.render(createElement(StrictMode, null, working(spec(true))));
@@ -716,7 +716,7 @@ describe('React’s development double-invoke does not double-register anything'
 describe('the label is the app’s word, and this hook only carries it', () => {
   it('a re-render that says the same thing moves no version', async () => {
     const { session, save } = wired();
-    const spec = (): WorkingSpec => ({ busy: true, label: 'Saving…', tools: save, session });
+    const spec = (): WorkingSpec => ({ busy: true, label: 'Saving…', actions: save, session });
 
     const tree = mountTree(working(spec()));
     await flush();
@@ -733,13 +733,13 @@ describe('the label is the app’s word, and this hook only carries it', () => {
   it('and rewording it IS world motion, once, however many renders said it', async () => {
     const { session, save } = wired();
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session }));
     await flush();
     let structure = 0;
     session.on('structure', () => (structure += 1));
 
-    tree.render(working({ busy: true, label: 'Still saving…', tools: save, session }));
-    tree.render(working({ busy: true, label: 'Still saving…', tools: save, session }));
+    tree.render(working({ busy: true, label: 'Still saving…', actions: save, session }));
+    tree.render(working({ busy: true, label: 'Still saving…', actions: save, session }));
     await flush();
 
     expect(structure, 'the served row reads differently, so a plan made against it is stale').toBe(1);
@@ -748,9 +748,9 @@ describe('the label is the app’s word, and this hook only carries it', () => {
   it('rewording it while working moves the word and does not open a second row', () => {
     const { session, save, busyOf } = wired();
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: save, session }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: save, session }));
     const workId = session.openWork()[0]!.workId;
-    tree.render(working({ busy: true, label: 'Still saving…', tools: save, session }));
+    tree.render(working({ busy: true, label: 'Still saving…', actions: save, session }));
 
     expect(busyOf('compose.save')).toBe('Still saving…');
     expect(session.openWork().map((row) => row.workId)).toEqual([workId]);
@@ -760,23 +760,23 @@ describe('the label is the app’s word, and this hook only carries it', () => {
   it('a control dropped from the list gets its label taken back', () => {
     const { session, save, discard, busyOf } = wired();
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: [save, discard], session }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: [save, discard], session }));
     expect(busyOf('compose.discard')).toBe('Saving…');
 
-    tree.render(working({ busy: true, label: 'Saving…', tools: [save], session }));
+    tree.render(working({ busy: true, label: 'Saving…', actions: [save], session }));
 
     expect(busyOf('compose.discard'), 'this hook stopped being what kept it true').toBeUndefined();
     expect(busyOf('compose.save')).toBe('Saving…');
   });
 
   it('a GROUP is labelled through the one-line adapter the docs print', () => {
-    // `registerToolGroup` is the library's main mount door and its handle names
-    // the tool first, so it is deliberately not assignable here — a two-argument
-    // `setBusy` would otherwise be called with the label as the toolId and
-    // quietly label nothing. This is the documented way to point at one tool in
+    // `registerActions` is the library's main mount door and its handle names
+    // the action first, so it is deliberately not assignable here — a two-argument
+    // `setBusy` would otherwise be called with the label as the actionId and
+    // quietly label nothing. This is the documented way to point at one action in
     // a group, asserted so the printed line is a line that runs.
     const session = deskMap().createSession({ node: 'compose', state: { draft: null }, onWarn: () => undefined });
-    const group = session.registerToolGroup('compose', {
+    const group = session.registerActions('compose', {
       handlers: { save: () => undefined, discard: () => undefined },
     });
     const busyOf = (action: string): string | undefined =>
@@ -785,12 +785,12 @@ describe('the label is the app’s word, and this hook only carries it', () => {
     // test below shows the cost of not doing.
     const saving = { setBusy: (label: string | undefined) => group.setBusy('save', label) };
 
-    const tree = mountTree(working({ busy: true, label: 'Saving…', tools: saving, session }));
+    const tree = mountTree(working({ busy: true, label: 'Saving…', actions: saving, session }));
 
     expect(busyOf('compose.save')).toBe('Saving…');
-    expect(busyOf('compose.discard'), 'the adapter names one tool, and only that one').toBeUndefined();
+    expect(busyOf('compose.discard'), 'the adapter names one action, and only that one').toBeUndefined();
 
-    tree.render(working({ busy: false, label: 'Saving…', tools: saving, session }));
+    tree.render(working({ busy: false, label: 'Saving…', actions: saving, session }));
     expect(busyOf('compose.save')).toBeUndefined();
   });
 
@@ -798,7 +798,7 @@ describe('the label is the app’s word, and this hook only carries it', () => {
     // Object identity is the only thing that can say "this is the control I
     // already spoke to" — a `setBusy` closure cannot be compared any other way —
     // so an adapter written inline is honestly a NEW control every render: the
-    // old one is told to stop and the new one to start, both about one tool.
+    // old one is told to stop and the new one to start, both about one action.
     // That would be two flips a second on a busy screen, and it is free anyway:
     // world motion is coalesced to a microtask and compared by FINGERPRINT, so a
     // leave-and-enter of the same shape inside one window cancels to nothing —
@@ -808,7 +808,7 @@ describe('the label is the app’s word, and this hook only carries it', () => {
     const rebuilt = (): WorkingSpec => ({
       busy: true,
       label: 'Saving…',
-      tools: { setBusy: (label) => save.setBusy(label) },
+      actions: { setBusy: (label) => save.setBusy(label) },
       session,
     });
 
@@ -830,7 +830,7 @@ describe('the label is the app’s word, and this hook only carries it', () => {
 
     // The empty string is not a label. The row still opens, because the row is
     // the point and a name for it is not; the control keeps saying nothing.
-    mountTree(working({ busy: true, label: '', tools: save, session }));
+    mountTree(working({ busy: true, label: '', actions: save, session }));
 
     expect(session.openWork()).toHaveLength(1);
     expect(session.openWork()[0]).not.toHaveProperty('label');
@@ -869,7 +869,7 @@ describe('a component using it renders on a server in silence', () => {
       createElement(
         Fragment,
         null,
-        working({ busy: true, label: 'Saving…', tools: save, session }),
+        working({ busy: true, label: 'Saving…', actions: save, session }),
         createElement(WhileRendering, { act: () => (duringRender = session.openWork().length) }),
       ),
     );

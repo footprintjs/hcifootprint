@@ -1,0 +1,149 @@
+---
+title: The navigation graph
+description: buildNavigationGraph turns the container tree you already picture — pages, areas, tabs, modals, tools — into a validated, frozen graph with typed node paths.
+---
+
+`buildNavigationGraph(id, def)` validates and freezes one object literal in a single call (no
+`.build()`). Node names in the literal become a **typed path union**, so a typo in a later
+`registerActions('catalog.filtr-rail')` is a COMPILE error, not a silent no-op.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: {
+      areas: {
+        'filter-rail': { actions: { 'set-color': { does: 'Filter dresses by color' } } },
+      },
+      actions: {
+        'add-to-cart': {
+          does: 'Add the dress to the cart',
+          when: { authenticated: { eq: true } },
+        },
+      },
+    },
+  },
+  journeys: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
+});
+const session = graph.createSession(); // an InteractionSession
+```
+
+## The authoring vocabulary
+
+- `pages` (required) — top-level route targets. Each page is a container node, and may declare
+  the `route` your router serves it at (read back by `matchRoute`, and the seed of the
+  [url gesture](doc:actuation)).
+- Container buckets inside any node — exactly three authored semantics, everything else is
+  descriptive:
+  - `areas` — coexist (AND);
+  - `tabs` — at most one shown (a prior, NOT a statechart);
+  - `modals` — overlay; a shown blocking modal masks sibling tools (`blocks: false` = popover).
+- `tools` — leaf actions. A tool's fields:
+  - `does` (required) — one authored sentence. It is BOTH your label and the tool description
+    the LLM reads, and it is a source-code literal, never runtime text (the injection
+    firewall).
+  - `when` — availability guard (a flat `WhereFilter`, see [Guards](doc:guards)),
+    AND-composed with every ancestor `when`. It answers *is this action here at all?* — a
+    failed guard HIDES the tool.
+  - `enabledWhen` — the other question: *is it clickable right now?* A false `enabledWhen`
+    **serves** the tool carrying `enabled: false` (a greyed button an agent can see) and
+    refuses execution fires as `TOOL_DISABLED` (retriable). Declare it from the same
+    expression that renders `<button disabled={…}>`. NOT composed with ancestor `when`s —
+    this is the control's own state, not its position in the tree. Keys it cannot evaluate
+    never disable anything.
+  - `writes` — state keys this tool claims to change (verified at settlement).
+  - `verify` — the app's OWN check that firing really did something, asked at settlement: a
+    `WhereFilter` over projected state, or a synchronous `(state) => boolean` predicate handed
+    a detached snapshot (its closure may read the DOM). If it does not hold, the settlement is
+    `'refused'` rather than the `'performed'` a handler earns merely by returning
+    ([the settlement axes](doc:sessions)).
+  - `goTo` — page id this tool claims to navigate to.
+  - `confirm` — high-effect gate: requires explicit confirmation before firing
+    ([receipts ride the ask](doc:receipts)).
+  - `input` — payload contract: Zod, plain JSON Schema, any `.safeParse`/`.parse` validator —
+    or the literal `'none'`. See [below](#input-the-payload-contract).
+  - `binding` — the gesture that reaches it on screen ([Actuation](doc:actuation)); optional —
+    handlers don't need one.
+- `journeys` — named multi-step flows: `does` (required planner text), `steps` (action ids by
+  qualified path or unambiguous suffix), `when` (precondition). See [Journeys](doc:journeys).
+- `repeats: true` on a container — a template: one parameterized tool for N cards, addressed
+  by `instance` keys.
+
+### `input`: the payload contract
+
+Three things a tool can say about what a caller must send, and they are three **different**
+statements:
+
+| you write | the contract | what a caller is told |
+|---|---|---|
+| `input: <schema>` | Zod, a plain JSON Schema, any `.safeParse`/`.parse` validator | the wire-shaped contract, as `expects` |
+| `input: 'none'` | this control takes **no** input | `expects: 'none'` |
+| *(omitted)* | the library does not know the shape | nothing — never "send nothing" |
+
+The third row is the one to read twice. **Absence is not a contract**: a tool with no `input`
+advertises nothing, because inventing an empty one would be the library guessing on your
+behalf.
+
+#### The blank-is-not-a-value rule, and its one door
+
+Reported from a production integration: a relay's uniform `{ value: string, required }`
+contract forced the model to send `value: ""` to click-only controls — and that empty string
+reached the handler, **overrode the app's own authored default**, and selected nothing.
+
+So `input: 'none'` does two things. The model is **told** before it can guess wrong; and a
+payload sent anyway is refused `PAYLOAD_INVALID` before the handler ever sees it, carrying the
+shape it sent so one string teaches the correction:
+
+```text
+this action takes no input — omit the payload (received { value: string })
+```
+
+A **blank** payload — `undefined`, `''`, `{}`, or an object whose every key holds `undefined`
+— is accepted and **erased**: protocol residue is not intent. An explicit `null` is *not*
+blank; the caller chose it, so it still answers for its shape.
+
+That erasure happens at **exactly this door and nowhere else**. A schema-bearing action is
+untouched (there `''` is a real value — clearing a field), and an action that declared no
+`input` at all is untouched too. One special case, stated, rather than a general rule about
+empty strings that would quietly rewrite payloads everywhere.
+
+#### A declared JSON Schema is now enforced
+
+A plain JSON Schema used to describe the door while nothing guarded it: only
+`.safeParse`/`.parse` validators ever ran, so a planner guessing `{name}` where the handler
+read `{value}` sailed through and the handler destructured `undefined`. Since 0.4.0 the
+fire-time check is on by default (`checkPayloadShape`), it is **structural and teachable, not
+complete**, and what it cannot judge it passes — the same stance the library takes on an
+unevaluable guard key. The full rules, and the `false` escape hatch that restores the 0.3.0
+pass-through byte for byte, are on [Sessions &amp; fire()](doc:sessions#the-input-contract--advertised-then-enforced).
+
+## Loud at build time
+
+All referential and shape mistakes throw at `buildNavigationGraph()` time, in one voice and as one
+type — `GraphValidationError`, which every authoring door raises, so a caller catches one thing:
+an unknown `goTo` target, a guard-operator typo, an ambiguous or unknown journey step, a
+contradictory ancestor/descendant guard, an empty guard `{}` — and, since the actuation work,
+a **paramful url binding** (`/orders/:id`) that could never materialise. A definition written in the
+pre-1.0 words is refused there too: `tools:` and `skills:` are named, with the key to write instead.
+Container `when` AND-composes root→leaf; children can only narrow.
+
+Qualified dot paths are identity: `checkout.confirm-order.place-order`. Journeys may reference
+steps by unambiguous suffix, resolved (or failed loudly) at build time.
+
+## What you get back
+
+A `NavigationGraph`: `{ id, spec, nodes, actionNodes, createSession(opts?), requiredStateKeys() }`.
+
+- `createSession()` → an `InteractionSession` — see [Sessions &amp; fire()](doc:sessions).
+- `requiredStateKeys()` → the sorted, deduped set of every state key your guards read — the
+  seeding checklist for your projector ([Guards](doc:guards)).
+
+Rather than authoring every page and journey by hand, the definition can also **grow from the
+descriptions your app already owns** — a route table, a journey list, a live action store.
+That's [Graph sources](doc:graph-sources).
+
+`buildNavigationGraph` is the only authoring surface. The v1 fluent `skillGraph()` builder was
+**deleted at 1.0** rather than deprecated — see [the migration note](doc:design-lineage) for the
+field-by-field rewrite. What replaced it is a definition object with the container tree, typed
+node paths and mount-time action declaration.

@@ -7,7 +7,7 @@
  * anyone who does not need MCP never pulls the SDK.
  *
  * ```ts
- * import { skillsAsTools } from 'hcifootprint';       // primitive — bind to any framework, zero deps
+ * import { serveToAgent } from 'hcifootprint';       // primitive — bind to any framework, zero deps
  * import { mcpServer }     from 'hcifootprint/mcp';    // full MCP server — needs the SDK peer dep
  * ```
  */

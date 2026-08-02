@@ -10,7 +10,7 @@ Defined in: [src/testing/harness.ts:90](https://github.com/footprintjs/hcifootpr
 
 ### State
 
-`State`
+`State` = `Record`\<`string`, `unknown`\>
 
 ## Properties
 
@@ -90,7 +90,7 @@ One mock handler per action, keyed by affordance id (qualified or bare/leaf).
 
 Defined in: [src/testing/harness.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L110)
 
-Bring your own already-wired session (real registerToolGroup / taps) for
+Bring your own already-wired session (real registerActions / taps) for
 full integration fidelity. In this mode the harness does NOT auto-mount or
 inject a clock — it wraps what you built. `graph`/`resolvers` are ignored.
 

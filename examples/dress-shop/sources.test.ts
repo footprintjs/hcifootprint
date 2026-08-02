@@ -3,14 +3,14 @@
  * examples are mandatory integration tests).
  *
  * BEFORE — the friend's glue: the router's route table RE-TYPED into every
- * page, the journeys RE-TYPED as skills, hand-written subscribe-and-register
+ * page, the journeys RE-TYPED as journeys, hand-written subscribe-and-register
  * bookkeeping against the action store, and FAKE do-nothing handlers
  * registered purely to get pure navigations past NOT_MATERIALIZED.
  *
  * AFTER — the app's three descriptions stay with their single owners and the
  * graph READS them: fromRoutes(router.routes) + fromJourneys(app.journeys) +
  * fromLiveStore(app.actionStore), plus the session's `navigate` option. The
- * two builds produce equivalent pages/skills/available() surfaces — and the
+ * two builds produce equivalent pages/journeys/available() surfaces — and the
  * fake no-op handler CATEGORY is gone: navigations perform through the app's
  * own router.
  *
@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, fromJourneys, fromLiveStore, fromRoutes } from '../../src/index.js';
-import type { LiveAction, LiveActionStore, ToolDef } from '../../src/index.js';
+import type { LiveAction, LiveActionStore, ActionDef } from '../../src/index.js';
 
 // ─── the app's OWN three descriptions (each with exactly one owner) ─────────
 
@@ -49,7 +49,7 @@ function actionStore(log: string[]): LiveActionStore {
 
 // ─── the declared action vocabulary (the graph's own semantic layer) ────────
 
-const PAGE_TOOLS: Record<string, Record<string, ToolDef>> = {
+const PAGE_TOOLS: Record<string, Record<string, ActionDef>> = {
   catalog: {
     'add-to-cart': { does: 'Add the open dress to the cart' },
     'go-to-cart': { does: 'Open the shopping cart', goTo: 'cart' },
@@ -68,12 +68,12 @@ function beforeBuild(log: string[]) {
   const graph = buildNavigationGraph('dress-shop', {
     pages: {
       // Routes RE-TYPED from the router — the drift the merge exists to kill.
-      catalog: { route: '/dresses', tools: PAGE_TOOLS.catalog },
-      cart: { route: '/cart', tools: PAGE_TOOLS.cart },
-      checkout: { route: '/checkout', tools: PAGE_TOOLS.checkout },
+      catalog: { route: '/dresses', actions: PAGE_TOOLS.catalog },
+      cart: { route: '/cart', actions: PAGE_TOOLS.cart },
+      checkout: { route: '/checkout', actions: PAGE_TOOLS.checkout },
     },
-    // Journeys RE-TYPED as skills — the second copy of "how a purchase goes".
-    skills: {
+    // Journeys RE-TYPED as journeys — the second copy of "how a purchase goes".
+    journeys: {
       purchase: {
         does: 'Buy the open dress end to end',
         steps: ['add-to-cart', 'proceed-to-checkout', 'place-order'],
@@ -82,12 +82,12 @@ function beforeBuild(log: string[]) {
   });
   const session = graph.createSession({ node: 'catalog' });
   // Hand-written subscribe-and-register bookkeeping…
-  session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => void log.push('add-to-cart') } });
-  session.registerToolGroup('checkout', { handlers: { 'place-order': () => void log.push('place-order') } });
+  session.registerActions('catalog', { handlers: { 'add-to-cart': () => void log.push('add-to-cart') } });
+  session.registerActions('checkout', { handlers: { 'place-order': () => void log.push('place-order') } });
   // …plus the FAKE no-op handlers, registered ONLY so agent navigations pass
   // NOT_MATERIALIZED — the category this whole packet deletes.
-  session.registerToolGroup('catalog', { handlers: { 'go-to-cart': () => undefined } });
-  session.registerToolGroup('cart', { handlers: { 'proceed-to-checkout': () => undefined } });
+  session.registerActions('catalog', { handlers: { 'go-to-cart': () => undefined } });
+  session.registerActions('cart', { handlers: { 'proceed-to-checkout': () => undefined } });
   return { graph, session };
 }
 
@@ -97,9 +97,9 @@ function afterBuild(log: string[], router: string[]) {
   const graph = buildNavigationGraph('dress-shop', {
     pages: {
       // No routes here — the courtesy inherits each from the route table.
-      catalog: { tools: PAGE_TOOLS.catalog },
-      cart: { tools: PAGE_TOOLS.cart },
-      checkout: { tools: PAGE_TOOLS.checkout },
+      catalog: { actions: PAGE_TOOLS.catalog },
+      cart: { actions: PAGE_TOOLS.cart },
+      checkout: { actions: PAGE_TOOLS.checkout },
     },
     sources: [fromRoutes(ROUTES), fromJourneys(JOURNEYS), fromLiveStore(actionStore(log))],
   });
@@ -113,7 +113,7 @@ function afterBuild(log: string[], router: string[]) {
 // ─── the equivalence + the deleted glue ─────────────────────────────────────
 
 describe('dress-shop grown from sources — the before/after', () => {
-  it('both builds expose the SAME pages, routes, skills and action surface', () => {
+  it('both builds expose the SAME pages, routes, journeys and action surface', () => {
     const before = beforeBuild([]);
     const after = afterBuild([], []);
 
@@ -121,8 +121,8 @@ describe('dress-shop grown from sources — the before/after', () => {
     for (const id of Object.keys(before.graph.spec.pages)) {
       expect(after.graph.spec.pages[id].route).toBe(before.graph.spec.pages[id].route);
     }
-    expect(Object.keys(after.graph.spec.skills)).toEqual(Object.keys(before.graph.spec.skills));
-    expect(after.graph.spec.skills.purchase.steps).toEqual(before.graph.spec.skills.purchase.steps);
+    expect(Object.keys(after.graph.spec.journeys)).toEqual(Object.keys(before.graph.spec.journeys));
+    expect(after.graph.spec.journeys.purchase.steps).toEqual(before.graph.spec.journeys.purchase.steps);
     expect(after.session.available().edges.map((e) => e.affordanceId).sort()).toEqual(
       before.session.available().edges.map((e) => e.affordanceId).sort(),
     );
@@ -144,7 +144,7 @@ describe('dress-shop grown from sources — the before/after', () => {
 
   it('…while WITHOUT navigate the same fire refuses honestly, naming the gesture-shaped gap', () => {
     const graph = buildNavigationGraph('dress-shop', {
-      pages: { catalog: { tools: PAGE_TOOLS.catalog }, cart: {} },
+      pages: { catalog: { actions: PAGE_TOOLS.catalog }, cart: {} },
       sources: [fromRoutes(ROUTES)],
     });
     const session = graph.createSession({ node: 'catalog' });
@@ -160,7 +160,7 @@ describe('dress-shop grown from sources — the before/after', () => {
     const { session } = afterBuild(log, router);
 
     // Entry is live-store-bound → the never-trap commit gate passes.
-    expect(session.commitSkill('purchase', { source: 'agent' })).toMatchObject({ ok: true });
+    expect(session.commitJourney('purchase', { source: 'agent' })).toMatchObject({ ok: true });
 
     const fireAndSettle = async (id: string) => {
       const fired = session.fire(id, { source: 'agent' });
@@ -174,6 +174,6 @@ describe('dress-shop grown from sources — the before/after', () => {
 
     expect(log).toEqual(['add-to-cart', 'place-order']); // the app's handlers, by reference
     expect(router).toEqual(['/cart', '/checkout']); // the router did the navigating
-    expect(session.leaveSkill()!.status).toBe('completed');
+    expect(session.leaveJourney()!.status).toBe('completed');
   });
 });

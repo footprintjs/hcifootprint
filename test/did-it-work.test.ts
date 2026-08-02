@@ -9,7 +9,7 @@
  * ceiling, and a rewrite on the relay's send path. A mistyped key waited out
  * the ceiling and then reported a guess.
  *
- * The answer here is a POLL, not a wait: `SkillToolsPort.call` stays
+ * The answer here is a POLL, not a wait: `JourneyToolsPort.call` stays
  * synchronous, so an unfinished action is told it is unfinished and a wrong id
  * is refused BY NAME — immediately, in the vocabulary the library already uses.
  *
@@ -35,8 +35,8 @@
  *   and the wire answers "it worked" about an order the server rejected.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
-import type { NavigationGraph, ServeResult, SkillToolsPort } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { NavigationGraph, ServeResult, JourneyToolsPort } from '../src/index.js';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -44,14 +44,14 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] },
           'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
         },
       },
-      checkout: { tools: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
+      checkout: { actions: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
     },
-    skills: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
+    journeys: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
   });
 }
 
@@ -62,18 +62,18 @@ function wiredPort(handlers?: Record<string, (input?: unknown) => unknown>) {
     state: { cart: [], orders: [] },
     onWarn: () => undefined,
   });
-  session.registerToolGroup('catalog', {
+  session.registerActions('catalog', {
     handlers: {
       'add-to-cart': handlers?.['add-to-cart'] ?? (() => undefined),
       'go-checkout': handlers?.['go-checkout'] ?? (() => undefined),
     },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 /** Fire through the wire and hand back the id the model would hold. */
 function fireThroughWire(
-  port: SkillToolsPort,
+  port: JourneyToolsPort,
   action: string,
   graphId = 'shop',
 ): { result: ServeResult; id: string } {
@@ -196,7 +196,7 @@ describe('did_it_work — still running, then settled', () => {
       allowUnmaterializedFires: true,
       onWarn: () => undefined,
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const { result, id } = fireThroughWire(port, 'add-to-cart');
     // Already at rest — so no pointer to a poll that has nothing new to say.
     expect(result['effectStatus']).toBe('unobservable');
@@ -215,11 +215,11 @@ describe('did_it_work — still running, then settled', () => {
 // ---------------------------------------------------------------------------
 
 /** A wizard whose 'pick' both DECLARES a write and declares its own check. */
-function wizardPort(): { session: ReturnType<NavigationGraph['createSession']>; port: SkillToolsPort } {
+function wizardPort(): { session: ReturnType<NavigationGraph['createSession']>; port: JourneyToolsPort } {
   const map = buildNavigationGraph('setup', {
     pages: {
       wizard: {
-        tools: {
+        actions: {
           pick: { does: 'Pick the recipe', writes: ['recipe'], verify: { chosen: { eq: true } } },
         },
       },
@@ -230,8 +230,8 @@ function wizardPort(): { session: ReturnType<NavigationGraph['createSession']>; 
     state: { recipe: '', chosen: false },
     onWarn: () => undefined,
   });
-  session.registerToolGroup('wizard', { handlers: { pick: () => undefined } });
-  return { session, port: skillsAsTools(session) };
+  session.registerActions('wizard', { handlers: { pick: () => undefined } });
+  return { session, port: serveToAgent(session) };
 }
 
 describe('did_it_work — three axes, three names', () => {
@@ -269,12 +269,12 @@ describe('did_it_work — three axes, three names', () => {
     // and not a failure, and the string says so where a boolean could not.
     const map = buildNavigationGraph('setup', {
       pages: {
-        wizard: { tools: { pick: { does: 'Pick', writes: ['recipe'], verify: { absent: { eq: 1 } } } } },
+        wizard: { actions: { pick: { does: 'Pick', writes: ['recipe'], verify: { absent: { eq: 1 } } } } },
       },
     });
     const session = map.createSession({ node: 'wizard', state: { recipe: '' }, onWarn: () => undefined });
-    session.registerToolGroup('wizard', { handlers: { pick: () => undefined } });
-    const port = skillsAsTools(session);
+    session.registerActions('wizard', { handlers: { pick: () => undefined } });
+    const port = serveToAgent(session);
     const { id } = fireThroughWire(port, 'pick', 'setup');
     session.updateState({ recipe: 'r1' });
     await flush();
@@ -454,7 +454,7 @@ describe('did_it_work — wire safety', () => {
 // The port's own async door — for a relay holding the port and nothing else
 // ---------------------------------------------------------------------------
 
-describe('SkillToolsPort.whenSettled — the hole the field report named', () => {
+describe('JourneyToolsPort.whenSettled — the hole the field report named', () => {
   it('delegates to the session: the same settlement, with the same laws', async () => {
     const { session, port } = wiredPort();
     const { id } = fireThroughWire(port, 'add-to-cart');

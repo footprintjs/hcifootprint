@@ -191,7 +191,7 @@ obvious wish to hand them over.
    the return rides `produced` into the model's result — sanitized and capped, on the data
    channel, never as planner instructions. That is a real mechanism with a real settlement
    behind it, and it is now written down:
-   **[a read is an action](https://footprintjs.github.io/hcifootprint/docs/serve/reading-data)**.
+   **[a read is an action](https://footprintjs.github.io/hcifootprint/docs/actions/reading-data)**.
 3. **The industry evidence points the same way.** The emerging browser-side standard for
    agent-facing apps is deliberately **tools-only** — it exposes actions and no data-declaration
    surface — and the earlier generation of "declare your data for models" file formats saw
@@ -325,7 +325,7 @@ something that has not happened, and the turn it spends asking again is a real c
    ones that never wanted the feature. Pinned by a test that reads the tool array's bytes and refuses
    `awaitSettlement`, `timeoutMs` and `settleWithin` (`test/settled-answer.test.ts`).
 2. **`call()` is synchronous by contract.** The port hands back a `ServeResult`, not a promise, and
-   that is what lets a relay, a test double or a hand-rolled facade implement `SkillToolsPort` at
+   that is what lets a relay, a test double or a hand-rolled facade implement `JourneyToolsPort` at
    all. An argument that only means something when the port awaits would make the published contract
    a lie for every implementation that cannot.
 3. **The ceiling is a fact about the waiter, never about the work.** A model-chosen minutes-long wait
@@ -359,7 +359,7 @@ it answered. That is the confident-staleness failure this library keeps closing,
 `0` is therefore the *shortest* ceiling and not an off switch: the timer is a macrotask, so a
 settlement already in hand still wins the race and is still folded in.
 
-**And the unfolded result already has a door.** `skillsAsTools(session)` is the port, and the port
+**And the unfolded result already has a door.** `serveToAgent(session)` is the port, and the port
 never folds anything — `mcpServer` is the transport that does. A host that wants the raw result
 holds the port and writes its own transport, which is the same seam every framework binding uses.
 
@@ -712,7 +712,7 @@ state, updated on every keystroke or stale — and guard evaluation reads that s
 draft key is one authoring mistake away from opening an edge.
 
 **Status** — `shipped in 0.9.0`, **reshaped**. `AvailableEdge.holds` / `holds` on the wire, from
-two wires that both require the app to declare a **reader**: `registerToolGroup(…, { holds })`, and
+two wires that both require the app to declare a **reader**: `registerActions(…, { holds })`, and
 the human sensor forwarding the `value()` getter a declared control already has. The reshaping is
 the whole design: it is a **reading, not a binding** (the fire still reads its own payload at act
 time), it is read **late** rather than cached, and **absence is the default** — no reader, a reader
@@ -793,7 +793,7 @@ timer, ever: a busy that outlives anyone's patience is answered by the row still
 `did_it_work` still saying `still-pending` — the ceiling belongs to the caller, and a caller who
 stops waiting reports **unfinished**. Presence-only, so an app that never wires it says nothing about
 any of its controls rather than a cheerful *not busy* about all of them.
-→ [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/serve/when-a-control-is-busy)
+→ [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/actions/when-a-control-is-busy)
 
 ### Say the app is still working after the fire has settled
 
@@ -821,7 +821,7 @@ path**: the id you name, or the fire whose handler you are inside (before its fi
 `done()` settles nothing, no version is bumped (bookkeeping must never make a plan stale), and no
 timer closes a row: pair it like a lock, and a leak stays visible in `openWork()` rather than
 decaying into a fate nobody reported.
-→ [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+→ [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/actions/when-the-app-is-still-working)
 
 ### Wait for the app before answering the tool call
 
@@ -851,11 +851,11 @@ saveDraft.mutateAsync(payload)`), throw or return `{ ok: false }` to fail, and t
 above, for the work that outlives the fire. The wait itself stayed at the transport, and the
 invariant that makes it safe is now written down: a `transitionId` is minted **only** by an executed
 fire, so an awaited call is structurally incapable of blocking on a person.
-→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app)
+→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/actions/waiting-for-the-app)
 
 ### A React hook that pairs the app's own async work with the ledger
 
-**Ask, in two tiers.** One hook that opens a [work row](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+**Ask, in two tiers.** One hook that opens a [work row](https://footprintjs.github.io/hcifootprint/docs/actions/when-the-app-is-still-working)
 when a mutation starts and closes it when the mutation settles, so a React app never writes the
 `try`/`finally` by hand — and, as tier two, let the **falling edge settle the transition too**, so
 one flag could report the whole outcome.
@@ -892,5 +892,5 @@ that claim's keeper has gone. What is unknown stays open, what was claimed is ta
 warning says so. And **the core did not grow a framework**: the hook is a lifecycle over five plain
 lines, `test/work-framework-interface.test.ts` drives those lines with no framework loaded, so a Vue
 or Angular skin needs nothing new from the library.
-→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
-[The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)
+→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/actions/waiting-for-the-app) ·
+[The React binding](https://footprintjs.github.io/hcifootprint/docs/actions/react-binding)

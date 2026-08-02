@@ -6,7 +6,7 @@ title: expectNoStaleLogic
 
 > **expectNoStaleLogic**(`graph`, `opts?`): `void`
 
-Defined in: [src/testing/model/lint.ts:309](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L309)
+Defined in: [src/testing/model/lint.ts:310](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L310)
 
 Throw if the graph has stale-logic findings at or above `failOn` (default
 'error'). The opt-in CI gate: `expectNoStaleLogic(graph, { initialState })`

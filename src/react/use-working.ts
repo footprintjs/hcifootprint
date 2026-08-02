@@ -67,24 +67,24 @@
  * re-render that says the same thing writes nothing and moves no version.
  */
 import { useEffect, useRef } from 'react';
-import type { ToolHandle, WorkHandle } from '../atom/types.js';
+import type { ActionHandle, WorkHandle } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 
 /**
  * Anything that can say a control is working — `setBusy` and nothing else.
  *
- * DERIVED FROM THE REAL HANDLE, so a `ToolHandle` from `session.registerTool`
- * goes straight in. A `ToolGroup` deliberately does NOT: its `setBusy` names the
- * tool first (`setBusy(toolId, label)`), and a two-argument function is not
+ * DERIVED FROM THE REAL HANDLE, so a `ActionHandle` from `session.registerAction`
+ * goes straight in. A `ActionGroup` deliberately does NOT: its `setBusy` names the
+ * action first (`setBusy(actionId, label)`), and a two-argument function is not
  * assignable to a one-argument one — so pointing this hook at a group is a
- * COMPILE ERROR rather than a call that quietly labels a tool named "Saving…".
- * Name the tool where the group already knows how:
+ * COMPILE ERROR rather than a call that quietly labels an action named "Saving…".
+ * Name the action where the group already knows how:
  *
  * ```ts
- * tools: { setBusy: (label) => group.setBusy('save', label) }
+ * actions: { setBusy: (label) => group.setBusy('save', label) }
  * ```
  */
-export type BusyControl = Pick<ToolHandle, 'setBusy'>;
+export type BusyControl = Pick<ActionHandle, 'setBusy'>;
 
 /**
  * The two session doors this hook drives, and not one more.
@@ -112,7 +112,7 @@ export interface WorkingSpec {
    * Your own words for what is happening — 'Saving your draft…'.
    *
    * It rides two rails as DATA and never enters an authored sentence: the work
-   * row's `label`, and the `busy` label on every control in `tools`. The core
+   * row's `label`, and the `busy` label on every control in `actions`. The core
    * caps it and refuses a non-string with its own warning; nothing here judges
    * it. Write labels a stranger may read — never interpolate a secret, a
    * customer's name, or the payload.
@@ -154,11 +154,11 @@ export interface WorkingSpec {
    *
    * An adapter written inline is FINE and needs no memo. Identity is all this
    * hook can compare, so a fresh object each render is a new control to it — the
-   * old one is told to stop and the new one to start, about one tool — and the
+   * old one is told to stop and the new one to start, about one action — and the
    * session coalesces world motion by fingerprint, so a take-back-and-re-say
    * inside one window cancels to nothing at all.
    */
-  readonly tools?: BusyControl | readonly BusyControl[];
+  readonly actions?: BusyControl | readonly BusyControl[];
   /** The session this component reports to. */
   readonly session: WorkingSession;
   /**
@@ -185,26 +185,26 @@ export interface WorkingSpec {
   readonly transitionId?: string;
 }
 
-/** Read once, so an omitted `tools` allocates nothing on every commit. */
+/** Read once, so an omitted `actions` allocates nothing on every commit. */
 const NO_CONTROLS: readonly BusyControl[] = [];
 
 /**
  * One handle or many, always as a list.
  *
  * `== null` catches BOTH absences on purpose. The type says `undefined`, but a
- * JS caller is not held to it and writes `tools: null` for "no controls" as
+ * JS caller is not held to it and writes `actions: null` for "no controls" as
  * readily — and `'setBusy' in null` is a TypeError thrown from inside an effect,
  * which takes down the component with no teaching at all. The library tolerates
  * the JS caller everywhere else it crosses this line (`principalOf` casts for a
  * missing `source`; the core keeps a row whose label is not a string); a hook has
  * the same duty, because the type was the only thing guarding here.
  */
-function controlsOf(tools: WorkingSpec['tools']): readonly BusyControl[] {
+function controlsOf(actions: WorkingSpec['actions']): readonly BusyControl[] {
   // The cast is the honest part, and it is the one `principalOf` already makes
   // in the core: the type says this cannot be null, and a JS caller really can
   // hand one over anyway.
-  if (tools === undefined || (tools as unknown) === null) return NO_CONTROLS;
-  return 'setBusy' in tools ? [tools] : tools;
+  if (actions === undefined || (actions as unknown) === null) return NO_CONTROLS;
+  return 'setBusy' in actions ? [actions] : actions;
 }
 
 /**
@@ -244,7 +244,7 @@ const ID_AFTER_THE_RISE =
  * Say the app is working, for as long as your own flag says so.
  *
  * ```ts
- * useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, tools: saveTool, session });
+ * useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, actions: saveAction, session });
  * ```
  *
  * The flag rising opens one work row and stands the label on each control; the
@@ -254,7 +254,7 @@ const ID_AFTER_THE_RISE =
  * at different times are two facts.
  */
 export function useWorking(spec: WorkingSpec): void {
-  const { busy, error, label, session, tools, transitionId } = spec;
+  const { busy, error, label, session, actions, transitionId } = spec;
 
   /**
    * The row this hook opened and has not closed — THE EDGE DETECTOR.
@@ -352,7 +352,7 @@ export function useWorking(spec: WorkingSpec): void {
   // silent; a control that has LEFT the list gets its label taken back, because
   // this hook stopped being the thing keeping it true.
   useEffect(() => {
-    const controls = controlsOf(tools);
+    const controls = controlsOf(actions);
     const word = busy ? label : undefined;
     const changed = word !== said.current;
     for (const control of told.current) {

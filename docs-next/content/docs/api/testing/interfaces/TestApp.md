@@ -10,7 +10,7 @@ Defined in: [src/testing/harness.ts:113](https://github.com/footprintjs/hcifootp
 
 ### State
 
-`State`
+`State` = `Record`\<`string`, `unknown`\>
 
 ## Properties
 
@@ -26,7 +26,7 @@ Drive like the planning LLM, through the real Mode B port. Returns ServeResult (
 
 > **do**(`action`, `args?`): `Promise`\<[`ServeResult`](/api/index/type-aliases/ServeResult)\>
 
-Perform one action outside a skill flow (do_action).
+Perform one action outside a journey flow (do_action).
 
 ##### Parameters
 
@@ -42,21 +42,21 @@ Perform one action outside a skill flow (do_action).
 
 `Promise`\<[`ServeResult`](/api/index/type-aliases/ServeResult)\>
 
-#### skill()
+#### journey()
 
-> **skill**(`skillId`, `args?`): `Promise`\<[`ServeResult`](/api/index/type-aliases/ServeResult)\>
+> **journey**(`journeyId`, `args?`): `Promise`\<[`ServeResult`](/api/index/type-aliases/ServeResult)\>
 
-Open/step a skill by its id (maps to the skill's fixed tool).
+Open/step a journey by its id (maps to the journey's fixed tool).
 
 ##### Parameters
 
-###### skillId
+###### journeyId
 
 `string`
 
 ###### args?
 
-[`SkillCallArgs`](/api/index/interfaces/SkillCallArgs)
+[`JourneyCallArgs`](/api/index/interfaces/JourneyCallArgs)
 
 ##### Returns
 
@@ -64,13 +64,13 @@ Open/step a skill by its id (maps to the skill's fixed tool).
 
 #### tools()
 
-> **tools**(): `MCPToolDescription`[]
+> **tools**(): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
-The FIXED tool array the model sees (one per skill + whats_here/do_action).
+The FIXED tool array the model sees (one per journey + whats_here/do_action).
 
 ##### Returns
 
-`MCPToolDescription`[]
+[`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
 #### whatsHere()
 
@@ -314,6 +314,26 @@ Assert no declared-effect drift (optionally also fail on any gaps). The opt-in r
 
 ***
 
+### expectJourneyCompleted()
+
+> **expectJourneyCompleted**(`journeyId`): `void`
+
+Defined in: [src/testing/harness.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L177)
+
+Assert a journey has a completed frame in the history.
+
+#### Parameters
+
+##### journeyId
+
+`string`
+
+#### Returns
+
+`void`
+
+***
+
 ### expectOn()
 
 > **expectOn**(`page`): `void`
@@ -358,26 +378,6 @@ Assert a FireResult was refused (optionally with a specific reason, e.g. 'GUARD_
 
 ***
 
-### expectSkillCompleted()
-
-> **expectSkillCompleted**(`skillId`): `void`
-
-Defined in: [src/testing/harness.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L177)
-
-Assert a skill has a completed frame in the history.
-
-#### Parameters
-
-##### skillId
-
-`string`
-
-#### Returns
-
-`void`
-
-***
-
 ### expectState()
 
 > **expectState**(`partial`): `void`
@@ -400,7 +400,7 @@ Assert the projected state contains these key/value pairs (deep).
 
 ### open()
 
-> **open**(`path`, `opts?`): [`ToolGroupHandle`](/api/index/interfaces/ToolGroupHandle)
+> **open**(`path`, `opts?`): [`ActionGroupHandle`](/api/index/interfaces/ActionGroupHandle)
 
 Defined in: [src/testing/harness.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L157)
 
@@ -420,7 +420,7 @@ Mount + show a modal/tab node's tools (not auto-mounted). Returns its handle.
 
 #### Returns
 
-[`ToolGroupHandle`](/api/index/interfaces/ToolGroupHandle)
+[`ActionGroupHandle`](/api/index/interfaces/ActionGroupHandle)
 
 ***
 

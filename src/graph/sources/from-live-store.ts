@@ -2,8 +2,8 @@
  * fromLiveStore() — the app's live action store becomes per-node bindings,
  * attached per session. LAST in the documented merge order and BIND-ONLY by
  * construction: it is a disciplined caller of the existing declare-then-bind
- * wire (registerToolGroup), so it can add and enable/disable bindings but can
- * never remove or reshape a page, a tool declaration, or a skill laid down
+ * wire (registerActions), so it can add and enable/disable bindings but can
+ * never remove or reshape a page, an action declaration, or a journey laid down
  * earlier in the order.
  *
  * Reconciliation is BY IDENTITY, not by diffing objects: `${node}.${name}`
@@ -40,18 +40,18 @@
  * machinery.
  */
 import type { LiveAction, LiveActionStore, LiveBindingPort, LiveSource } from './types.js';
-import type { ToolGroupHandle } from '../../traverse/nav-session.js';
+import type { ActionGroupHandle } from '../../traverse/nav-session.js';
 
 /** One live registration this attachment currently owns. */
 interface Held {
-  handle: ToolGroupHandle;
+  handle: ActionGroupHandle;
   name: string;
   enabled: boolean;
   /** The label last pushed through setBusy — undefined means the store has said nothing. */
   busy: string | undefined;
 }
 
-/** The shape handed to registerToolGroup — a LiveAction minus its addressing fields. */
+/** The shape handed to registerActions — a LiveAction minus its addressing fields. */
 type ActionDef = Omit<LiveAction, 'node' | 'name' | 'instance' | 'enabled' | 'busy'>;
 
 /**
@@ -65,10 +65,10 @@ const READ_FAILED_REQUEST = 'live action store read failed; serving bindings fro
 
 /**
  * Bind first, declare second. "Live actions attach last and only BIND" — so an
- * action whose tool the graph already DECLARES takes the handlers door, which
+ * action the graph already DECLARES takes the handlers door, which
  * binds silently (the declared-wins warning would otherwise spam every attach
  * for the merge order's PRIMARY case). Only when the session refuses
- * the bind ("binds unknown tool") is the action genuinely NEW here, and it
+ * the bind ("binds unknown action") is the action genuinely NEW here, and it
  * takes the mount-declaration door — the same two doors a hand-written mount
  * chooses between, chosen the only way a zero-value-import leaf can: by
  * asking the session and listening to the answer.
@@ -79,18 +79,18 @@ function register(
   name: string,
   def: ActionDef,
   instance: string | undefined,
-): ToolGroupHandle {
+): ActionGroupHandle {
   const instanceOpt = instance !== undefined ? { instance } : {};
   if (def.handler) {
     try {
-      return session.registerToolGroup(node, { handlers: { [name]: def.handler }, ...instanceOpt });
+      return session.registerActions(node, { handlers: { [name]: def.handler }, ...instanceOpt });
     } catch {
       // Not declared on the graph — fall through to declaring it here-and-now.
       // (The refusal happens BEFORE any registration side effect, so nothing
       // is half-mounted.) A bad name/shape still dies loudly below.
     }
   }
-  return session.registerToolGroup(node, { tools: { [name]: def }, ...instanceOpt });
+  return session.registerActions(node, { actions: { [name]: def }, ...instanceOpt });
 }
 
 /** An action's identity across snapshots — same key, same action. */

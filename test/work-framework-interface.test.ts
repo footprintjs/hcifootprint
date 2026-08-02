@@ -26,20 +26,20 @@
  * not a quirk of a skin, so the honest place to break it is here too.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
-import type { InteractionSession, NavigationGraph, ToolHandle } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { InteractionSession, NavigationGraph, ActionHandle } from '../src/index.js';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 function deskMap(): NavigationGraph {
   return buildNavigationGraph('desk', {
-    pages: { compose: { tools: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+    pages: { compose: { actions: { save: { does: 'Save the draft', writes: ['draft'] } } } },
   });
 }
 
 function wired(): {
   session: InteractionSession;
-  save: ToolHandle;
+  save: ActionHandle;
   busyOf(action: string): string | undefined;
 } {
   const session = deskMap().createSession({
@@ -49,7 +49,7 @@ function wired(): {
   });
   return {
     session,
-    save: session.registerTool('compose', 'save', { does: 'Save the draft', handler: () => undefined }),
+    save: session.registerAction('compose', 'save', { does: 'Save the draft', handler: () => undefined }),
     busyOf: (action) => session.available().edges.find((edge) => edge.affordanceId === action)?.busy,
   };
 }
@@ -64,11 +64,11 @@ function wired(): {
  */
 async function saveTheDraft(
   session: InteractionSession,
-  tool: ToolHandle,
+  action: ActionHandle,
   saveToServer: () => Promise<void>,
 ): Promise<void> {
   const work = session.beginWork('Saving your draft…');
-  tool.setBusy('Saving your draft…');
+  action.setBusy('Saving your draft…');
   try {
     await saveToServer();
     work.done();
@@ -76,7 +76,7 @@ async function saveTheDraft(
     work.done(failure);
     throw failure;
   } finally {
-    tool.setBusy(undefined);
+    action.setBusy(undefined);
   }
 }
 
@@ -98,7 +98,7 @@ describe('the work ledger, driven with no framework at all', () => {
 
   it('a failure closes the row with the app’s own error — and settles nothing', async () => {
     const { session, save, busyOf } = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const fired = session.fire('compose.save', { source: 'user' });
     if (!fired.ok) throw new Error('fixture');
     await flush();
@@ -142,7 +142,7 @@ describe('the work ledger, driven with no framework at all', () => {
  */
 function componentLike(
   session: InteractionSession,
-  tool: ToolHandle,
+  action: ActionHandle,
 ): { mount(label: string): void; update(label: string): void; unmount(): void } {
   let work: { done(error?: unknown): void } | null = null;
   let said: string | undefined;
@@ -150,18 +150,18 @@ function componentLike(
     mount(label) {
       work = session.beginWork(label);
       said = label;
-      tool.setBusy(label);
+      action.setBusy(label);
     },
     update(label) {
       if (label === said) return; // saying the same thing twice is not motion
       said = label;
-      tool.setBusy(label);
+      action.setBusy(label);
     },
     unmount() {
       // The asymmetry, by hand: the label is taken back because nobody is left
       // keeping it true; the row is NOT closed, because nobody said the work
       // ended and a clock is not a verdict.
-      tool.setBusy(undefined);
+      action.setBusy(undefined);
       said = undefined;
       work = null;
     },

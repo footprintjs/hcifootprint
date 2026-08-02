@@ -68,7 +68,7 @@ export function SourcesPanel({ app }: { app: WizardApp }): ReactElement {
           </strong>
         </li>
         <li>
-          Skills the journey list contributed: <strong>{reading.skillsFromJourneys.join(', ')}</strong>
+          Journeys the journey list contributed: <strong>{reading.journeysFromSources.join(', ')}</strong>
         </li>
       </ul>
 
@@ -142,17 +142,17 @@ export function ActionSurfacePanel({ app }: { app: WizardApp }): ReactElement {
 // ---------------------------------------------------------------------------
 
 export function JourneysPanel({ app }: { app: WizardApp }): ReactElement {
-  const reading = readJourneys(app.session.availableSkills().skills, app.session.available());
+  const reading = readJourneys(app.session.availableJourneys().journeys, app.session.available());
   const [refusal, setRefusal] = useState<string | null>(null);
 
   /**
-   * The ONLY panel control that changes anything. commitSkill has consequences
+   * The ONLY panel control that changes anything. commitJourney has consequences
    * — it opens a frame, or lands a gap row — so it is a button a person
    * presses, never something a render does. What comes back is printed as the
    * library returned it.
    */
-  const tryCommit = (skillId: string): void => {
-    const result = app.session.commitSkill(skillId, { source: 'agent' });
+  const tryCommit = (journeyId: string): void => {
+    const result = app.session.commitJourney(journeyId, { source: 'agent' });
     setRefusal(JSON.stringify(result, null, 1));
   };
 
@@ -160,8 +160,8 @@ export function JourneysPanel({ app }: { app: WizardApp }): ReactElement {
     <Panel title="Journeys, and whether they can start" from={reading.from}>
       <ul className="journeys">
         {reading.rows.map((row) => (
-          <li key={row.skillId}>
-            <code>{row.skillId}</code>
+          <li key={row.journeyId}>
+            <code>{row.journeyId}</code>
             <span className="does">{row.does}</span>
             <span className="chips">
               <em className={row.preconditionPassed ? 'chip good' : 'chip warn'}>
@@ -179,7 +179,7 @@ export function JourneysPanel({ app }: { app: WizardApp }): ReactElement {
               </em>
               {row.entryGestureKind && <em className="chip">gesture: {row.entryGestureKind}</em>}
             </span>
-            <button type="button" onClick={() => tryCommit(row.skillId)}>
+            <button type="button" onClick={() => tryCommit(row.journeyId)}>
               Try to commit as the agent
             </button>
           </li>
@@ -187,7 +187,7 @@ export function JourneysPanel({ app }: { app: WizardApp }): ReactElement {
       </ul>
       {refusal && (
         <>
-          <h4>What commitSkill returned</h4>
+          <h4>What commitJourney returned</h4>
           <pre>{refusal}</pre>
         </>
       )}
@@ -263,7 +263,7 @@ export function BacklogPanel({ app }: { app: WizardApp }): ReactElement {
           <li key={`${row.affordanceId ?? row.kind}-${index}`}>
             <code>{row.affordanceId ?? row.kind}</code>
             {row.rejectionReason && <em className="chip warn">{row.rejectionReason}</em>}
-            {row.skillId && <em className="chip">for skill {row.skillId}</em>}
+            {row.journeyId && <em className="chip">for journey {row.journeyId}</em>}
             {row.gestureKind && <em className="chip">needs {row.gestureKind} wiring</em>}
             {row.principal && <em className="chip">{row.principal}</em>}
           </li>

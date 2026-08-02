@@ -14,7 +14,7 @@
  *   an action that HAPPENED;
  * - `crossLinks` turns the route table into the always-reachable spine, so no
  *   wizard page is a room with no doors;
- * - the journey's steps are ordinary PAGE tools — a journey narrows what is
+ * - the journey's steps are ordinary PAGE actions — a journey narrows what is
  *   disclosed, it never owns an action, so the way out stays reachable while a
  *   frame is open.
  *
@@ -33,7 +33,7 @@ export const ROUTES = {
   review: { route: PATHS.review, does: 'the Review step' },
 } as const;
 
-/** The app's own funnel list — read as skills in the same does/steps/when vocabulary. */
+/** The app's own funnel list — read as journeys in the same does/steps/when vocabulary. */
 export const JOURNEYS: Record<string, JourneyDef> = {
   'new-project': {
     does: 'Create a project: name it, pick a recipe, review it, create it',
@@ -65,14 +65,14 @@ export function buildWizardGraph(app: WizardApp, opts?: { crossLinks?: boolean }
     does: 'A three-page project wizard.',
     sources: [
       // The route table becomes pages AND — only because it was asked — the
-      // link tools that make those pages reachable from each other.
+      // link actions that make those pages reachable from each other.
       fromRoutes(ROUTES, { crossLinks: opts?.crossLinks === false ? undefined : true }),
       fromJourneys(JOURNEYS),
     ],
     // What a route table cannot know: which actions live where.
     pages: {
       wizard: {
-        tools: {
+        actions: {
           'name-it': {
             does: 'Name the project',
             input: NAME_INPUT,
@@ -103,7 +103,7 @@ export function buildWizardGraph(app: WizardApp, opts?: { crossLinks?: boolean }
         },
       },
       review: {
-        tools: {
+        actions: {
           'create-project': {
             does: 'Create the project',
             confirm: true,

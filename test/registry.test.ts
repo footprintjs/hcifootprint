@@ -1,11 +1,11 @@
 /** Layer test: registry/ imports ONLY registry/registry.ts — no session, no spec. */
 import { describe, expect, it } from 'vitest';
-import { ToolRegistry } from '../src/registry/registry.js';
+import { ActionRegistry } from '../src/registry/registry.js';
 
-describe('ToolRegistry — the live-binding layer in isolation', () => {
+describe('the layer that knows which declared actions are really wired up', () => {
   it('registers, resolves, and reports materialization', () => {
     const warnings: string[] = [];
-    const r = new ToolRegistry((m) => warnings.push(m));
+    const r = new ActionRegistry((m) => warnings.push(m));
     expect(r.hasAny()).toBe(false);
     const handler = () => 'ok';
     r.register('cart-panel', 'add-to-cart', handler);
@@ -17,7 +17,7 @@ describe('ToolRegistry — the live-binding layer in isolation', () => {
 
   it('last registration wins, with a dev warning (StrictMode double-mount)', () => {
     const warnings: string[] = [];
-    const r = new ToolRegistry((m) => warnings.push(m));
+    const r = new ActionRegistry((m) => warnings.push(m));
     const first = () => 1;
     const second = () => 2;
     r.register('cart-panel', 'add-to-cart', first);
@@ -28,7 +28,7 @@ describe('ToolRegistry — the live-binding layer in isolation', () => {
   });
 
   it("unregisterGroup removes only what the group CURRENTLY owns — a stale unmount can't tear down another component's binding", () => {
-    const r = new ToolRegistry(() => {});
+    const r = new ActionRegistry(() => {});
     r.register('list-page', 'open-item', () => 'a');
     r.register('detail-page', 'open-item', () => 'b'); // re-registered by another mount
     r.register('list-page', 'sort-items', () => 'c');
@@ -42,7 +42,7 @@ describe('ToolRegistry — the live-binding layer in isolation', () => {
     // and it certainly does not time it out. Absence is the only "not said", so
     // clearing DELETES rather than assigning undefined — a stored undefined
     // would let a downstream `'busy' in reg` read silence as a state.
-    const r = new ToolRegistry(() => {});
+    const r = new ActionRegistry(() => {});
     r.register('desk', 'save', () => 1);
     expect(r.busyOf('save')).toBeUndefined();
     expect(r.registrations()[0]).not.toHaveProperty('busy');
@@ -57,7 +57,7 @@ describe('ToolRegistry — the live-binding layer in isolation', () => {
   });
 
   it('setBusy reports a REAL change only — so a caller bumps the world exactly once', () => {
-    const r = new ToolRegistry(() => {});
+    const r = new ActionRegistry(() => {});
     r.register('desk', 'save', () => 1, true, 'Saving…');
     expect(r.setBusy('save', 'Saving…')).toBe(false); // the same word twice is not motion
     expect(r.setBusy('save', 'Still saving')).toBe(true);
@@ -65,11 +65,30 @@ describe('ToolRegistry — the live-binding layer in isolation', () => {
   });
 
   it('registrations() returns copies with group ownership visible', () => {
-    const r = new ToolRegistry(() => {});
+    const r = new ActionRegistry(() => {});
     r.register('g1', 'a', () => 1);
     const regs = r.registrations();
     expect(regs).toMatchObject([{ affordanceId: 'a', group: 'g1' }]);
     regs[0].group = 'hacked';
     expect(r.registrations()[0].group).toBe('g1');
+  });
+
+  it('A WARNING IS NEVER SWALLOWED: built with no sink, it still reaches the console', () => {
+    // The warn sink is how a developer hears about a double-mount. A registry
+    // constructed without one is the direct door (a test, a script, a consumer
+    // wiring it by hand) — and the honest default is the console every other
+    // warn seam in this library falls back to, not silence.
+    const said: unknown[] = [];
+    const real = console.warn;
+    console.warn = (...args: unknown[]): void => void said.push(args[0]);
+    try {
+      const r = new ActionRegistry(); // no sink
+      r.register('g1', 'a', () => 1);
+      r.register('g2', 'a', () => 2); // the double-mount the warning exists for
+    } finally {
+      console.warn = real;
+    }
+    expect(said).toHaveLength(1);
+    expect(String(said[0])).toContain('a');
   });
 });

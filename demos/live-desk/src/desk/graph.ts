@@ -1,7 +1,7 @@
 /**
  * The navigation graph — PLACES only.
  *
- * There is not one `tools:` key in this file. The desk's pages, its two tabs,
+ * There is not one `actions:` key in this file. The desk's pages, its two tabs,
  * its blocking compose modal and its repeating ticket row are authored here
  * because they are the app's SHAPE, and shape is stable. Every ACTION arrives
  * at runtime from the app's own store through `fromLiveStore` — last in the

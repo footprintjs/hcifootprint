@@ -101,10 +101,13 @@ export function unsatisfiableKeys(guard: WhereFilter | undefined): { key: string
   if (!guard) return [];
   const out: { key: string; reason: string }[] = [];
   for (const [key, ops] of Object.entries(guard)) {
-    if (ops && typeof ops === 'object' && !Array.isArray(ops)) {
-      const reason = unsatisfiableReason(ops as Ops);
-      if (reason) out.push({ key, reason });
-    }
+    // Inverted to a guard clause so the exemption scopes this statement alone —
+    // as an `if` wrapping the work, it took the contradiction check and the push
+    // out of the denominator with it.
+    /* v8 ignore next -- the skipped arm is unreachable from a compiled graph: validateGuardShape (src/graph/guards.ts) refuses a guard key that maps to anything but an operator object at every authoring door, so no NavigationGraph can carry one here. */
+    if (!ops || typeof ops !== 'object' || Array.isArray(ops)) continue;
+    const reason = unsatisfiableReason(ops as Ops);
+    if (reason) out.push({ key, reason });
   }
   return out;
 }

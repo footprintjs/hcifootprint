@@ -1,0 +1,108 @@
+---
+title: How to reach a page
+description: The fewest declared hops to a page, walked from the app's own navigation claims — a route, not a plan, and not a permission.
+---
+
+## Pages have no edges, and should not
+
+Nothing in a navigation graph declares that one page leads to another. That is deliberate: what
+connects two places is always an **action** — a link, a button, a redirect — and an action that
+declares where it goes **is** the edge.
+
+```ts
+actions: {
+  pay: { does: 'Check out', goTo: 'checkout' },   // this IS the edge cart → checkout
+}
+```
+
+Declaring page-to-page edges as well would be a second copy of something already stated, and second
+copies drift. So reachability is **derived** from claims you already make.
+
+## Asking
+
+```ts
+session.howToReach('checkout');
+// [
+//   { action: 'catalog.open', to: 'product' },
+//   { action: 'product.add',  to: 'cart' },
+//   { action: 'cart.pay',     to: 'checkout' },
+// ]
+```
+
+Each hop is a `RouteStep` — `{ action, to }`, exported from the root so you can name the value you
+were handed. Two answers are not routes and mean different things:
+
+| Answer | Means |
+|---|---|
+| `[]` | you are already there |
+| `null` | **nobody declares a route** — not "it cannot be reached" |
+
+That distinction matters. `null` says only that nothing in the graph knows a way; your app may well
+navigate there by means it never declared.
+
+## A route is not a plan
+
+The hops come back in fewest-hops order, which is arithmetic — not a recommendation. Each entry
+carries `action` and `to` and nothing that reads as advice, because a *preferred order toward a goal*
+is meaning, and meaning is yours: that is what a journey is for, and you declare it.
+
+## A route is not a permission
+
+`goTo` is a **claim about where an action goes**. A route reports claims; it does not promise the
+hops are open right now.
+
+```ts
+// `pay` is only offered once the basket has something in it.
+actions: { pay: { does: 'Check out', goTo: 'checkout', when: { items: { gt: 0 } } } }
+```
+
+With an empty basket, `pay` is not even offered on the row — and `howToReach('checkout')` still
+reports it, because that is what the app claims leads there.
+
+Whether a hop is currently open is answered where it is actually known: on the row for the action you
+are about to reach for ([`enabled`](doc:reading-an-action-row),
+[`unblockedBy`](doc:what-would-free-it), guard evidence). For hops further along, the library
+does **not** guess — the state at a page this session has never visited is a thing it cannot see, and
+inventing facts about a screen nobody has looked at is precisely what this library exists not to do.
+
+## Honest limits
+
+- **Claims only.** A route is as good as the `goTo` declarations behind it. Undeclared navigation is
+  invisible here, and shows up instead as an [arrival](doc:navigation-claims) that stays
+  `claimed`.
+- **Fewest hops, not best hops.** "Best" would need to know what you value.
+- **Deterministic.** Ties break by declaration order, so the same graph always answers the same way.
+- **The agent gets the same answer, on a call it already makes.** Ask `whats_here` for a destination
+  and the hops come back with it — see below. It is deliberately *not* a sixth tool: the fixed tool
+  array is a contract whose bytes are identical for every caller on every turn.
+
+## The agent asks for it too
+
+Traversal is one of the three contexts this library serves, and a model that is only ever told *where
+it is* has half of it. So `whats_here` takes an optional destination:
+
+```json
+// shop.whats_here { "routeTo": "checkout" }
+{
+  "youAreOn": "catalog",
+  "actions": [ /* … */ ],
+  "routeTo": {
+    "to": "checkout",
+    "hops": [
+      { "action": "catalog.open", "to": "product" },
+      { "action": "product.add", "to": "cart" },
+      { "action": "cart.pay",    "to": "checkout" }
+    ],
+    "means": "Declared hops, fewest first. …"
+  }
+}
+```
+
+Presence-only, like every other stamp on that result: a model that does not ask is not handed an
+answer it must skip past on every turn. Already there answers `alreadyHere: true`; nobody declaring a
+way answers with the reason instead of hops — and that reason says plainly that the app may navigate
+in ways it never declared.
+
+**It is not a sixth tool, deliberately.** The fixed tool array is a contract: its bytes are the same
+for every caller on every turn, and a new tool would change what every existing consumer sees. A
+pinned test proves naming a destination leaves those bytes untouched.

@@ -3,8 +3,8 @@
  * server, so ANY MCP host (Claude Desktop, a LangGraph MCP client, Cursor, …)
  * can drive your app without a line of framework-specific glue.
  *
- * It wraps {@link skillsAsTools} (Mode B): `tools/list` returns the FIXED tool
- * array (one per skill + whats_here / do_action / why), and `tools/call` routes to
+ * It wraps {@link serveToAgent} (Mode B): `tools/list` returns the FIXED tool
+ * array (one per journey + whats_here / do_action / why), and `tools/call` routes to
  * the port. Because the tool set never changes, a plain MCP server works with
  * no `tools/list_changed` churn — that is the whole point of the fixed-tool
  * design. High-effect steps come back as `judgment: 'needs-confirm'` in the
@@ -26,12 +26,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { skillsAsTools } from './modes.js';
-import type { ServeResult, SkillToolsOptions, SkillToolsPortWithSettlement } from './modes.js';
+import { serveToAgent } from './modes.js';
+import type { ServeResult, JourneyToolsOptions, JourneyToolsPortWithSettlement } from './modes.js';
 import type { FireSettlement } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 
-export interface McpServerOptions extends SkillToolsOptions {
+export interface McpServerOptions extends JourneyToolsOptions {
   /** Server name advertised over MCP. Default: the graph id. */
   name?: string;
   /** Server version advertised over MCP. Default '0.1.0'. */
@@ -63,7 +63,7 @@ export interface McpServerOptions extends SkillToolsOptions {
  * transport with `server.connect(transport)`.
  */
 export function mcpServer(session: Session, opts?: McpServerOptions): Server {
-  const port = skillsAsTools(session, opts);
+  const port = serveToAgent(session, opts);
   const settleWithinMs = opts?.settleWithinMs ?? 250;
   const server = new Server(
     { name: opts?.name ?? session.graphId, version: opts?.version ?? '0.1.0' },
@@ -162,7 +162,7 @@ export function mcpServer(session: Session, opts?: McpServerOptions): Server {
  * this transport, which asks on the caller's behalf, absorbs it.
  */
 function foldable(
-  port: SkillToolsPortWithSettlement,
+  port: JourneyToolsPortWithSettlement,
   transitionId: string,
 ): ServeResult | undefined {
   try {
@@ -180,9 +180,9 @@ function foldable(
  * leave a pending timer holding the event loop open behind it.
  */
 async function settleWithin(
-  // The BUILT port: `mcpServer` makes its own with `skillsAsTools` above, so the
+  // The BUILT port: `mcpServer` makes its own with `serveToAgent` above, so the
   // settlement door is always there and this never has to check for it.
-  port: SkillToolsPortWithSettlement,
+  port: JourneyToolsPortWithSettlement,
   transitionId: string,
   ms: number,
 ): Promise<FireSettlement | undefined> {

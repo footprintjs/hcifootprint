@@ -40,14 +40,15 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { mcpServer } from '../src/mcp.js';
+import { readDocPage } from './docs/doc-page.js';
 import type {
   NavigationGraph,
   ServeResult,
   Session,
-  SkillToolsPort,
-  SkillToolsPortWithSettlement,
+  JourneyToolsPort,
+  JourneyToolsPortWithSettlement,
 } from '../src/index.js';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -57,14 +58,14 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           search: { does: 'Search the dresses', writes: ['n'] },
           'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
         },
       },
-      checkout: { tools: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
+      checkout: { actions: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
     },
-    skills: { browse: { does: 'Look around', steps: ['search', 'go-checkout'] } },
+    journeys: { browse: { does: 'Look around', steps: ['search', 'go-checkout'] } },
   });
 }
 
@@ -75,13 +76,13 @@ function wiredPort(handlers?: Record<string, () => unknown>) {
     state: { n: 0, orders: [] },
     onWarn: () => undefined,
   });
-  session.registerToolGroup('catalog', {
+  session.registerActions('catalog', {
     handlers: {
       search: handlers?.['search'] ?? (() => undefined),
       'go-checkout': handlers?.['go-checkout'] ?? (() => undefined),
     },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 /**
@@ -95,29 +96,34 @@ function wiredPort(handlers?: Record<string, () => unknown>) {
  * mount's own structure row takes `#0` and the next FIRE takes `#1`, which is
  * the number the first card carries.
  */
-function twinIdDesk(): { session: Session; port: SkillToolsPortWithSettlement } {
-  const graph = skillGraph('desk', { description: 'A desk' })
-    .page('home')
-    .affordance('ask', {
-      on: 'home',
-      description: 'Ask the assistant something',
-      binding: { kind: 'element', locator: { role: 'button', name: 'Ask' }, actuation: 'click' },
-    })
-    .affordance('wipe', {
-      on: 'home',
-      description: 'Wipe everything',
-      highEffect: true,
-      binding: { kind: 'element', locator: { role: 'button', name: 'Wipe' }, actuation: 'click' },
-    })
-    .build();
+function twinIdDesk(): { session: Session; port: JourneyToolsPortWithSettlement } {
+  const graph = buildNavigationGraph('desk', {
+    does: 'A desk',
+    pages: {
+      home: {},
+    },
+    actions: {
+      ask: {
+        on: 'home',
+        does: 'Ask the assistant something',
+        binding: { kind: 'element', locator: { role: 'button', name: 'Ask' }, actuation: 'click' },
+      },
+      wipe: {
+        on: 'home',
+        does: 'Wipe everything',
+        confirm: true,
+        binding: { kind: 'element', locator: { role: 'button', name: 'Wipe' }, actuation: 'click' },
+      },
+    },
+  });
   const session = graph.createSession({
     node: 'home',
     state: {},
     requireHumanApproval: true,
     onWarn: () => undefined,
   });
-  session.registerTools({ group: 'app', tools: { ask: () => undefined, wipe: () => undefined } });
-  return { session, port: skillsAsTools(session) };
+  session.registerHandlers({ group: 'app', handlers: { ask: () => undefined, wipe: () => undefined } });
+  return { session, port: serveToAgent(session) };
 }
 
 /** A real MCP client over an in-memory pair, exactly as a host would connect. */
@@ -222,7 +228,7 @@ describe('port.settledAnswer — the settled truth as a RESULT, not a promise', 
     expect(Object.keys(answer)).toEqual(
       expect.arrayContaining(['effectStatus', 'outcome', 'writesObserved', 'data', 'stillWorking']),
     );
-    const page = readFileSync(path.join(REPO, 'docs-next/content/docs/serve/mcp.mdx'), 'utf8');
+    const page = readDocPage('mcp');
     const table = page.slice(page.indexOf('### What the fold rewrites'), page.indexOf('## The subpath'));
     for (const key of Object.keys(answer)) expect(table).toContain(`\`${key}\``);
     // …and the two words the fold DELETES are named there too, so a reader is
@@ -275,10 +281,10 @@ describe('port.settledAnswer — the settled truth as a RESULT, not a promise', 
 
 describe('a port hand-written against an earlier release still compiles', () => {
   // The published-interface law, held for the second door exactly as it was for
-  // the first: `settledAnswer` is OPTIONAL on SkillToolsPort. This file is in
+  // the first: `settledAnswer` is OPTIONAL on JourneyToolsPort. This file is in
   // tsconfig.test.json, so a required member would be a compile error here
   // before it was ever a red test.
-  const double: SkillToolsPort = {
+  const double: JourneyToolsPort = {
     tools: () => [],
     call: (name: string): ServeResult => ({ ok: false, reason: 'UNKNOWN_TOOL', asked: name }),
   };
@@ -305,7 +311,7 @@ describe('the MCP fold serves what the poll would have served', () => {
       state: { n: 0, orders: [] },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         search: async () => {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -417,7 +423,7 @@ describe('the MCP fold serves what the poll would have served', () => {
   });
 
   it('the outcome-moved instruction wins over the frame’s next-step hint', async () => {
-    // A skill-step result carries frameData's "call this tool again with step
+    // A journey-step result carries frameData's "call this tool again with step
     // …". If the app took the action back in the meantime, that line is the
     // wrong move to be handed: the settled answer's own instruction — go and
     // look at whats_here — must be the one that survives the fold.
@@ -426,7 +432,7 @@ describe('the MCP fold serves what the poll would have served', () => {
       state: { n: 0, orders: [] },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         search: () => {
           session.updateState({ n: 1 }); // settles: performed / committed
@@ -437,9 +443,9 @@ describe('the MCP fold serves what the poll would have served', () => {
       },
     });
     const client = await connect(session, { settleWithinMs: 200 });
-    await client.callTool({ name: 'shop.skill.browse', arguments: {} }); // open the frame
+    await client.callTool({ name: 'shop.journey.browse', arguments: {} }); // open the frame
     const folded = text(
-      await client.callTool({ name: 'shop.skill.browse', arguments: { step: 'search' } }),
+      await client.callTool({ name: 'shop.journey.browse', arguments: { step: 'search' } }),
     );
 
     expect(folded).toMatchObject({
@@ -458,7 +464,7 @@ describe('the MCP fold serves what the poll would have served', () => {
     // survived on the fire-time result but nothing re-stated it, and the poll
     // one call later did. Now both doors say it.
     const session = buildNavigationGraph('tour', {
-      pages: { catalog: { tools: { save: { does: 'Save the dress', writes: ['saved'] } } } },
+      pages: { catalog: { actions: { save: { does: 'Save the dress', writes: ['saved'] } } } },
     }).createSession({
       node: 'catalog',
       state: { saved: false },
@@ -499,7 +505,7 @@ describe('a missed ceiling mints nothing', () => {
       state: { n: 0, orders: [] },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         search: async () => {
           await new Promise((resolve) => setTimeout(resolve, 40));
@@ -550,7 +556,7 @@ describe('the fold never rewrites the retained settlement', () => {
       state: { n: 0, orders: [] },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         search: () => {
           session.updateState({ n: 1 });

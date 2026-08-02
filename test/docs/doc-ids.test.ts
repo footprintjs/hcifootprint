@@ -30,7 +30,7 @@ describe('fileToRoute mirrors the Fumadocs loader slug rules (baseUrl "/")', () 
     expect(fileToRoute(path.join(GOOD, 'index.mdx'), GOOD)).toBe('/');
   });
   it('a nested page keeps its folder path', () => {
-    expect(fileToRoute(path.join(GOOD, 'guides', 'skills.mdx'), GOOD)).toBe('/guides/skills');
+    expect(fileToRoute(path.join(GOOD, 'guides', 'journeys.mdx'), GOOD)).toBe('/guides/journeys');
   });
   it('a folder index collapses to the folder route', () => {
     expect(fileToRoute(path.join(GOOD, 'guides', 'index.mdx'), GOOD)).toBe('/guides');
@@ -39,7 +39,7 @@ describe('fileToRoute mirrors the Fumadocs loader slug rules (baseUrl "/")', () 
 
 describe('fileToId is the filename slug — stable across taxonomy moves', () => {
   it('a leaf file is its own id', () => {
-    expect(fileToId(path.join(GOOD, 'guides', 'skills.mdx'), GOOD)).toBe('skills');
+    expect(fileToId(path.join(GOOD, 'guides', 'journeys.mdx'), GOOD)).toBe('journeys');
   });
   it('a folder index collapses to the folder name', () => {
     expect(fileToId(path.join(GOOD, 'guides', 'index.mdx'), GOOD)).toBe('guides');
@@ -65,7 +65,7 @@ describe('headingSlugs uses the same slugger Fumadocs renders anchors with', () 
 describe('buildIdMap — the id index', () => {
   it('indexes hand-written pages with route + anchors', () => {
     const map = buildIdMap(GOOD);
-    expect(map.get('skills')?.route).toBe('/guides/skills');
+    expect(map.get('journeys')?.route).toBe('/guides/journeys');
     expect(map.get('index')?.anchors.has('the-merge-order')).toBe(true);
   });
 

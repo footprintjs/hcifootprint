@@ -31,7 +31,7 @@
  */
 
 /**
- * The least this needs from a page: the route it declared. `SkillGraphSpec['pages']`
+ * The least this needs from a page: the route it declared. `NavigationGraphSpec['pages']`
  * satisfies it structurally, and so does a hand-built map — reading the whole
  * compiled Page would force a caller to build one just to ask a question about
  * strings.

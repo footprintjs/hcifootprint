@@ -27,7 +27,7 @@ describe('the agent completes the signup journey', () => {
     const first = await chat.ask(STARTER_MESSAGES[0]);
     expect(first.trouble).toBeNull();
     expect(app.session.node).toBe('review');
-    expect(app.session.skillFrame()?.skillId).toBe('signup');
+    expect(app.session.journeyFrame()?.journeyId).toBe('signup');
     // It asked, in its own derived words, using the receipts it was handed.
     expect(first.text.toLowerCase()).toContain('say yes');
     expect(first.text).toContain('signedUp');
@@ -53,8 +53,8 @@ describe('the agent completes the signup journey', () => {
 
     // The frame closed itself as COMPLETED when its last step landed.
     const frames = app.session.frames();
-    expect(frames.map((frame) => `${frame.skillId}:${frame.status}`)).toContain('signup:completed');
-    expect(app.session.skillFrame()).toBeNull();
+    expect(frames.map((frame) => `${frame.journeyId}:${frame.status}`)).toContain('signup:completed');
+    expect(app.session.journeyFrame()).toBeNull();
 
     // Every declared write was OBSERVED, not assumed: each step's effect was
     // checked against what the store actually reported.
@@ -148,7 +148,7 @@ describe('the agent completes the signup journey', () => {
     const names = new Set(chat.toolCalls().map((call) => call.name));
     // Skill tools plus the three fixed generics — and nothing per-page.
     expect([...names].sort()).toEqual(
-      expect.arrayContaining(['onboarding_do_action', 'onboarding_skill_signup', 'onboarding_whats_here']),
+      expect.arrayContaining(['onboarding_do_action', 'onboarding_journey_signup', 'onboarding_whats_here']),
     );
     for (const name of names) expect(name).toMatch(/^[A-Za-z0-9_-]+$/);
     app.destroy();

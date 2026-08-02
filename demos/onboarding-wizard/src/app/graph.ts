@@ -12,7 +12,7 @@ import { ROUTES } from './routes.js';
  *   "Pages first (routes then hand-authored, hand-authored wins), journeys
  *    overlay second and may only add, live actions attach last and only bind —
  *    nothing later in the order may remove anything earlier. Routes may also
- *    contribute link tools; hand-authored tools win."
+ *    contribute link actions; hand-authored actions win."
  *
  * This demo uses the two STATIC sources. They fold into one plain definition
  * before the compiler walks it, so every refusal a hand-written def would get
@@ -26,7 +26,15 @@ import { ROUTES } from './routes.js';
 export function buildOnboardingGraph() {
   return buildNavigationGraph('onboarding', {
     does: 'A five-step signup wizard.',
-    sources: [fromRoutes(ROUTES), fromJourneys(JOURNEYS)],
+    // `crossLinks: true` because the route table already knows every page's
+    // address, and without it `done` is a genuine DEAD END: it exists only
+    // because the route table declared it (see pages.ts), so it has no
+    // hand-authored actions, and an agent that lands there has nothing it can
+    // even attempt. The session says so out loud — a dead-end gap row and a dev
+    // warning naming the three ways out. This is the third of them, and the
+    // right one here: hand-authoring a block on `done` purely to escape it
+    // would undo the very thing this demo exists to show.
+    sources: [fromRoutes(ROUTES, { crossLinks: true }), fromJourneys(JOURNEYS)],
     pages: HAND_PAGES,
   });
 }
@@ -38,4 +46,4 @@ export type OnboardingGraph = ReturnType<typeof buildOnboardingGraph>;
 export type OnboardingSession = ReturnType<OnboardingGraph['createSession']>;
 
 /** Node paths this graph accepts — the union the compiler inferred from the literals. */
-export type OnboardingNodePath = Parameters<OnboardingSession['registerToolGroup']>[0];
+export type OnboardingNodePath = Parameters<OnboardingSession['registerActions']>[0];

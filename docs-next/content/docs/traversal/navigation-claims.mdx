@@ -1,0 +1,156 @@
+---
+title: Navigation — a claim is not an observation
+description: An action that navigates declares no writes, so success looks like nothing happening. `goesTo` discloses the claim before the fire; `arrival` says whether an observation has corroborated it after — and there is no third value for *did not arrive*.
+---
+
+## The failure this prevents
+
+A navigating action declares no `writes`. So from the side of the control the agent just fired,
+**success and failure look identical**: nothing on the page changed, the button is still there,
+the state report says the same thing it said before. The only evidence that a navigation happened
+is **page motion**, and page motion is the one thing an agent watching an element cannot see.
+
+The human already had the fact that would have told it so. A [confirm receipt](doc:receipts) has
+always disclosed `willDo.navigatesTo` — *this will take you to the cart* — and the agent's own
+action row did not. One fact, two readers, and only one of them told. So an agent fired a working
+link, saw nothing change, and reported a dead control or fired it again.
+
+Two disclosures close it, and they are the same claim at two moments: **`goesTo` before the fire**,
+**`arrival` after it**.
+
+## Before the fire — `goesTo`
+
+Every `whats_here` action row now carries the destination the edge **claims**, straight from the
+declared `goTo`:
+
+```jsonc
+{ "action": "catalog.go-to-cart", "does": "Open the cart",
+  "goesTo": "cart" }                 // ← the claim, before anything is fired
+```
+
+In process it is `AvailableEdge.navigatesTo`, on the same row as `expects`, `highEffect` and the
+rest. It is served whether or not anything is wired to make it true — a claim is a claim — and it
+is **absent** when the app declared no destination. Never inferred from a binding, a route or a
+name.
+
+**A journey frame's `readySteps` rows carry it too**, under the same key and the same rule. A step
+that navigates is the same working link read as a dead one, and inside a frame `readySteps` is the
+whole surface a planner has — so the two rows a model plans over agree about one edge.
+
+Say it to the model as what it is: *this action claims it will move you to that page, so its
+success evidence is page motion, not an element surviving.*
+
+**When the destination does not exist yet** — *place order*, then `/orders/8fa2` — the claim is still
+a page **name**, and the address your app mints travels back separately as data. That whole shape,
+and the two doors that refuse a half-address by name, is [A destination the app
+mints](doc:minted-destinations).
+
+## After the fire — `arrival`
+
+A fire whose edge declared `navigatesTo` is stamped `arrival: 'claimed'` beside the existing
+`toNodeClaimed`. A later [`sync()`](doc:sessions) landing on the page that claim named upgrades it
+to `'observed'`. Those are the only two values there will ever be.
+
+[`did_it_work`](doc:modes#did-it-work) serves it **beside** the settlement, never as the verdict,
+with the authored sentence for whichever one you got:
+
+```jsonc
+{ "ok": true, "settled": true, "did": "catalog.go-to-cart",
+  "effectStatus": "performed", "effectVerified": "unobservable",
+  "arrival": "claimed",
+  "arrivalMeans": "The app declares this action navigates, and nothing has observed it arrive. That is not a failure — no observation has landed, which is a different thing from a navigation that did not happen. Call whats_here to see where things actually stand." }
+```
+
+and once the app has reported the page:
+
+```jsonc
+{ "arrival": "observed",
+  "arrivalMeans": "A matching observation landed after this action: the app reported being on the page this action said it goes to. That is corroboration, not proof that this action caused it." }
+```
+
+An action can be `performed` with `arrival` still `'claimed'`, and **that pair is the truth**: the
+handler ran, and nothing has seen the app arrive.
+
+## The adoption step: one line from your router
+
+`arrival` moves on exactly one thing — the app reporting where it now is. If your app already
+calls `sync()` on route changes you have it. If it does not, this is the whole integration:
+
+```ts twoslash
+import { buildNavigationGraph, matchRoute } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: { route: '/', actions: { 'go-to-cart': { does: 'Open the cart', goTo: 'cart' } } },
+    cart: { route: '/cart' },
+  },
+});
+const session = graph.createSession({ node: 'catalog' });
+// ---cut---
+// wherever your router announces a URL change:
+session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname);
+```
+
+The `??` is the point: a path `matchRoute` cannot place returns `undefined` — never a guess, never
+the nearest page — and the raw path is recorded off-graph exactly as it is today.
+
+That one line buys three things at once: an honest `youAreOn`, the `arrival` join, and a re-read of
+[a live action store](doc:live-bindings#when-it-re-reads--the-invalidation-contract) for apps whose
+actions come from the router.
+
+## How the observation is matched
+
+Two ways, and no third:
+
+1. **Exact page id** — an authored id is compared literally;
+2. **The route table** — an observation the graph has no page named for (a raw pathname, which is
+   what `watchLocation` reports) is put to `matchRoute` over the **whole** table.
+
+The whole table rather than the claimed page's own route, deliberately: a claim on `/orders/:id`
+would otherwise swallow an observation of `/orders/new` that a more literal route describes
+exactly. Asking the matcher lets the better route win and this join correctly find nothing.
+
+Never string similarity, never `endsWith` on a pathname. `/shop/checkout` and `/checkout-old`
+corroborate nothing.
+
+## The window is one claim wide
+
+It holds the newest navigation claim. It **opens where the fire is recorded** and closes on
+whichever comes first: **the next fire**, or **the next observation** — fire order on both ends.
+
+- Two rapid fires claiming the same page → only the newest can be corroborated. The older keeps
+  `'claimed'`, which is the truth about it. This holds however the two **settle**: a fire that comes
+  to rest late (a slower handler, a state report that arrives second) cannot take the window from a
+  newer fire, and cannot re-open one its own closers already shut.
+- Any later fire closes the window → two candidates, and nothing here can tell which one moved the
+  app, so nothing is corroborated.
+- An observation that landed **somewhere else** closes the window without being a verdict. Nothing
+  is marked failed; it is simply evidence the claim did not describe.
+- An observation that lands **while the fire is still in flight** corroborates it. That is the
+  ordinary order for a real navigation — the router moves, and the promise resolves after it.
+
+## Honest limits
+
+- **There is no third value.** A sync somewhere else, or no sync at all, leaves `'claimed'`
+  standing forever. A later legitimate hop and a failed navigation are indistinguishable from here,
+  so silence is the honest answer and the field simply stops moving.
+- **A clock is never evidence.** Nothing ages a claim into a failure. No timeout, ever.
+- **No sync channel means `'claimed'` forever** — honest, not stuck. A session nothing reports to
+  observes nothing by construction, and the library will not manufacture the observation it lacks.
+- **`'observed'` is corroboration, not cause.** The sync row that produced it still carries
+  `unverifiedEdge: true`: the cursor moved without passing a guard, and nothing in this library can
+  see your router. An arm that reads *observed* as *this action caused it* has upgraded evidence
+  into a verdict.
+- **Nothing already written is rewritten.** The settlement receipt taken when the fire came to rest
+  still says `'claimed'`; the upgrade lands on the live record and rides alongside. `toNodeClaimed`
+  is never flipped back, and the join bumps **no version** — a record annotation is not world
+  motion.
+- **Every gesture that declares a destination gets one, `tab` included.** A tab flip on its own is
+  descriptive and moves no cursor — but a tab-bound edge that declares `goTo` is the app saying the
+  page changes, and the cursor moves for it exactly as for a link. Excluding it would leave a hop
+  that happened and could never be corroborated.
+- **A fire nothing executed claims, and can never say more.** Under `allowUnmaterializedFires` the
+  record says `'claimed'` beside `materialized: false` forever: nothing performed it, so there is
+  nothing for a later observation to be evidence of.
+- **`goesTo` is still a claim after the fire lands.** It says what the app's handler declares, not
+  what the app did. That is what `arrival` is for.

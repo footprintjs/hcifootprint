@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { failureReason, isReturnedFailure } from '../src/traverse/handler-result.js';
 
-describe('isReturnedFailure() — recognised failures', () => {
+describe('a handler that RETURNS a refusal is refused, exactly like one that threw', () => {
   it('recognises a bare { ok: false }', () => {
     expect(isReturnedFailure({ ok: false })).toBe(true);
   });
@@ -22,7 +22,7 @@ describe('isReturnedFailure() — recognised failures', () => {
   });
 });
 
-describe('isReturnedFailure() — everything else stays DATA', () => {
+describe('everything else a handler hands back stays DATA, and settles the fire', () => {
   it('rejects a falsy-but-not-false ok (a count, not a verdict)', () => {
     expect(isReturnedFailure({ ok: 0 })).toBe(false);
     expect(isReturnedFailure({ ok: '' })).toBe(false);
@@ -66,7 +66,7 @@ describe('isReturnedFailure() — everything else stays DATA', () => {
   });
 });
 
-describe('failureReason() — what gets reported as the refusal’s reason', () => {
+describe('the words a returned refusal reaches the caller in', () => {
   it('is the named error when the handler named one', () => {
     const error = new Error('payment declined');
     expect(failureReason({ ok: false, error })).toBe(error);

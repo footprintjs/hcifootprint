@@ -34,7 +34,7 @@ function wizard(): NavigationGraph {
   return buildNavigationGraph('wizard', {
     pages: {
       setup: {
-        tools: {
+        actions: {
           // Here whatever happens; clickable only once a recipe is chosen.
           next: { does: 'Go to the review step', enabledWhen: { recipe: { ne: '' } } },
           // The contrast: `when` decides whether it is here at all.
@@ -47,7 +47,7 @@ function wizard(): NavigationGraph {
 
 function wired(state: Record<string, unknown>): InteractionSession {
   const session = wizard().createSession({ node: 'setup', state, onWarn: () => undefined });
-  session.registerToolGroup('setup', { handlers: { next: () => undefined, reset: () => undefined } });
+  session.registerActions('setup', { handlers: { next: () => undefined, reset: () => undefined } });
   return session;
 }
 
@@ -125,12 +125,12 @@ describe('enabledWhen — never a GUESSED disabled', () => {
     const graph = buildNavigationGraph('wizard', {
       pages: {
         setup: {
-          tools: { next: { does: 'Go on', enabledWhen: { recipe: { ne: '' }, neverProjected: { eq: true } } } },
+          actions: { next: { does: 'Go on', enabledWhen: { recipe: { ne: '' }, neverProjected: { eq: true } } } },
         },
       },
     });
     const session = graph.createSession({ node: 'setup', state: { recipe: '' }, onWarn: () => undefined });
-    session.registerToolGroup('setup', { handlers: { next: () => undefined } });
+    session.registerActions('setup', { handlers: { next: () => undefined } });
 
     expect(session.available().edges[0]?.enabled).toBe(false);
     expect(session.fire('setup.next', { source: 'agent' })).toMatchObject({ reason: 'TOOL_DISABLED' });
@@ -146,7 +146,7 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
             cards: {
               repeats: true,
               instances: () => ['o-1', 'o-2'],
-              tools: { cancel: { does: 'Cancel this order', enabledWhen: { frozen: { eq: false } } } },
+              actions: { cancel: { does: 'Cancel this order', enabledWhen: { frozen: { eq: false } } } },
             },
           },
         },
@@ -155,7 +155,7 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
     const session = graph.createSession({ node: 'list', state: { frozen: true }, onWarn: () => undefined });
     // Registered ENABLED, per instance — and still refused, because the app's
     // own declaration says the control is shut.
-    session.registerToolGroup('list.cards', {
+    session.registerActions('list.cards', {
       instance: 'o-1',
       handlers: { cancel: () => undefined },
       enabled: { cancel: true },
@@ -167,9 +167,9 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
   });
 
   it('a registration-side disable still works on its own (nothing was replaced)', () => {
-    const graph = buildNavigationGraph('wizard', { pages: { setup: { tools: { go: { does: 'Go' } } } } });
+    const graph = buildNavigationGraph('wizard', { pages: { setup: { actions: { go: { does: 'Go' } } } } });
     const session = graph.createSession({ node: 'setup', state: {}, onWarn: () => undefined });
-    const handle = session.registerToolGroup('setup', { handlers: { go: () => undefined } });
+    const handle = session.registerActions('setup', { handlers: { go: () => undefined } });
     handle.setEnabled('go', false);
 
     expect(session.available().edges[0]?.enabled).toBe(false);
@@ -179,16 +179,16 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
   it('is declarable at the mount door too, and refuses empty/malformed shapes there', () => {
     const graph = buildNavigationGraph('wizard', { pages: { setup: {} } });
     const session = graph.createSession({ node: 'setup', state: { recipe: '' }, onWarn: () => undefined });
-    session.registerToolGroup('setup', {
-      tools: {
+    session.registerActions('setup', {
+      actions: {
         next: { does: 'Go on', enabledWhen: { recipe: { ne: '' } }, handler: () => undefined },
       },
     });
     expect(session.available().edges[0]?.enabled).toBe(false);
 
     expect(() =>
-      session.registerToolGroup('setup', {
-        tools: { bad: { does: 'Bad', enabledWhen: {}, handler: () => undefined } },
+      session.registerActions('setup', {
+        actions: { bad: { does: 'Bad', enabledWhen: {}, handler: () => undefined } },
       }),
     ).toThrow(/empty enabledWhen/);
   });
@@ -200,7 +200,7 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
     // "Omit 'when' entirely" — a correction naming a field they had not written.
     expect(() =>
       buildNavigationGraph('wizard', {
-        pages: { setup: { tools: { go: { does: 'Go', enabledWhen: {} } } } },
+        pages: { setup: { actions: { go: { does: 'Go', enabledWhen: {} } } } },
       }),
     ).toThrow(/empty enabledWhen \{\}[\s\S]*Omit 'enabledWhen' entirely/);
     // A misspelt operator: the types already refuse it, so the cast is what a
@@ -209,7 +209,7 @@ describe('enabledWhen — one of FOUR wires, all landing the same refusal', () =
     const misspelt = { recipe: { equals: '' } } as unknown as WhereFilter;
     expect(() =>
       buildNavigationGraph('wizard', {
-        pages: { setup: { tools: { go: { does: 'Go', enabledWhen: misspelt } } } },
+        pages: { setup: { actions: { go: { does: 'Go', enabledWhen: misspelt } } } },
       }),
     ).toThrow(/enabledWhen/);
   });

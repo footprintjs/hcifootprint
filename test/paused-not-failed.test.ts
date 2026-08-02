@@ -39,7 +39,7 @@
  *   settled fire as the fate of a human's open card, or the reverse.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { NavigationGraph, ServeResult, Session } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -48,13 +48,13 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       checkout: {
-        tools: {
+        actions: {
           'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] },
           'add-note': { does: 'Add a gift note', writes: ['note'] },
         },
       },
     },
-    skills: { purchase: { does: 'Buy it', steps: ['place-order'] } },
+    journeys: { purchase: { does: 'Buy it', steps: ['place-order'] } },
   });
 }
 
@@ -65,22 +65,22 @@ function shopMap(): NavigationGraph {
 function shop(
   enforced = false,
   policy?: { refuseWhenWorldMoved?: boolean; expiresAfterMs?: number },
-): { session: Session; port: ReturnType<typeof skillsAsTools> } {
+): { session: Session; port: ReturnType<typeof serveToAgent> } {
   const session = shopMap().createSession({
     node: 'checkout',
     state: {},
     ...(enforced ? { requireHumanApproval: policy ?? (true as const) } : {}),
     onWarn: () => undefined,
   });
-  session.registerToolGroup('checkout', {
+  session.registerActions('checkout', {
     handlers: { 'place-order': () => undefined, 'add-note': () => undefined },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 /** Land an ask through the port and hand back its id (and the result). */
 function ask(
-  port: ReturnType<typeof skillsAsTools>,
+  port: ReturnType<typeof serveToAgent>,
   args: Record<string, unknown> = {},
 ): { asked: ServeResult; askId: string } {
   const asked = port.call('shop.do_action', { action: 'place-order', ...args });
@@ -101,10 +101,10 @@ describe('needs-confirm says that nothing has been done', () => {
     expect(String(asked['why'])).toContain('not a failure');
   });
 
-  it('nothing has been done — the skill-step arm', () => {
+  it('nothing has been done — the journey-step arm', () => {
     const { port } = shop();
-    port.call('shop.skill.purchase', {});
-    const stopped = port.call('shop.skill.purchase', { step: 'place-order' });
+    port.call('shop.journey.purchase', {});
+    const stopped = port.call('shop.journey.purchase', { step: 'place-order' });
     expect(stopped).toMatchObject({
       ok: false,
       judgment: 'needs-confirm',
@@ -306,20 +306,25 @@ describe('did_it_work — the three fates of an ask', () => {
     // action called 'ask' can mint the same string for both. Answering from
     // either book would be a confident answer about the OTHER object — a settled
     // fire reported as the fate of a human's open card, or the reverse.
-    const graph = skillGraph('desk', { description: 'A desk' })
-      .page('home')
-      .affordance('ask', {
-        on: 'home',
-        description: 'Ask the assistant something',
-        binding: { kind: 'element', locator: { role: 'button', name: 'Ask' }, actuation: 'click' },
-      })
-      .affordance('wipe', {
-        on: 'home',
-        description: 'Wipe everything',
-        highEffect: true,
-        binding: { kind: 'element', locator: { role: 'button', name: 'Wipe' }, actuation: 'click' },
-      })
-      .build();
+    const graph = buildNavigationGraph('desk', {
+      does: 'A desk',
+      pages: {
+        home: {},
+      },
+      actions: {
+        ask: {
+          on: 'home',
+          does: 'Ask the assistant something',
+          binding: { kind: 'element', locator: { role: 'button', name: 'Ask' }, actuation: 'click' },
+        },
+        wipe: {
+          on: 'home',
+          does: 'Wipe everything',
+          confirm: true,
+          binding: { kind: 'element', locator: { role: 'button', name: 'Wipe' }, actuation: 'click' },
+        },
+      },
+    });
     const warnings: string[] = [];
     const session = graph.createSession({
       node: 'home',
@@ -327,11 +332,11 @@ describe('did_it_work — the three fates of an ask', () => {
       requireHumanApproval: true,
       onWarn: (message) => warnings.push(message),
     });
-    session.registerTools({
+    session.registerHandlers({
       group: 'app',
-      tools: { ask: () => undefined, wipe: () => undefined },
+      handlers: { ask: () => undefined, wipe: () => undefined },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     // Two fires of 'ask' mint transitions ask#0 and ask#1…
     session.fire('ask', { source: 'agent' });

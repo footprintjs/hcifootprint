@@ -136,7 +136,7 @@ describe('the declared level, driven with no framework at all', () => {
     const button = el('button', { text: 'Send' });
     surface.mount(button);
     // A skin holds the handle across renders — hence named methods rather than a
-    // bare closure, the idiom registerToolGroup's handle already sets.
+    // bare closure, the idiom registerActions's handle already sets.
     const box: { watch?: PageWatch } = {};
     box.watch = watchPage(session, { root: surface });
     box.watch.attach({ edge: desk.send, element: button });

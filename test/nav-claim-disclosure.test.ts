@@ -12,7 +12,7 @@
  * things. Now `available()` stamps the declared destination and `whats_here`
  * serves it as `goesTo`, BEFORE anything is fired.
  *
- * The frame surface was the last one still silent. Inside a skill, `readySteps`
+ * The frame surface was the last one still silent. Inside a journey, `readySteps`
  * IS the action list — so a navigating STEP was the same working link read as a
  * dead one, on the one row a planner has while the frame is open.
  *
@@ -25,24 +25,24 @@
  *   the equality that says one edge cannot be described two ways.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { ConfirmReceipts, NavigationGraph } from '../src/index.js';
 
 function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
           'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] },
           'empty-cart': { does: 'Empty the cart', confirm: true, goTo: 'catalog', writes: ['cart'] },
         },
       },
-      checkout: { tools: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
+      checkout: { actions: { 'place-order': { does: 'Place the order', writes: ['orders'] } } },
     },
-    // The frame surface, where the same claim had to travel too: inside a skill,
+    // The frame surface, where the same claim had to travel too: inside a journey,
     // `readySteps` is the whole action list a planner reads.
-    skills: {
+    journeys: {
       purchase: { does: 'Buy the dress', steps: ['catalog.add-to-cart', 'catalog.go-checkout'] },
     },
   });
@@ -54,14 +54,14 @@ function shop() {
     state: { cart: [] },
     onWarn: () => undefined,
   });
-  session.registerToolGroup('catalog', {
+  session.registerActions('catalog', {
     handlers: {
       'go-checkout': () => undefined,
       'add-to-cart': () => undefined,
       'empty-cart': () => undefined,
     },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 /** One action row out of a whats_here reply. */
@@ -70,7 +70,7 @@ function actionRow(result: Record<string, unknown>, action: string): Record<stri
   return rows.find((row) => row['action'] === action)!;
 }
 
-/** One readySteps row out of an opened skill frame. */
+/** One readySteps row out of an opened journey frame. */
 function stepRow(result: Record<string, unknown>, step: string): Record<string, unknown> {
   const rows = result['readySteps'] as Array<Record<string, unknown>>;
   return rows.find((row) => row['step'] === step)!;
@@ -121,7 +121,7 @@ describe('the declared destination is served before the fire', () => {
       allowUnmaterializedFires: true,
       onWarn: () => undefined,
     });
-    const row = actionRow(skillsAsTools(session).call('shop.whats_here', {}), 'catalog.go-checkout');
+    const row = actionRow(serveToAgent(session).call('shop.whats_here', {}), 'catalog.go-checkout');
     expect(row).toMatchObject({ goesTo: 'checkout', materialized: false });
   });
 
@@ -131,14 +131,14 @@ describe('the declared destination is served before the fire', () => {
   });
 });
 
-describe('a skill frame’s readySteps make the same claim', () => {
+describe('a journey frame’s readySteps make the same claim', () => {
   it('a navigating STEP carries goesTo — the last surface that read as a dead link', () => {
     // Inside a frame the action list IS readySteps, and it was the one row still
     // silent about the destination: a step that declares no writes and no
     // destination looks, from the element's side, exactly like a step that did
     // nothing. Same key, same declaration, same rule.
     const { port } = shop();
-    const opened = port.call('shop.skill.purchase', {});
+    const opened = port.call('shop.journey.purchase', {});
 
     expect(stepRow(opened, 'catalog.go-checkout')).toMatchObject({
       step: 'catalog.go-checkout',
@@ -151,7 +151,7 @@ describe('a skill frame’s readySteps make the same claim', () => {
     // The asymmetry this closes, asserted as an equality: two rows a model plans
     // over, about one edge, must not disagree about where it goes.
     const { port } = shop();
-    const opened = port.call('shop.skill.purchase', {});
+    const opened = port.call('shop.journey.purchase', {});
     const here = port.call('shop.whats_here', {});
 
     expect(stepRow(opened, 'catalog.go-checkout')['goesTo']).toBe(
@@ -163,7 +163,7 @@ describe('a skill frame’s readySteps make the same claim', () => {
     // The attack: defaulting it to the current page, or to anything at all. An
     // add-to-cart step goes nowhere and says nothing about going anywhere.
     const { port } = shop();
-    const opened = port.call('shop.skill.purchase', {});
+    const opened = port.call('shop.journey.purchase', {});
 
     expect(stepRow(opened, 'catalog.add-to-cart')).not.toHaveProperty('goesTo');
   });
@@ -173,8 +173,8 @@ describe('a skill frame’s readySteps make the same claim', () => {
     // that reached the model by growing the schema would cost every caller a
     // cache miss on every turn, for a fact that belongs in the answer.
     const { port } = shop();
-    const skillTool = port.tools().find((tool) => tool.name === 'shop.skill.purchase')!;
+    const journeyTool = port.tools().find((tool) => tool.name === 'shop.journey.purchase')!;
 
-    expect(JSON.stringify(skillTool)).not.toContain('goesTo');
+    expect(JSON.stringify(journeyTool)).not.toContain('goesTo');
   });
 });

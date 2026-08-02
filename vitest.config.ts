@@ -13,5 +13,18 @@ export default defineConfig({
     // scripts/check-test-badge.mjs. Gitignored, and only ever read by that gate.
     reporters: ['default', 'json'],
     outputFile: { json: '.test-tally.json' },
+    // Coverage is enforced at 100% — a drop fails `npm run test:coverage`.
+    // The sibling precedent is vizfootprint, where the same four thresholds
+    // have held for a while: unreachable defensive arms carry a documented
+    // `/* v8 ignore */` AT THE SITE, so an exemption is a sentence someone had
+    // to write and a reader can argue with, never a silent gap in a number.
+    coverage: {
+      // *.ts, not `src/**`: every module directory carries a README.md, and the
+      // bare glob hands those to the provider as if they were source — eight
+      // parse-error stack traces on every run, for files that hold no code.
+      include: ['src/**/*.ts'],
+      exclude: ['**/*.test.*', '**/types.ts'],
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
+    },
   },
 });

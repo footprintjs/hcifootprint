@@ -29,7 +29,7 @@
 import { describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { mcpServer } from '../src/mcp.js';
 import type { NavigationGraph, ServeResult, Session } from '../src/index.js';
 
@@ -37,7 +37,7 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       checkout: {
-        tools: {
+        actions: {
           'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] },
           'add-note': { does: 'Add a gift note', writes: ['note'] },
           'print-receipt': { does: 'Print the receipt', input: 'none' },
@@ -46,21 +46,21 @@ function shopMap(): NavigationGraph {
         },
       },
     },
-    skills: {
+    journeys: {
       purchase: { does: 'Buy it', steps: ['place-order'] },
       audit: { does: 'Review the orders', steps: ['export-all'], when: { auditor: { eq: true } } },
     },
   });
 }
 
-function shop(enforced = false): { session: Session; port: ReturnType<typeof skillsAsTools> } {
+function shop(enforced = false): { session: Session; port: ReturnType<typeof serveToAgent> } {
   const session = shopMap().createSession({
     node: 'checkout',
     state: { orders: [], credit: 0, auditor: false },
     ...(enforced ? { requireHumanApproval: true as const } : {}),
     onWarn: () => undefined,
   });
-  session.registerToolGroup('checkout', {
+  session.registerActions('checkout', {
     handlers: {
       'place-order': () => undefined,
       'add-note': () => undefined,
@@ -68,7 +68,7 @@ function shop(enforced = false): { session: Session; port: ReturnType<typeof ski
       'apply-credit': () => undefined,
     },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 /**
@@ -86,18 +86,18 @@ function armsThatFiredNothing(): [string, ServeResult][] {
   // Asked HERE, while the card is genuinely open: the declines below close it,
   // and a fate read after the fact would be a different arm wearing this label.
   const awaitingHuman = port.call('shop.did_it_work', { transitionId: asked['askId'] as string });
-  port.call('shop.skill.purchase', {});
+  port.call('shop.journey.purchase', {});
   arms.push([
-    'needs-confirm (skill step)',
-    port.call('shop.skill.purchase', { step: 'place-order' }),
+    'needs-confirm (journey step)',
+    port.call('shop.journey.purchase', { step: 'place-order' }),
   ]);
   arms.push([
     'declined (do_action)',
     port.call('shop.do_action', { action: 'place-order', decline: true }),
   ]);
   arms.push([
-    'declined (skill step)',
-    port.call('shop.skill.purchase', { step: 'place-order', decline: true }),
+    'declined (journey step)',
+    port.call('shop.journey.purchase', { step: 'place-order', decline: true }),
   ]);
   arms.push([
     'needs-confirm (enforced APPROVAL_REQUIRED)',
@@ -119,8 +119,8 @@ function armsThatFiredNothing(): [string, ServeResult][] {
 
   // --- the typed errors -----------------------------------------------------
   arms.push(['error UNKNOWN_ACTION', port.call('shop.do_action', { action: 'nonesuch' })]);
-  arms.push(['error UNKNOWN_STEP', port.call('shop.skill.purchase', { step: 'nonesuch' })]);
-  arms.push(['error UNKNOWN_TOOL', port.call('shop.skill.ghost', {})]);
+  arms.push(['error UNKNOWN_STEP', port.call('shop.journey.purchase', { step: 'nonesuch' })]);
+  arms.push(['error UNKNOWN_TOOL', port.call('shop.journey.ghost', {})]);
   arms.push(['error ACTION_REQUIRED', port.call('shop.do_action', {})]);
   arms.push(['error TRANSITION_ID_REQUIRED', port.call('shop.did_it_work', {})]);
   arms.push(['error KEY_REQUIRED', port.call('shop.why', {})]);
@@ -129,8 +129,8 @@ function armsThatFiredNothing(): [string, ServeResult][] {
     port.call('shop.did_it_work', { transitionId: 'checkout.place-order#99' }),
   ]);
 
-  // --- the blocked skill ----------------------------------------------------
-  arms.push(['blocked (precondition)', port.call('shop.skill.audit', {})]);
+  // --- the blocked journey ----------------------------------------------------
+  arms.push(['blocked (precondition)', port.call('shop.journey.audit', {})]);
 
   // --- the read-only doors --------------------------------------------------
   arms.push(['whats_here', port.call('shop.whats_here', {})]);
@@ -155,9 +155,9 @@ describe('no paused or refused result carries a transitionId', () => {
     const by = (label: string): ServeResult => arms.find(([name]) => name === label)![1];
 
     expect(by('needs-confirm (do_action)')['judgment']).toBe('needs-confirm');
-    expect(by('needs-confirm (skill step)')['judgment']).toBe('needs-confirm');
+    expect(by('needs-confirm (journey step)')['judgment']).toBe('needs-confirm');
     expect(by('declined (do_action)')['judgment']).toBe('declined');
-    expect(by('declined (skill step)')['judgment']).toBe('declined');
+    expect(by('declined (journey step)')['judgment']).toBe('declined');
     expect(by('needs-confirm (enforced APPROVAL_REQUIRED)')['reason']).toBe('APPROVAL_REQUIRED');
     expect(by('did_it_work → awaiting-human')['judgment']).toBe('awaiting-human');
     expect(by('rejected NOT_MATERIALIZED')['reason']).toBe('NOT_MATERIALIZED');

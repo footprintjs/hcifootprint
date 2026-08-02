@@ -1,6 +1,6 @@
 # Onboarding wizard — the graph grows from what the app already had
 
-A five-page signup wizard. Its skill graph is not typed out by hand: it is **grown** from the two
+A five-page signup wizard. Its navigation graph is not typed out by hand: it is **grown** from the two
 descriptions the app already owned — a route table and a journey list — and its navigation has
 **no handlers at all**.
 
@@ -34,7 +34,7 @@ The merge order is one sentence, printed in the docs and enforced in code:
 
 > Pages first (routes then hand-authored, hand-authored wins), journeys overlay second and may only
 > add, live actions attach last and only bind — nothing later in the order may remove anything
-> earlier. Routes may also contribute link tools; hand-authored tools win.
+> earlier. Routes may also contribute link actions; hand-authored actions win.
 
 The **sources panel** shows what that produced as a set difference over the compiled graph, and then
 proves the sources are load-bearing by compiling two throwaway graphs on the spot: the same
@@ -86,9 +86,9 @@ panel carries a chip naming the call it came from:
 
 | Panel | Rendered from |
 | --- | --- |
-| What the sources contributed | `graph.spec.pages` / `graph.spec.skills`, diffed against the app's literals |
+| What the sources contributed | `graph.spec.pages` / `graph.spec.journeys`, diffed against the app's literals |
 | What is possible here | `session.available()` |
-| Journeys, and whether they can start | `session.availableSkills()` + `session.available()` |
+| Journeys, and whether they can start | `session.availableJourneys()` + `session.available()` |
 | Receipts | `session.transitions()` + `session.commitLog()` |
 | Demand backlog | `session.gaps()` |
 | URL round-trip | `matchRoute(graph.spec.pages, path) ?? path` |

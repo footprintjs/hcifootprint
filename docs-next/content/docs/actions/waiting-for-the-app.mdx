@@ -1,0 +1,367 @@
+---
+title: Waiting for the app
+description: "The async story in one place — your handler's promise is the completion signal, a transitionId threads identity on the state rail, and the one served await has a ceiling that never becomes a verdict."
+---
+
+## The failure this prevents
+
+Every action worth firing is asynchronous. The library's answer at return time is
+`effectStatus: 'pending'` — true, and useless to act on — so a reader that cannot see the screen
+is left holding a receipt for a thing that has not happened yet. It has two moves available, and
+both are wrong: fire it again, or tell the person it failed.
+
+A production integration met this and built the missing half by hand: a transition listener plus a
+four-second stopwatch, rewriting results on its relay's send path. Machinery no other consumer
+holding the port could reuse — and one that answered with a **confident guess** whenever the id it
+was handed was wrong.
+
+The ask that came with it was an `await` on the tool call itself: `awaitSettlement: true`,
+`timeoutMs: 30000`. What shipped instead is this page, because *waiting* is five different
+questions and only one of them is a clock:
+
+| the question | the door |
+|---|---|
+| *has my app finished?* | your handler's promise — the signal your app already has |
+| *which fire does this completion belong to?* | `transitionId`, threaded on the state rail |
+| *can the answer arrive in the same turn?* | `settleWithinMs` — the one served await |
+| *is it still running right now?* | [`busy`](doc:when-a-control-is-busy) · [work rows](doc:when-the-app-is-still-working) · [`did_it_work`](doc:modes#did-it-work) |
+| *am I waiting on a **person**?* | [the ask book](doc:paused-not-failed) — and it is [not the same waiting](#waiting-on-a-person-is-a-different-waiting) |
+
+**In a hurry?** [Going async](doc:going-async) is the same material as a four-move recipe. This page
+is the reasoning under it.
+
+## Your handler's promise **is** the completion signal
+
+There is no separate async wire to adopt, and that is deliberate: the app already has one. Hand
+`registerActions` the function you already call, and **return its promise**.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { actions: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+});
+const session = graph.createSession({ node: 'compose', state: { draft: null } });
+// Your data layer, whatever it is — React Query's mutation object here.
+declare const saveDraft: { mutateAsync(input: unknown): Promise<unknown> };
+// ---cut---
+session.registerActions('compose', {
+  // `mutateAsync` RETURNS the promise, so the library learns when your app
+  // finished — from your app, on the call path that started it.
+  handlers: { save: (payload) => saveDraft.mutateAsync(payload) },
+});
+```
+
+Three rules, and they are the whole contract:
+
+- **Return the promise.** A handler that kicks off async work and returns `undefined` has told this
+  library it finished. React Query's `mutate` is that shape; `mutateAsync` is the one to hand over.
+  Everything downstream — the settlement, `did_it_work`, the fold below — would otherwise be
+  answering honestly about a call that came back early.
+- **Fail by throwing, or by returning `{ ok: false }`.** Both take the same path, because both are
+  your app saying it did not do the thing: the outcome flips to rejected (a claims-only commit rolls
+  back, a claimed navigation walks home) and the failure becomes the settlement's reason. The test
+  for the returned form is deliberately narrow — own property, strict `=== false` — so a `fetch`
+  `Response` stays data.
+- **`fire()` stays synchronous, and the handler is always deferred.** `effectStatus` at return time
+  is therefore never `'performed'`; the final truth arrives on
+  [`whenSettled` / `settlementOf`](doc:sessions#asking-later--settlementof).
+
+**What "finished" settles depends on whether your session has a state tap.** With one (the ordinary
+case), your app's report is the settlement and the handler completing merely hands the record back
+to the tap. In a **tapless** session (`stateTap: false`) the handler completing *is* the settlement
+signal — `effectStatus: 'performed'`, with `effectVerified: 'unobservable'`, because no report
+exists to check the declared writes against.
+
+## Thread the id on the state rail
+
+There are two rails home from a fire, and only one of them carries its own identity.
+
+**The handler rail carries it for free.** `fire()` invokes one handler per invocation and holds
+*that* invocation's promise. What it returns or throws belongs to that fire because it **is** that
+fire — nothing is matched, so nothing can be mismatched, whatever order the handlers finish in.
+
+**The state rail has to be told.** Your app reports its delta from wherever it reports things — a
+store subscription, a query cache, a socket — and by then the call path is gone. So identity
+travels with the report:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { actions: { save: { does: 'Save the draft', writes: ['draft'] } } } },
+});
+const session = graph.createSession({ node: 'compose', state: { draft: null } });
+declare function saveToServer(): Promise<{ body: string }>;
+// ---cut---
+const fired = session.fire('compose.save', { source: 'user' });
+if (fired.ok) {
+  const id = fired.transition.id;
+  void saveToServer().then((saved) => {
+    session.updateState({ draft: saved.body }, { transitionId: id }); // exact, always
+  });
+}
+```
+
+That is **the recommendation**, and it is the same property `beginWork({ transitionId })` takes for
+the same reason: what the caller *said* outranks anything the library could infer.
+
+One shape never needs it: a report made from inside a handler's **synchronous portion** settles that
+handler's own record — the library is still inside the call, so nothing is matched and nothing can be
+mismatched.
+
+A second shape usually does not, and the *usually* is load-bearing. When **every** outstanding fire's
+handler is still in flight, a report whose delta covers exactly one of their declared `writes`
+settles that one precisely — which is what an async handler reporting its own writes past its
+`await` looks like. Mix the queue, though, and bare FIFO answers first: with one fire awaiting a
+report and another handler still running, an id-less report settles **the waiting one**, whatever
+keys it carries. Two fires in the air is exactly when the id is worth passing.
+
+### Bare FIFO is oldest-first, and it can be wrong
+
+With no id, no stimulus and more than one fire outstanding, the report settles the **oldest** pending
+fire whose handler is not still in flight. Oldest — stated, not incidental: a queue answers in the
+order it was joined.
+
+Out-of-order completion is ordinary, so this **can mis-attribute**: two saves in flight and the
+second one finishing first means the first record wears the second's delta. It mis-attributes
+*predictably*, though, and a caller can reason about it — and when the keys do not line up,
+`effectVerified: false` is the designed detector.
+
+**Recency would be worse than wrong; it would be unfalsifiable.** *Attribute to the most recent
+fire* is right exactly when handlers finish in the order they started — the one case where FIFO is
+right too — and wrong precisely when the timing is interesting, silently, with a plausible-looking
+answer. A clock is not evidence of causation any more than it is evidence of a verdict, so no
+correlation in this library reads one. It is written down as law in `docs/design/answer-grammar.md`
+("How completion is correlated") and pinned by a test, so an optimization to *the latest one* fails
+loudly instead of quietly.
+
+## Promises and callbacks — and five lines per framework
+
+Everything above is your app's own control flow: a promise you already had, a delta you already
+report, an id you pass along. Saying **"and I am still working"** is the same — two ordinary calls
+and one label, with no subscription to set up, no scheduler to adopt, and no framework anywhere:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  pages: { compose: { actions: { save: { does: 'Save the draft' } } } },
+});
+const session = graph.createSession({ node: 'compose' });
+declare function saveToServer(): Promise<void>;
+// ---cut---
+const saveTool = session.registerAction('compose', 'save', { does: 'Save the draft', handler: save });
+
+async function save() {
+  const work = session.beginWork('Saving your draft…'); // 1. the app is working
+  saveTool.setBusy('Saving your draft…');               // 2. and this control is the one
+  try {
+    await saveToServer();                               // 3. your own promise, unchanged
+    work.done();                                        // 4. closed — cleanly
+  } catch (failure) {
+    work.done(failure);                                 //    or with what went wrong
+    throw failure;
+  } finally {
+    saveTool.setBusy(undefined);                        // 5. the label comes back down
+  }
+}
+```
+
+That is the whole feature. It is what the library ships, it is what every skin is a skin *over*, and
+`test/work-framework-interface.test.ts` drives exactly these lines with no framework loaded at all —
+so "framework-free" is a test rather than a claim.
+
+### React: the same five lines, moved into the lifecycle
+
+A component already has the boolean it renders its own spinner from. `useWorking` takes **that**
+boolean and turns its two edges into the two calls above:
+
+```tsx
+import { useWorking } from 'hcifootprint/react';
+
+function SaveButton({ session, saveTool }) {
+  const save = useMutation({ mutationFn: saveToServer });   // your data layer, unchanged
+
+  useWorking({
+    busy: save.isPending,             // the flag your spinner already reads
+    label: 'Saving your draft…',      // your words
+    error: save.error,                // the error you already render
+    actions: saveTool,                  // the control that should carry the label
+    session,
+  });
+
+  return <button onClick={() => save.mutate()}>{save.isPending ? 'Saving…' : 'Save'}</button>;
+}
+```
+
+Rising edge (`false → true`): one work row, and the label on each control. Falling edge: the row is
+closed — carrying the error if one is present — and the label comes down. Every rise is its **own**
+row, so a flag that flaps three times writes three rows; two pieces of work that happened at
+different times are two facts.
+
+**Pass the flag you already have.** `save.isPending`, `isSaving`, your store's own field — the one
+the screen depends on. A boolean maintained *only* for this library is a second copy of a fact, and
+the copy nobody looks at is the one that rots.
+
+### An Angular or Vue binding is the same five lines
+
+**This is said out loud because it is the design, not an aspiration.** The core takes no framework
+and returns no framework; a skin exists to put those five lines in the three moments every framework
+already has:
+
+| moment | React | Vue | Angular |
+| --- | --- | --- | --- |
+| the flag goes up | an effect's setup | `watch` / `onMounted` | a setter or `ngOnChanges` |
+| the flag comes down | the same effect, next commit | the same watcher | the same setter |
+| the component goes away | the effect's cleanup | `onScopeDispose` | `ngOnDestroy` |
+
+Nothing else is needed, and nothing in the library has to change to add one: `hcifootprint/react`
+imports **types** from the core and nothing else, which is exactly why a second skin is a new folder
+rather than a new seam. [The React binding](doc:react-binding) has the whole surface.
+
+### Honest limits of the hook
+
+- **Unmount is deliberately asymmetric, and the asymmetry is the point.** A component going away is
+  not the work ending, so the **work row stays open** — closing it would mint a verdict out of
+  silence, and no timer will ever end it either. The **busy label is cleared**, because a label is a
+  claim about a control and the thing keeping it true has gone. What is *unknown* stays open; what
+  was *claimed* is taken back. One dev warning says so.
+- **The error is read by presence at fall time.** Set the flag and the error together — React batches
+  both updates from one `catch` into a single commit, which is what makes that the ordinary case. An
+  error that only arrives in a *later* commit closes the row cleanly. `null` counts as absent, because
+  that is how React's own data layers spell *nothing went wrong* (`mutation.error` is `null` on every
+  clean settle). It is **not remembered between episodes**: an error your component still renders when
+  the *next* piece of work ends closes that row too, carrying a failure it never had — React Query
+  resets its own per attempt, and a hand-rolled flag clears it where it sets the boolean.
+- **The row is unbound unless you name the fire, and the id is read where the flag goes up.** An
+  effect runs long after any handler's call window closed, so there is no fire the hook is "inside
+  of". Pass `transitionId` when the component has it *on the commit where `busy` becomes true* —
+  where work lands is decided once, when the row opens, and nothing in this library revisits a
+  correlation afterwards. An id that arrives a commit later does **not** move the row it missed; the
+  hook says so once rather than dropping it silently, and the row keeps honestly saying *the app is
+  working* without claiming which action, at principal `system`.
+
+That last one is the ordinary shape rather than an exotic one: a mutation's `isPending` flips where
+you call it, and the id only exists once the function that fires has run. Bind it by making the flag
+and the id **one state update**:
+
+```tsx
+const [saving, setSaving] = useState<{ transitionId: string } | null>(null);
+
+useWorking({
+  busy: saving !== null,
+  label: 'Saving your draft…',
+  transitionId: saving?.transitionId,   // in hand on the very commit the flag rises
+  actions: saveTool,
+  session,
+});
+
+async function onSave() {
+  const fired = session.fire('compose.save', { source: 'user' });
+  if (!fired.ok) return;
+  setSaving({ transitionId: fired.transition.id });   // one commit, both facts
+  try { await saveToServer(); } finally { setSaving(null); }
+}
+```
+
+Or skip the question entirely: open the work **inside the handler**, before its first `await`, where
+the fire binds itself and no id has to travel at all.
+- **It can never report that something worked.** The two doors it drives are the work ledger and the
+  busy label, and neither settles a transition — `done(error)` is recorded on the work row only. The
+  failure spine stays a handler throw, a returned `{ ok: false }`, or `reject()`. The worst a wrong
+  flag here can do is say the app is working when it is not.
+
+## `settleWithinMs` — the one served await
+
+A promise cannot cross a wire, so a remote agent would get `'pending'` and nothing else. The
+[MCP server](doc:mcp) closes that at the one boundary where waiting already belongs: a tool call is
+already an async turn, so when a call **fired** something, the server gives your app a moment and
+folds the settled truth into the same result.
+
+```ts
+import { mcpServer } from 'hcifootprint/mcp';
+
+const server = mcpServer(session, { settleWithinMs: 1000 }); // default 250
+```
+
+**Keep the ceiling well under your host's own timeout.** This server sends **no progress
+notifications**, so a long ceiling buys no patience from the client: it simply means the *client*
+gives up first and reports an error about an action that may well have succeeded — a failure report
+about a success, which is the worst answer available here. A minutes-long ceiling is not a
+long-running-work feature; it is a way to convert a slow success into a loud lie.
+
+**The long-running door is [`did_it_work`](doc:modes#did-it-work)**, and it is a poll rather than a
+wait: it answers immediately, never blocks, can be asked as many times as the model likes, and says
+`still-pending` for as long as that is the truth — with
+[`stillWorking: true`](doc:when-the-app-is-still-working) beside it when your app has said it is
+still working.
+
+Two properties of the ceiling are worth stating plainly, because they are what keep it a fact about
+the *waiter* rather than a verdict about the *work*:
+
+- **It decides how long to wait, never what the answer is.** Miss it and nothing is minted:
+  `effectStatus: 'pending'` stands, `howToSettle` stays, and not one settled field appears.
+- **`0` is the shortest ceiling, not an off switch.** The timer is a macrotask, so a settlement
+  already in hand still wins the race and is still folded in. There is no way to turn the fold off —
+  withholding an answer the session is already holding would be the only dishonest move available.
+
+## An awaited call can never block on a person
+
+The fold waits only on a result that carries a `transitionId`, and that is an **invariant, not a
+habit**: a `transitionId` is minted by an executed fire and by nothing else. A `needs-confirm`, a
+decline and every refusal carry no such id, so they return at once with the ceiling untouched.
+
+It matters because the alternative is silent and awful. Give a needs-confirm arm a `transitionId`
+for tidiness and the server starts waiting on an action nobody has approved: the tool call holds the
+turn open until the ceiling expires, and the model that was supposed to go and fetch a person sits
+on a stopped clock instead. A pause carries an [`askId`](doc:paused-not-failed) instead — two id
+families, two different objects, no overlap — and the invariant is pinned by a test that sweeps
+every arm this port can produce without firing.
+
+## Waiting on a person is a different waiting
+
+Everything above is *the app has not finished*. A person is not the app, and the difference is not a
+nicety: **nothing was fired**, so no settlement is coming, no ceiling can help, and the honest thing
+for the caller to do is stop waiting and go and ask.
+
+The door is the same tool with the other id family. Hand [`did_it_work`](doc:modes#did-it-work) an
+**`askId`** and it answers from the ask book instead of the settlement ledger:
+
+```jsonc
+{ "ok": true, "settled": false, "performed": false,
+  "judgment": "awaiting-human", "askId": "ask#1", "did": "checkout.place-order",
+  "howToAct": "Paused, not failed: no outcome exists because nothing was fired. The human has not decided. Do not report this as an error and do not look for another way to do it — show them what it will do and wait for their answer." }
+```
+
+`awaiting-human` is one of three words on that arm — the others are `approved-not-yet-done` (a yes is
+on record and nothing has fired) and `declined`. The same fact is also a **list**: an unknown-id
+refusal carries `awaitingHuman: [{ askId, action }]` for every card nobody has answered, beside
+`pending` and `awaitingSettlement`, precisely so the three kinds of open question are never one pile.
+
+**`awaiting-human`'s referent is the card.** It means a question is in front of a person and the
+system is holding it. That is deliberately narrow, and it is why there is a second, separate idea for
+the case where the system holds *nothing* — where the choice itself is the person's to make and the
+agent's job is to present options and stop. That vocabulary is designed and not yet built; a journey
+frame today serves `readySteps`, `laterSteps` and `awaitingState`, and splits its ready list by no
+other hold.
+
+## Honest limits
+
+- **No promise here rejects, and none of them times out.** `whenSettled` and `settlementOf` deliver
+  one answer and never reject — refusals arrive as data. A fire your app never reports on waits
+  **forever**, on purpose: `FireSettlement` has no `'pending'` value, so a timed-out answer could
+  only be a guessed `'unobservable'`. When you need an answer that cannot wait, ask a non-blocking
+  door: `settlementIfKnown`, `port.settledAnswer(id)`, or `did_it_work`.
+- **Without the id, attribution is FIFO — predictable, not correct.** The library cannot see your
+  network, your cache or your call stack; it knows what you report and when you report it.
+- **A ceiling is a fact about the waiter.** Nothing in this library times out your app's work. Busy
+  labels and work rows never expire, and *it has been a while* is neither `done` nor `failed`.
+- **Tapless sessions cannot verify.** `'performed'` there means our side ran to completion;
+  `effectVerified` stays `'unobservable'` because nothing exists to check against.
+- **Work opened inside a handler must be opened before its first `await`.** The call window is the
+  handler's synchronous portion — past it, pass `{ transitionId }`
+  ([the two windows](doc:when-the-app-is-still-working#where-the-row-lands)).
+- **A skin is a lifecycle, never a second brain.** `useWorking` opens and closes rows and stands
+  labels; it judges no label, correlates nothing, and expires nothing. Everything it does, the five
+  lines above already did.

@@ -50,7 +50,7 @@ Defined in: [src/registry/registry.ts:25](https://github.com/footprintjs/hcifoot
 
 ### handler
 
-> **handler**: [`ToolHandler`](/api/index/type-aliases/ToolHandler)
+> **handler**: [`ActionHandler`](/api/index/type-aliases/ActionHandler)
 
 Defined in: [src/registry/registry.ts:26](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L26)
 

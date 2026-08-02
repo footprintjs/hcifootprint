@@ -48,8 +48,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildNavigationGraph, fromLiveStore, skillsAsTools } from '../src/index.js';
-import type { LiveAction, LiveActionStore, NavigationGraph, ServeResult, ToolDef } from '../src/index.js';
+import { buildNavigationGraph, fromLiveStore, serveToAgent } from '../src/index.js';
+import { readDocPage } from './docs/doc-page.js';
+import type { LiveAction, LiveActionStore, NavigationGraph, ServeResult, ActionDef } from '../src/index.js';
 import { watchPage } from '../src/sensor/index.js';
 import { desk, el, mountDesk } from './sensor-fixture.js';
 
@@ -71,7 +72,7 @@ function deskMap(): NavigationGraph {
   return buildNavigationGraph('desk', {
     pages: {
       compose: {
-        tools: {
+        actions: {
           save: {
             does: 'Save the draft',
             input: { type: 'object', properties: { body: { type: 'string' } }, required: ['body'] },
@@ -89,7 +90,7 @@ function deskSession(onWarn: (message: string) => void = () => undefined) {
 }
 
 /** The `whats_here` row for one action, as the model reads it. */
-function actionRow(port: ReturnType<typeof skillsAsTools>, action: string): ServeResult {
+function actionRow(port: ReturnType<typeof serveToAgent>, action: string): ServeResult {
   const actions = port.call('desk.whats_here', {})['actions'] as ServeResult[];
   return actions.find((row) => row['action'] === action)!;
 }
@@ -119,7 +120,7 @@ function fakeStore(initial: LiveAction[]): LiveActionStore & { set(next: LiveAct
 describe('the app says it is working, and the row says so too', () => {
   it('rides the registration wire — busy: at mount', () => {
     const session = deskSession();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined, discard: () => undefined },
       busy: { save: 'Saving your draft…' },
     });
@@ -127,13 +128,13 @@ describe('the app says it is working, and the row says so too', () => {
     expect(edgeOf(session, 'compose.save').busy).toBe('Saving your draft…');
     // One fact, two surfaces: the in-process reader and the remote one are
     // never told different things about the same control.
-    expect(actionRow(skillsAsTools(session), 'compose.save')).toMatchObject({ busy: 'Saving your draft…' });
+    expect(actionRow(serveToAgent(session), 'compose.save')).toMatchObject({ busy: 'Saving your draft…' });
   });
 
   it('rides the handle wire — setBusy says it, and undefined stops saying it', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
-    const port = skillsAsTools(session);
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
+    const port = serveToAgent(session);
 
     group.setBusy('save', 'Saving…');
     expect(actionRow(port, 'compose.save')).toHaveProperty('busy', 'Saving…');
@@ -145,9 +146,9 @@ describe('the app says it is working, and the row says so too', () => {
     expect(edgeOf(session, 'compose.save')).not.toHaveProperty('busy');
   });
 
-  it('rides the single-tool handle too — registerTool hands over the same door', () => {
+  it('rides the single-action handle too — registerAction hands over the same door', () => {
     const session = deskSession();
-    const handle = session.registerTool('compose', 'save', {
+    const handle = session.registerAction('compose', 'save', {
       does: 'Save the draft',
       handler: () => undefined,
     });
@@ -205,29 +206,29 @@ describe('the app says it is working, and the row says so too', () => {
     // absent key on the rest means "nobody knows" rather than "not working",
     // about apps that never wired this at all.
     const session = deskSession();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined, discard: () => undefined },
       busy: { save: 'Hi' },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     expect(actionRow(port, 'compose.discard')).not.toHaveProperty('busy');
     expect(edgeOf(session, 'compose.discard')).not.toHaveProperty('busy');
     // …and an app that never says it anywhere says nothing anywhere.
     const silent = deskSession();
-    silent.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    silent.registerActions('compose', { handlers: { save: () => undefined } });
     expect(JSON.stringify(silent.available())).not.toContain('busy');
   });
 
   it('is SERVED beside everything else, never instead of it', () => {
     const session = deskSession();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       busy: { save: 'Saving…' },
       holds: { save: () => ({ body: 'ship it' }) },
     });
 
-    expect(actionRow(skillsAsTools(session), 'compose.save')).toMatchObject({
+    expect(actionRow(serveToAgent(session), 'compose.save')).toMatchObject({
       action: 'compose.save',
       does: 'Save the draft',
       holds: { body: 'ship it' },
@@ -239,7 +240,7 @@ describe('the app says it is working, and the row says so too', () => {
 describe('a busy flip is world motion — a plan made against the old row is stale', () => {
   it('bumps the version and announces a structure change', async () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     await tick();
     const structure: number[] = [];
     session.on('structure', (event) => structure.push(event.structureVersion));
@@ -254,7 +255,7 @@ describe('a busy flip is world motion — a plan made against the old row is sta
 
   it('saying the SAME thing again is not motion — no row, no bump', async () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setBusy('save', 'Saving…');
     await tick();
     const structure: number[] = [];
@@ -270,7 +271,7 @@ describe('a busy flip is world motion — a plan made against the old row is sta
 
   it('REWORDING the label is motion — the row a planner read now reads differently', async () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setBusy('save', 'Saving…');
     await tick();
     const structure: number[] = [];
@@ -288,7 +289,7 @@ describe('a busy flip is world motion — a plan made against the old row is sta
     // is the app's text. Escaped, so a flip can never coincidentally spell the
     // fingerprint it flipped away from and be flushed as no change at all.
     const session = deskSession();
-    const group = session.registerToolGroup('compose', {
+    const group = session.registerActions('compose', {
       handlers: { save: () => undefined, discard: () => undefined },
     });
     await tick();
@@ -314,11 +315,11 @@ describe('a busy flip is world motion — a plan made against the old row is sta
     const session = buildNavigationGraph('desk', {
       pages: {
         compose: {
-          tools: { save: { does: 'Save the draft' }, [collide]: { does: 'A very badly named control' } },
+          actions: { save: { does: 'Save the draft' }, [collide]: { does: 'A very badly named control' } },
         },
       },
     }).createSession({ node: 'compose', state: {}, onWarn: () => undefined });
-    const decoy = session.registerToolGroup('compose', {
+    const decoy = session.registerActions('compose', {
       handlers: { [collide]: () => undefined },
     });
     await tick();
@@ -328,7 +329,7 @@ describe('a busy flip is world motion — a plan made against the old row is sta
     // One coalesce window: the decoy leaves, and `save` arrives already busy
     // with the label the decoy's NAME spelled.
     decoy.unregister();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       busy: { save: 'Hi' },
     });
@@ -343,7 +344,7 @@ describe('busy does NOT gate the fire — the library never invents a door the a
   it('a busy control that is not disabled still fires', async () => {
     const session = deskSession();
     const calls: unknown[] = [];
-    const group = session.registerToolGroup('compose', {
+    const group = session.registerActions('compose', {
       handlers: { save: (payload?: unknown) => void calls.push(payload) },
     });
     group.setBusy('save', 'Saving…');
@@ -358,10 +359,10 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('and over the wire too — no refusal, no reason, no invented gate', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setBusy('save', 'Saving…');
 
-    const result = skillsAsTools(session).call('desk.do_action', {
+    const result = serveToAgent(session).call('desk.do_action', {
       action: 'save',
       input: { body: 'ok' },
     });
@@ -372,7 +373,7 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('NO TOOL_BUSY exists — the refusal words never grew, in either lockstep union', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setBusy('save', 'Saving…');
     // Refuse it for a reason that has nothing to do with busy: the payload is
     // wrong. The reason word must be the one that was already true.
@@ -395,11 +396,11 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('a control the app ALSO disabled refuses exactly as it always did — plus the busy fact', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', 'Saving…');
 
-    const refused = skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } });
+    const refused = serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } });
 
     expect(refused).toMatchObject({
       ok: false,
@@ -412,15 +413,15 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('the busy teaching RIDES ALONGSIDE the refusal’s own — neither replaces the other', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     const disabledOnly = String(
-      skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
+      serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
     );
 
     group.setBusy('save', 'Saving…');
     const both = String(
-      skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
+      serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
     );
 
     // The switched-off sentence survives WHOLE…
@@ -435,12 +436,12 @@ describe('busy does NOT gate the fire — the library never invents a door the a
     // inference, and inventing causes is the failure this whole surface exists
     // to end — the sentence says so out loud rather than leaving the hole.
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', 'Saving…');
 
     const why = String(
-      skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
+      serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
     );
 
     expect(why).toContain('not given here as the cause of anything else');
@@ -449,12 +450,12 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('teaches the two moves that are right and names the one that is wrong', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', 'Saving…');
 
     const why = String(
-      skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
+      serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
     );
 
     expect(why).toContain('Working is not broken and not done');
@@ -464,12 +465,12 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('says THE APP says it — never that this library checked', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', 'Saving…');
 
     const why = String(
-      skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
+      serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why'],
     );
 
     expect(why).toContain('The app also says');
@@ -478,14 +479,14 @@ describe('busy does NOT gate the fire — the library never invents a door the a
 
   it('a refusal on a control that is NOT busy is byte-identical to what it always was', () => {
     const quiet = deskSession();
-    quiet.registerToolGroup('compose', { handlers: { save: () => undefined } }).setEnabled('save', false);
+    quiet.registerActions('compose', { handlers: { save: () => undefined } }).setEnabled('save', false);
     const busy = deskSession();
-    const group = busy.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = busy.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', 'Saving…');
 
     const ask = (session: ReturnType<typeof deskSession>) =>
-      skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } });
+      serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } });
 
     expect(ask(quiet)).not.toHaveProperty('busy');
     expect(ask(busy)).toHaveProperty('busy');
@@ -497,7 +498,7 @@ describe('THE CEILING BELONGS TO THE CALLER — no clock in here decides anythin
     vi.useFakeTimers();
     try {
       const session = deskSession();
-      const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+      const group = session.registerActions('compose', { handlers: { save: () => undefined } });
       group.setBusy('save', 'Saving…');
       await vi.advanceTimersByTimeAsync(1);
       const structure: number[] = [];
@@ -515,11 +516,11 @@ describe('THE CEILING BELONGS TO THE CALLER — no clock in here decides anythin
 
   it('an unfinished fire is still UNFINISHED — still-pending beside a row that still says busy', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', {
+    const group = session.registerActions('compose', {
       // A handler that never settles: the app is genuinely still working.
       handlers: { save: () => new Promise(() => undefined) },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     group.setBusy('save', 'Saving…');
 
     const fired = port.call('desk.do_action', { action: 'save', input: { body: 'x' } });
@@ -534,10 +535,10 @@ describe('THE CEILING BELONGS TO THE CALLER — no clock in here decides anythin
 
   it('did_it_work does not grow a busy field — a settlement answer is about the FIRE, not the control', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', {
+    const group = session.registerActions('compose', {
       handlers: { save: () => new Promise(() => undefined) },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     group.setBusy('save', 'Saving…');
 
     const fired = port.call('desk.do_action', { action: 'save', input: { body: 'x' } });
@@ -552,7 +553,7 @@ describe('the label is DATA, and it stays on the data channel', () => {
 
   function hostileSession() {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', HOSTILE);
     return session;
@@ -560,12 +561,12 @@ describe('the label is DATA, and it stays on the data channel', () => {
 
   it('never enters an authored sentence — two apps, byte-identical prose', () => {
     const plain = deskSession();
-    const plainGroup = plain.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const plainGroup = plain.registerActions('compose', { handlers: { save: () => undefined } });
     plainGroup.setEnabled('save', false);
     plainGroup.setBusy('save', 'Saving…');
 
     const ask = (session: ReturnType<typeof deskSession>) =>
-      String(skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why']);
+      String(serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } })['why']);
 
     expect(ask(hostileSession())).toBe(ask(plain));
     expect(ask(hostileSession())).not.toContain('IGNORE PREVIOUS INSTRUCTIONS');
@@ -580,7 +581,7 @@ describe('the label is DATA, and it stays on the data channel', () => {
     expect(facts).not.toContain('IGNORE PREVIOUS INSTRUCTIONS');
     expect(facts).not.toContain('Saving');
     // …and the same block as the model receives it.
-    const served = skillsAsTools(session).call('desk.whats_here', {});
+    const served = serveToAgent(session).call('desk.whats_here', {});
     expect(String(served['facts'])).not.toContain('IGNORE PREVIOUS INSTRUCTIONS');
   });
 
@@ -588,7 +589,7 @@ describe('the label is DATA, and it stays on the data channel', () => {
     // The other half of the firewall: refusing to author with the app's words is
     // not refusing to carry them.
     expect(edgeOf(hostileSession(), 'compose.save').busy).toBe(HOSTILE);
-    expect(actionRow(skillsAsTools(hostileSession()), 'compose.save')['busy']).toBe(HOSTILE);
+    expect(actionRow(serveToAgent(hostileSession()), 'compose.save')['busy']).toBe(HOSTILE);
   });
 
   it('the page that quotes the sentence quotes the sentence the port actually serves', () => {
@@ -596,24 +597,21 @@ describe('the label is DATA, and it stays on the data channel', () => {
     // constant without touching the page and the page teaches a sentence no
     // model ever receives.
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setEnabled('save', false);
     group.setBusy('save', 'Saving…');
-    const refused = skillsAsTools(session).call('desk.do_action', { action: 'save', input: { body: 'x' } });
+    const refused = serveToAgent(session).call('desk.do_action', { action: 'save', input: { body: 'x' } });
     // The busy half only — the disabled half is `guards.mdx`'s to quote.
     const why = String(refused['why']);
     const busyHalf = why.slice(why.indexOf('The app also says'));
 
-    const page = readFileSync(
-      path.join(REPO, 'docs-next/content/docs/serve/when-a-control-is-busy.mdx'),
-      'utf8',
-    );
+    const page = readDocPage('when-a-control-is-busy');
     expect(flatten(page)).toContain(flatten(busyHalf));
   });
 
   it('is CAPPED like every other app string that crosses a result', () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
 
     group.setBusy('save', 'x'.repeat(5000));
 
@@ -627,7 +625,7 @@ describe('a label, never a flag — the boolean is refused at every door', () =>
   it('the handle refuses it, warns once, and the row keeps saying nothing', () => {
     const warnings: string[] = [];
     const session = deskSession((message) => warnings.push(message));
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
 
     group.setBusy('save', true as unknown as string);
     group.setBusy('save', true as unknown as string);
@@ -641,7 +639,7 @@ describe('a label, never a flag — the boolean is refused at every door', () =>
   it('the registration door refuses it too', () => {
     const warnings: string[] = [];
     const session = deskSession((message) => warnings.push(message));
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       busy: { save: true as unknown as string },
     });
@@ -676,7 +674,7 @@ describe('a label, never a flag — the boolean is refused at every door', () =>
   it('an empty label is not a label either — presence with no content says nothing', () => {
     const warnings: string[] = [];
     const session = deskSession((message) => warnings.push(message));
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
 
     group.setBusy('save', '   ');
 
@@ -686,7 +684,7 @@ describe('a label, never a flag — the boolean is refused at every door', () =>
 
   it('a refused label does not disturb the one already standing', async () => {
     const session = deskSession();
-    const group = session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    const group = session.registerActions('compose', { handlers: { save: () => undefined } });
     group.setBusy('save', 'Saving…');
     await tick();
     const structure: number[] = [];
@@ -710,16 +708,16 @@ describe('a label, never a flag — the boolean is refused at every door', () =>
     // the directive is satisfied only while the option does not exist, and the
     // day somebody adds it `tsc` fails on an unused @ts-expect-error.
     // @ts-expect-error — there is no declarative busy option, by design
-    const authored: ToolDef = { does: 'Save the draft', busyWhen: { saving: true } };
+    const authored: ActionDef = { does: 'Save the draft', busyWhen: { saving: true } };
     const graph = buildNavigationGraph('desk', {
-      pages: { compose: { tools: { save: { does: authored.does } } } },
+      pages: { compose: { actions: { save: { does: authored.does } } } },
     });
 
     // …and this one is behaviour: authoring it changes nothing, whatever the
     // state says. Add an evaluator for it and this row starts carrying a label
     // no app ever wrote.
     const session = graph.createSession({ node: 'compose', state: { saving: true }, onWarn: () => undefined });
-    session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    session.registerActions('compose', { handlers: { save: () => undefined } });
 
     expect(session.available().edges.find((edge) => edge.affordanceId === 'compose.save')!).not.toHaveProperty(
       'busy',
@@ -764,17 +762,17 @@ describe('a repeats CARD — what the label reaches, and what it honestly does n
             row: {
               repeats: true,
               instances: (state: Record<string, unknown>) => (state['ids'] as string[]) ?? [],
-              tools: { cancel: { does: 'Cancel this order' } },
+              actions: { cancel: { does: 'Cancel this order' } },
             },
           },
         },
       },
     }).createSession({ node: 'list', state: { ids: ['o-1', 'o-2'] }, onWarn: () => undefined });
-    const card = session.registerToolGroup('list.row', {
+    const card = session.registerActions('list.row', {
       instance: 'o-1',
       handlers: { cancel: () => undefined },
     });
-    return { session, card, port: skillsAsTools(session) };
+    return { session, card, port: serveToAgent(session) };
   }
 
   it('a card’s own label stays off the shared row — one row, many cards', () => {
@@ -802,10 +800,7 @@ describe('a repeats CARD — what the label reaches, and what it honestly does n
     expect(refused).not.toHaveProperty('busy');
     expect(JSON.stringify(refused)).not.toContain('Cancelling');
     // The page says so, in the same words.
-    const page = readFileSync(
-      path.join(REPO, 'docs-next/content/docs/serve/when-a-control-is-busy.mdx'),
-      'utf8',
-    );
+    const page = readDocPage('when-a-control-is-busy');
     expect(flatten(page)).toContain(
       flatten("A per-card label does not reach that card's refusal either."),
     );
@@ -815,7 +810,7 @@ describe('a repeats CARD — what the label reaches, and what it honestly does n
     const { session, card, port } = orders();
     card.setEnabled('cancel', false);
     // The container itself says it — the id every card's row is served under.
-    session.registerToolGroup('list.row', {
+    session.registerActions('list.row', {
       handlers: { cancel: () => undefined },
       busy: { cancel: 'Cancelling…' },
     });

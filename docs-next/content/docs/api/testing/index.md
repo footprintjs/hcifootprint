@@ -8,11 +8,11 @@ title: testing
 
 - [DriftReport](/api/testing/interfaces/DriftReport)
 - [GraphHealth](/api/testing/interfaces/GraphHealth)
+- [JourneyHealth](/api/testing/interfaces/JourneyHealth)
 - [LintFinding](/api/testing/interfaces/LintFinding)
 - [LintOptions](/api/testing/interfaces/LintOptions)
 - [ResolverContext](/api/testing/interfaces/ResolverContext)
 - [ResolverOutcome](/api/testing/interfaces/ResolverOutcome)
-- [SkillHealth](/api/testing/interfaces/SkillHealth)
 - [TestApp](/api/testing/interfaces/TestApp)
 - [TestAppOptions](/api/testing/interfaces/TestAppOptions)
 - [TestClock](/api/testing/interfaces/TestClock)

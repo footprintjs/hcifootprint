@@ -1,9 +1,9 @@
 /**
  * The mock APPLICATION — plays the role of a real web app: it owns its state
- * and handlers, mounts/unmounts "pages" (register/unregister tool groups),
+ * and handlers, mounts/unmounts "pages" (register/unregister action groups),
  * and reports state changes through the tap (updateState). Everything
  * HCIFootprint learns about it flows through the same three wires a real
- * integration would use: registerTools + sync + updateState.
+ * integration would use: registerHandlers + sync + updateState.
  */
 import type { Session } from '../../src/index.js';
 import { dressShopGraph } from './graph.js';
@@ -95,10 +95,12 @@ export function createDressShopApp(opts?: { onWarn?: (m: string) => void }): Dre
 
   function goto(page: string): void {
     if (mountedPage) session.unregisterGroup(`page:${mountedPage}`);
-    const tools = Object.fromEntries(
+    const mounted = Object.fromEntries(
       (PAGE_GROUPS[page] ?? []).map((id) => [id, handlers[id]]),
     );
-    if (Object.keys(tools).length > 0) session.registerTools({ group: `page:${page}`, tools });
+    if (Object.keys(mounted).length > 0) {
+      session.registerHandlers({ group: `page:${page}`, handlers: mounted });
+    }
     mountedPage = page;
     session.sync(page); // no-op when the settle already moved the cursor there
   }

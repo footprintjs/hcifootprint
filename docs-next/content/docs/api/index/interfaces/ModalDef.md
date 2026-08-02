@@ -4,7 +4,7 @@ title: ModalDef
 
 # Interface: ModalDef
 
-Defined in: [src/tree/types.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L102)
+Defined in: [src/tree/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L103)
 
 A container node: areas coexist (AND), tabs exclude (at most one shown), modals overlay.
 
@@ -13,6 +13,20 @@ A container node: areas coexist (AND), tabs exclude (at most one shown), modals 
 - [`NodeDef`](/api/index/interfaces/NodeDef)
 
 ## Properties
+
+### actions?
+
+> `optional` **actions?**: `Record`\<`string`, [`ActionDef`](/api/index/interfaces/ActionDef)\>
+
+Defined in: [src/tree/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L100)
+
+The controls on this node.
+
+#### Inherited from
+
+[`NodeDef`](/api/index/interfaces/NodeDef).[`actions`](/api/index/interfaces/NodeDef#actions)
+
+***
 
 ### areas?
 
@@ -30,9 +44,9 @@ Defined in: [src/tree/types.ts:87](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **blocks?**: `boolean`
 
-Defined in: [src/tree/types.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L104)
+Defined in: [src/tree/types.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L105)
 
-Default true: a shown modal masks tools outside it. `false` = popover (coexists).
+Default true: a shown modal masks actions outside it. `false` = popover (coexists).
 
 ***
 
@@ -115,25 +129,13 @@ Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/b
 
 ***
 
-### tools?
-
-> `optional` **tools?**: `Record`\<`string`, [`ToolDef`](/api/index/interfaces/ToolDef)\>
-
-Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
-
-#### Inherited from
-
-[`NodeDef`](/api/index/interfaces/NodeDef).[`tools`](/api/index/interfaces/NodeDef#tools)
-
-***
-
 ### when?
 
-> `optional` **when?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
+> `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
 Defined in: [src/tree/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L86)
 
-Container guard: every descendant tool's guard is AND-narrowed by this.
+Container guard: every descendant action's guard is AND-narrowed by this.
 
 #### Inherited from
 

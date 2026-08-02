@@ -1,0 +1,15 @@
+{
+  "title": "Traversal",
+  "description": "Where am I, and how do I get there?",
+  "icon": "Compass",
+  "pages": [
+    "---Declare it---",
+    "minted-destinations",
+    "---Wire it---",
+    "sessions",
+    "presence",
+    "---What the agent gets---",
+    "navigation-claims",
+    "how-to-reach"
+  ]
+}

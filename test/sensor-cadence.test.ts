@@ -26,7 +26,7 @@ import {
 } from '../src/sensor/cadence.js';
 import { clock, desk, el, humanClick, humanCommit, humanType, mountDesk, settle } from './sensor-fixture.js';
 
-describe('cadence.ts — which moment each setting commits on', () => {
+describe('how often typing becomes a row — the moment each setting commits on', () => {
   it("'commit' is the default answer for a value control: change, the browser's own word for finished", () => {
     expect(commitsOnGesture('type', 'commit')).toBe('change');
     expect(commitsOnGesture('select', 'commit')).toBe('change');

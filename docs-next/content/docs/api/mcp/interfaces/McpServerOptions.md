@@ -8,7 +8,7 @@ Defined in: [src/serve/mcp-server.ts:34](https://github.com/footprintjs/hcifootp
 
 ## Extends
 
-- [`SkillToolsOptions`](/api/index/interfaces/SkillToolsOptions)
+- [`JourneyToolsOptions`](/api/index/interfaces/JourneyToolsOptions)
 
 ## Properties
 
@@ -16,13 +16,13 @@ Defined in: [src/serve/mcp-server.ts:34](https://github.com/footprintjs/hcifootp
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L49)
+Defined in: [src/serve/modes.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L50)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
 #### Inherited from
 
-[`SkillToolsOptions`](/api/index/interfaces/SkillToolsOptions).[`confirmHighEffect`](/api/index/interfaces/SkillToolsOptions#confirmhigheffect)
+[`JourneyToolsOptions`](/api/index/interfaces/JourneyToolsOptions).[`confirmHighEffect`](/api/index/interfaces/JourneyToolsOptions#confirmhigheffect)
 
 ***
 
@@ -66,7 +66,7 @@ is already holding would be the only thing dishonest here.
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
+Defined in: [src/serve/modes.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L60)
 
 Principal stamped on fires made through this port. Default 'agent'.
 
@@ -78,7 +78,7 @@ serves stops claiming a gate it does not have.
 
 #### Inherited from
 
-[`SkillToolsOptions`](/api/index/interfaces/SkillToolsOptions).[`source`](/api/index/interfaces/SkillToolsOptions#source)
+[`JourneyToolsOptions`](/api/index/interfaces/JourneyToolsOptions).[`source`](/api/index/interfaces/JourneyToolsOptions#source)
 
 ***
 

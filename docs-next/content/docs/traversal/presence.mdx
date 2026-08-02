@@ -1,0 +1,47 @@
+---
+title: Presence & visibility
+description: Registration observes MOUNTED, visibility is an explicit signal, and everything derived rather than observed carries an honesty marker.
+---
+
+The session fuses four owners into one answer to *"what is actually here right now?"* — a
+priority stack, top first:
+
+1. **Router sync owns the page level** — `sync(observedNode)` moves the cursor on observed
+   reality; an unauthored page is not an error (the cursor follows reality and `available()`
+   honestly serves zero edges there, `offGraph: true`).
+2. **Authored semantics own meaning** — a shown blocking modal masks sibling tools
+   (`BLOCKED_BY_OVERLAY`), tabs are an at-most-one-shown prior, `repeats` containers speak in
+   instance keys.
+3. **Mount handles own presence below the router-confirmed page** — `registerActions`
+   observes MOUNTED, nothing more. Handles are identities: registration returns the handle,
+   `unregister()` is idempotent, and React StrictMode's setup→cleanup→setup nets to one.
+4. **Explicit visibility signals own shown/hidden** — mount counting cannot see CSS, so
+   `show(path)` / `setVisible(path, visible)` are the app's explicit wire. When no signal
+   exists, the session serves honesty markers instead of guessing.
+
+## Honesty markers, not guesses
+
+- `activation: 'assumed'` — a declared subtree nothing has registered under yet;
+- `presence: 'unknown'` — ambiguous mounted tabs (a flagged union is served, never a guessed
+  winner);
+- `enumeration: 'mounted-window'` — a `repeats` instance list that is only the mounted
+  window, not the complete set;
+- `STILL_MOUNTING` — a retriable typed refusal while mounts have not arrived yet;
+- `TOOL_DISABLED` — retriable; the control is on screen but greyed out
+  (`handle.setEnabled(actionId, false)`).
+
+## World-motion scoping
+
+Node presence/visibility flips flush ONE microtask-coalesced `structure-swap` transition and
+bump `version` + `structureVersion`; instance churn inside `repeats` containers bumps nothing
+global (a scrolling virtualized list must never look like world motion). StrictMode/HMR mount
+flicker cancels to nothing.
+
+Registrations living outside the router-confirmed page are tolerated for a grace window
+(`dormantGraceMs`, default 3000ms), then surface as drift telemetry — a component claiming to
+render on a page the router says you are not on is either pre-mounting or drifted.
+
+One consequence worth repeating from [Actuation](doc:actuation): `fire()` **never writes
+presence.** A tab-switch gesture materialises through the app's own handler, and the app
+reports the flip through this visibility wire — the session records what the app *says
+happened*, it never pretends.

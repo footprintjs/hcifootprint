@@ -40,8 +40,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { REDACTED, buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { REDACTED, buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { redactFields } from '../src/traverse/redact-fields.js';
+import { docPage, readDocPage } from './docs/doc-page.js';
 import type { NavigationGraph, Session, TransitionRecord } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -54,7 +55,7 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       checkout: {
-        tools: {
+        actions: {
           'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] },
           lookup: { does: 'Look up the order', writes: ['found'] },
           // No declared writes: this is the fire whose SETTLEMENT carries
@@ -89,7 +90,7 @@ function wired(opts?: {
     ...(opts?.redactedFields ? { redactedFields: opts.redactedFields } : {}),
     ...(opts?.enforce ? { requireHumanApproval: true as const } : {}),
   });
-  session.registerToolGroup('checkout', {
+  session.registerActions('checkout', {
     handlers: {
       'place-order': (input?: unknown) => {
         seen.push(input);
@@ -127,6 +128,20 @@ describe('the path grammar', () => {
     expect(redactFields({ payment: { brand: 'visa', token: TOKEN } }, ['payment.token'])).toEqual({
       payment: { brand: 'visa', token: REDACTED },
     });
+  });
+
+  it('AN UNMATCHED PATH CHANGES NOTHING — not even the reference it was handed', () => {
+    // Redaction is a read-path transform over values the app still owns. A path
+    // that matches nothing must be a no-op all the way down, or every export
+    // quietly hands back copies and a caller comparing by identity sees motion
+    // that never happened. The array arm is the one that has to opt out of
+    // copying deliberately, so it is asserted on identity, not on equality.
+    const items = [{ sku: 'a' }, { sku: 'b' }];
+    const value = { items, total: 42 };
+    const out = redactFields(value, ['items.nothingCalledThis']) as typeof value;
+    expect(out).toEqual(value);
+    expect(out.items).toBe(items); // the SAME array, not an equal one
+    expect(out.items[0]).toBe(items[0]);
   });
 
   it('descends an array element-wise: one path hides the field in every item', () => {
@@ -191,7 +206,7 @@ describe('the path grammar', () => {
     // One marker across both mechanisms and both sibling libraries, so a reader
     // who has seen it once knows what it means everywhere.
     const graph = buildNavigationGraph('gate', {
-      pages: { home: { tools: { act: { does: 'Act', when: { secret: { eq: 'yes' } } } } } },
+      pages: { home: { actions: { act: { does: 'Act', when: { secret: { eq: 'yes' } } } } } },
     });
     const session = graph.createSession({
       node: 'home',
@@ -239,7 +254,7 @@ describe("a handler's return value", () => {
 
   it('the secret is gone from the WIRE — did_it_work carries the marker, not the key', async () => {
     const { session } = wired({ redactedFields: { produced: ['apiToken', 'nested.apiToken'] } });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const fired = port.call('shop.do_action', { action: 'lookup' });
     session.updateState({ found: true });
     await tick();
@@ -259,7 +274,7 @@ describe("a handler's return value", () => {
       onWarn: () => undefined,
       redactedFields: { produced: ['apiToken'] },
     });
-    session.registerToolGroup('checkout', {
+    session.registerActions('checkout', {
       handlers: {
         lookup: () => {
           const value = { apiToken: TOKEN };
@@ -342,7 +357,7 @@ describe('the approval card', () => {
 
   it('the served ask carries the marker into the model’s result', () => {
     const { session } = wired({ redactedFields: { payload: ['cardNumber'] }, enforce: true });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const asked = port.call('shop.do_action', {
       action: 'place-order',
       input: { total: 42, cardNumber: CARD },
@@ -491,7 +506,7 @@ describe('the docs say what the library says', () => {
   /** Prose compared as PROSE: wrapping and comment markers are formatting, not meaning. */
   const flatten = (text: string): string => text.replace(/[*>"`]/g, ' ').replace(/\s+/g, ' ').trim();
 
-  const homes = ['src/atom/types.ts', 'docs-next/content/docs/serve/receipts.mdx'];
+  const homes = ['src/atom/types.ts', docPage('receipts')];
 
   it('the redactedKeys boundary is one sentence, identical in both homes', () => {
     // The sentence the 0.7.0 hole was DOCUMENTED with. It had to be reworded when
@@ -504,11 +519,11 @@ describe('the docs say what the library says', () => {
   });
 
   it('the docs quote the marker the code actually emits', () => {
-    expect(read('docs-next/content/docs/serve/receipts.mdx')).toContain(REDACTED);
+    expect(readDocPage('receipts')).toContain(REDACTED);
   });
 
   it('the docs name the option and both of its aimed channels', () => {
-    const page = read('docs-next/content/docs/serve/receipts.mdx');
+    const page = readDocPage('receipts');
     for (const name of ['redactedFields', 'payload:', 'produced:']) {
       expect(page).toContain(name);
     }

@@ -1,0 +1,154 @@
+---
+title: A pause is not a failure
+description: "A needs-confirm result carries `performed: false` and one authored sentence saying nothing has been done — and `did_it_work` takes the askId, so an agent can ask whether the human has decided instead of guessing."
+---
+
+## The failure this prevents
+
+Reported from a production integration, with no library bug in it. An agent asked to place an
+order, hit the [confirm gate](doc:receipts), and got back `ok: false`. It read that as *the app
+broke*, told the person so, and went looking for another route to the same outcome.
+
+Nothing had happened and nothing was wrong. A person had the question.
+
+`ok: false` is a true fact about the **call** — the fire did not cross — and the payload said
+nothing about the two things a reader actually needed: that **nothing was done**, and that the
+missing piece is **a person, not a fix**. Both are now on every `needs-confirm` result, and the
+poll tool answers the same question by id.
+
+## Every `needs-confirm` result says nothing has been done
+
+```jsonc
+{ "ok": false, "judgment": "needs-confirm", "action": "checkout.place-order", "askId": "ask#1",
+  "performed": false,                     // ← a fact about the APP, beside ok's fact about the CALL
+  "why": "Nothing has been done. This is a question for the human, not a failure — do not report it as an error, and confirm: true is not the human’s answer.",
+  "receipts": { /* … see Confirms & receipts */ },
+  "howToAct": "Show the human what this will do (see receipts), then call again with confirm: true…" }
+```
+
+`performed: false` is the half a machine branches on; `why` is the half a model reads. Both are
+**fixed authored text plus a boolean** — no runtime value is ever interpolated into either, so
+the two sentences are byte-identical on every call whatever the payload was.
+
+It rides all three arms that can pause: `do_action`, a journey step, and the enforced
+`APPROVAL_REQUIRED` refusal under [`requireHumanApproval`](doc:receipts#requirehumanapproval--make-approve-enforceable).
+The enforced arm keeps its own `why` — it already says both halves and adds the one thing only
+it knows, that this app requires an approval it recorded from a person. A low-effect action is
+untouched: this is the **pause** marker, not a new field on everything.
+
+## Asking whether the human has decided
+
+[`did_it_work`](doc:modes#did-it-work) takes the `askId` from a `needs-confirm` result in the same
+`transitionId` property. One property, two id families, and no second argument — a grown schema
+would change the tool array's bytes for every caller, and the port can tell the two apart itself.
+
+```ts twoslash
+import { buildNavigationGraph, serveToAgent } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    checkout: {
+      actions: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } },
+    },
+  },
+});
+const session = graph.createSession({ node: 'checkout' });
+session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+const port = serveToAgent(session);
+// ---cut---
+const asked = port.call('shop.do_action', { action: 'place-order' });
+// → { ok: false, judgment: 'needs-confirm', performed: false, why: '…', askId: 'ask#1', receipts: … }
+
+// The agent shows the human the receipts. While they think, it can ask by id:
+const fate = port.call('shop.did_it_work', { transitionId: asked['askId'] as string });
+// → { ok: true, settled: false, performed: false, judgment: 'awaiting-human', askId: 'ask#1',
+//     did: 'checkout.place-order', howToAct: 'Paused, not failed: …' }
+```
+
+The fates are the ways an action can have produced no outcome without anything failing:
+
+| `judgment` | what it means | what the agent should do |
+| --- | --- | --- |
+| `'awaiting-human'` | Nobody has decided. | Wait. Do not look for another route. |
+| `'approved-not-yet-done'` | A yes is on record and nothing has fired. | Perform the action — do not ask twice. |
+| `'approval-no-longer-valid'` | A yes is on record and this app will not act on it any more. | Show the action again and get a fresh answer. |
+| `'declined'` | The person said no. | Say it was not done. Do not re-ask the same thing. |
+
+The fourth exists because of a loop. Under
+[`requireHumanApproval`](doc:receipts#requirehumanapproval--make-approve-enforceable)'s `expiresAfterMs` or
+`refuseWhenWorldMoved`, a recorded yes can age out: the gate then refuses the fire `APPROVAL_STALE`
+and changes nothing about the card, so an arm that said *perform the action* would say it again on
+the next call, and the next, ordering the one move the gate is about to refuse. The instruction and
+the gate read the **same function**, so they cannot disagree, and `AskStatus.stale` carries the same
+reading in process.
+
+Once the yes has been **spent**, the same `askId` forwards to the fire it authorized and answers
+with that fire's settlement — so the id the model was handed keeps working after the approval is
+used, and it gets an outcome instead of a lecture about ids.
+
+## In process: the ask book
+
+`session.asks()` is the read behind all of it — one row per card, oldest first, copies:
+
+```ts twoslash
+import type { InteractionSession } from 'hcifootprint';
+declare const session: InteractionSession;
+// ---cut---
+const waiting = session.asks().filter((ask) => ask.answer === undefined);
+//    ^?
+```
+
+`AskStatus` is `{ askId, affordanceId, instance?, answer?, spent?, stale? }` — **structural facts
+only**.
+No receipts, no input, no `by`: this answers *is anything waiting on a person?*, and re-serving
+the card on a second channel would give a model a payload it can fetch twice and quote as new.
+[`session.confirms()`](doc:receipts#decisions-leave-a-record) remains the auditable journal.
+
+It exists as a library read rather than something you derive, because deriving these three fates
+from journal rows means re-implementing the gate's own law beside the gate — which rows close
+which, what a relayed decline does *not* close, when a yes is spent. A serving layer that
+re-derived it could disagree with the gate about the same card, and a disagreement there reads to
+a model as *the human already answered*.
+
+## The unknown arm now names three kinds of open question
+
+A paused action is not a transition, so it never joins `pending()` or `awaitingSettlement()`.
+Before the ask book, an `askId` handed to `did_it_work` was answered `UNKNOWN_TRANSITION` beside
+two lists that **structurally could not contain it** — the one question with an answer available
+got the one word that says there isn't one. The refusal now carries a third list:
+
+```jsonc
+{ "ok": false, "judgment": "error", "reason": "UNKNOWN_TRANSITION",
+  "pending": [],                                  // fires awaiting the app's STATE report
+  "awaitingSettlement": [],                       // every fire this tool can still be asked about
+  "awaitingHuman": [{ "askId": "ask#2", "action": "checkout.place-order" }] }
+```
+
+## Honest limits
+
+- **Silence is never a decline.** Nothing here times out, escalates, or ages a card. A card
+  nobody answers reads `'awaiting-human'` for the session's life, because that is what is true.
+- **`'awaiting-human'` says the card is open, not that anyone has seen it.** Whether a human is
+  actually looking at it is your app's business; the library only knows nothing came back.
+- **The fate is read at answer time.** `asks()` and the `did_it_work` arms both re-read, and you
+  must too: a snapshot taken at construction would report *still deciding* about a card answered a
+  minute ago, which is this tool's own failure mode wearing a friendlier word.
+- **An agent-relayed decline closes nothing under enforcement.** `decline: true` is the agent
+  reporting a refusal, not the person recording one, so the card stays `'awaiting-human'` until a
+  human-side door ([`declineAsk`](doc:receipts#a-decline-is-as-unforgeable-as-an-approval)) answers
+  it. That is the enforcement working, not a stuck row.
+- **Ids are matched exactly** — no prefix, no suffix, no near miss. A model retypes a step name it
+  read in prose; nothing retypes an askId, and a fuzzy match would answer about a **different
+  person's card**.
+- **A standing `alwaysApprove` grant that many fires spent falls through to the refusal** rather
+  than picking the newest. Exactly one fire, or nothing.
+- **One id naming two things is refused, not resolved.** Approval cards are numbered `ask#1`,
+  `grant#1`, `refusal#1`, and a transition id is `<action>#<n>` — so an app with an action literally
+  named `ask` can end up with one string naming a fire *and* a card. Answering from either book
+  would be a confident answer about the other one, so the tool refuses `AMBIGUOUS_ID` and names
+  both. The library also warns your team the first time it mints such an id: renaming the action is
+  the whole cure.
+- **The paused arms borrow no settlement vocabulary.** No `effectStatus`, no `outcome`, no
+  `Settlement` — nothing fired, so there is nothing that came to rest. See
+  [the answer grammar](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/answer-grammar.md)
+  for why that word is deliberately not added to those unions.

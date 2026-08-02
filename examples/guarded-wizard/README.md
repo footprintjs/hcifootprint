@@ -15,7 +15,7 @@ No API key, no network, no model — the only moving part is the app.
 | --- | --- |
 | `app.ts` | the APP: store, router, handlers. Imports nothing from the library |
 | `graph.ts` | the graph: the route table + journey list as sources, the actions by hand |
-| `wire.ts` | the four additive lines — `navigate`, two `registerToolGroup`s, two taps |
+| `wire.ts` | the four additive lines — `navigate`, two `registerActions`, two taps |
 | `run.ts` | one real run, printed. The docs page is written from this output |
 | `guarded-journey.test.ts` | every claim the docs page makes, asserted (Convention 2) |
 
@@ -24,5 +24,5 @@ nothing, returns normally, and still notifies its store. That is the field failu
 example is built around — a handler that RAN is not an action that HAPPENED, and only the
 app's own `verify` contract can tell the difference.
 
-The pattern is written up on [Guarded journeys](https://footprintjs.github.io/hcifootprint/docs/build/guarded-journeys).
+The pattern is written up on [Guarded journeys](https://footprintjs.github.io/hcifootprint/docs/map/guarded-journeys).
 It is ONE reference implementation, not the only way to hold these pieces together.

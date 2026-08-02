@@ -1,6 +1,6 @@
 ---
 title: What is hcifootprint?
-description: Turn a web app's interaction surface into a typed, traversable skill graph an LLM agent can plan over and act on — as the signed-in user, through the app's own buttons and handlers.
+description: Turn a web app's interaction surface into a typed, traversable journey graph an LLM agent can plan over and act on — as the signed-in user, through the app's own buttons and handlers.
 ---
 
 For decades we designed the interaction between a **human** and a **computer** — that's HCI.
@@ -11,7 +11,7 @@ An agent can already reach your app; the problem is *how* it operates one. Scree
 slow and redone every turn, a DOM dump costs ~100k tokens and still guesses, and hard-coded
 selectors break on the next redesign. A returning human carries a mental model — where things
 are, what leads where, what they're allowed to do. Your app holds that same map. hcifootprint
-hands it to the agent as a typed **skill graph** the agent *traverses*, with a you-are-here
+hands it to the agent as a typed **journey graph** the agent *traverses*, with a you-are-here
 pin so it only ever sees what is actually doable right now.
 
 The key idea, and the reason it's safe to adopt: **you are not opening your backend to an
@@ -22,11 +22,16 @@ exactly the capability envelope that user already has.
 ## Where to go
 
 - **New here?** [Quick start](doc:quick-start) — author, connect, serve, in three steps that
-  run offline.
-- **Wiring an app?** [The navigation graph](doc:navigation-graph), then
-  [grow it from what your app already has](doc:graph-sources) — a route table, a journey
-  list, a live action store.
-- **Serving a model?** [Skills as tools](doc:modes) and [the MCP server](doc:mcp).
+  run offline. Then [the three contexts](doc:three-contexts), which is how the rest of this
+  site is organised.
+- **What can this app do?** [The map](doc:navigation-graph) — declare it, or
+  [grow it from what your app already has](doc:graph-sources): a route table, a journey list,
+  a live action store. Then serve it as [one tool per journey](doc:modes) or
+  [a real MCP server](doc:mcp).
+- **Where am I, and how do I get there?** [Traversal](doc:sessions) — one router line, and
+  [the declared hops](doc:how-to-reach) to anywhere.
+- **What is possible here?** [Actions](doc:reading-an-action-row) — the row a model reads,
+  every stamp on it, and [what would free a greyed one](doc:what-would-free-it).
 - **Shipping?** [The drift harness](doc:testing) keeps the graph and the app agreeing in CI.
 - **API surface:** the [API Reference](/api) tab is generated from source on every build —
   it cannot go stale.

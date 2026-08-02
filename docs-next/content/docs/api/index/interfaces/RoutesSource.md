@@ -8,7 +8,7 @@ Defined in: [src/graph/sources/types.ts:33](https://github.com/footprintjs/hcifo
 
 A route table read as pages — the spine. `PageIds` carries the page names
 through `const` inference so a source-contributed page is a REAL typed node
-path on the compiled graph (registerToolGroup/show/setVisible accept it;
+path on the compiled graph (registerActions/show/setVisible accept it;
 a typo stays a compile error).
 
 ## Type Parameters

@@ -1,8 +1,31 @@
+/**
+ * THE WORLD MOVED WITHOUT US — telling the session where the human actually is.
+ *
+ * An app navigates for a hundred reasons this library never sees: a back
+ * button, a deep link, a redirect after login, a push from a server. If the
+ * session only learned about motion it caused, its cursor would drift away from
+ * the screen, and every answer it gave afterwards would be about a page nobody
+ * is looking at. `sync()` is the door for saying so.
+ *
+ * WHAT THIS MUST NEVER DO is quietly promote that report into something it is
+ * not. Three laws are pinned below.
+ *
+ * - A REPORT IS NOT A VERIFIED CROSSING. Nothing here passed a guard, so the
+ *   hop is stamped `unverifiedEdge` and downstream readers treat it as inferred
+ *   rather than proven. The library did not watch this happen.
+ * - SILENCE IS NEVER A VERDICT. A page the graph never declared is FOLLOWED,
+ *   marked off-graph, and answered with an empty offer — not refused, and not
+ *   papered over with the nearest page that resembles it. The session is lost,
+ *   says so, and can be told its way back.
+ * - MOTION IS NOT ATTRIBUTION. A fire that is still awaiting its report keeps
+ *   the page it was fired on. A human wandering off in the meantime must never
+ *   be recorded as where that fire took them.
+ */
 import { describe, expect, it } from 'vitest';
 import { shop, initialState, okUpdate } from './fixture.js';
 
-describe('sync() — external motion is recorded, never silent', () => {
-  it('records a stimulus transition with unverifiedEdge and moves the cursor', () => {
+describe('telling the session the app moved on its own', () => {
+  it('records the hop as a real transition, marked as one nobody watched happen', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const before = s.version;
     const r = s.sync('checkout', { stimulus: 'navigation' });
@@ -17,7 +40,7 @@ describe('sync() — external motion is recorded, never silent', () => {
     expect(t.toNode).toBe('checkout');
   });
 
-  it('writes an EMPTY commit bundle — footprint\'s "cursor stop" idiom — joined by id', () => {
+  it('leaves a cursor stop on the commit log that joins back to the interaction record by id', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const before = s.commitLog().length;
     const r = s.sync('cart');
@@ -29,7 +52,7 @@ describe('sync() — external motion is recorded, never silent', () => {
     expect(bundle.overwrite).toEqual({});
   });
 
-  it('same-node sync is a no-op (no transition, no version bump)', () => {
+  it('being told what it already knew writes nothing and moves no version', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const v = s.version;
     const r = s.sync('catalog');
@@ -37,7 +60,10 @@ describe('sync() — external motion is recorded, never silent', () => {
     expect(s.transitions()).toHaveLength(0);
   });
 
-  it('an UNAUTHORED page is followed honestly: offGraph flag, zero edges, recoverable', () => {
+});
+
+describe('SILENCE IS NEVER A VERDICT: a page the graph never declared', () => {
+  it('is followed, marked off-graph, answered with nothing offered — and is recoverable', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const r = s.sync('settings'); // the world went somewhere the graph does not know
     expect(r).toMatchObject({ changed: true, offGraph: true, node: 'settings' });
@@ -51,7 +77,10 @@ describe('sync() — external motion is recorded, never silent', () => {
     expect(s.available().edges.map((e) => e.affordanceId)).toEqual(['login']);
   });
 
-  it('sync() while a transition is pending does NOT pollute its settlement toNode', () => {
+});
+
+describe('MOTION IS NOT ATTRIBUTION: what a wandering human cannot be blamed for', () => {
+  it('a hop taken while a fire is still open is never recorded as that fire’s destination', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     s.fire('login', { source: 'user' }); // pending, fired on catalog, no navigatesTo
     s.sync('checkout'); // user wandered off before the state report arrived
@@ -61,7 +90,7 @@ describe('sync() — external motion is recorded, never silent', () => {
     expect(settled.transition.toNodeClaimed).toBeUndefined();
   });
 
-  it('unattributed state deltas become stimulus transitions (server push)', () => {
+  it('a state change nobody fired for is recorded as the world moving, not as an act', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const u = okUpdate(s.updateState({ cartCount: 3 }, { stimulus: 'push' }));
     expect(u.attributed).toBe(false);

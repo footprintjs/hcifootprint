@@ -4,7 +4,7 @@ title: Page
 
 # Interface: Page
 
-Defined in: [src/atom/types.ts:229](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L229)
+Defined in: [src/atom/types.ts:207](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L207)
 
 ## Extends
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:183](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:230](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L230)
+Defined in: [src/atom/types.ts:208](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L208)
 
 ***
 

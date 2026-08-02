@@ -18,7 +18,7 @@ const VALUE_SCHEMA = {
   required: ['value'],
 };
 
-describe('checkJsonShape — the defects it can name', () => {
+describe('a payload that WOULD be refused is diagnosed before it is ever sent', () => {
   it('names a missing required key', () => {
     const result = checkJsonShape(VALUE_SCHEMA, { other: 'x' });
     expect(result.ok).toBe(false);
@@ -47,6 +47,13 @@ describe('checkJsonShape — the defects it can name', () => {
     expect(checkJsonShape(objectSchema, { user: { id: 1 } }).ok).toBe(true);
     const wrong = checkJsonShape(objectSchema, { user: ['id'] });
     expect(wrong.ok === false && wrong.issues).toContain("'user' should be object, not array");
+  });
+
+  it('holds boolean to a real boolean — “true” the string is a different answer', () => {
+    const schema = { type: 'object', properties: { gift: { type: 'boolean' } } };
+    expect(checkJsonShape(schema, { gift: false }).ok).toBe(true);
+    const wrong = checkJsonShape(schema, { gift: 'true' });
+    expect(wrong.ok === false && wrong.issues).toContain("'gift' should be boolean, not string");
   });
 
   it('accepts null only where null is the declared type', () => {
@@ -79,7 +86,7 @@ describe('checkJsonShape — the defects it can name', () => {
   });
 });
 
-describe('checkJsonShape — extra keys', () => {
+describe('keys the contract never asked for', () => {
   it('passes extra keys by default: an open object is JSON Schema’s default', () => {
     expect(checkJsonShape(VALUE_SCHEMA, { value: 'x', note: 'extra' }).ok).toBe(true);
   });
@@ -105,6 +112,17 @@ describe('checkJsonShape — extra keys', () => {
     const closed = { ...VALUE_SCHEMA, additionalProperties: false };
     const result = checkJsonShape(closed, { value: 'x', toString: 'shadowed' });
     expect(result.ok === false && result.issues).toContain("unexpected key 'toString'");
+  });
+
+  it('stops listing unexpected keys at ten and says there are more', () => {
+    // A planner that sent a whole record instead of the one field would
+    // otherwise turn the teaching sentence into a dump of its own payload.
+    const closed = { ...VALUE_SCHEMA, additionalProperties: false };
+    const spray: Record<string, unknown> = { value: 'x' };
+    for (let i = 0; i < 12; i += 1) spray[`k${i}`] = i;
+    const result = checkJsonShape(closed, spray);
+    expect(result.ok === false && result.issues).toContain("'k9', …");
+    expect(result.ok === false && result.issues).not.toContain("'k10'");
   });
 
   /**
@@ -154,7 +172,7 @@ describe('checkJsonShape — extra keys', () => {
   });
 });
 
-describe('checkJsonShape — nesting', () => {
+describe('a value nested where a flat one was asked for', () => {
   const nested = {
     type: 'object',
     properties: {
@@ -195,7 +213,7 @@ describe('checkJsonShape — nesting', () => {
   });
 });
 
-describe('checkJsonShape — a payload that is not an object', () => {
+describe('a payload that is not even the right kind of thing', () => {
   it('renders the bare type it received', () => {
     const result = checkJsonShape(VALUE_SCHEMA, 'add milk');
     expect(result.ok === false && result.issues).toBe('expected { value: string }, received string');
@@ -218,7 +236,7 @@ describe('checkJsonShape — a payload that is not an object', () => {
   });
 });
 
-describe('checkJsonShape — what it declines to judge', () => {
+describe('SILENCE OVER GUESSING: what this check refuses to have an opinion about', () => {
   it('passes anything under $ref: the real shape lives somewhere else', () => {
     const schema = { type: 'object', $ref: '#/definitions/Task', required: ['value'] };
     expect(checkJsonShape(schema, { nothing: 'like it' }).ok).toBe(true);
@@ -272,7 +290,7 @@ describe('checkJsonShape — what it declines to judge', () => {
   });
 });
 
-describe('describeExpectedShape() — the string a caller can type', () => {
+describe('the expected shape, said in something a caller could type back', () => {
   it('marks optional keys with ?', () => {
     const schema = {
       type: 'object',
@@ -306,9 +324,16 @@ describe('describeExpectedShape() — the string a caller can type', () => {
     expect(describeExpectedShape({ type: 'string' })).toBe('string');
     expect(describeExpectedShape(undefined)).toBe('object');
   });
+
+  it('says “object” for a schema whose type is not a name it can print', () => {
+    // A type UNION is legal JSON Schema and this flat rendering has no word for
+    // it, so the caller is told the outer shape rather than a half-truth.
+    expect(describeExpectedShape({ type: ['object', 'null'] })).toBe('object');
+    expect(describeExpectedShape({ description: 'no type at all' })).toBe('object');
+  });
 });
 
-describe('describeReceivedShape() — keys and types, never values', () => {
+describe('what actually arrived, described by keys and types — never by values', () => {
   it('renders an object’s own keys with their runtime types', () => {
     expect(describeReceivedShape({ name: 'add milk', count: 2, done: false })).toBe(
       '{ name: string, count: number, done: boolean }',
@@ -347,7 +372,7 @@ describe('describeReceivedShape() — keys and types, never values', () => {
   });
 });
 
-describe('the reported case, verbatim', () => {
+describe('the field report that caused this, reproduced verbatim', () => {
   it('teaches {value} to a planner that guessed {name}', () => {
     const result = checkJsonShape(VALUE_SCHEMA, { name: 'add milk' });
     expect(result.ok).toBe(false);

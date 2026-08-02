@@ -1,0 +1,136 @@
+---
+title: The MCP server
+description: mcpServer(session) returns a standard @modelcontextprotocol/sdk Server — you pick the transport, and the SDK stays an optional peer imported only behind hcifootprint/mcp.
+---
+
+hcifootprint is not tied to any agent framework — [`tools()` + `call()`](doc:modes) bind to
+LangGraph, LangChain, or a raw Anthropic/OpenAI loop. To expose the same session as a **real
+MCP server** any client auto-discovers, there's a one-liner:
+
+```ts
+import { mcpServer } from 'hcifootprint/mcp';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+
+const server = mcpServer(session);                 // tools/list + tools/call, wired to the session
+await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTTP transport
+```
+
+`mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the
+transport** and run it wherever your session lives.
+
+## Waiting, at the one boundary where it belongs
+
+A promise cannot cross a wire. In process, `fire()` hands its caller `whenSettled` and the
+final truth arrives there; a **remote** agent gets a JSON result and nothing else — so with
+nothing more, a fire's `effectStatus` reaches it as `'pending'`: the honest answer at return
+time, and a useless one to act on. A production integration met exactly this and rebuilt the
+missing half by hand: a transition listener plus a four-second stopwatch, rewriting results on
+the relay's send path — machinery no consumer holding the port could reuse, and one that
+reported a confident guess when the id was wrong.
+
+This server closes it at the boundary where waiting already belongs. A tool call is an async
+turn, and the model is going to ask *"did it work?"* anyway — so when a call **fired**
+something, the server gives the app a moment (`settleWithinMs`, default 250) and folds the
+settled truth into the **same** result.
+
+```ts
+const server = mcpServer(session, { settleWithinMs: 1000 }); // a slower backend
+```
+
+### What the fold rewrites
+
+Only a result that carries a `transitionId` — i.e. one that actually **fired** — is folded at all.
+That is an invariant, not a habit: a `transitionId` is minted by an executed fire and by nothing
+else, so a `needs-confirm`, a decline and every refusal return at once with the ceiling untouched.
+**An awaited tool call is structurally incapable of blocking on a person.**
+
+When the settlement wins the race, the server spreads in exactly what
+[`did_it_work`](doc:modes#did-it-work) would answer about that id — the same builder, reached
+through `port.settledAnswer(transitionId)`:
+
+| field | becomes |
+|---|---|
+| `effectStatus` | the **final** word (`performed` / `refused` / `unobservable`), replacing `'pending'` |
+| `outcome` | how the record came to rest, from the receipt — with `outcomeNow` beside it if the app has since moved it |
+| `effectVerified` / `writesObserved` | whether the declared writes were observed |
+| `verifyHeld` | the app's own check, when the action declared one |
+| `arrival` / `arrivalMeans` | a navigation claim and whether an observation has corroborated it |
+| `materialized: false` + `why` | nothing in the app executed this fire — the marker survives the fold |
+| `toNode` | where the app reported being |
+| `data` | the handler's produced value, when there is one |
+| `error` | the failure, as capped **text** — an app's error object never crosses a result whole |
+| `stillWorking` + `stillWorkingMeans` | the app has a [work row](doc:when-the-app-is-still-working) open for this fire — a fire can be at rest while the app is still working |
+| `howToSettle` | **deleted** — it pointed at `did_it_work`, and the model just got that answer |
+| `settlement` | **deleted** — see below |
+
+Where the two overlap, **the settled facts win**: `'pending'` was true when the port built the
+result and is not true now, and an `outcomeNow` instruction — *go and look at `whats_here`* —
+outranks the frame's generic *pick the next step*. Everything the builder does not serve is left
+exactly as the port built it, `ok`, `did` and `transitionId` included.
+
+Two fire-time words are **dropped** rather than left standing, and for one reason between them: the
+payload no longer describes the moment they were true. `howToSettle` pointed at a poll that has just
+happened. `settlement` answered *does a commit bundle exist **yet**?* — so leaving it put
+`'awaiting-state'` on the same object as `writesObserved: true`, a fact read from the very bundle it
+said did not exist. Nothing is minted in its place: the library simply stops saying, which
+`did_it_work` has always done too. Miss the ceiling and both words stay exactly as the port wrote
+them.
+
+One id is **refused** instead of answered: an id this session minted for both a fire and a human's
+card (`AMBIGUOUS_ID` — an app with an action literally named `ask`). Nothing is folded, nothing the
+port built is removed, and `howToSettle` still points at `did_it_work`, which explains the collision
+in full and names the fix.
+
+Before this, the fold hand-picked three fields, so a remote agent learned strictly **less** from a
+folded result than the same agent learned one poll later — no `outcome`, no `verifyHeld`, no
+`arrival`, and no marker at all on a fire nothing in the app had executed.
+
+Miss the ceiling and nothing is invented: `effectStatus: 'pending'` stands, `howToSettle`
+stays, and [`did_it_work`](doc:modes) is named as the next call. The ceiling decides **how
+long to wait**, never **what the answer is** — and the id it waits on is the one the port just
+minted, never one a model typed.
+
+**Keep the ceiling well under your host's own timeout.** This server sends no progress
+notifications, so a long ceiling buys no patience from the client — it just means the *client* gives
+up first and reports an error about an action that may well have succeeded.
+[`did_it_work`](doc:modes#did-it-work) is the long-running door, and
+[Waiting for the app](doc:waiting-for-the-app) is the whole async story in one place.
+
+`0` is the **shortest** ceiling, not an off switch: the timer is a macrotask, so a settlement
+already in hand — or one a handler reports in the same microtask turn — still wins the race
+and is still folded in. There is no way to turn the fold off, and that is deliberate:
+withholding an answer the session is already holding would be the only dishonest move
+available here.
+
+## The subpath is the dependency boundary
+
+The SDK is an **optional peer dependency**, imported only behind the `hcifootprint/mcp`
+subpath — the main entry never touches it, so the core stays zero-dependency and you pull the
+SDK in only if you use it. (The same pattern bounds `hcifootprint/testing` and
+`hcifootprint/testing/lint` — see [Tree-shaking](doc:tree-shaking).) All four entry points
+are documented in the [API Reference](/api).
+
+## Human-in-the-loop, portably
+
+Over MCP, a high-effect step returns `judgment: 'needs-confirm'` — with
+[receipts](doc:receipts) — and the host decides how to collect the approval before calling
+again with `confirm: true`. Portable **in shape** — the ask, the receipts and the decision all ride
+the ordinary result channel, with no framework-specific pause/resume — and enforced only with
+`requireHumanApproval`.
+
+**A pause is never `isError`.** The transport reserves that flag for a tool that does not exist and
+for an unexpected throw; every domain answer — `needs-confirm` and the enforced
+`APPROVAL_REQUIRED` refusal included — crosses as a normal result carrying
+[`performed: false`](doc:paused-not-failed). Flagging it would hand the host an error banner for a
+question that is waiting on a person. The `askId` works over the wire too: `did_it_work` answers
+`awaiting-human` as an ordinary result, not a transport failure.
+
+What the default gate does **not** do is prove the yes was real. `confirm: true` is the agent's
+request to proceed, not the human's answer, so an agent that skips the ask crosses anyway. Create
+the session with
+[`requireHumanApproval`](doc:receipts#requirehumanapproval--make-approve-enforceable) and the
+server inherits enforcement with no logic of its own — it wraps the same Mode B port, which calls
+the same `fire()`, which is the one chokepoint every door funnels through.
+
+This cooperates with MCP rather than competing with it: the journey graph *is* the server, and
+any MCP host drives the same live session the human is clicking in.

@@ -11,7 +11,7 @@ Defined in: [src/react/use-working.ts:256](https://github.com/footprintjs/hcifoo
 Say the app is working, for as long as your own flag says so.
 
 ```ts
-useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, tools: saveTool, session });
+useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, actions: saveAction, session });
 ```
 
 The flag rising opens one work row and stands the label on each control; the

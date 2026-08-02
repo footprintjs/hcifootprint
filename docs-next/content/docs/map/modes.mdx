@@ -1,0 +1,259 @@
+---
+title: Journeys as fixed tools (Mode B)
+description: serveToAgent serves one tool per journey plus four fixed generics — the tool array never changes for the life of a conversation, so the prompt cache stays warm.
+---
+
+`serveToAgent(session, opts?)` projects the session as a FIXED set of MCP-shaped tools whose
+bytes never change for the life of a conversation. Disclosure rides the RESULT channel: every
+call returns `readySteps` — what's fireable at the current cursor — and the model acts by
+calling the same journey tool again with a `step`. Tools render first in the prompt, so a
+stable tool set keeps the **prompt cache warm**, and any plain MCP host can drive it with no
+dynamic-tool support required.
+
+```ts twoslash
+import { buildNavigationGraph, serveToAgent } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', {
+  pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the open dress to the cart' } } } },
+  journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+});
+const session = graph.createSession();
+// ---cut---
+const port = serveToAgent(session); // opts: { confirmHighEffect?: boolean, source?: Principal }
+
+const tools = port.tools();          // static MCPToolDescription[] — register with your host
+const result = port.call('shop.journey.purchase', {}); // route a tool_use; return as the tool_result
+```
+
+For graph id `shop`, `tools()` returns:
+
+- **one tool per journey** — `shop.journey.<id>`, input `{ step?, input?, confirm?, decline?, instance? }`;
+- **`shop.whats_here`** — describe the current position. Optional `{ sinceVersion }`: the
+  reply narrates only the DELTA since the model's last look — cheaper re-grounding after
+  write-steps;
+- **`shop.do_action`** — perform one available action outside any journey flow;
+- **`shop.why`** — the causal backward slice (who produced this state). Why-text may carry
+  committed values, so it rides results as DATA, never a description;
+- **`shop.did_it_work`** — how an action came to rest. Input `{ transitionId }`, taken from
+  that action's result — or the `askId` from a `needs-confirm` result, to learn whether the
+  human has decided. See below.
+
+## Reading a result
+
+Every result is a plain data object. `ok` plus `judgment` route it: on an open frame
+`'navigate-or-wait' | 'one-ready-step' | 'needs-choice'`; on completion `'done'`; on refusal
+`'blocked'` (precondition), `'error'` (unknown step/action), `'needs-confirm'` (high-effect,
+[carries receipts](doc:receipts)), `'rejected'` (fire refused — carries the typed `reason`).
+Position always rides along: `youAreOn` and `version`.
+
+`ok: false` is a fact about the **call**, and [a pause is not a failure](doc:paused-not-failed) —
+so every `needs-confirm` result also carries **`performed: false`** and one authored sentence
+saying so: *Nothing has been done. This is a question for the human, not a failure.* An agent that
+read `ok: false` as *the app broke* went looking for another route; the marker is the
+machine-readable half of the fix, and [`did_it_work`](#did-it-work) is the other.
+
+**Capability comes before authority**, here as in `fire()`: a high-effect control the app has
+[switched off](doc:guards#enabledwhen--the-other-question) is refused `TOOL_DISABLED` and **no card
+is minted**. Nobody may
+be asked to approve something nobody can do — and the refusal carries the
+[`busy`](doc:when-a-control-is-busy) label too, if the app said one, which the confirm card never
+would have.
+
+Each `readySteps` row carries `step`, `does`, and the honesty stamps — `highEffect?`,
+`guardUnevaluated?`, `materialized?` (false = nothing is bound to execute that step), and
+`expects?` (the [declared input contract](doc:sessions), visible before the fire). Four more facts
+are about the control itself. The first, **`goesTo?`**, rides a `readySteps` row as well — a
+navigating *step* is the same working link read as a dead one — and the other three are on the
+`whats_here` **action** row:
+
+- **`goesTo?`** — the page this edge *claims* it will move you to, from the declared `goTo`. It
+  matters before the fire, not after: a navigation declares no `writes`, so success looks exactly
+  like nothing happening, and an agent watching the control it clicked reads a working link as a
+  dead one. The human's [confirm receipt](doc:receipts) has always disclosed this claim
+  (`willDo.navigatesTo`); the agent's rows now disclose the same fact, and stay silent when the
+  app declared no destination. [The claim and the observation →](doc:navigation-claims)
+- **`holds?`** — [what that control is holding right now](doc:what-a-control-holds): the draft
+  already in the box, read when the row was served. Present only where the app declared a way to
+  read it, so an absent key means the library does not know, never that the box is empty. It is a
+  reading, not a binding — firing still sends the `input` you pass.
+- **`enabled?`** — `false` when the app has [switched the control off](doc:guards#enabledwhen--the-other-question):
+  on screen, not clickable, the greyed button a person sees. Presence-only — a clickable control
+  carries no key — and reaching for it anyway is a `TOOL_DISABLED` refusal carrying
+  `retriable: true` and a sentence that refuses to invent a cause.
+- **`busy?`** — the app's own label for [working on it right now](doc:when-a-control-is-busy)
+  (`"Saving your draft…"`), the third state beside clickable and switched off. Presence-only again,
+  and a string only: an absent key means the library does not know, never *not busy*. It gates
+  nothing — a busy control that is not disabled still fires — and nothing here will ever time it
+  out.
+
+There is deliberately **no `kind` field** to switch on: a Pay button can be guarded and high-effect
+and navigating and busy at the same moment, so the kind of an edge *is* the set of declarations it
+carries. Every stamp, the declaration behind it and what would prove it:
+[What kind of edge am I holding?](doc:reading-an-action-row)
+
+`do_action` results carry `effectStatus` too — the word crosses the wire; the `whenSettled`
+promise deliberately does not.
+
+`do_action` resolves an action NAME against what is being served, so a name matching none of
+them is refused by the port itself (`reason: 'UNKNOWN_ACTION'`, with the id list that
+answers it). When the app *does* have that action, the refusal says which true thing is the
+case rather than letting `UNKNOWN_ACTION` read as *no such thing*: `why` names it — on
+another page, or on this page with its conditions unmet, and then `evidence` carries the same
+per-condition detail a `GUARD_FAILED` fire does (plus `guardUnevaluated` for keys the state
+view could not judge). A name the graph really lacks gets no `why` at all: the library does
+not invent an explanation for something it has never seen. See
+[what the facts block leaves out](doc:grounding#what-it-leaves-out-and-why) for where this
+refusal does *not* appear.
+
+## One `expects` law, every surface
+
+`expects` is what a caller must **send**, wire-shaped. It used to be a Mode B result field
+only: `available().edges` served the raw `schema` — a live validator, useful in process,
+unusable over a wire — so a consumer driving the session directly had to re-derive the
+contract by hand, guessing which schema kinds serialize and which decline. A law duplicated at
+the consumer is drift by construction, so there is now **one derivation** behind both, and the
+same action can never advertise two shapes.
+
+Four renderings, and a deliberate fifth that is silence:
+
+| you declared | `expects` is |
+|---|---|
+| a **Zod** schema | the normalized JSON-Schema form of it |
+| a plain **JSON Schema** | a detached, deep-frozen clone — never a live reference into the spec |
+| any other `.safeParse`/`.parse` **validator** | one authored sentence: *validated at fire time (non-serializable validator)* |
+| `input: 'none'` | the literal `'none'` — [the action that takes nothing](doc:navigation-graph#input-the-payload-contract) |
+| *(nothing)* | **absent** — the library does not know the shape, and absence never means "send nothing" |
+
+It rides every surface that describes an action before or after the fact: `whats_here` action
+rows, a frame's `readySteps` rows, a `PAYLOAD_INVALID` rejection (so the correction arrives
+with the refusal), and `available().edges` in process. The rendered contract is computed once
+per schema object, cached and deep-frozen — `available()` is hot (every refused fire calls it
+for its gap row), and one frozen object is safe to share precisely because nobody can rewrite
+it.
+
+**The residual asymmetry is deliberate, so it is stated rather than smoothed over:**
+`available()` carries **both** the live `schema` and the wire-shaped `expects`; a served result
+carries **only** `expects`. A live validator never crosses the wire — that is the firewall, not
+an oversight.
+
+## `facts` — the authoritative block
+
+Every `whats_here` result also carries **`facts`**: the app's own record of what was
+*attempted* and how each attempt came to rest, under a header telling the model it outranks
+anything said in the conversation.
+
+It exists because of a reported failure with no library bug in it: given nothing to check
+itself against, a model narrated an entire flow — *name set, recipe selected* — having called
+**zero** tools. Its own prose had become its context.
+
+The friendly `brief` beside it could not have prevented that, and the reason is structural: a
+REFUSED fire is a gap-ledger row, not a transition, so a narrative built from transitions can
+never show a failed attempt. `facts` merges both ledgers and grades every outcome in flat
+words — *DID happen*, *ran, but the effect was unobservable*, *did NOT happen — … was refused:
+TOOL_DISABLED*, *not yet known* — then names any decision the human still owes and any fire the
+app has not answered. With nothing attempted it says so in one line: **No actions have been
+performed in this app this session.**
+
+Nothing is rounded up. Only a committed fire whose declared effect was actually observed earns
+*DID happen*; a fire nobody could check says so instead of borrowing the stronger word. It
+carries no state values, no payloads, no produced data and no available actions (options are
+this tool's other half — facts are what happened, so the two stay non-overlapping and both stay
+lean). `{ sinceVersion }` narrows it with the rest of the result, and an id the graph does not
+have renders as a constant rather than echoing a model's invention back at it.
+
+In process the same block is `session.groundTruth({ sinceVersion?, maxAttempts? })`. Its
+anatomy, the grading table, what it excludes and how to inject it per turn when you drive your
+own loop: [Ground truth](doc:grounding).
+
+## Did it work?
+
+`effectStatus` on a fire result is the truth **at return time**, and for anything your app
+still has to do that word is `'pending'` — nobody has done it yet. So the result also carries
+`howToSettle`, naming the door out: **`did_it_work`**, called with the `transitionId` from
+that same result.
+
+It is a **poll, not a wait** — `call()` is synchronous, so it answers immediately, in one of
+these ways, and never blocks:
+
+- **settled** — `{ settled: true, did, effectStatus, outcome, outcomeNow?, effectVerified,
+  writesObserved?, verifyHeld?, arrival?, arrivalMeans?, toNode?, error?, data? }`. Three axes,
+  side by side, none
+  averaged into another: `effectStatus` is *did anyone perform it*, `effectVerified` is *were
+  the declared writes observed*, `verifyHeld` is *did the app's own [`verify` contract](doc:sessions)
+  hold* (absent when no contract was declared — silence, never a passing grade).
+  `writesObserved` is the boolean form of `effectVerified` and is **absent** when the answer
+  isn't knowable — a model testing truthiness would otherwise read the string
+  `'unobservable'` as an observed write. Each carries its own axis in its own name: as plain
+  `verified` the state axis collided with the contract's verdict and printed
+  `verified: true` beside an error saying the app had answered *no*.
+- **still pending** — `{ settled: false, judgment: 'still-pending', did, howToAct }`. Honest,
+  immediate, and it tells the model not to repeat the action.
+- **still working** — `stillWorking: true` (plus `stillWorkingMeans`) rides either of the two arms
+  above when your app has [opened a piece of work](doc:when-the-app-is-still-working) for that fire
+  and not closed it. On the settled arm it sits **beside** the receipt exactly as `outcomeNow` does:
+  a fire can be at rest while your app is still working, and both are true at once. No new judgment
+  word was minted for it, and no clock will ever expire it.
+- **paused** — pass an **`askId`** and it answers from [the ask book](doc:paused-not-failed) instead:
+  `{ settled: false, performed: false, judgment, askId, did, howToAct }`, where `judgment` is
+  `'awaiting-human'` (nobody has decided), `'approved-not-yet-done'` (a yes is on record and
+  nothing has fired), or `'declined'`. Nothing fired, so there is no outcome — and that is not
+  a failure, which is what `howToAct` says: *Paused, not failed: no outcome exists because
+  nothing was fired.* A **spent** ask forwards to the fire it authorized and answers with that
+  fire's settlement, so the id a model was handed keeps working after the yes is used. The fate
+  is read at answer time, and the id is matched **exactly** — a near-miss would answer about
+  someone else's card. The action name crosses; the receipts stay on the ask.
+- **unknown** — `{ ok: false, reason: 'UNKNOWN_TRANSITION', pending: [...], awaitingSettlement:
+  [...], awaitingHuman: [...] }`. A wrong id is refused *by name*, listing every open question.
+  That refusal is the point: waiting on a mistyped id and then reporting a guess is the failure
+  this tool exists to end. Three lists, because they are three different facts: `pending` is
+  fires awaiting the app's **state report** (`updateState`'s own word, same meaning here),
+  `awaitingSettlement` is every fire this tool can still be asked about — the superset, and the
+  one a fire question is about — and `awaitingHuman` is `{ askId, action }` for every card a
+  person has not answered. A step declaring no `writes` never joins the first list while its
+  handler runs, and an ask joins none of the first two: nothing was fired.
+
+A settlement is a **receipt** of how the fire came to rest, and first settlement wins — so the
+record can move afterwards (a server rejecting an order the app already reported flips it to
+`'rolled-back'`). When the live record no longer agrees with the receipt, the settled arm
+carries `outcomeNow` **alongside** `outcome` — never over it — plus the one instruction that
+resolves it: go look at `whats_here`. The receipt is never rewritten; both truths are carried.
+
+**`arrival` rides that same rail**, on an action that declared a navigation:
+[`'claimed'` or `'observed'`](doc:navigation-claims), with `arrivalMeans` carrying the authored
+sentence for whichever one you got. It is read live, because the observation that corroborates a
+claim can land long after the receipt was written — so an action can be `performed` with
+`arrival` still `'claimed'`, and that pair is the truth. There is no third value for *did not
+arrive*, and the field is absent entirely on an action that declares no destination.
+
+In process, [`session.settlementOf(transitionId)`](doc:sessions) is the same truth as a
+promise, and `port.whenSettled(transitionId)` is that promise for a caller holding only the
+port. Over a real server, [`mcpServer`](doc:mcp) usually settles it for you before the result
+ever leaves.
+
+**`port.settledAnswer(transitionId)`** is the same truth as a *result* rather than a promise — the
+one builder `did_it_work` answers from, minus that tool's own envelope, for a caller that already
+holds the id and wants the facts to fold into a payload of its own. Three answers, and they are
+three different things: the facts for a fire at rest, `undefined` while it is still in flight
+(*no answer yet*, never a guessed one), and a synchronous **throw** on an id no settlement can ever
+exist for — a mistyped id refused by name, because silence there reads as *not finished* and that
+is how a wrong id becomes a confident wrong answer. It is what [`mcpServer`](doc:mcp) folds with.
+
+`serveToAgent` returns a **`JourneyToolsPortWithSettlement`**, where both methods are required —
+hold the factory's port and you never check for them. On the published **`JourneyToolsPort`**
+itself they are optional, and that is the whole reason for two names: somebody's object
+literal implements that interface (a test double, a relay facade), and a required member added
+underneath it would be a compile error in code that never asked for the feature.
+
+## The firewall
+
+Text fields are **authored strings only**; runtime values (state, payloads, instance keys,
+evidence, produced data) are structured DATA fields. Product names and search results ride
+only inside `tool_result` data — never the system prompt, never a tool description. A dress
+literally named `IGNORE PREVIOUS INSTRUCTIONS…` reads as harmless data. That's the
+two-string-class firewall, and it is enforced at emission, not by convention.
+
+## The source stamp
+
+Leave `source` at `'agent'` for any port a MODEL drives. It stamps the principal on every
+fire the port makes, and the `NOT_MATERIALIZED` guarantee keys off it: a port stamping
+`'user'`/`'system'` is declaring app self-report, so its unbound fires are deliberately NOT
+gated. Only stamp a non-agent source for a port your own code drives.

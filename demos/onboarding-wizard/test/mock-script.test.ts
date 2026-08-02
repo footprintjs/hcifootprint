@@ -59,7 +59,7 @@ describe('building a payload from the shape the app advertised', () => {
 
 describe('tool names an LLM will accept', () => {
   it('turns the library’s dotted MCP names into [A-Za-z0-9_-]', () => {
-    expect(sanitizeToolName('onboarding.skill.import-signup')).toBe('onboarding_skill_import-signup');
+    expect(sanitizeToolName('onboarding.journey.import-signup')).toBe('onboarding_journey_import-signup');
     expect(sanitizeToolName('onboarding.whats_here')).toBe('onboarding_whats_here');
     expect(sanitizeToolName('a b/c')).toMatch(/^[A-Za-z0-9_-]+$/);
   });

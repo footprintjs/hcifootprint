@@ -24,13 +24,13 @@
  * Layer note: imports the real Session (via graph.createSession) + the Mode B
  * port. Kept OUT of the lint path so a pure CI lint stays engine-free.
  */
-import { skillsAsTools } from '../serve/modes.js';
-import type { DoActionArgs, ServeResult, SkillCallArgs, SkillToolsPort } from '../serve/modes.js';
+import { serveToAgent } from '../serve/modes.js';
+import type { DoActionArgs, ServeResult, JourneyCallArgs, JourneyToolsPort } from '../serve/modes.js';
 import type { NavigationGraph } from '../tree/types.js';
 import type {
   InteractionSession,
   InteractionSessionOptions,
-  ToolGroupHandle,
+  ActionGroupHandle,
 } from '../traverse/nav-session.js';
 import type { FireResult, GapRecord, StimulusKind, TransitionRecord } from '../atom/types.js';
 import type { MCPToolDescription } from 'footprintjs';
@@ -39,12 +39,12 @@ import type { MCPToolDescription } from 'footprintjs';
 // Resolvers — the mock boundary (MSW-style: one per action, returns a delta)
 // ---------------------------------------------------------------------------
 
-export interface ResolverContext<State> {
+export interface ResolverContext<State = Record<string, unknown>> {
   /** The current projected state, as the real handler would read it. */
   state: State;
 }
 
-export interface ResolverOutcome<State> {
+export interface ResolverOutcome<State = Record<string, unknown>> {
   /**
    * The state change this action makes — reported through the REAL updateState,
    * so the session verifies it against the action's declared writes. Keep it
@@ -60,7 +60,7 @@ export interface ResolverOutcome<State> {
 }
 
 /** One mock handler for an action. Synchronous — runs inside the precise-attribution window. */
-export type Resolver<State> = (
+export type Resolver<State = Record<string, unknown>> = (
   payload: unknown,
   ctx: ResolverContext<State>,
 ) => ResolverOutcome<State> | void;
@@ -87,7 +87,7 @@ export interface DriftReport {
   gaps: GapRecord[];
 }
 
-export interface TestAppOptions<State> {
+export interface TestAppOptions<State = Record<string, unknown>> {
   /** The initial projected state (guards read it; enables the state tap). */
   initialState?: State;
   /** One mock handler per action, keyed by affordance id (qualified or bare/leaf). */
@@ -103,14 +103,14 @@ export interface TestAppOptions<State> {
   /** Sink for the session's dev warnings (default: collected, readable via warnings()). */
   onWarn?: (message: string) => void;
   /**
-   * Bring your own already-wired session (real registerToolGroup / taps) for
+   * Bring your own already-wired session (real registerActions / taps) for
    * full integration fidelity. In this mode the harness does NOT auto-mount or
    * inject a clock — it wraps what you built. `graph`/`resolvers` are ignored.
    */
   session?: InteractionSession;
 }
 
-export interface TestApp<State> {
+export interface TestApp<State = Record<string, unknown>> {
   /** The real session under the hood — drop to it for anything the facade omits. */
   readonly session: InteractionSession;
   /** The current page id. */
@@ -138,13 +138,13 @@ export interface TestApp<State> {
 
   /** Drive like the planning LLM, through the real Mode B port. Returns ServeResult (needs-confirm is data, never a throw). */
   readonly agent: {
-    /** The FIXED tool array the model sees (one per skill + whats_here/do_action). */
+    /** The FIXED tool array the model sees (one per journey + whats_here/do_action). */
     tools(): MCPToolDescription[];
     /** Call whats_here. */
     whatsHere(): Promise<ServeResult>;
-    /** Open/step a skill by its id (maps to the skill's fixed tool). */
-    skill(skillId: string, args?: SkillCallArgs): Promise<ServeResult>;
-    /** Perform one action outside a skill flow (do_action). */
+    /** Open/step a journey by its id (maps to the journey's fixed tool). */
+    journey(journeyId: string, args?: JourneyCallArgs): Promise<ServeResult>;
+    /** Perform one action outside a journey flow (do_action). */
     do(action: string, args?: Omit<DoActionArgs, 'action'>): Promise<ServeResult>;
   };
 
@@ -154,7 +154,7 @@ export interface TestApp<State> {
   back(page: string): void;
 
   /** Mount + show a modal/tab node's tools (not auto-mounted). Returns its handle. */
-  open(path: string, opts?: { instance?: string }): ToolGroupHandle;
+  open(path: string, opts?: { instance?: string }): ActionGroupHandle;
   /** Unmount a node opened with open(). */
   close(path: string): void;
 
@@ -173,8 +173,8 @@ export interface TestApp<State> {
   expectAvailable(affordanceId: string): void;
   /** Assert a FireResult was refused (optionally with a specific reason, e.g. 'GUARD_FAILED'). */
   expectRejected(result: FireResult, reason?: string): void;
-  /** Assert a skill has a completed frame in the history. */
-  expectSkillCompleted(skillId: string): void;
+  /** Assert a journey has a completed frame in the history. */
+  expectJourneyCompleted(journeyId: string): void;
   /** Assert no declared-effect drift (optionally also fail on any gaps). The opt-in release gate. */
   expectClean(opts?: { includeGaps?: boolean }): void;
 }
@@ -224,7 +224,7 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
   const resolvers = opts.resolvers ?? {};
   const affordances = byo ? undefined : graph!.spec.affordances;
   const nodes = byo ? undefined : graph!.nodes;
-  const toolNodes = byo ? undefined : graph!.toolNodes;
+  const actionNodes = byo ? undefined : graph!.actionNodes;
 
   const session: InteractionSession = byo
     ? opts.session!
@@ -237,7 +237,7 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
         onWarn: warn,
       } satisfies InteractionSessionOptions);
 
-  const port: SkillToolsPort = skillsAsTools(session, { source: 'agent' });
+  const port: JourneyToolsPort = serveToAgent(session, { source: 'agent' });
   const graphId = session.graphId;
   const sanitize = (name: string): string => name.replace(/[^A-Za-z0-9_.-]/g, '_');
 
@@ -289,23 +289,31 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
   // --- auto-mount (page + area descendants; modals/tabs need open()) ---------
 
   let mountedPage: string | null = null;
-  const autoHandles: ToolGroupHandle[] = [];
-  const openHandles = new Map<string, ToolGroupHandle>();
+  const autoHandles: ActionGroupHandle[] = [];
+  const openHandles = new Map<string, ActionGroupHandle>();
 
   function autoMountable(path: string): boolean {
+    /* v8 ignore next -- unreachable: the only caller is remountForCurrentPage, which has already returned when `nodes` is absent (bring-your-own mode); this keeps the walk below honest if a second caller ever appears. */
     if (!nodes) return false;
-    for (let cursor = nodes[path]; cursor; cursor = cursor.parent ? nodes[cursor.parent] : undefined!) {
+    // A `while` rather than a `for`, so the walk up the tree carries no arm that
+    // has to be exempted at all: the old update expression needed an
+    // `undefined!` for a case the body had already broken on, and the exemption
+    // that documented it took the entire loop out of the coverage denominator.
+    let cursor = nodes[path];
+    while (cursor) {
       if (cursor.kind === 'modal' || cursor.kind === 'tab') return false;
       if (!cursor.parent) break;
+      cursor = nodes[cursor.parent];
     }
     return true;
   }
 
   function handlersForNode(nodePath: string): Record<string, (payload?: unknown) => unknown> {
     const handlers: Record<string, (payload?: unknown) => unknown> = {};
-    if (!affordances || !toolNodes) return handlers;
+    if (!affordances || !actionNodes) return handlers;
     for (const aff of Object.values(affordances)) {
-      if (!(toolNodes[aff.id] ?? []).includes(nodePath)) continue;
+      /* v8 ignore next -- the `?? []` arm is unreachable: buildNavigationGraph files an actionNodes row for every affordance it compiles, so an id read out of `affordances` always has one. */
+      if (!(actionNodes[aff.id] ?? []).includes(nodePath)) continue;
       const leaf = aff.id.startsWith(`${nodePath}.`) ? aff.id.slice(nodePath.length + 1) : aff.id;
       handlers[leaf] = wrap(aff.id);
     }
@@ -313,6 +321,7 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
   }
 
   function remountForCurrentPage(): void {
+    /* v8 ignore next -- unreachable: all three call sites already ask `!byo` before calling, and outside bring-your-own mode there is always a compiled node tree; the guard states the precondition at the function that depends on it. */
     if (byo || !nodes) return;
     for (const handle of autoHandles.splice(0)) handle.unregister();
     const page = session.node;
@@ -322,7 +331,7 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
       if (!autoMountable(node.path)) continue;
       const handlers = handlersForNode(node.path);
       if (Object.keys(handlers).length > 0) {
-        autoHandles.push(session.registerToolGroup(node.path as never, { handlers }));
+        autoHandles.push(session.registerActions(node.path as never, { handlers }));
       }
     }
     mountedPage = page;
@@ -492,9 +501,9 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
         await settle();
         return result;
       },
-      async skill(skillId, args) {
+      async journey(journeyId, args) {
         syncMount();
-        const result = port.call(sanitize(`${graphId}.skill.${skillId}`), args);
+        const result = port.call(sanitize(`${graphId}.journey.${journeyId}`), args);
         await settle();
         return foldProduced(result);
       },
@@ -518,7 +527,7 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
       // its registration + presence handle can never be orphaned.
       openHandles.get(path)?.unregister();
       const handlers = handlersForNode(path);
-      const handle = session.registerToolGroup(path as never, {
+      const handle = session.registerActions(path as never, {
         handlers,
         visible: true,
         ...(openOpts?.instance !== undefined ? { instance: openOpts.instance } : {}),
@@ -575,15 +584,15 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
         );
       }
     },
-    expectSkillCompleted(skillId) {
-      const done = session.frames().some((f) => f.skillId === skillId && f.status === 'completed');
+    expectJourneyCompleted(journeyId) {
+      const done = session.frames().some((f) => f.journeyId === journeyId && f.status === 'completed');
       if (!done) {
         const seen = session
           .frames()
-          .filter((f) => f.skillId === skillId)
+          .filter((f) => f.journeyId === journeyId)
           .map((f) => f.status);
         throw new Error(
-          `hcifootprint/testing: expected skill “${skillId}” to have completed, ` +
+          `hcifootprint/testing: expected journey “${journeyId}” to have completed, ` +
             `but its frames were: ${seen.length > 0 ? seen.join(', ') : '(never opened)'}.`,
         );
       }

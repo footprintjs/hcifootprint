@@ -336,7 +336,7 @@ export function deskGraph(): NavigationGraph {
     pages: {
       inbox: {
         route: '/inbox',
-        tools: {
+        actions: {
           send: {
             does: 'Send the message',
             binding: { kind: 'element', locator: { role: 'button', name: 'Send' }, actuation: 'click' },
@@ -386,7 +386,7 @@ export function deskGraph(): NavigationGraph {
           thread: {
             repeats: true,
             instances: (state) => (state['threadIds'] as string[]) ?? [],
-            tools: {
+            actions: {
               reply: {
                 does: 'Reply to this thread',
                 binding: { kind: 'element', locator: { role: 'button', name: 'Reply' }, actuation: 'click' },

@@ -8,11 +8,6 @@
 </p>
 
 <p align="center">
-  Turn a web app's interaction surface into a typed, traversable <strong>skill graph</strong> an LLM agent
-  can plan over and act on — on behalf of the signed-in user, through the app's own buttons and handlers.
-</p>
-
-<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/haci-hero-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/haci-hero-light.svg">
@@ -21,881 +16,295 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-beta%20·%20pre--1.0-e0a400?style=flat" alt="beta, pre-1.0">
-  <img src="https://img.shields.io/badge/tests-1687%20passing-f5b301?style=flat" alt="1687 tests passing">
-  <img src="https://img.shields.io/badge/TypeScript-strict-f5b301?style=flat" alt="TypeScript strict">
+  <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
+  <img src="https://img.shields.io/badge/tests-1934%20passing-f5b301?style=flat" alt="1934 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
 </p>
 
 <p align="center">
-  <strong>🌐 <a href="https://footprintjs.github.io/hcifootprint/">footprintjs.github.io/hcifootprint</a></strong> — the story in three lenses: <a href="https://footprintjs.github.io/hcifootprint/">Read</a> · <a href="https://footprintjs.github.io/hcifootprint/?view=scrolly">Scroll</a> · <a href="https://footprintjs.github.io/hcifootprint/?view=slides">Watch</a>
+  <strong>🌐 <a href="https://footprintjs.github.io/hcifootprint/">footprintjs.github.io/hcifootprint</a></strong> ·
+  <a href="https://footprintjs.github.io/hcifootprint/docs/">Docs</a> ·
+  <a href="https://footprintjs.github.io/hcifootprint/docs/get-started/quick-start">Quick start</a>
 </p>
 
 ```bash
 npm install hcifootprint
 ```
 
-> **Beta · pre-1.0** — the API can still change until `1.0`. The npm publish lands with `1.0`; until then, install from this repo or pin a commit.
-
-> **Agents:** read [`llms.txt`](llms.txt) — the entire API surface on one self-contained page.
-
-> **📚 Docs:** guides, the generated API reference, and machine-readable llms routes live at
-> [footprintjs.github.io/hcifootprint/docs](https://footprintjs.github.io/hcifootprint/docs/).
+> **1.0 — the names are frozen.** You author **actions**, you name **journeys**, and a **tool** is
+> what is served to a model. The pre-1.0 spellings (`tools:`, `skills:`) are gone, not deprecated —
+> see the [migration](CHANGELOG.md#100---2026-08-02).
+> **Agents:** [`llms.txt`](llms.txt) is the whole API surface on one page.
 
 ---
 
-## Agents driving UIs are flying blind
+## The problem
 
-An agent can already reach your app. The problem is *how* it operates one:
+An agent can already reach your app. The question is how it *operates* one.
 
 | How agents drive a UI today | The cost |
 |---|---|
-| Screenshot the page, reason over pixels | slow and fragile — redone every single turn |
-| Dump the DOM into the prompt | ~100k tokens, and it still guesses at what does what |
-| Hard-coded selectors / RPA scripts | break on the next redesign |
+| Screenshot the page, reason over pixels | slow, fragile, redone every turn |
+| Dump the DOM into the prompt | ~100k tokens, and it still guesses what does what |
+| Hard-coded selectors, RPA scripts | break on the next redesign |
 
-All three relearn your app from scratch on every visit. But a returning human already carries a mental
-model — where things are, what leads where, what they're allowed to do. Your app holds that same map.
-**HACI Footprint hands it to the agent** as a typed skill graph the agent *traverses*, instead of a DOM it
-re-reads — with a *you-are-here* pin so it only ever sees what is actually doable right now.
+All three relearn your app from scratch on every visit. A returning human doesn't — they carry a
+mental model of where things are and what they're allowed to do. **Your app holds that same map. This
+hands it to the agent.**
 
-## What it is
+And it is safe to adopt for one reason: **you are not opening your backend — you are letting an agent
+drive the frontend a human already can.** It acts as the signed-in user, through your own buttons and
+handlers, inside exactly the permissions they already have. No new endpoints, no new grants.
 
-For decades we've designed the interaction between a **human** and a **computer** — that's HCI. Now the
-human isn't alone: an **agent** joins their side, acting for them. Human **and** agent, working the computer
-as a team — that's **HACI**, and this is the layer for it.
+---
 
-The key idea, and the reason it's safe to adopt: **you are not opening your backend to an agent — you are
-letting it drive the frontend a human already can.**
+## The model
 
-- **Auth and permissions are unchanged.** The agent acts *as the signed-in user*, through your app's own buttons and handlers. It inherits exactly the capability envelope the user already has. No new endpoints, no new grants, **no new attack surface.**
-- **The app is already the boundary.** Your UI decides what can be done. The agent can't do anything a user couldn't.
-- **Both drive the same live session.** The human's clicks and the agent's actions flow through one session — a team on one side of the screen. That's the "Human **and** Agent" in the name.
+**Three contexts.** An agent driving your app asks three questions, and this library answers exactly
+those — each in the same three parts: what you **declare**, what you **wire**, and what the **agent
+gets**.
 
-## Quick start — author → connect → serve
+### 1 · The map — *what can this app do?*
 
-Three steps, and the first two run offline with no API key.
+**Declare** the app as the tree you already picture: places, the things inside them, the named flows
+worth finishing. One sentence per action — that sentence is your label *and* the tool description the
+model reads.
 
-**1. Describe the app** as the tree you already picture — pages, the containers inside them, and the actions
-inside those. Each action needs one sentence; that sentence is both your label and the tool description the
-LLM reads.
+```ts
+pages: {
+  catalog:  { route: '/catalog',  actions: { 'add-to-cart': { does: 'Add the open dress to the cart', writes: ['cart.items'] } } },
+  checkout: { route: '/checkout', actions: { 'place-order': { does: 'Place the order', enabledWhen: { 'cart.items': { gt: 0 } }, confirm: true } } },
+},
+journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] } },
+```
+
+Already have a route table, a journey list, a live action store? `fromRoutes`, `fromJourneys` and
+`fromLiveStore` adopt them under one documented merge order — nobody re-types anything.
+
+**Wire: nothing.** A map is static data. It validates and freezes in one call, so it can be linted in
+CI and argued about in a pull request before your app runs at all.
+
+**The agent gets** one tool per journey, plus four fixed generics. **The tool list *is* the map**, and
+its bytes never change for the life of a conversation. A whole-page dump is never served — that is the
+thesis, not an optimisation.
+
+### 2 · Traversal — *where am I, and how do I get there?*
+
+**Declare** two fields, on the map you already wrote: `route` on a page, `goTo` on an action. An
+action's claim **is** the edge; pages declare no edges to one another.
+
+```ts
+cart: { route: '/cart', actions: { pay: { does: 'Check out', goTo: 'checkout' } } },
+```
+
+**Wire** the session, and one line wherever your router already knows the page changed.
+
+```ts
+const session = graph.createSession({ node: 'catalog' });
+session.sync('checkout');            // the router moved → the cursor moves
+```
+
+**The agent gets** where it is, whether arrival is `claimed` or `observed` — never a guessed third
+value meaning *did not arrive* — and the declared hops to any destination.
+
+### 3 · Actions — *what is possible here?*
+
+**Declare** what an action is, once, where it lives: `does`, `writes`, `enabledWhen`, `goTo`,
+`confirm`, `verify`, `input`.
+
+**Wire** your own functions, by reference, when the component that renders them mounts.
+
+```ts
+const group = session.registerActions('checkout', {
+  handlers: { 'place-order': (input) => shop.placeOrder(input) },
+});
+group.setEnabled('place-order', false);                // the greyed button
+group.setBusy('place-order', 'Placing your order…');   // your words, never ours
+session.updateState({ 'cart.items': 3 });              // your store → conditions re-evaluate
+```
+
+**The agent gets** one row per action that is offered here, carrying `enabled`, `busy`, `holds`,
+`goesTo`, `expects`, `highEffect` and `unblockedBy`. Every stamp is presence-only: a key means your
+app said so, and no key means the library does not know.
+
+### Declared or wired? One question decides
+
+> **Can this fact change while the page is open?** If **no**, it is a declaration
+> (`enabledWhen`). If **yes**, it is a wire (`setBusy`).
+
+That is why there is no `busyWhen`: a condition can prove a state, but it cannot author a label, and a
+library-written label would be a library-written meaning.
+
+### And a fourth thing — which you never build
+
+The relations *between* actions are the part people expect to have to author. You don't.
+
+*Is `place-order` blocked, and by what?* `add-to-cart` writes `cart.items`; `place-order` waits on it.
+Nobody wrote an edge, and the edge is unambiguously there — so it is **derived, never authored**, and
+cannot drift from your graph:
+
+```ts
+session.whatUnblocks('checkout.place-order');
+// [{ affordanceId: 'catalog.add-to-cart', viaKeys: ['cart.items'] }]
+```
+
+*How do I get to checkout?* A route is walked from the `goTo` claims you already made:
+
+```ts
+session.howToReach('checkout');   // [{ action: 'catalog.open', to: 'product' }, …]
+```
+
+**Everything relational is derived from declarations you make for other reasons.** There is no edge
+API in this library — not between pages, not between actions. The only thing you declare that cannot
+be derived is *intent*: "these steps, in this order, toward this goal" — a
+[journey](https://footprintjs.github.io/hcifootprint/docs/map/journeys), because a preferred order is
+meaning, and meaning is yours.
+
+→ [The three contexts](https://footprintjs.github.io/hcifootprint/docs/get-started/three-contexts) ·
+[What would free it](https://footprintjs.github.io/hcifootprint/docs/actions/what-would-free-it) ·
+[How to reach a page](https://footprintjs.github.io/hcifootprint/docs/traversal/how-to-reach) ·
+[Navigation graph](https://footprintjs.github.io/hcifootprint/docs/map/navigation-graph)
+
+---
+
+## Why this makes an agent better
+
+Not by making the model smarter. By never making it guess.
+
+Every turn, the agent gets **only what is true here, now** — one page's actions, not your whole app:
+
+```
+You are on: Checkout   (step 3 of 4)
+
+Actions here:
+  edit-address   Change the delivery address
+  place-order    Place the order          [not available]
+                 waiting on: cart.items
+                 which "Add to cart" writes — and it is running right now
+                 needs a person's approval before an agent may fire it
+
+Last outcome: address update — performed, verified
+```
+
+Follow what that removes. The model doesn't infer the page — it's told. It doesn't guess whether a
+control is clickable — it's told, and told *why not*, and *what would change it*. It doesn't wonder
+whether its last action worked — the outcome is a fact, not an assumption. It doesn't hunt for the
+finish line — a journey names the steps and the library says which are still open.
+
+**A greyed button is the whole argument.** A production integration's agent met one, was told only
+that it was disabled, fired it again to find out what would change, then told its human the app was
+broken. Nothing had failed — an upload was still running. That agent wasn't bad at its job; it was
+answering a question nobody had given it the facts for.
+
+Three consequences, in order of how much they matter:
+
+- **It stops hallucinating capability.** Anything derived rather than observed is flagged
+  (`arrival: 'claimed'`, `guardUnevaluated`, `presence: 'unknown'`). Every refusal is typed and
+  teaches — so the agent replans instead of inventing a cause.
+- **A smaller model goes further.** The reasoning that used to reconstruct your app from a DOM dump is
+  simply not spent. This is context engineering, not model choice.
+- **Tokens are bounded by the page, not the app.** What's on screen is what's sent.
+
+→ [Reading an action row](https://footprintjs.github.io/hcifootprint/docs/actions/reading-an-action-row) ·
+[Grounding](https://footprintjs.github.io/hcifootprint/docs/actions/grounding) ·
+[Modes](https://footprintjs.github.io/hcifootprint/docs/map/modes)
+
+---
+
+## Quick start
+
+Three steps. The first two run offline, with no API key.
+
+**1 · Describe the app** — the tree you already picture.
 
 ```ts
 import { buildNavigationGraph } from 'hcifootprint';
 
 const graph = buildNavigationGraph('shop', {
   pages: {
-    catalog: {
-      tools: {
-        'search': { does: 'Search dresses by name or color' },
-        'add-to-cart': { does: 'Add the open dress to the cart', when: { authenticated: { eq: true } } },
-        'like': { does: 'Like the open dress', input: 'none' },          // takes nothing — say so
-      },
-    },
-    checkout: {
-      modals: {
-        'confirm-order': {
-          tools: {
-            'place-order': {
-              does: 'Place the order',
-              confirm: true,
-              enabledWhen: { paymentReady: { eq: true } },   // here, but greyed out until then
-              verify: { orderId: { ne: '' } },               // …and it only "happened" if this holds
-            },
-          },
-        },
-      },
-    },
-  },
-  skills: {
-    purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
+    catalog: { actions: { 'add-to-cart': { does: 'Add the open dress to the cart' } } },
+    checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true } } },
   },
 });
 ```
 
-Four of those fields are the difference between a graph an agent can plan over and one it loops on:
-
-| field | the question it answers | what the agent gets |
-|---|---|---|
-| `when` | is this action **here**? | a failed guard hides it |
-| `enabledWhen` | is it **clickable**? | served greyed out (`enabled: false`), fires refuse `TOOL_DISABLED` |
-| `input: 'none'` | does it take an argument? | told `expects: 'none'` — and a payload sent anyway is refused |
-| `verify` | did firing it actually **do** it? | a settlement of `'refused'`, not `'performed'`, when it did not |
-
-D18 `buildNavigationGraph` is the canonical authoring surface; the v1 `skillGraph()` fluent builder
-remains as legacy sugar.
-
-**2. Connect it** to your running app through three ordinary wires. Components register what they have *when
-they render*: registration hands back a handle (you never invent a group name), your existing functions bind
-by reference, the router owns the page.
+**2 · Connect it** — components register what they have when they render; your router reports the page.
 
 ```ts
 const session = graph.createSession();
 
-// when the component that renders the catalog mounts:
-const group = session.registerToolGroup('catalog', {
-  handlers: { 'search': (input) => shop.search(input.query) },   // your own function, by reference
+const group = session.registerActions('catalog', {
+  handlers: { 'add-to-cart': (input) => shop.add(input.id) },   // your own function, by reference
 });
-group.setEnabled('search', false);   // grey a button out; group.unregister() on unmount
 
-// your existing wires report reality:
-session.updateState({ authenticated: true });   // store tap → guards re-evaluate
-session.sync('checkout');                        // router change → the cursor moves
-
-// passive observers — never business logic:
-session.on('structure', () => rerenderToolPanel());
-session.on('gap', (row) => telemetry.send(row));
+session.sync('checkout');                       // router change → the cursor moves
+session.updateState({ cartCount: 1 });          // your store → guards re-evaluate
 ```
 
-Node paths are **typed**: `registerToolGroup('catalog.filtr-rail')` is a compile error, not a silent no-op.
-
-**3. Serve it to the LLM** as a fixed set of MCP-shaped tools. The tool list never changes; what's doable
-*right now* arrives inside each tool result.
-
-```ts
-import { skillsAsTools } from 'hcifootprint';
-
-const port = skillsAsTools(session);
-port.tools();                          // static tool array — one per skill + whats_here / do_action / why / did_it_work
-port.call('shop.skill.purchase', {});  // → { readySteps, judgment, youAreOn, ... }
-```
-
-The agent plans over skills, sees only what's available at the current position, and acts through your own
-handlers — with the human able to approve high-effect steps.
-
-## The adoption ladder — start in guide mode
-
-You don't wire everything at once. Adoption is a ladder, and the first rung needs no handlers at all.
-
-**Phase 0 — guide mode (read-only).** Wire only the two reporting calls: `sync()` when the router moves and
-`updateState()` when your store changes. Register nothing. The agent can now read the position and *plan* over
-the declared action space (`whats_here` / `available()`), but it acts on nothing — with no handlers bound,
-every offered edge is plannable-only. This rung is **zero-risk**: it cannot touch your app.
-
-The one rule used to be *never `fire()` an unregistered tool* — **0.3.0 enforces it for you.** An
-agent-sourced fire of a tool nothing is bound to is a typed `NOT_MATERIALIZED` rejection: it would execute
-nothing, so it is refused rather than returning a success-shaped no-op the model reads as "it worked".
-(Your app reporting its *own* motion — `fire(id, { source: 'user' })`, `source: 'system'`, or the record-only
-`invoke: false` sensor — is never gated: that motion really happened.)
-
-Want the agent to walk the graph anyway — a tour, a plan preview, a guided demo? Opt in:
-
-```ts
-const session = graph.createSession({ node: 'catalog', allowUnmaterializedFires: true });
-```
-
-Fires then proceed as **honest no-ops**: the result carries `executed: false` and `materialized: false`,
-every served edge is stamped `materialized: false` before it is even offered, and each one lands an
-`unmaterialized-fire` row in the gap ledger — the binding your team has yet to build. Navigation claims still
-move the cursor (that is the tour) and say so with `toNodeClaimed: true`.
-
-**Phase 1 — register handlers.** As components mount, `registerToolGroup(path, { handlers })` binds your
-existing functions by reference, so firing runs the app's own code. Edges now report `materialized` (false =
-still declared-only, true = wired), and you watch the surface light up.
-
-**Phase 2 — serve an agent (Mode B).** `skillsAsTools(session)` hands your host a fixed MCP tool set; the
-agent plans over skills and acts through your handlers. One authored graph carried you the whole way — no
-rung forced you to maintain a second, stripped-down copy.
-
----
-
-## Pick your door
-
-| 🔌 Serving an agent? | 🕳️ Deciding what to build? | ✅ Shipping to production? |
-|---|---|---|
-| A fixed, cache-warm tool surface any MCP host can drive — Claude Desktop, LangGraph, a raw loop. | Every ask your app *can't* serve becomes a token-lean gap row — a demand-driven backlog. | A drift harness that fails CI when the graph and the app stop agreeing. |
-| [→ Serve to any agent ↓](#-serve-it-to-any-agent--the-mcp-surface) | [→ The gap loop ↓](#-the-gap-loop--grow-the-app-around-real-demand) | [→ Keep the graph true ↓](#-keep-the-graph-true--the-drift-harness) |
-
----
-
-## 🔌 Serve it to any agent — the MCP surface
-
-The tool array the LLM sees holds **one tool per skill** plus four fixed generics (`whats_here`, `do_action`,
-`why`, `did_it_work`), and it **never changes for the life of a conversation**. Disclosure rides the *result* channel: every call
-returns `readySteps` — what's fireable at the current cursor — and the model acts by calling the same skill
-tool again with a `step`. Tools render first in the prompt, so a stable tool set keeps the **prompt cache
-warm**, and any plain MCP host can drive it with no dynamic-tool support required.
-
-### One turn, end to end
-
-A single request, *"find a red dress under $150 and buy it,"* flows through five parties. The navigation
-graph is what makes each step position-aware — the session only ever offers what is fireable at the current
-cursor.
-
-```mermaid
-sequenceDiagram
-  actor U as User
-  participant A as Agent (LLM)
-  participant T as skillsAsTools port<br/>(fixed MCP tools)
-  participant S as InteractionSession<br/>+ navigation graph
-  participant App as Your app<br/>handlers · store · router
-
-  U->>A: find a red dress under $150 and buy it
-  Note over A,T: The tool set is FIXED for the whole conversation — the cache stays warm
-
-  A->>T: shop.skill.find-dress   (no step yet — open it)
-  T->>S: commitSkill find-dress
-  S-->>T: readySteps = search-dresses   (disclosure rides the RESULT)
-  T-->>A: readySteps + youAreOn
-
-  A->>T: shop.skill.find-dress  step=search-dresses  input=red
-  T->>S: fire catalog.search-dresses
-  S->>App: run your handler shop.search — as the signed-in user
-  App-->>S: store tap updateState + the matched dresses
-  S-->>T: did + readySteps=view-dress + data=dresses
-  Note right of S: results ride the DATA channel — untrusted text, never instructions
-  T-->>A: the dresses to pick from + the next ready step
-
-  A->>T: shop.skill.purchase  step=place-order
-  T->>S: fire checkout.place-order  (high-effect)
-  S-->>A: judgment = needs-confirm — never auto-crossed
-  A->>U: Approve placing the order?
-  U-->>A: approve
-  A->>T: shop.skill.purchase  step=place-order  confirm=true
-  T->>S: fire checkout.place-order
-  S->>App: shop.placeOrder
-  App-->>A: Ordered the Floral Wrap Dress — $120
-```
-
-The load-bearing moves, in order: the **tool set never changes**, so the prompt cache stays warm; the session
-answers *"what can I do here?"* from the **graph at the current cursor**, not a DOM dump; firing runs **your
-own handler** as the signed-in user; produced data comes back on the **data channel** (so untrusted content
-can't become instructions); and a **high-effect** step stops for **human approval** before it ever fires.
-
-### What each turn actually sends to the model
-
-Every turn is **one** Messages API request with three channels:
-
-```text
-POST /v1/messages
-├── system     "You are the shopping assistant… here is how to work…"     ← authored by YOU, only
-├── tools[]     shop.skill.find-dress · shop.skill.purchase · …
-│               shop.whats_here · shop.do_action · shop.why               ← FIXED — identical every turn
-│               shop.did_it_work
-└── messages    … prior turns …
-                tool_result  { readySteps: […], data: [dress names…] }    ← the app's DATA lands here
-                user:  "find a red dress under $150 and buy it"           ← the user's own text, as-is
-```
-
-Two things worth making explicit:
-
-- **The user's message is passed as-is.** It's the operator talking to *their own* assistant, so it belongs in the instruction channel — nothing is stripped or paraphrased.
-- **App content never enters the instruction channel.** Product names and search results ride **only** inside `tool_result` data — never the `system` prompt, never a tool's `description`. So a dress literally named `IGNORE PREVIOUS INSTRUCTIONS…` reads as harmless data. That's the two-string-class firewall.
-
-The model never receives a growing list of tools. It picks from the fixed array and passes a **step name** —
-read from `readySteps` in the previous result — as an *argument*. The tool *set* is constant; only the `step`
-changes. That's exactly what keeps the cache warm and lets any host serve it.
-
-**After a write-step, re-read `whats_here`.** A step that changes state settles *asynchronously* — `fire()`
-returns `settlement: 'awaiting-state'` and the step stays pending until your app reports the new state back
-through `updateState()`. Until it does, the step that just fired is held out of `readySteps` (so the model
-can't double-fire it), and any step that depends on its write isn't ready yet. So an agent re-reads
-`whats_here` (or re-opens the skill) after a write-step, rather than trusting the `readySteps` from the
-write's own result.
-
-**And to learn whether it actually worked, ask — never assume.** A fire result carries `effectStatus`: the
-truth *at return time*, which for anything your app still has to do is `'pending'` (nobody has done anything
-yet). The result then names the door out — `howToSettle` points at **`did_it_work`**, which takes the
-`transitionId` and answers immediately: the final outcome, or an honest *still-pending* (never a guess, never
-a block). Over a real MCP server the answer usually arrives without a second call at all — `mcpServer` waits
-up to `settleWithinMs` (default 250) and folds the settled word, the produced data and any failure into the
-same result. In process, `session.settlementOf(transitionId)` is the same truth as a promise.
-
-**And the model is told which source wins.** Every `whats_here` result also carries **`facts`** — the app's
-own record of what was *attempted* and how each attempt came to rest, under a header saying it outranks
-anything said in the conversation. It exists because a model with nothing to check itself against will
-narrate a flow it never performed, and because the friendly `brief` structurally *cannot* show a refused
-fire (a refusal is a gap-ledger row, not a transition). With nothing attempted it says so in one flat line:
-*No actions have been performed in this app this session.* In process it is `session.groundTruth()`.
-
-**A navigation is a claim, and the app is the only thing that can observe it.** An action that navigates
-declares no `writes`, so from the side of the control the agent just fired, success and failure look
-identical — nothing changed. Two disclosures close that, and they are the same claim at two moments. Before
-the fire, the action row carries **`goesTo`** — the page this edge *claims* it will take you to, which the
-human's confirm receipt has always shown and the agent's row did not. After it, the record carries
-**`arrival`**: `'claimed'` when the app said so and nothing has seen it, `'observed'` once a `sync()` lands
-on the page it claimed. There is deliberately **no third value** for *did not arrive* — silence is not a
-failed navigation, and no clock turns it into one — and `'observed'` is corroboration, never proof of cause.
-So keep the router wired: `session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname)`
-is the one line that makes `youAreOn` honest and lets a claim ever be corroborated.
-→ [A claim is not an observation](https://footprintjs.github.io/hcifootprint/docs/serve/navigation-claims)
-
-**Even when the destination does not exist yet.** *Place order* goes to `/orders/8fa2`, and that address is
-minted by the handler that runs. So the graph declares a page **kind** (`route: '/orders/:id'`), the control
-claims it by **name** (`goTo: 'order-detail'`), and the id your app mints travels back as data on the
-transition (`producedFor`). What the library refuses — loudly, at build — is the half-address:
-`{ kind: 'url', href: '/orders/:id' }` and a `crossLink` to a paramful page are each declined by name,
-because **the library never guesses params** and a half-address is not an address. That is the whole
-cookbook, and the version that silently goes wrong (inventing a literal `'/orders/new'`) is the one nothing
-can catch.
-→ [A destination the app mints](https://footprintjs.github.io/hcifootprint/docs/serve/minted-destinations)
-
-**There is no `kind` field on a row, and that is the design.** A production integration wanted one word to
-switch on — navigating, guarded, high-effect, busy, disabled — and the answer is that those **compose**: a
-Pay button can sit behind a guard, charge a card, go to a receipt page and be mid-charge all at once, and an
-enum has to pick one exactly when all four are true. So each rides its own presence-only stamp
-(`goesTo`, `highEffect`, `enabled: false`, `busy`, plus `materialized`, `guardUnevaluated`, `holds`,
-`expects`, `instances`), each absent when your app declared nothing, and **the kind of an edge is the set of
-declarations it carries**. Every stamp traces to one thing you said, which is what lets its evidence answer
-*that* claim — a `kind` would be this library's own word about your edge, with no declaration behind it.
-→ [What kind of edge am I holding?](https://footprintjs.github.io/hcifootprint/docs/serve/reading-an-action-row)
-
-**And the model can see what the control is holding.** A `whats_here` action row carries **`holds`** — the
-draft already in the box, the option already selected — so the model stops asking a person to retype what
-they are looking at, or inventing a value. Your app declares a *reader* (`registerToolGroup(…, { holds })`,
-or the `value()` getter a [sensor](#-the-human-sensor--every-real-click-on-the-ledger-with-no-shim) control
-already declares) and the row is read late, at serve time. Nothing is ever scraped from the DOM, so an
-**absent key means the library does not know** — never that the box is empty. It is a reading, not a
-binding: firing still sends the `input` the caller passes. And because what a control holds *is* the next
-fire's payload one turn early, `redactedFields.payload` hides it there too.
-→ [What a control holds](https://footprintjs.github.io/hcifootprint/docs/serve/what-a-control-holds)
-
-**And waiting on your app has one honest shape.** Every action worth firing is asynchronous, and `fire()`
-answers `'pending'` — true at return time, useless to act on. The completion wire is the one your app already
-has: hand `registerToolGroup` your function and **return its promise** — `save: (payload) =>
-saveDraft.mutateAsync(payload)` — where a throw or a returned `{ok: false}` becomes the settlement's reason.
-When your *store* reports the delta instead, thread the id: `updateState(delta, { transitionId })`, because
-bare FIFO settles the **oldest** pending fire and out-of-order completion is ordinary (predictable, and
-`effectVerified: false` is the detector). Over MCP the answer usually lands in the same turn — `settleWithinMs`
-(default 250) folds the settled truth into the result of the call that fired — and that await is
-**structurally incapable of blocking on a person**: only an executed fire mints a `transitionId`, so every
-pause and refusal returns at once. Keep the ceiling well under your host's own timeout — this server sends no
-progress notifications, so a long one just turns a slow success into a client-side error — and use
-`did_it_work` as the long-running door.
-→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app)
-
-**And when the control is working, it says so — in your words.** A control has *three* states a person can
-see: clickable, switched off, and mid-flight. Only two had a wire, so *working* and *broken* were the same
-picture to a reader that cannot see the screen — and the two moves an agent makes about broken (fire it
-again, tell the human it failed) are the two worst moves about working. So a row carries **`busy`**: the
-app's own label (`"Saving your draft…"`), set at registration, through `handle.setBusy(…)`, or from a live
-store. A **string only** — a boolean would leave this library to author a meaning only your app can
-describe — and presence-only, so an absent key means it does not know, never *not busy*. It gates nothing
-(disable the control if you mean that), and **no clock here will ever expire it**: a busy that outlasts your
-patience is answered by the row still saying busy and `did_it_work` still saying `still-pending`. The
-ceiling is yours, and it reports *unfinished* — never done, never failed.
-→ [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/serve/when-a-control-is-busy)
-
-**And when the work outlives the receipt, the app says that too.** A fire comes to rest when your app
-reports its delta — and your app may keep working long after: the upload continues, the job runs on.
-Every "what is still live?" list answered *nothing* about that window. So your app opens a row —
-`const work = session.beginWork('Uploading the attachment')` in the `try`, `work.done()` in the
-`finally` — bound to the fire it belongs to, and `openWork()` serves it beside `pending()` and
-`awaitingSettlement()`. `did_it_work` then carries **`stillWorking: true`** *alongside* the receipt,
-never over it. **Closing a row settles nothing**: your failure spine stays the doors it always was
-(throw, `{ok:false}`, `reject()`), because a `done()` that resolved a latch would let bookkeeping
-race a receipt. And nothing expires a row — a leaked handle keeps saying the last thing your app
-said, where you can see it.
-→ [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
-
-### Plug into any framework — or run a real MCP server
-
-hcifootprint is **not tied to any agent framework**. The library hands your host two functions:
-
-```ts
-const port = skillsAsTools(session);
-
-const tools = port.tools();                 // fixed, MCP-shaped: { name, description, inputSchema }[]
-// → register `tools` with your agent (LangGraph, LangChain, an Anthropic/OpenAI loop, …)
-
-// then, inside each tool's executor, route the model's tool_use to:
-const result = port.call(toolName, toolInput);   // → return `result` as the tool_result
-```
-
-That's the whole integration — **`tools()` + `call()`**. To expose it as a **real MCP server** any client
-auto-discovers, there's a one-liner:
+**3 · Serve it** as a fixed set of MCP-shaped tools. The tool list never changes; what's doable *right
+now* arrives inside each result.
 
 ```ts
 import { mcpServer } from 'hcifootprint/mcp';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-
-const server = mcpServer(session);                 // tools/list + tools/call, wired to the session
-await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTTP transport
+mcpServer(session);
 ```
 
-`mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the transport** and run it
-wherever your session lives. Over MCP, a high-effect step returns `judgment: 'needs-confirm'` and the host
-decides how to get approval before calling again with `confirm: true` — a portable human-in-the-loop that
-needs no framework-specific pause/resume. The SDK is an **optional peer dependency**, imported only behind the
-`hcifootprint/mcp` subpath, so the core stays zero-dependency and you pull it in only if you use it.
-
-> This cooperates with Anthropic's MCP rather than competing with it: the skill graph *is* the server, and
-> any MCP host drives the same live session.
+→ [Quick start](https://footprintjs.github.io/hcifootprint/docs/get-started/quick-start) ·
+[Adoption ladder](https://footprintjs.github.io/hcifootprint/docs/get-started/adoption-ladder) —
+start in guide mode, where the agent can only *describe* what's possible.
 
 ---
 
-## 🕳️ The gap loop — grow the app around real demand
+## Honest by construction
 
-You don't have to build the whole agentic experience up front. Ship a thin skill graph, then let real demand
-tell you what to build next.
+Two properties do most of the safety work, and they are why this is worth adopting over a DOM dump.
 
-Your UI is the boundary of what an agent *can* do. When a user asks for something the UI **can't** serve,
-HACI Footprint doesn't just fail — it records a **gap**: a token-lean, structured row (the ask, the position,
-what *was* available) wired to your telemetry. The agent calls the gap tool **before** it apologizes, so
-every miss becomes a ledger row your team reads. Cluster those rows and you have a **demand-driven backlog**
-for your agentic app.
+**It says what it can't see.** Derived facts are marked as derived. Unknowable ones are `unknown`,
+never guessed. A failed read says *"the app could not re-read its actions here"* instead of serving an
+empty list as truth. Silence is never a verdict, and a clock is never evidence.
 
-A concrete one: two customers check out at the same moment, and a race lets one order through while the other
-fails. The loser asks the assistant *"why did mine fail?"* — but **that reason is in your backend logs, not
-the UI.** The agent can't answer, so it files a gap with reason `needs-backend-data`. Now you know precisely
-what to build for the next release — a small UI report, or a backend tool the agent can call. **You grow the
-app by locating the missing data, not by guessing at features.**
+**A human's yes is a reference, not a claim.** For a high-effect action, an agent asserting *"the user
+approved"* proves nothing. The library requires a pointer to a decision a person actually recorded,
+bound to the receipts they were shown.
 
-```ts
-session.gaps();                 // export the whole ledger to your analytics / triage
-session.onGap((row) => { … });  // or stream rows live (sugar for session.on('gap', …))
-```
-
-Rows are deliberately structured and name-only — the ask plus lists of available action/skill names, never
-descriptions or transcripts — so a batch triage LLM can cluster thousands of them cheaply.
-
-Four kinds of row today: `fire-rejected` (the session refused an action), `reported` (the agent filed an
-ask nothing could serve), `unmaterialized-fire` (a touring session let an agent fire a tool nothing is
-bound to — the *binding* to build, clustered for free alongside the rest), and `dead-end` (the cursor came
-to rest on a page where **every** offered action would refuse — a room with no doors, recorded before an
-agent has to loop in it). **Today**, because `kind` grows as the library learns to see new shapes of unmet
-demand — no shipped value ever changes meaning, so read a row by the kind you know and let the rest fall
-through as informational.
+→ [Human-in-the-loop](https://footprintjs.github.io/hcifootprint/docs/actions/receipts) ·
+[Paused is not failed](https://footprintjs.github.io/hcifootprint/docs/actions/paused-not-failed) ·
+[The human sensor](https://footprintjs.github.io/hcifootprint/docs/actions/human-sensor)
 
 ---
 
-## 🛟 Human-in-the-loop
+## More
 
-High-effect actions (`confirm: true` in the graph) stop at a `needs-confirm` gate and are **never
-auto-crossed**. The agent must ask the human, then call again with `confirm: true`. Two ways to run the
-approval:
-
-- **Over MCP** — the gate is just data in the result (`judgment: 'needs-confirm'`), and the host decides how to collect the yes. Portable, framework-free.
-- **In-process** — pause the agent's ReAct loop on a checkpoint, hand control to the human, and resume exactly where it stopped. The demo implements this with agentfootprint's pause/resume checkpointing.
-
-Either way, the gate is enforced at the session, so an agent can't fire a high-effect action without a real
-approval.
-
-### A pause is not a failure
-
-A `needs-confirm` result comes back with `ok: false` — a true fact about the **call**, and one an agent read
-as *the app broke*: it told the person so and went hunting for another route. Nothing had happened and
-nothing was wrong; a person had the question. So every `needs-confirm` result now also carries
-**`performed: false`** and one authored sentence — *Nothing has been done. This is a question for the human,
-not a failure* — the machine-readable half and the model-readable half of the same fact.
-
-And an agent holding the `askId` can ask what became of the card: `did_it_work` takes it in the same
-argument and answers **`awaiting-human`** (nobody has decided), **`approved-not-yet-done`** (a yes is on
-record, nothing has fired) or **`declined`** — then, once the yes is spent, the settlement of the fire it
-authorized. Nothing here times out or ages a card: silence is never a decline, and `session.asks()` is the
-same book in process.
-→ [A pause is not a failure](https://footprintjs.github.io/hcifootprint/docs/serve/paused-not-failed)
-
-### The ask carries receipts
-
-An empty "are you sure?" makes a human rubber-stamp. So the `needs-confirm` result carries a **`receipts`**
-object, assembled from what the session already knows — no new work, nothing for you to wire:
-
-```jsonc
-{ "judgment": "needs-confirm", "step": "checkout.place-order", "askId": "ask#1",
-  "receipts": {
-    "willDo":   { "does": "Place the order", "writes": ["orders"] },   // what happens (a claim, honesty-tagged)
-    "because":  [{ "key": "cartCount", "op": "gt", "actual": 2, "result": true }],  // why it's fireable — the guard evidence
-    "youAreOn": "checkout", "version": 7,                              // where the human is
-    "recentSteps": [{ "what": "catalog.add-to-cart", "principal": "agent", "outcome": "committed" }]  // the trail
-  },
-  "howToAct": "Show the human what this will do (see receipts)…" }
-```
-
-`because` is **structural guard evidence**, not a guessed rationale — the session *knows* why the edge is
-fireable. (If you also wire [agentfootprint](https://github.com/footprintjs/agentfootprint), its `checkIn`
-evidence is deliberately field-kin — `willDo` / read-like / trail — so one mental model spans both libraries;
-nothing is imported across.)
-
-### Decisions leave a record
-
-Both answers are recorded, so the gate is auditable end to end:
-
-- **Approve** → call again with `confirm: true`; the fire lands and its transition carries `askId` back to the
-  receipts the human saw.
-- **Decline** → call with `decline: true` (Mode B) or `session.declineConfirm(id)`; the refusal is recorded
-  instead of the ask dangling forever.
-
-`session.confirms()` returns the **ask → decision → fire** chain (a separate journal from the gap ledger — a
-gated action is consented capability, not unmet demand). `session.onConfirm(fn)` streams rows to your audit
-sink live.
-
-### Turning the gate on — and finding the door
-
-With `requireHumanApproval`, a high-effect fire needs an `askId` pointing at a row a human-side door
-recorded; a caller's own `confirm: true` is the *agent's claim*, not a person's answer, and is refused. An
-integration turned it on and could not get past it: it fired `confirm: true`, read a refusal that named the
-**wall**, and fired again — which reads like the library refusing to work. Nothing was missing from the
-mechanism. What was missing was in the one channel that reaches an app team, so the dev warning now names
-the **door** as well:
-
-```ts
-const { askId, receipts } = session.confirmAsk('checkout.place-order'); // show them the receipts
-session.approveAsk(askId, { by: 'sam@example.com' });                   // their yes (no → declineAsk)
-session.fire('checkout.place-order', { source: 'agent', askId });       // the fire carries it
-```
-
-
-## 🔒 Honest by construction
-
-Two properties do most of the safety work:
-
-- **It says what it can't see.** Anything the runtime *derives* rather than *observes* is flagged — `activation: 'assumed'`, `presence: 'unknown'`, `guardUnevaluated`. Every refused action returns a *typed* reason (`BLOCKED_BY_OVERLAY`, `STILL_MOUNTING`, `GUARD_FAILED`, `NOT_MATERIALIZED`, …) and is logged, so the agent replans instead of hallucinating.
-- **It never reports a no-op as success.** An agent fire that nothing is bound to execute is refused (`NOT_MATERIALIZED`) rather than settling a transition your app never performed; a tour that opts in (`allowUnmaterializedFires`) gets `executed: false` + `materialized: false` on the result instead of a silent lie. (The guarantee keys off `source: 'agent'` — a serving port created with `skillsAsTools(session, { source: 'user' })` is declaring *app self-report*, which is never gated, so never hand a model a port with a non-agent source.)
-- **A handler that *ran* is not an action that *happened* — if you say so.** Add `verify:` to an action and the library asks your app, at settlement, whether it really did the thing: a filter over your state (`verify: { recipe: { ne: '' } }`) or a one-line predicate that reads whatever your app can see (`verify: () => radio.checked`). If it does not hold, the settlement is `'refused'` instead of `'performed'` — the same word a thrown handler earns, because to the agent they mean the same thing. What it *cannot* check (an unknown key, a predicate that threw) comes back `verifyHeld: 'unevaluable'` and never refuses: a wrong rejection blocks an action your app would have accepted, and the caller has no appeal.
-- **Untrusted content can never become instructions.** Page text, product names, and user content ride a strict *data* channel; only your authored strings reach the planner's *instruction* channel. It's a firewall against prompt injection — proven in the demo by a product literally named `IGNORE PREVIOUS INSTRUCTIONS…`, which renders as harmless data everywhere.
-
-Under the hood, every action lands in a real [footprintjs](https://github.com/footprintjs/footPrint) commit
-log, so `session.why(key)` gives a causal answer to *"why is the app in this state?"* with zero extra code.
-
-## Guard semantics (read this before writing a projector)
-
-A guard (`when:`) is a **flat** filter over your projected state — `key: { op: value }`, ANDed across keys,
-operators `eq / ne / gt / gte / lt / lte / in / notIn`. There is no `$or` and no nesting; the filter is
-deliberately flat. To express "A **or** B", derive a boolean in your projector and guard on that:
-
-```ts
-session.updateState({ canCheckout: cart.length > 0 || savedOrder != null });
-// then author:  when: { canCheckout: { eq: true } }
-```
-
-A guard key the projected state has **never contained** is not treated as false. The edge is served anyway,
-carrying a `guardUnevaluated` marker — the condition is flagged as taken on faith, with the app still the
-enforcer. (A key that *is* present but fails its test hides the edge, as you'd expect.) The reason: absence of
-data must not masquerade as `false`. That honesty is what lets one authored graph work before every key is
-wired — but it also means an under-seeded projector quietly turns real decisions into flagged guesses.
-
-So seed every guard key up front. `graph.requiredStateKeys()` returns exactly that set — every key your
-guards and skill preconditions read, sorted and deduped — as the checklist for your state projector.
-
-**A switched-off control now hands over its proof.** `enabledWhen` is machine-evaluated to decide the
-`TOOL_DISABLED` refusal, and the failing half used to be thrown away — so the one reader that cannot see the
-screen was handed a *conclusion* and could not name a field, which is exactly where an integration's relay
-put an invented diagnosis (*"a required field is probably empty"*, which nothing in the app had ever said).
-The conjuncts that did **not** hold now ride the refusal as `evidence`, in the shape `GUARD_FAILED` already
-serves. Three rules keep it honest: only the ones that *failed*; **absent** for the imperative wires
-(`enabled:`, `setEnabled(false)`, a live store row declare no conditions, so nothing is invented); and it is
-**not a promise** — meeting the condition may still leave the control off through a wire that declares no
-reason, and the authored sentence beside it says so rather than starting a retry loop.
-→ [`enabledWhen` — the other question](https://footprintjs.github.io/hcifootprint/docs/build/guards#enabledwhen--the-other-question)
+| | |
+|---|---|
+| **Async & progress** — the promise is the completion signal; `busy` in the app's own words | [Going async](https://footprintjs.github.io/hcifootprint/docs/actions/going-async) · [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/actions/waiting-for-the-app) |
+| **Keep the graph true** — a drift harness that fails in CI, not in front of a user | [Testing](https://footprintjs.github.io/hcifootprint/docs/reference/testing) |
+| **Adopt what you have** — routes, journeys or a live store as graph sources | [Graph sources](https://footprintjs.github.io/hcifootprint/docs/map/graph-sources) |
+| **React** — one hook per control, and a five-line port for any other framework | [React binding](https://footprintjs.github.io/hcifootprint/docs/actions/react-binding) |
+| **Tree-shakeable, ESM-first** — the sensor is 11.9 KB; the React hook 610 B | [Tree-shaking](https://footprintjs.github.io/hcifootprint/docs/reference/tree-shaking) |
+| **The gap ledger** — what the agent *couldn't* do, recorded, never hidden | [Grounding](https://footprintjs.github.io/hcifootprint/docs/actions/grounding) |
 
 ---
-
-## ✅ Keep the graph true — the drift harness
-
-The navigation graph is a **second artifact** you keep alongside the real app, so it **drifts** as the app
-changes: a button's disable rule moves, a page is removed, a handler starts writing different state.
-`hcifootprint/testing` catches that drift **in dev and CI, before production**. It adds **zero dependencies**,
-is tree-shakeable, and drives the **real session** (never a copy), in two layers.
-
-**1. `lintGraph` / `checkGraph` — static, no test code.** Read the graph alone and report stale logic: a
-control gated on state nothing produces, a guard that can never be true, a skill that can never finish, a page
-nothing can reach. This is the cheap CI gate. It's **advisory by default** and only escalates to hard errors
-once you tell it the starting state — it never cries "dead" over a key it can't see.
-
-```ts
-import { lintGraph, checkGraph, expectNoStaleLogic } from 'hcifootprint/testing';
-
-lintGraph(graph);                                  // → findings you can inspect
-expectNoStaleLogic(graph, { initialState });       // → throws in CI if the graph drifted
-
-// Or the one-call health verdict — findings grouped by drift type + a printable report:
-const health = checkGraph(graph, { initialState });
-if (!health.ok) { console.error(health.summary); process.exit(1); }
-```
-
-`checkGraph` is static and pure — import it from `hcifootprint/testing/lint` for a CI step that loads no
-engine code at all. Every finding names **what** drifted and **where**, and states the two remedies (update
-the graph, or fix the app that changed by mistake). It surfaces the drift; **the fix is your team's call.**
-
-**2. `testApp` — "Playwright for your interaction logic, minus the browser."** Write mock handlers (one per
-action, returning a state change), then drive the graph as a **user** (clicking) or as the **agent** (the
-real Mode B tool path). The library's own honesty marker, `effectVerified`, flips false when a handler no
-longer does what the graph declares — that *is* the behavioral-drift alarm. **Report by default; pass
-`strict: true` to fail the instant drift appears.**
-
-```ts
-import { testApp } from 'hcifootprint/testing';
-
-const app = testApp(graph, {
-  initialState: { cartCount: 0 },
-  resolvers: { 'add-to-cart': (_p, { state }) => ({ patch: { cartCount: state.cartCount + 1 } }) },
-});
-
-await app.user.fire('add-to-cart');                         // drive like a human
-app.expectState({ cartCount: 1 });
-await app.agent.skill('purchase', { step: 'go-to-cart' });  // drive like the LLM
-app.expectOn('cart');
-app.report();                                               // { ok, effectDrift, unevaluatedGuards, gaps }
-```
-
-**Honest boundary (say it out loud).** This tests interaction **logic** above the binding — guards, skills,
-navigation, effect claims, typed rejections. It does **not** verify pixels, the DOM, or that a binding
-resolves to a real element — that stays **Playwright's** job, and this complements it rather than replacing
-it. A green `lintGraph` proves the graph is internally consistent, **not** that the app works: it reasons
-about which state *keys* move, never their values, so a right-key/wrong-value bug is the harness's job
-(`effectVerified`), not the linter's. And a mock is a *simulation* — if it diverges from the real handler, the
-test is green while prod is broken. For full fidelity, pass `testApp({ session })` with your own wired
-session.
-
----
-
-## 💰 Bounded token cost
-
-Naively, "give the LLM your app" means dumping every action into the prompt — and the bill grows with your
-codebase. HACI Footprint doesn't do that:
-
-- The skill graph **loads only what the current position needs**, not the whole app.
-- The tool list stays **fixed** (one tool per skill); what's fireable right now travels in tool *results*, not by rewriting the tool array. So the **prompt cache stays warm** across the whole conversation.
-
-Token cost tracks the task at hand, not the size of your codebase.
-
-## 👤 The human sensor — every real click on the ledger, with no shim
-
-An agent's actions land on the ledger by themselves. A **person's** don't, unless you write a `humanFire`
-call per control — one real integration counted 53 lines of shim across 21 call sites, each a place to forget
-`invoke: false` and run the click twice.
-
-`hcifootprint/sensor` does it once, for the whole page:
-
-```ts
-import { watchPage } from 'hcifootprint/sensor';
-
-const watch = watchPage(session, { root: document.body });
-// …the human clicks a declared button; the session gains a transition with
-// cause { kind: 'fired', principal: 'user' } and nothing else was wired.
-
-// For a control that holds a value, hand the element over:
-const control = watch.attach({ edge: 'compose.send', element: inputEl, value: () => draft });
-control.detach();
-watch.stop();
-```
-
-**No selector map. Ever.** The watch-list *is* `session.available().edges` and the binding each one carries —
-the graph you already authored is the instrumentation manifest. The only thing you may add is DOM truth (an
-ARIA role, an accessible name), which improves the page for every user and configures nothing.
-
-**Your app declares the value; the sensor never reads one.** The DOM is a *rendering* of your state, not the
-state — scraping it fails silently, differently per component library, and as a plausible-looking value, which
-is the worst failure a ledger can carry. So a payload rides a fire only from `value()`, and otherwise there is
-no `payload` key at all. The members a scraper would need aren't on the element port: it is an absent surface,
-not a rule anyone has to remember.
-
-**Record-only, in the type system.** `RecordOnlyFire` pins `invoke: false`, so an executing fire is
-*inexpressible* — the browser already ran your `onClick`. And one human act writes one row: name the edges you
-still report yourself in `reportedElsewhere`, and the sensor stands down for them and says so.
-
-**Honest, or silent — never a guess.** Two live edges answering to one role + name is refused, not picked. The
-agent's own `element.click()` is declined by name rather than recorded as a person. `coverage()` returns one
-row per served edge — watching, or unwatched with the sentence saying why. A two-step control says so with
-`commits`, because withholding the declaration would only hand its resting label to the other level.
-Framework-free (React, Vue and Angular are each a skin over five fields and one method), SSR-safe by compiler,
-and an 11.9 KB leaf that drags no engine.
-
-**React: one hook per control.** `hcifootprint/react` is a skin over that same core — declare what a control
-*is*, and the report call leaves your `onClick` for good:
-
-```tsx
-const ref = useControl({ edge: 'compose.send', value: () => draft });
-return <button ref={ref} onClick={send}>Send</button>;
-```
-
-`onClick` is your own code, unchanged: the browser runs it, the sensor records that a person did, and nothing
-in the hook can run your handler — so one click can never become two rows. The value your component is already
-holding goes over with the declaration; the DOM is never asked for it. `react` is an *optional* peer named by
-exactly one folder (the subpath needs React 18+; the range is `*` so it can never refuse the install of a
-consumer who does not use it), and the skin is 597 B over the sensor. Adopting it in the `live-desk` demo deleted
-seven of its nine hand-written report calls; the three it kept are the ones that must refuse *before* they act,
-and the demo says so in the code.
-
-→ [The human sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor) ·
-[The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)
-
-## ⏳ Still working — promises and callbacks, then five lines per framework
-
-The async story is your app's own control flow, and the library never asks you to adopt a second one.
-Saying *"and I am still working"* is two ordinary calls and one label — no framework anywhere:
-
-```ts
-async function save() {
-  const work = session.beginWork('Saving your draft…'); // 1. the app is working
-  saveTool.setBusy('Saving your draft…');               // 2. and this control is the one
-  try {
-    await saveToServer();                               // 3. your own promise, unchanged
-    work.done();                                        // 4. closed — cleanly
-  } catch (failure) {
-    work.done(failure);                                 //    or with what went wrong
-    throw failure;
-  } finally {
-    saveTool.setBusy(undefined);                        // 5. the label comes back down
-  }
-}
-```
-
-That is the whole feature, and `test/work-framework-interface.test.ts` drives exactly those lines
-with no framework loaded — so *framework-free* is a test, not a claim.
-
-**React gets a thin hook over the same five lines.** Hand it the busy flag your component already
-renders its own spinner from, in your own words, with the error you already show:
-
-```tsx
-useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, tools: saveTool, session });
-```
-
-The flag rising opens one work row and stands the label on the control; the flag falling closes that
-row — carrying the error if one is present — and takes the label back. Every rise is its own row, and
-StrictMode's double-invoke is one piece of work.
-
-**Each field is read at its own edge.** The optional `transitionId` is read where the row *opens*
-(binding is decided at call time and never revisited, so an id arriving a commit later is refused out
-loud rather than moving a row it missed), and the error where it *closes* — with `null` counted as
-absent, which is how React's own data layers say nothing went wrong.
-
-**Unmount is deliberately asymmetric, and that asymmetry is the design.** A component going away is
-not the work ending, so the **row stays open** — closing it would mint a verdict out of silence, and
-no timer will ever end it either. The **label is cleared**, because a label is a claim about a
-control and the thing keeping it true has gone. What is *unknown* stays open; what was *claimed* is
-taken back.
-
-**And it can never report that something worked.** The two doors it drives — the work ledger and the
-busy label — settle nothing; `done(error)` is recorded on the work row alone. The failure spine stays
-a handler throw, a returned `{ ok: false }`, or `reject()`.
-
-**An Angular or Vue binding is the same five lines** in that framework's own three moments
-(`onMounted` / `onScopeDispose`, `ngOnInit` / `ngOnDestroy`). Nothing in the core has to change for
-one to exist: `hcifootprint/react` imports **types** from the core and nothing else, which is why a
-second skin is a new folder rather than a new seam.
-
-**The four moves, in the order most apps need them**: return the promise (the settlement), name the fire
-(`{ transitionId }` on the state rail), say you are working (`setBusy` in a `try/finally`, `useWorking`, or a
-live store's `busy`), and ask later (`did_it_work`). That is the whole adoption, and each move is one line.
-→ [Going async — the adoption recipe](https://footprintjs.github.io/hcifootprint/docs/serve/going-async)
-
-→ [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
-[When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
-
-## Frontend: framework-agnostic
-
-The core is plain TypeScript and knows nothing about your framework — you connect it through three ordinary
-wires (a store subscription, router events, your existing handlers). The
-[dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) shows the whole wiring on a real
-storefront with an AI stylist. Human clicks come in through the
-[sensor above](#-the-human-sensor--every-real-click-on-the-ledger-with-no-shim), which needs no framework at
-all.
-
-**If your actions come from a live store, the invalidation contract has two halves.** Yours: *the store must
-emit whenever the action surface changes*. Ours: **navigation is covered for you** — `fromLiveStore` re-reads
-on every page change the app reports through `sync()`. A store whose actions are derived from the router has
-no change of its own to announce when the route moves, so without that re-read the surface after a
-navigation was whatever the last emission left behind — the previous page's actions, served as the actions
-available here. Only an *observed* page change re-reads (never a claimed one — the app has not left the page
-yet), a re-read that changes nothing is free, and nothing re-reads at report time. And a read that **fails**
-now says so: the bindings still on offer are from before the failure, so beside the dev warning it files one
-gap row per failure streak instead of serving a stale list in silence.
-→ [The invalidation contract](https://footprintjs.github.io/hcifootprint/docs/build/live-bindings#when-it-re-reads--the-invalidation-contract)
-
-React has a binding already ([`hcifootprint/react`](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)):
-two hooks, one per half — `useControl` for the human's click, `useWorking` for the wait.
-**On the roadmap:** the same skin for Vue and Angular — the click half is five fields and one method,
-the waiting half is five lines, and a test already drives **each** surface with no framework at all —
-plus a demo gallery showing one app wired four ways. One graph, many frontends.
-
-## The model — Affordance &amp; Transition
-
-For the curious, the whole thing rests on two atoms:
-
-```
-Affordance  = binding × guard × effect × schema     (the static capability)
-Transition  = cause × payload × outcome             (each occurrence)
-```
-
-- **`binding`** — how to reach the surface (ARIA role + name first).
-- **`guard`** — a serializable filter over projected state that decides what's *offered*.
-- **`effect`** — a *claim* about your handler, verified at settlement (`effectVerified`).
-- **`cause`** — who did it: `user`, `agent`, or `system`. First-class provenance for accountability between cooperating agents — **not** a security boundary; enforce that server-side.
-
-Deeper topics — on-demand disclosure (skill frames), the context brief, the navigation-graph semantics
-(modals / tabs / repeats), and the act→data-back channel (`session.producedFor`) — are documented inline in
-the source (`src/*/README.md`) and in [`docs/design/`](docs/design/).
-
----
-
-## Live demo — the dress shop, in three commits
-
-The [dress-shop demo](https://github.com/footprintjs/hcifootprint-demo) tells the pitch as a diff, because
-the diff *is* the demo:
-
-<p align="center">
-  <a href="https://youtu.be/vx5amF94ipI">
-    <img src="https://img.youtube.com/vi/vx5amF94ipI/maxresdefault.jpg" alt="Watch: turn your web app into an agentic app with HACI Footprint (demo video)" width="720">
-  </a>
-  <br>
-  <em>▶ Watch the demo — a vanilla dress shop becomes an agent-operable app (37 sec)</em>
-</p>
-
-| Commit | What it adds | What it proves |
-|---|---|---|
-| 1 | The plain store — subscribers, a tiny router, handler methods. | The unbiased baseline, built with zero knowledge of any agent layer. |
-| 2 | The agent layer (this library): the declared graph + three wires. | `git diff` of the app's own code → **empty**. Position-aware tools, guards mirroring the app's invariants, hostile catalog text confined to the data channel. |
-| 3 | The assistant (agentfootprint + Claude) driving the same session. | The whole family in one loop, with **human-in-the-loop by checkpoint** on order placement. |
-
-```bash
-git clone https://github.com/footprintjs/hcifootprint-demo && cd hcifootprint-demo/dress-shop
-npm install
-npm test          # commits 1+2: the app's tests + the integration proof (no API key)
-
-cp .env.template .env   # add your ANTHROPIC_API_KEY
-npm run chat      # commit 3: the assistant in your terminal
-npm run serve     # the storefront in a browser — click OR chat, same session
-npm run drift     # watch the drift harness catch a deliberately-drifted graph
-```
-
-`npm run serve` also ships an **agent debugger** at `/debug` — powered by
-[AgentThinkingUI](https://github.com/footprintjs/agentThinkingUI), it drives the *same* live session as the
-storefront, so you chat and watch the agent reason beat-by-beat (`whats_here` → open a skill → fire steps →
-the answer).
 
 ## Development
 
 ```bash
-npm install
-npm test          # vitest — the whole suite (the count is on the badge above, and gated)
-npm run typecheck # src + tests
-npm run build
+npm install && npm test        # the suite, with the badge gate
+npm run build                  # dist/, ESM-first
+npm run docs:truth             # does the documentation describe what ships?
 ```
-
-Depends on `footprintjs` ≥ 9.10 (`evaluateFilter` / `normalizeSchema` exports). Sibling of **footprintjs**
-(backend logic) and **agentfootprint** (agents) — one self-explaining trace substrate underneath.
-
-Hit a wall wiring a real app? [`LIBRARY_ASK.md`](LIBRARY_ASK.md) is the standing intake — the ask, the
-evidence, the workaround you're carrying and what it costs; four releases came out of entries like that,
-and declined ones stay there with the reasoning.
 
 ## Built on
 
-[footprintjs](https://github.com/footprintjs/footPrint) — the flowchart pattern for backend code. Every
-action a session fires lands in a footprintjs commit log, which is what makes `session.why(key)` a real
-backward causal slice rather than a guess. You don't need to learn footprintjs to use this library, but if you
-want to build primitives at that depth, [start there](https://footprintjs.github.io/footPrint/).
+[footprintjs](https://github.com/footprintjs/footPrint) for the graph engine and commit log ·
+[agentfootprint](https://github.com/footprintjs/agentfootprint) if you want the agent loop too.
 
 ## Citing
 
-hcifootprint is part of a research program on making software systems explain themselves — every run records *why* it did what it did, as a causal trace. Researching agent transparency, observability, or explainable AI? The [ecosystem map](https://footprintjs.github.io/) is a good starting point.
-
-If you use hcifootprint in academic work, please cite it (or use the "Cite this repository" button on GitHub):
-
-```bibtex
-@software{anbalagan_hcifootprint,
-  author  = {Anbalagan, Sanjay Krishna},
-  title   = {hcifootprint: web apps as typed skill graphs agents can operate},
-  url     = {https://github.com/footprintjs/hcifootprint},
-  license = {MIT},
-  year    = {2026}
-}
-```
+See [`CITATION.cff`](CITATION.cff), or use GitHub's **Cite this repository**.
 
 ## License
 
-MIT © [Sanjay Krishna Anbalagan](https://github.com/sanjay1909)
+MIT — see [LICENSE](LICENSE).

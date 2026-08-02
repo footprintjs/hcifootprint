@@ -248,6 +248,7 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
         if (lastAdvice.delete(row.edge)) report({ kind: 'watching', edge: row.edge });
         continue;
       }
+      /* v8 ignore next -- the `?? ''` arm is unreachable: buildBindingIndex writes `reason` on every row it marks 'unwatched', and a 'watching' row has already `continue`d above. */
       const reason = row.reason ?? '';
       if (lastAdvice.get(row.edge) === reason) continue;
       lastAdvice.set(row.edge, reason);
@@ -256,6 +257,7 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       } else if (row.blocked === 'payload' && controls.forEdge(row.edge) !== undefined) {
         report({ kind: 'value-not-declared', edge: row.edge, reason });
       } else {
+        /* v8 ignore next -- the `?? 'gesture'` arm is unreachable for the same reason: every refusal buildBindingIndex writes names which wall it hit, so an 'unwatched' row always carries `blocked`. */
         report({ kind: 'unwatched', edge: row.edge, reason, blocked: row.blocked ?? 'gesture' });
       }
     }

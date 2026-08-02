@@ -51,19 +51,19 @@ describe('the onboarding graph, grown from sources', () => {
   });
 
   it('overlays both journeys as skills, resolving suffix step names to qualified ids', () => {
-    expect(Object.keys(graph.spec.skills).sort()).toEqual(['import-signup', 'signup']);
-    expect(graph.spec.skills.signup?.steps).toEqual([
+    expect(Object.keys(graph.spec.journeys).sort()).toEqual(['import-signup', 'signup']);
+    expect(graph.spec.journeys.signup?.steps).toEqual([
       'profile.save-profile',
       'plan.choose-plan',
       'review.confirm-signup',
     ]);
-    expect(graph.spec.skills['import-signup']?.steps).toEqual([
+    expect(graph.spec.journeys['import-signup']?.steps).toEqual([
       'welcome.import-from-google',
       'plan.choose-plan',
       'review.confirm-signup',
     ]);
     // The precondition rode across from the journey definition untouched.
-    expect(graph.spec.skills.signup?.precondition).toEqual(JOURNEYS.signup?.when);
+    expect(graph.spec.journeys.signup?.precondition).toEqual(JOURNEYS.signup?.when);
   });
 
   it('reports every guard key the graph reads, including the one the app cannot seed', () => {

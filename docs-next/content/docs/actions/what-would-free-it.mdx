@@ -1,0 +1,93 @@
+---
+title: What would free it
+description: A greyed control that says which action would turn it on — derived from what the app already declares, never authored.
+---
+
+## The failure this exists for
+
+A production integration's agent met a greyed **Continue** button. The row told it the control was
+disabled, which was true and useless: it had no way to learn what would change that. So it fired the
+button again to find out. Then again. Then it told its human the app was broken.
+
+Nothing had failed. An upload was still running, and the button was waiting for it.
+
+`enabled: false` says a control is off. It never said what would turn it on — and a hole in an answer
+is where a guess goes.
+
+## What you get
+
+A switched-off control now carries the actions whose own declarations would satisfy what it is waiting
+for:
+
+```json
+{
+  "action": "categorise.next",
+  "does": "Continue to review",
+  "enabled": false,
+  "unblockedBy": [
+    { "action": "categorise.attach-receipt", "writes": ["receipt.uploaded"], "inFlight": true }
+  ]
+}
+```
+
+Read plainly: *Continue is off. It is waiting on `receipt.uploaded`. **Attach the receipt** claims to
+write that, and it is running right now.* The correct move — wait — is stated rather than inferred.
+
+## You declare nothing for this
+
+There is no dependency to author, and that is the point. Both halves already exist in a normal graph,
+each for its own reason:
+
+```ts
+actions: {
+  'attach-receipt': {
+    does: 'Attach the receipt',
+    writes: ['receipt.uploaded'],                     // powers verification
+  },
+  next: {
+    does: 'Continue to review',
+    enabledWhen: { 'receipt.uploaded': { eq: true } }, // powers availability
+  },
+}
+```
+
+`attach-receipt` writes the key `next` waits on. Nobody wrote an edge, and the edge is unambiguously
+there — so it is **derived, never authored**, and cannot drift from the graph. If you later rename the
+key in both places, the dependency follows; if you rename it in one, the dependency disappears, which
+is the truth.
+
+From your own code, as a `DependencyEdge[]` — `{ affordanceId, viaKeys }`, the same shape a journey
+plan's step dependencies use, because it is the same rule:
+
+```ts
+session.whatUnblocks('categorise.next');
+// [{ affordanceId: 'categorise.attach-receipt', viaKeys: ['receipt.uploaded'] }]
+```
+
+## `inFlight` — is it already running?
+
+Present only when the library can **observe** it, from one of two signals:
+
+- a fire of that action is awaiting its report (the library's own record), or
+- the app said it is working, through [`setBusy`](doc:when-a-control-is-busy).
+
+If neither holds, **the key is absent** — never `inFlight: false`. An idle-looking control is not the
+same as a control known to be idle, and this library does not claim the second when it only has the
+first.
+
+## Honest limits
+
+- **A claim, not a promise.** `writes` is your app's claim that an action changes a key. This reports
+  the claim. Firing that action is never promised to free the control — if your handler fails, or
+  writes something else, the control stays honestly off.
+- **Silence over guessing.** If nothing declares a write for the keys a control waits on, the key is
+  **absent from the row**. That is "nothing here knows what would change it" — not an invented
+  suggestion for the model to chase.
+- **Never a plan.** The list is unordered and unranked, and each entry carries only the action and the
+  keys. Ordering intent is a journey, which you declare — a dependency list is
+  not a recommendation, and is deliberately shaped so it cannot be read as one.
+- **Only on controls that are off.** A live control does not answer "what would free it", because the
+  question does not arise and answering anyway invites a reader to treat the answer as a next step.
+- **It reaches other pages.** The control that frees a greyed button often lives elsewhere, so the
+  answer is not limited to the current page. An id carries its node, so you can see where it is —
+  and getting there is [`howToReach`](doc:how-to-reach).

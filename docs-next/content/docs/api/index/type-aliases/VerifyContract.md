@@ -4,7 +4,7 @@ title: VerifyContract
 
 # Type Alias: VerifyContract
 
-> **VerifyContract** = `WhereFilter` \| ((`state`) => `boolean`)
+> **VerifyContract** = [`WhereFilter`](/api/index/type-aliases/WhereFilter) \| ((`state`) => `boolean`)
 
 Defined in: [src/atom/types.ts:146](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L146)
 

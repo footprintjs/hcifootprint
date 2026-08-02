@@ -292,6 +292,25 @@ describe('a control can say WHEN a gesture on it is the act', () => {
     watch.stop();
   });
 
+  it('a predicate that answers nothing is read as “yes, this is the act”', () => {
+    const { session, surface } = mountDesk();
+    const button = el('button', { text: 'Send' });
+    surface.mount(button);
+    const { port, fires } = recordFires(session);
+    const watch = watchPage(port, { root: surface });
+
+    // The app declared the question and then answered it with nothing — a
+    // `useState` that has not initialised, a field read off an absent object.
+    // The safe reading is the one that keeps the human's press on the ledger:
+    // dropping the row would lose an act a person really performed, and a row
+    // is what the whole sensor exists to write.
+    mountTree(declaring(watch, { edge: desk.send, commits: (): boolean => undefined as never }, button));
+    humanClick(button);
+
+    expect(fires.map((fire) => fire.edge)).toEqual([desk.send]);
+    watch.stop();
+  });
+
   it('gaining the predicate IS a new declaration — a control that learns to wait', () => {
     const { session, surface } = mountDesk();
     const button = el('button', { text: 'Send' });

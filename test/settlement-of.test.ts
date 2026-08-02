@@ -29,8 +29,8 @@
  *   names a live one.
  */
 import { describe, expect, it } from 'vitest';
-import { skillGraph } from '../src/index.js';
-import type { Binding, FireResult, SkillGraph } from '../src/index.js';
+import { buildNavigationGraph } from '../src/index.js';
+import type { Binding, FireResult, NavigationGraph } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -47,21 +47,25 @@ async function immediately<T>(promise: Promise<T>): Promise<T | symbol> {
   return Promise.race([promise, Promise.resolve(marker)]);
 }
 
-function app(): SkillGraph {
-  return skillGraph('app')
-    .page('a')
-    .page('b')
-    .affordance('save', { on: 'a', description: 'Save the form', binding, effect: { writes: ['saved'] } })
-    .affordance('archive', { on: 'a', description: 'Archive it', binding, effect: { writes: ['archived'] } })
-    .affordance('ping', { on: 'a', description: 'Ping — declares no writes', binding })
-    .build();
+function app(): NavigationGraph {
+  return buildNavigationGraph('app', {
+    pages: {
+      a: {},
+      b: {},
+    },
+    actions: {
+      save: { on: 'a', does: 'Save the form', binding, writes: ['saved'] },
+      archive: { on: 'a', does: 'Archive it', binding, writes: ['archived'] },
+      ping: { on: 'a', does: 'Ping — declares no writes', binding },
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
 // The async door — the same answer whenSettled gives, to anyone holding the id
 // ---------------------------------------------------------------------------
 
-describe('settlementOf() — how a fire came to rest, asked later', () => {
+describe('asking later how a fire came to rest', () => {
   it('an OPEN fire hands back its own latch: one answer, for both doors', async () => {
     const session = app().createSession({ node: 'a', state: { saved: false } });
     const f = fired(session.fire('save', { source: 'user', invoke: false }));
@@ -105,9 +109,9 @@ describe('settlementOf() — how a fire came to rest, asked later', () => {
     // The record moves on (rolled-back); the settlement does not. Both truths
     // stay readable, from the two surfaces that own them.
     const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         save: () => {
           session.updateState({ saved: true }); // real report — settles 'performed'
           throw new Error('post-report cleanup failed');
@@ -126,9 +130,9 @@ describe('settlementOf() — how a fire came to rest, asked later', () => {
 
   it('a refusal is retained WITH its reason (capped nowhere in-process)', async () => {
     const session = app().createSession({ node: 'a', state: { saved: false }, onWarn: () => undefined });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         save: () => {
           throw new Error('api down');
         },
@@ -148,7 +152,7 @@ describe('settlementOf() — how a fire came to rest, asked later', () => {
     // (the state axis stays true), but nobody called a handler, so claiming
     // 'performed' would launder the guess for whoever asks later.
     const session = app().createSession({ node: 'a', state: { saved: false } });
-    session.registerTools({ group: 'g', tools: { save: () => undefined } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => undefined } });
     await flush(); // let the registration's structure row flush first
 
     const update = session.updateState({ saved: true });
@@ -202,14 +206,14 @@ describe('settlementOf() — how a fire came to rest, asked later', () => {
 // awaitingSettlement — what is still live, without waiting to find out
 // ---------------------------------------------------------------------------
 
-describe('awaitingSettlement() — the fires whose question is still open', () => {
+describe('which fires still have an open question', () => {
   it('names a fire pending() cannot see: no declared writes, handler still running', async () => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
     const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
-    session.registerTools({ group: 'g', tools: { ping: async () => { await held; } } });
+    session.registerHandlers({ group: 'g', handlers: { ping: async () => { await held; } } });
     const f = fired(session.fire('ping', { source: 'agent' }));
     await flush();
 
@@ -253,7 +257,7 @@ describe('awaitingSettlement() — the fires whose question is still open', () =
       release = resolve;
     });
     const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
-    session.registerTools({ group: 'g', tools: { ping: async () => { await held; } } });
+    session.registerHandlers({ group: 'g', handlers: { ping: async () => { await held; } } });
     fired(session.fire('ping', { source: 'agent' }));
     await flush();
 
@@ -269,7 +273,7 @@ describe('awaitingSettlement() — the fires whose question is still open', () =
 // The refusals — a teaching throw, never a promise nobody will resolve
 // ---------------------------------------------------------------------------
 
-describe('settlementOf() refuses what can never settle — synchronously', () => {
+describe('a question that can never be answered is refused, not left hanging', () => {
   it('an unknown id throws AT THE CALL, naming the fires that are live', () => {
     const session = app().createSession({ node: 'a', state: { saved: false } });
     const f = fired(session.fire('save', { source: 'user', invoke: false }));
@@ -296,7 +300,7 @@ describe('settlementOf() refuses what can never settle — synchronously', () =>
 
   it('a STRUCTURE-SWAP row throws the same way', async () => {
     const session = app().createSession({ node: 'a', state: {} });
-    session.registerTools({ group: 'g', tools: { save: () => undefined } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => undefined } });
     await flush(); // the coalesced structure flush lands its row
 
     const swap = session.transitions().find((t) => t.cause.stimulus === 'structure-swap');
@@ -309,7 +313,7 @@ describe('settlementOf() refuses what can never settle — synchronously', () =>
 // The sync door — the same law, without waiting
 // ---------------------------------------------------------------------------
 
-describe('settlementIfKnown() — the answer only if it exists yet', () => {
+describe('the answer only if it exists yet — and silence if it does not', () => {
   it('is undefined while the question is open, and the settlement once it closes', async () => {
     const session = app().createSession({ node: 'a', state: { saved: false } });
     const f = fired(session.fire('save', { source: 'user', invoke: false }));
@@ -327,7 +331,7 @@ describe('settlementIfKnown() — the answer only if it exists yet', () => {
 
   it('hands back a detached copy too', async () => {
     const session = app().createSession({ node: 'a' });
-    session.registerTools({ group: 'g', tools: { save: () => ({ id: 'row-1' }) } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => ({ id: 'row-1' }) } });
     const f = fired(session.fire('save', { source: 'agent' }));
     await f.whenSettled;
 

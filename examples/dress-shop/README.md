@@ -2,16 +2,16 @@
 
 A mock e-commerce app (browse → search → filter → open a dress → add to cart → checkout →
 place order → track order) wired to HCIFootprint through the same three additive lines a real
-app would use: `registerTools` per mounted page, `sync` on navigation, `updateState` as the tap.
+app would use: `registerHandlers` per mounted page, `sync` on navigation, `updateState` as the tap.
 
 | File | What it is |
 |---|---|
 | `data.ts` | Mock catalog (includes a hostile-named dress to prove the injection firewall) |
-| `graph.ts` | The DECLARED skill graph: 6 pages, 11 affordances, 3 skills |
+| `graph.ts` | The DECLARED navigation graph: 6 pages, 11 affordances, 3 journeys |
 | `store.ts` | The mock APP: its own state + handlers, page groups mount/unmount as it navigates |
-| `journey.test.ts` | The scripted mixed-initiative journey — user finds a dress by hand, the agent buys it in a skill frame, the user asks about the order; asserts provenance, guards, lazy tools, trace integrity, and the firewall end-to-end |
+| `journey.test.ts` | The scripted mixed-initiative journey — user finds a dress by hand, the agent buys it in a journey frame, the user asks about the order; asserts provenance, guards, lazy actions, trace integrity, and the firewall end-to-end |
 | `sources.test.ts` | The growable-sources before/after: the hand-re-typed build (routes + journeys duplicated, fake no-op nav handlers) vs `sources: [fromRoutes, fromJourneys, fromLiveStore]` + `navigate` — equivalent surfaces, the fake-handler category deleted |
-| `chatbot.ts` | A live Claude chatbot (Opus 4.8) driving the app: per-turn `contextBrief` injection, skills-first planning, action tools regenerated from `toMCPTools()` every request, `!affordance-id` simulates manual user clicks between questions |
+| `chatbot.ts` | A live Claude chatbot (Opus 4.8) driving the app: per-turn `contextBrief` injection, journeys-first planning, action tools regenerated from `toMCPTools()` every request, `!affordance-id` simulates manual user clicks between questions |
 
 Run the journey (no API key needed): `npx vitest run examples/dress-shop/journey.test.ts`
 

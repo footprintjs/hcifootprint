@@ -23,7 +23,7 @@
  * "byte-identical" is a claim about the path consumers actually use.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { shop, wire } from './fixture.js';
 import type { ConfirmRecord, NavigationGraph } from '../src/index.js';
 
@@ -31,14 +31,14 @@ const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0
 
 function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
-    pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
+    pages: { checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
   });
 }
 
 function plainPort() {
   const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
-  session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
-  return { session, port: skillsAsTools(session) };
+  session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+  return { session, port: serveToAgent(session) };
 }
 
 /** A flat-graph session on the shared fixture, at the high-effect edge. */
@@ -77,7 +77,7 @@ describe('the three probes that documented the hole still behave exactly as they
   });
 });
 
-describe('every pinned 0.6 confirm behaviour', () => {
+describe('every confirm behaviour that shipped before this gate existed', () => {
   it('a confirmed fire closes the ask as approved and stamps askId on the transition', () => {
     const session = atCheckout();
     const { askId } = session.confirmAsk('place-order', { source: 'agent' });
@@ -188,10 +188,10 @@ describe('every pinned 0.6 confirm behaviour', () => {
     expect(JSON.stringify(session.confirms())).not.toContain('4111');
   });
 
-  it('F5: a skill step’s served ask is the same — one guard, both doors', () => {
+  it('F5: a journey step’s served ask is the same — one guard, both doors', () => {
     const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
-    const port = skillsAsTools(session);
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
+    const port = serveToAgent(session);
     const asked = port.call('shop.do_action', { action: 'place-order', input: { total: 42 } }) as {
       receipts: Record<string, unknown>;
     };
@@ -255,7 +255,7 @@ describe('none of the new machinery can appear without the option', () => {
   it('a handler still receives the CALLER’S OWN payload object, not a copy of it', async () => {
     const seen: unknown[] = [];
     const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.registerActions('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
 
     // A Map survives only by reference — it is exactly what a copy would lose,
     // so this is the assertion an app with a rich payload would feel first.
@@ -276,7 +276,7 @@ describe('none of the new machinery can appear without the option', () => {
   it('a payload mutated after fire() still reaches the handler — 0.6 behaviour, reproduced', async () => {
     const seen: unknown[] = [];
     const session = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
+    session.registerActions('checkout', { handlers: { 'place-order': (p: unknown) => void seen.push(p) } });
 
     const payload = { total: 10 };
     session.fire('checkout.place-order', { source: 'agent', payload });

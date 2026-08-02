@@ -15,19 +15,19 @@ export function shopGraph(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           'add-to-cart': { does: 'Add a dress to the cart', writes: ['cartCount'] },
           'go-to-cart': { does: 'Open the cart', when: { cartCount: { gt: 0 } }, goTo: 'cart' },
         },
       },
       cart: {
-        tools: {
+        actions: {
           checkout: { does: 'Proceed to checkout', when: { cartCount: { gt: 0 } }, goTo: 'checkout' },
           'back-home': { does: 'Back to the catalog', goTo: 'catalog', role: 'back' },
         },
       },
       checkout: {
-        tools: {
+        actions: {
           'place-order': {
             does: 'Place the order',
             when: { cartCount: { gt: 0 } },
@@ -38,7 +38,7 @@ export function shopGraph(): NavigationGraph {
         },
       },
     },
-    skills: {
+    journeys: {
       purchase: {
         does: 'Buy the items in the cart',
         steps: ['add-to-cart', 'go-to-cart', 'checkout', 'place-order'],

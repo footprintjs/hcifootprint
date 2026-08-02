@@ -11,13 +11,13 @@
  * - `verify`: remove it and the silent no-op settles 'performed' with
  *   `verifyHeld` absent, which is exactly the field bug (the agent looped).
  * - `crossLinks` + the dead-end row: pre-0.6.0 code has neither, so the spine
- *   assertions fail on the missing tools and the control case records nothing.
+ *   assertions fail on the missing actions and the control case records nothing.
  * - `input: 'none'`: without it `{ value: '' }` reaches the handler instead of
  *   being refused.
  */
 import { describe, expect, it } from 'vitest';
 import type { FireSettlement, GapRecord } from '../../src/index.js';
-import { buildNavigationGraph, fromRoutes, skillsAsTools } from '../../src/index.js';
+import { buildNavigationGraph, fromRoutes, serveToAgent } from '../../src/index.js';
 import { PATHS } from './app.js';
 import { wireWizard } from './wire.js';
 
@@ -182,7 +182,7 @@ describe('crossLinks: the spine that keeps every page reachable', () => {
     expect(deadEnds[0]).toMatchObject({ node: 'projects', availableActions: [] });
     expect(wired.warnings).toHaveLength(1);
     expect(wired.warnings[0]).toContain('has NO actions authored on it at all');
-    expect(wired.warnings[0]).toContain('registerToolGroup');
+    expect(wired.warnings[0]).toContain('registerActions');
     expect(wired.warnings[0]).toContain('navigate:');
     expect(wired.warnings[0]).toContain('crossLinks: true');
   });
@@ -191,18 +191,18 @@ describe('crossLinks: the spine that keeps every page reachable', () => {
 describe('the journey narrows what it discloses — it never owns the actions', () => {
   it('keeps every page action in whats_here while the frame is open, plus the facts block', async () => {
     const wired = wireWizard();
-    const port = skillsAsTools(wired.session);
+    const port = serveToAgent(wired.session);
 
-    const opened = port.call('wizard.skill.new-project', {}) as Record<string, unknown>;
+    const opened = port.call('wizard.journey.new-project', {}) as Record<string, unknown>;
     expect(opened['frame']).toBe('open');
-    expect(wired.session.skillFrame()?.skillId).toBe('new-project');
+    expect(wired.session.journeyFrame()?.journeyId).toBe('new-project');
 
     const here = port.call('wizard.whats_here', {}) as {
       actions: Array<{ action: string; expects?: unknown }>;
       facts: string;
     };
-    // The way out of the room is still offered — the frame narrowed the SKILL
-    // tool's readySteps, not the page.
+    // The way out of the room is still offered — the frame narrowed the JOURNEY
+    // journey's readySteps, not the page.
     expect(here.actions.map((row) => row.action)).toContain('go-to-projects');
     // And the input contract rides the row, before the model can guess wrong.
     expect(here.actions.find((row) => row.action === 'wizard.name-it')?.expects).toMatchObject({
@@ -237,7 +237,7 @@ describe('groundTruth: the facts the model cannot argue with', () => {
 describe('the high-effect gate still stands at the end of the journey', () => {
   it('stops at needs-confirm with receipts, then creates on the confirmed call', async () => {
     const wired = wireWizard();
-    const port = skillsAsTools(wired.session);
+    const port = serveToAgent(wired.session);
     await fireAndSettle(wired, 'wizard.name-it', { name: 'Ion channel screen' });
     await fireAndSettle(wired, 'wizard.pick-recipe', { recipe: 'dose-response' });
     await fireAndSettle(wired, 'wizard.next-to-review');

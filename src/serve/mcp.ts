@@ -15,7 +15,7 @@
 import { detectSchema } from 'footprintjs';
 import type { MCPToolDescription } from 'footprintjs';
 import { normalizeSchema } from 'footprintjs/advanced';
-import type { AvailableEdge, SkillGraphSpec } from '../atom/types.js';
+import type { AvailableEdge, NavigationGraphSpec } from '../atom/types.js';
 
 const NO_PARAMS = { type: 'object', properties: {}, additionalProperties: false };
 
@@ -23,20 +23,24 @@ const NO_PARAMS = { type: 'object', properties: {}, additionalProperties: false 
 const HIGH_EFFECT_SUFFIX = ' [high-effect: requires explicit confirmation]';
 
 /**
- * Synthetic escape tool served whenever a skill frame is open — the acting
- * agent must always be able to collapse back to skill-level planning. The
+ * Synthetic escape tool served whenever a journey frame is open — the acting
+ * agent must always be able to collapse back to journey-level planning. The
  * description is an authored-class constant (two-string-class safe).
+ *
+ * The emitted tool name is `<graph>.leave-journey`: one word on the wire too,
+ * because a model reading `leave-skill` beside a `journey` vocabulary is being
+ * told the library has two words for one thing.
  */
-export function leaveSkillTool(spec: SkillGraphSpec, skillId: string): MCPToolDescription {
+export function leaveJourneyTool(spec: NavigationGraphSpec, journeyId: string): MCPToolDescription {
   return {
-    name: sanitizeMCPName(`${spec.id}.leave-skill`),
-    description: `Leave the current skill (${skillId}) without completing it and return to skill-level planning.`,
+    name: sanitizeMCPName(`${spec.id}.leave-journey`),
+    description: `Leave the current journey (${journeyId}) without completing it and return to journey-level planning.`,
     inputSchema: structuredClone(NO_PARAMS),
   } as MCPToolDescription;
 }
 
 export function edgesToMCPTools(
-  spec: SkillGraphSpec,
+  spec: NavigationGraphSpec,
   edges: AvailableEdge[],
   opts?: { lossySchemas?: boolean },
 ): MCPToolDescription[] {

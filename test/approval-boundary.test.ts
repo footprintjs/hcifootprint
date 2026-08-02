@@ -29,7 +29,7 @@
 import { describe, expect, it } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { InteractionSession, buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { InteractionSession, buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { mcpServer } from '../src/mcp.js';
 import { testApp } from '../src/testing/index.js';
 import type { NavigationGraph, Session } from '../src/index.js';
@@ -39,9 +39,9 @@ const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0
 function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
-      checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } },
+      checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } },
     },
-    skills: { purchase: { does: 'Buy it', steps: ['place-order'] } },
+    journeys: { purchase: { does: 'Buy it', steps: ['place-order'] } },
   });
 }
 
@@ -52,7 +52,7 @@ function strictSession(warnings?: string[]): Session {
     requireHumanApproval: true,
     onWarn: (message: string) => warnings?.push(message),
   });
-  session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+  session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
   return session;
 }
 
@@ -87,11 +87,11 @@ describe('path escape — one gate, every door', () => {
     });
   });
 
-  it('Mode B skill', async () => {
+  it('Mode B journey', async () => {
     const session = strictSession();
-    const port = skillsAsTools(session);
-    port.call('shop.skill.purchase', {});
-    const fired = port.call('shop.skill.purchase', { step: 'place-order', confirm: true });
+    const port = serveToAgent(session);
+    port.call('shop.journey.purchase', {});
+    const fired = port.call('shop.journey.purchase', { step: 'place-order', confirm: true });
     await tick();
     expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_REQUIRED' });
     expect(executed(session)).toBe(false);
@@ -99,7 +99,7 @@ describe('path escape — one gate, every door', () => {
 
   it('Mode B do_action', async () => {
     const session = strictSession();
-    const fired = skillsAsTools(session).call('shop.do_action', { action: 'place-order', confirm: true });
+    const fired = serveToAgent(session).call('shop.do_action', { action: 'place-order', confirm: true });
     await tick();
     expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_REQUIRED' });
     expect(executed(session)).toBe(false);
@@ -134,7 +134,7 @@ describe('path escape — one gate, every door', () => {
 
   it('and every one of them lands the SAME pair of ledger rows', async () => {
     const session = strictSession();
-    skillsAsTools(session).call('shop.do_action', { action: 'place-order', confirm: true });
+    serveToAgent(session).call('shop.do_action', { action: 'place-order', confirm: true });
     session.fire('checkout.place-order', { source: 'agent' });
     await tick();
     expect(session.gaps().filter((g) => g.rejectionReason === 'APPROVAL_REQUIRED')).toHaveLength(2);
@@ -155,7 +155,7 @@ describe('option propagation — the tree layer inherits by SPREAD, and nothing 
       requireHumanApproval: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
     expect(session.requiresHumanApproval).toBe(true);
     expect(session.fire('checkout.place-order', { source: 'agent' })).toMatchObject({ reason: 'APPROVAL_REQUIRED' });
   });
@@ -168,7 +168,7 @@ describe('option propagation — the tree layer inherits by SPREAD, and nothing 
       now: () => clock,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
     const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent' });
     expect(session.confirms()[0].timestamp).toBe(5_000);
     session.approveAsk(askId, { by: 'alice@ops' });
@@ -186,7 +186,7 @@ describe('what remains possible BY DESIGN — named, so it can never change sile
     // guarantee keys off source 'agent', so a port built with a non-agent source
     // is the app reporting its own motion, and the library will not call that a
     // forgery.
-    const disarmed = skillsAsTools(session, { source: 'user' });
+    const disarmed = serveToAgent(session, { source: 'user' });
     const fired = disarmed.call('shop.do_action', { action: 'place-order', confirm: true });
     await tick();
     expect(fired).toMatchObject({ ok: true, did: 'checkout.place-order' });
@@ -216,8 +216,8 @@ describe('what remains possible BY DESIGN — named, so it can never change sile
     expect(session.requiresHumanApprovalFrom('agent')).toBe(true);
     expect(session.requiresHumanApprovalFrom('user')).toBe(false);
 
-    expect(confirmDescription(skillsAsTools(session))).toContain('This app enforces that');
-    expect(confirmDescription(skillsAsTools(session, { source: 'user' }))).toBe(
+    expect(confirmDescription(serveToAgent(session))).toContain('This app enforces that');
+    expect(confirmDescription(serveToAgent(session, { source: 'user' }))).toBe(
       'Required true to proceed with a high-effect step (after the human approves the receipts).',
     );
   });
@@ -225,28 +225,28 @@ describe('what remains possible BY DESIGN — named, so it can never change sile
   it('C4: and building one is LOUD, through the host’s own warning sink', () => {
     const warnings: string[] = [];
     const session = strictSession(warnings);
-    skillsAsTools(session, { source: 'user' });
+    serveToAgent(session, { source: 'user' });
 
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('this port stamps its fires');
     expect(warnings[0]).toContain('executes with no approval on record');
     // The port a model should hold is silent — a warning on the ordinary case
     // would train developers to ignore this one.
-    skillsAsTools(session);
+    serveToAgent(session);
     expect(warnings).toHaveLength(1);
   });
 
   it('C4: a disarmed port also stops promising that decline: true closes the ask', () => {
     const session = strictSession();
-    const declineOf = (port: ReturnType<typeof skillsAsTools>): string =>
+    const declineOf = (port: ReturnType<typeof serveToAgent>): string =>
       (
         port.tools().find((t) => t.name === 'shop.do_action')!.inputSchema as {
           properties: { decline: { description: string } };
         }
       ).properties.decline.description;
 
-    expect(declineOf(skillsAsTools(session))).toContain('recorded as yours');
-    expect(declineOf(skillsAsTools(session, { source: 'user' }))).toContain('closes the ask');
+    expect(declineOf(serveToAgent(session))).toContain('recorded as yours');
+    expect(declineOf(serveToAgent(session, { source: 'user' }))).toContain('closes the ask');
   });
 
   it('a direct source:"user" or "system" fire is the app-self-report tier, and passes', async () => {
@@ -267,10 +267,10 @@ describe('what remains possible BY DESIGN — named, so it can never change sile
 
   it('a LOW-effect action is never gated: the author’s confirm flag is what declares the boundary', async () => {
     const map = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { search: { does: 'Search', writes: ['n'] } } } },
+      pages: { checkout: { actions: { search: { does: 'Search', writes: ['n'] } } } },
     });
     const session = map.createSession({ node: 'checkout', state: {}, requireHumanApproval: true, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { search: () => undefined } });
+    session.registerActions('checkout', { handlers: { search: () => undefined } });
     expect(session.fire('checkout.search', { source: 'agent' }).ok).toBe(true);
     await tick();
     expect(session.confirms()).toHaveLength(0);

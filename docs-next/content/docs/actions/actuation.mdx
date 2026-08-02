@@ -1,0 +1,123 @@
+---
+title: Actuation & materialisation
+description: The gesture lives ON the edge — url, click, tab, programmatic — and "can this actually be performed?" is computed from the real gesture, not just "is a handler registered?".
+---
+
+Every edge can declare its **gesture** — how the action is reached on screen. The `Binding`
+union covers what a routed web app actually performs:
+
+| kind | what it is | materialises through |
+|---|---|---|
+| `element` (click / type / select / …) | an ARIA role + name locator | a registered handler |
+| `keychord` | a keyboard chord | a registered handler |
+| `programmatic` | no surface — code only | a registered handler |
+| `url` | a literal address — `{ kind: 'url', href: '/cart' }` | a registered handler, else the session's `navigate` |
+| `tab` | a tab switch to a sibling node path — `{ kind: 'tab', target: 'desk.archive' }` | a registered handler (descriptive in v1) |
+
+**Materialisation is one question** — *could this edge act right now?* — answered in one
+place, in this order:
+
+1. a **registered handler** wins, byte-identical to a plain 0.3.0 session;
+2. else, if the session was created with **`navigate`** and the edge's gesture yields a
+   literal href — an explicit `url` binding, else the fully-literal route of the page named
+   by its `goTo` — the session synthesizes `() => navigate(href)`;
+3. else **undefined** — an agent fire refuses `NOT_MATERIALIZED`, exactly as before.
+
+## The `navigate` session option
+
+Hand the session your router's OWN navigation; the presence of the option is the opt-in.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    home: {
+      actions: {
+        'open-cart': { does: 'Open the cart', binding: { kind: 'url', href: '/cart' }, goTo: 'cart' },
+        'open-checkout': { does: 'Open checkout', goTo: 'checkout' }, // gesture derives from the route
+      },
+    },
+    cart: { route: '/cart' },
+    checkout: { route: '/checkout' },
+  },
+});
+
+declare const router: { push(href: string): void | Promise<void> };
+
+const session = graph.createSession({
+  node: 'home',
+  navigate: (href) => router.push(href),
+});
+
+const fired = session.fire('home.open-cart', { source: 'agent' }); // ok — no handler needed
+```
+
+No more fake do-nothing handlers registered purely to get navigations past
+`NOT_MATERIALIZED`. The synthesized navigation rides the **same invocation machinery** as a
+registered handler: `navigate` resolves → `effectStatus: 'performed'`; `navigate` throws →
+`'refused'` with the honest rollback and cursor walk-back. `toNode` stays a **claim**
+(`toNodeClaimed: true`) until `sync()` confirms — see [Sessions &amp; fire()](doc:sessions).
+`available()`'s `materialized` stamp mirrors the same widened question, so a tour sees the
+truth before it fires.
+
+**The library never guesses params.** A paramful href (`/orders/:id`) can never materialise —
+there is nothing to hand a router — so it is refused loudly at ALL THREE authoring doors (the
+compiler, mount-declared tools, and the fluent builder), judged by the route matcher's own
+segment law. Authoring, routing and materialisation can never disagree.
+
+## click / tab / programmatic — the words get honest
+
+The other kinds never synthesize anything; they change only **words**. A `NOT_MATERIALIZED`
+refusal now carries the declared `gesture` — *"this is a click on the checkout button"*, not
+*"nothing is bound"* — and gap-ledger rows for `fire-rejected` / `unmaterialized-fire` carry
+`gestureKind`, so the demand backlog says WHICH wiring is missing: a click handler vs a
+navigate fn. Token-lean by design: a kind string, never the binding object.
+
+**A gesture is not a payload.** The binding says how a control is *reached*; what it *takes*
+is the separate `input` contract — including the click-only control that takes nothing at
+all, declared `input: 'none'` and enforced at the door
+([the payload contract](doc:navigation-graph#input-the-payload-contract)).
+
+**Tab semantics (locked in v1):** a tab switch is its own gesture, and it is *descriptive* —
+it materialises only via a registered handler, it NEVER moves the page cursor (flipping a tab
+is not going somewhere), and `fire()` never writes presence. After the app's handler flips
+tabs, the app (or the [`fromLiveStore`](doc:live-bindings) wiring) reports the flip through
+the existing visibility wire — `show()` / `setVisible()`.
+
+## The never-trap invariant
+
+> **Page actions are always reachable regardless of journey state, and a journey whose first step
+> cannot materialise is never constructed [build] nor committed to [runtime].**
+
+Three gates enforce it:
+
+- **Build gate** — refuses what can NEVER materialise: paramful url hrefs anywhere, and a
+  journey whose entry step's declared gesture is such a url. What cannot materialise *yet*
+  (handlers arrive at mount — the spine-action contract) still compiles; that is the commit
+  gate's job.
+- **Commit gate** — `commitJourney()` gains one typed refusal after its existing four:
+  `ENTRY_NOT_MATERIALIZED`. An agent commit outside a tour session is refused when the
+  journey's entry step could not act AT ALL right now — no registered handler under any key
+  (instance-keyed wiring on a repeats container counts) and no navigate-derived gesture. The
+  frame that could never act is never opened, so a planner is never invited into a narrowed
+  room where the first promised thing does nothing. One gap row records it
+  (`rejectionReason: 'ENTRY_NOT_MATERIALIZED'`, the entry step, `journeyId`, `gestureKind`) —
+  no transition and no commit bundle, because nothing touched state. User commits, tours,
+  and registered-but-disabled entries (retriable) behave exactly as before. See
+  [Journeys](doc:journeys).
+- **Serve gate** — the [merge order](doc:graph-sources#the-merge-order) structurally cannot
+  remove page actions, and the leave-journey escape stays guaranteed for frames that do open.
+- **Page gate** — the same law about the *room* rather than the frame. When the cursor comes
+  to rest on a page where an agent fire of every served action would refuse
+  `NOT_MATERIALIZED` — no actions at all, or none of them registered, url-materialisable or
+  instance-wired — the session records a `kind: 'dead-end'` gap row and warns once naming the
+  three fixes (register an action group, pass `navigate`, or add
+  [`crossLinks`](doc:graph-sources#cross-links-making-pages-reachable)).
+  Nobody has to fire for the trap to exist, so nobody has to fire for it to be recorded. It
+  is an **observation, not a verdict**: at most one row per (page, served structure), armed
+  only where materialisation is a live question (something is registered somewhere, or the
+  session holds a `navigate`, and it is not a tour). A mount that fixes the page ends the
+  rows; a page still dead after the next wiring change is one new fact, one new row. The
+  whole story, warnings included, is on
+  [Live bindings](doc:live-bindings#dead-end-a-page-where-nothing-can-act).

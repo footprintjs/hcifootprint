@@ -16,4 +16,4 @@
 export { lintGraph, formatFindings, expectNoStaleLogic } from './model/lint.js';
 export type { LintFinding, LintOptions, LintCode, LintSeverity } from './model/lint.js';
 export { checkGraph } from './model/check.js';
-export type { GraphHealth, SkillHealth, DriftType } from './model/check.js';
+export type { GraphHealth, JourneyHealth, DriftType } from './model/check.js';

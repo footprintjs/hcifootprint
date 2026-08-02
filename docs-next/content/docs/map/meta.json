@@ -1,0 +1,16 @@
+{
+  "title": "The map",
+  "description": "What can this app do?",
+  "icon": "Map",
+  "pages": [
+    "---Declare it---",
+    "navigation-graph",
+    "journeys",
+    "guarded-journeys",
+    "---Or adopt what you already have---",
+    "graph-sources",
+    "---What the agent gets---",
+    "modes",
+    "mcp"
+  ]
+}

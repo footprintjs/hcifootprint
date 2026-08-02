@@ -49,8 +49,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { ServeResult } from '../src/index.js';
+import { readDocPage } from './docs/doc-page.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Prose compared as PROSE: wrapping and markdown markers are formatting, not meaning. */
@@ -61,7 +62,7 @@ function wizard(opts?: { does?: string; recipe?: string }) {
   const map = buildNavigationGraph('wizard', {
     pages: {
       setup: {
-        tools: {
+        actions: {
           // Here whatever happens; clickable only once a recipe is chosen.
           next: { does: opts?.does ?? 'Go on to the review step', enabledWhen: { recipe: { ne: '' } } },
           restart: { does: 'Start over' },
@@ -74,10 +75,10 @@ function wizard(opts?: { does?: string; recipe?: string }) {
     state: { recipe: opts?.recipe ?? '' },
     onWarn: () => undefined,
   });
-  session.registerToolGroup('setup', {
+  session.registerActions('setup', {
     handlers: { next: () => undefined, restart: () => undefined },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 /** The `whats_here` row for one action, as the model reads it. */
@@ -124,14 +125,14 @@ describe('the greyed button reaches the model', () => {
 
   it('reaches the wire from the registration side too — four wires, one row', () => {
     const map = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
+      pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
     });
     const session = map.createSession({ node: 'catalog', state: {}, onWarn: () => undefined });
-    const group = session.registerToolGroup('catalog', {
+    const group = session.registerActions('catalog', {
       handlers: { 'add-to-cart': () => undefined },
       enabled: { 'add-to-cart': false },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const row = () =>
       (port.call('shop.whats_here', {})['actions'] as ServeResult[]).find(
         (candidate) => candidate['action'] === 'catalog.add-to-cart',
@@ -190,7 +191,7 @@ describe('reaching for a switched-off control teaches instead of leaving a hole'
     // model ever receives.
     const { port } = wizard();
     const why = String(port.call('wizard.do_action', { action: 'next' })['why']);
-    const page = readFileSync(path.join(REPO, 'docs-next/content/docs/build/guards.mdx'), 'utf8');
+    const page = readDocPage('guards');
     expect(flatten(page)).toContain(flatten(why));
   });
 
@@ -220,15 +221,15 @@ describe('nobody is asked to approve a control that is switched off', () => {
     const session = buildNavigationGraph('shop', {
       pages: {
         checkout: {
-          tools: { pay: { does: 'Pay now', writes: ['paid'], confirm: true } },
+          actions: { pay: { does: 'Pay now', writes: ['paid'], confirm: true } },
         },
       },
-      skills: { buy: { does: 'Buy it', steps: ['checkout.pay'] } },
+      journeys: { buy: { does: 'Buy it', steps: ['checkout.pay'] } },
     }).createSession({ node: 'checkout', state: { paid: false }, onWarn: () => undefined });
-    const group = session.registerToolGroup('checkout', { handlers: { pay: () => undefined } });
+    const group = session.registerActions('checkout', { handlers: { pay: () => undefined } });
     group.setEnabled('pay', false);
     if (opts?.busy !== undefined) group.setBusy('pay', opts.busy);
-    return { session, port: skillsAsTools(session, { confirmHighEffect: true }) };
+    return { session, port: serveToAgent(session, { confirmHighEffect: true }) };
   }
 
   it('do_action refuses it instead of minting a card for a person', () => {
@@ -248,10 +249,10 @@ describe('nobody is asked to approve a control that is switched off', () => {
     expect(session.gaps().some((gap) => gap.rejectionReason === 'TOOL_DISABLED')).toBe(true);
   });
 
-  it('the skill step holds the same order', () => {
+  it('the journey step holds the same order', () => {
     const { session, port } = checkout();
-    port.call('shop.skill.buy', {}); // open the frame
-    const answer = port.call('shop.skill.buy', { step: 'checkout.pay' });
+    port.call('shop.journey.buy', {}); // open the frame
+    const answer = port.call('shop.journey.buy', { step: 'checkout.pay' });
 
     expect(answer).toMatchObject({ ok: false, reason: 'TOOL_DISABLED' });
     expect(session.asks()).toHaveLength(0);
@@ -276,12 +277,12 @@ describe('nobody is asked to approve a control that is switched off', () => {
     const session = buildNavigationGraph('shop', {
       pages: {
         checkout: {
-          tools: { pay: { does: 'Pay now', writes: ['paid'], confirm: true, enabledWhen: { total: { gt: 0 } } } },
+          actions: { pay: { does: 'Pay now', writes: ['paid'], confirm: true, enabledWhen: { total: { gt: 0 } } } },
         },
       },
     }).createSession({ node: 'checkout', state: { paid: false, total: 0 }, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { pay: () => undefined } });
-    const port = skillsAsTools(session, { confirmHighEffect: true });
+    session.registerActions('checkout', { handlers: { pay: () => undefined } });
+    const port = serveToAgent(session, { confirmHighEffect: true });
 
     const answer = port.call('shop.do_action', { action: 'checkout.pay' });
 
@@ -292,10 +293,10 @@ describe('nobody is asked to approve a control that is switched off', () => {
 
   it('a clickable high-effect control still asks — the gate is untouched', () => {
     const session = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { pay: { does: 'Pay now', writes: ['paid'], confirm: true } } } },
+      pages: { checkout: { actions: { pay: { does: 'Pay now', writes: ['paid'], confirm: true } } } },
     }).createSession({ node: 'checkout', state: { paid: false }, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { pay: () => undefined } });
-    const port = skillsAsTools(session, { confirmHighEffect: true });
+    session.registerActions('checkout', { handlers: { pay: () => undefined } });
+    const port = serveToAgent(session, { confirmHighEffect: true });
 
     const answer = port.call('shop.do_action', { action: 'checkout.pay' });
 
@@ -320,7 +321,7 @@ function wizardWithTwoConditions(state: Record<string, unknown>) {
   const map = buildNavigationGraph('wizard', {
     pages: {
       setup: {
-        tools: {
+        actions: {
           // Two conjuncts on purpose: one is why it is off, one is not.
           next: { does: 'Go on to the review step', enabledWhen: { recipe: { ne: '' }, agreed: { eq: true } } },
           restart: { does: 'Start over' },
@@ -329,10 +330,10 @@ function wizardWithTwoConditions(state: Record<string, unknown>) {
     },
   });
   const session = map.createSession({ node: 'setup', state, onWarn: () => undefined });
-  const group = session.registerToolGroup('setup', {
+  const group = session.registerActions('setup', {
     handlers: { next: () => undefined, restart: () => undefined },
   });
-  return { session, group, port: skillsAsTools(session) };
+  return { session, group, port: serveToAgent(session) };
 }
 
 describe('a machine-proven refusal carries its proof', () => {
@@ -409,7 +410,7 @@ describe('a machine-proven refusal carries its proof', () => {
     // the key name still travels, because a reader has to know WHICH condition
     // failed. Same marker as guard evidence — one word, everywhere.
     const map = buildNavigationGraph('vault', {
-      pages: { home: { tools: { open: { does: 'Open the vault', enabledWhen: { pin: { eq: '1234' } } } } } },
+      pages: { home: { actions: { open: { does: 'Open the vault', enabledWhen: { pin: { eq: '1234' } } } } } },
     });
     const session = map.createSession({
       node: 'home',
@@ -417,7 +418,7 @@ describe('a machine-proven refusal carries its proof', () => {
       redactedKeys: ['pin'],
       onWarn: () => undefined,
     });
-    session.registerToolGroup('home', { handlers: { open: () => undefined } });
+    session.registerActions('home', { handlers: { open: () => undefined } });
 
     const refused = session.fire('home.open', { source: 'agent' }) as {
       evidence?: { key: string; actualSummary: string; redacted: boolean }[];
@@ -425,13 +426,13 @@ describe('a machine-proven refusal carries its proof', () => {
 
     expect(refused.evidence?.[0]).toMatchObject({ key: 'pin', redacted: true, actualSummary: '[REDACTED]' });
     expect(JSON.stringify(refused)).not.toContain('9999');
-    expect(JSON.stringify(skillsAsTools(session).call('vault.do_action', { action: 'open' }))).not.toContain('9999');
+    expect(JSON.stringify(serveToAgent(session).call('vault.do_action', { action: 'open' }))).not.toContain('9999');
   });
 
   it('the page that documents it prints the sentence the port actually serves', () => {
     const { port } = wizardWithTwoConditions({ recipe: '', agreed: true });
     const why = String(port.call('wizard.do_action', { action: 'next' })['why']);
-    const page = readFileSync(path.join(REPO, 'docs-next/content/docs/build/guards.mdx'), 'utf8');
+    const page = readDocPage('guards');
 
     expect(flatten(page)).toContain(flatten(why));
   });
@@ -444,10 +445,10 @@ describe('an imperative switch-off invents nothing', () => {
     // for a reason here is exactly the invented diagnosis this surface exists to
     // end, and an empty array would be its polite form — so the key is absent.
     const map = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
+      pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
     });
     const session = map.createSession({ node: 'catalog', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: { 'add-to-cart': () => undefined },
       enabled: { 'add-to-cart': false },
     });
@@ -456,19 +457,19 @@ describe('an imperative switch-off invents nothing', () => {
 
     expect(refused).toMatchObject({ ok: false, reason: 'TOOL_DISABLED' });
     expect(refused).not.toHaveProperty('evidence');
-    expect(skillsAsTools(session).call('shop.do_action', { action: 'add-to-cart' })).not.toHaveProperty('evidence');
+    expect(serveToAgent(session).call('shop.do_action', { action: 'add-to-cart' })).not.toHaveProperty('evidence');
     expect(session.gaps().find((gap) => gap.rejectionReason === 'TOOL_DISABLED')).not.toHaveProperty('evidence');
   });
 
   it('and the bare refusal keeps the sentence it always had, without the added clause', () => {
     const map = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
+      pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the dress to the cart' } } } },
     });
     const session = map.createSession({ node: 'catalog', state: {}, onWarn: () => undefined });
-    const group = session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    const group = session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
     group.setEnabled('add-to-cart', false);
 
-    const why = String(skillsAsTools(session).call('shop.do_action', { action: 'add-to-cart' })['why']);
+    const why = String(serveToAgent(session).call('shop.do_action', { action: 'add-to-cart' })['why']);
 
     expect(why).toContain('Do not invent a reason it is off');
     expect(why).not.toContain('also declares a condition');

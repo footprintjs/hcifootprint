@@ -33,7 +33,7 @@
  *   JSON Schema instead of a flag and every tool descriptor's bytes change.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, edgesToMCPTools, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, edgesToMCPTools, serveToAgent } from '../src/index.js';
 import type { InteractionSession, NavigationGraph } from '../src/index.js';
 
 /** A wizard whose 'pick-a' is a click-only radio and whose 'search' takes a real input. */
@@ -41,7 +41,7 @@ function wizard(): NavigationGraph {
   return buildNavigationGraph('wizard', {
     pages: {
       setup: {
-        tools: {
+        actions: {
           'pick-a': { does: 'Pick option A', input: 'none' },
           search: {
             does: 'Search the recipe catalogue',
@@ -57,7 +57,7 @@ function wizard(): NavigationGraph {
 function wired(): { session: InteractionSession; seen: unknown[] } {
   const seen: unknown[] = [];
   const session = wizard().createSession({ node: 'setup', state: {}, onWarn: () => undefined });
-  session.registerToolGroup('setup', {
+  session.registerActions('setup', {
     handlers: {
       'pick-a': (payload) => {
         seen.push(payload);
@@ -97,35 +97,33 @@ describe("input: 'none' — the declaration", () => {
   });
 
   it('the fluent builder accepts it — and still refuses a schema it cannot recognize', () => {
-    const graph = skillGraph('shop')
-      .page('catalog')
-      .affordance('like', {
-        on: 'catalog',
-        description: 'Like this product',
-        binding: { kind: 'element', locator: { role: 'button', name: 'Like' } },
-        schema: 'none',
-      })
-      .build();
+    const graph = buildNavigationGraph('shop', {
+      pages: {
+        catalog: {},
+      },
+      actions: {
+        like: { on: 'catalog', does: 'Like this product', binding: { kind: 'element', locator: { role: 'button', name: 'Like' } }, input: 'none' },
+      },
+    });
     expect(graph.spec.affordances['like'].noInput).toBe(true);
 
     expect(() =>
-      skillGraph('shop')
-        .page('catalog')
-        .affordance('like', {
-          on: 'catalog',
-          description: 'Like it',
-          binding: { kind: 'element', locator: { role: 'button', name: 'Like' } },
-          schema: 42,
-        })
-        .build(),
-    ).toThrow(/unrecognized schema/);
+      buildNavigationGraph('shop', {
+        pages: {
+          catalog: {},
+        },
+        actions: {
+          like: { on: 'catalog', does: 'Like it', binding: { kind: 'element', locator: { role: 'button', name: 'Like' } }, input: 42 },
+        },
+      }),
+    ).toThrow(/unrecognized input schema/);
   });
 
   it('the navigation-graph compiler accepts it — and still refuses garbage', () => {
     expect(wizard().spec.affordances['setup.pick-a'].noInput).toBe(true);
     expect(() =>
       buildNavigationGraph('wizard', {
-        pages: { setup: { tools: { pick: { does: 'Pick', input: 42 } } } },
+        pages: { setup: { actions: { pick: { does: 'Pick', input: 42 } } } },
       }),
     ).toThrow(/unrecognized input schema/);
   });
@@ -133,14 +131,14 @@ describe("input: 'none' — the declaration", () => {
   it('the mount door accepts it — and still refuses garbage', () => {
     const graph = buildNavigationGraph('wizard', { pages: { setup: {} } });
     const session = graph.createSession({ node: 'setup', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('setup', {
-      tools: { 'pick-a': { does: 'Pick option A', input: 'none', handler: () => undefined } },
+    session.registerActions('setup', {
+      actions: { 'pick-a': { does: 'Pick option A', input: 'none', handler: () => undefined } },
     });
     expect(session.available().edges.find((e) => e.affordanceId === 'setup.pick-a')?.expects).toBe('none');
 
     expect(() =>
-      session.registerToolGroup('setup', {
-        tools: { bad: { does: 'Bad', input: 42, handler: () => undefined } },
+      session.registerActions('setup', {
+        actions: { bad: { does: 'Bad', input: 42, handler: () => undefined } },
       }),
     ).toThrow(/unrecognized input schema/);
   });
@@ -153,7 +151,7 @@ describe("input: 'none' — the declaration", () => {
 describe("input: 'none' — the model is told first", () => {
   it("serves the literal 'none' on the edge and in every result row", () => {
     const { session } = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     expect(session.available().edges.find((e) => e.affordanceId === 'setup.pick-a')?.expects).toBe('none');
     const rows = port.call('wizard.whats_here', {})['actions'] as Array<Record<string, unknown>>;
@@ -196,7 +194,7 @@ describe("input: 'none' — a payload sent anyway", () => {
 
   it('teaches over the wire too, beside the contract it broke', () => {
     const { session } = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const result = port.call('wizard.do_action', { action: 'pick-a', input: { value: '' } });
     expect(result).toMatchObject({ ok: false, reason: 'PAYLOAD_INVALID', expects: 'none' });
     expect(String(result['issues'])).toContain('takes no input');

@@ -1,0 +1,200 @@
+---
+title: Live bindings & fromLiveStore
+description: Components register what they have when they render — and if your app keeps a live action store, fromLiveStore does the subscribe-and-register bookkeeping for you.
+---
+
+## The wire: declare statically, bind at mount
+
+A tool needs only `does` to exist in the plannable spine; its handler arrives when the
+component that renders it mounts:
+
+```ts
+const group = session.registerActions('catalog', {
+  handlers: { 'search': (input) => shop.search(input) }, // your function, by reference
+  // actions: { ... }   — or declare NEW leaf tools here-and-now
+  // instance: 'o-123' — one card of a repeats container
+});
+group.setEnabled('search', false); // greyed out → TOOL_DISABLED (retriable)
+group.unregister();                // on unmount — idempotent
+```
+
+You never invent a group name — the returned `ActionGroupHandle` IS the identity. Node paths
+are typed against the graph, [routes-source pages included](doc:graph-sources).
+
+## `fromLiveStore` — the third source
+
+If your app already keeps a live store of the actions on screen, you don't write that
+bookkeeping per component. `fromLiveStore(store)` accepts the smallest respectable store
+contract — `subscribe(onChange)` + `actions()`, the shape React itself blesses — and drives
+the wire above for you:
+
+```ts
+import { buildNavigationGraph, fromLiveStore } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  sources: [fromLiveStore(appActionStore)],
+  pages: { inbox: {}, settings: {} },   // the graph declares PLACES; actions arrive live
+});
+const session = graph.createSession();  // attaches the live source
+// later: session.detachSources();      // idempotent — releases everything it attached
+```
+
+Each published action is `{ node, name, instance?, enabled?, ...RegisteredActionDef }`, and
+`${node}.${name}` (+`instance`) is its **identity** across snapshots. The reconcile rules:
+
+- **new** → registered (an action for an already-declared tool BINDS silently — attach last,
+  only bind; a genuinely new one mount-declares);
+- **gone** → released;
+- **`enabled` flip** → flows to `TOOL_DISABLED`;
+- **unchanged** → never re-registered — a chatty store causes zero warnings and zero phantom
+  structure bumps.
+
+The direct door also works, without graph involvement:
+`const detach = fromLiveStore(store).attach(session)`.
+
+## When it re-reads — the invalidation contract
+
+Two halves, and only one of them can be yours:
+
+> **Your store must emit whenever the action surface changes. NAVIGATION is covered for you —
+> the source re-reads on every page change the app reports through `sync()`.**
+
+The failure that half closes is quiet and it is the shape most apps have. A store whose actions
+are derived from the router has **no change of its own to announce** when the page changes: the
+route moved, the store's own state did not, so nothing emits. Without the re-read the surface
+after a navigation is whatever the last emission left behind — the *previous* page's actions,
+served confidently as the actions available here.
+
+```ts twoslash
+import { buildNavigationGraph, fromLiveStore, matchRoute } from 'hcifootprint';
+import type { LiveActionStore } from 'hcifootprint';
+
+// Your store's actions() answers differently per route, and it does not emit on navigation.
+declare const routerActions: LiveActionStore;
+
+const graph = buildNavigationGraph('desk', {
+  pages: { orders: { route: '/orders' }, archive: { route: '/archive' } },
+  sources: [fromLiveStore(routerActions)],
+});
+const session = graph.createSession({ node: 'orders' });
+// ---cut---
+// This one line is the whole other half: the report re-reads the store,
+// so 'archive' arrives bound to the archive page's actions.
+session.sync(matchRoute(graph.spec.pages, location.pathname) ?? location.pathname);
+```
+
+Three properties worth knowing:
+
+- **Only an OBSERVED page change re-reads** — never a navigation the app merely
+  [claimed](doc:navigation-claims). A claim moves the cursor before the app's own handler has
+  run, so a read there describes the page the app has not left yet, and would bind those answers
+  to the new position.
+- **A re-read that changes nothing is free.** The identity ledger re-registers nothing, so a
+  no-change re-read is a diff and no world motion — no version bump, no warnings, no phantom
+  structure churn. A repeat report of the same page re-reads nothing at all.
+- **Nothing re-reads at report time.** `whats_here`, the facts block and `available()` read the
+  served structure; a read that re-registered tools would mutate the answer it is in the middle
+  of giving.
+
+The hook is `LiveBindingPort.whenPageChanges`, and it is **optional and severable**: a hand-rolled
+port without it degrades to store-emissions-only behaviour rather than breaking. `session.whenPageChanges(fn)`
+is the same door if you want it directly — its listeners are expected to change the session, which
+is exactly why it is not `on('transition')`, whose listeners promise never to.
+
+## The error stance — split by WHO is on the stack
+
+The FIRST read at attach is **loud**: an invalid action is an authoring error and dies at
+`createSession` — and the throw cleans up after itself (both subscriptions and any
+already-registered bindings are released, so a failed attach leaks nothing). A LATER read runs on
+somebody else's stack — the app's own notify loop, or the session mid-hop — where a throw would
+abort their work: the app's iteration over its other subscribers, or a navigation that already
+happened. Those reconciles are **isolated**: a failure warns through the session's `onWarn` sink
+and leaves bindings as-is; the next read simply retries.
+
+**And it is disclosed.** Bindings from *before* the failure are still on offer, and serving them
+with nothing said presents a stale list as current fact — the same confident staleness the
+re-read above exists to end. So a caught failure also files one row in the
+[gap ledger](doc:sessions#the-gap-ledger):
+
+```jsonc
+{ "kind": "reported", "reason": "other", "principal": "system",
+  "request": "live action store read failed; serving bindings from before the failure" }
+```
+
+One row per failure **streak**, cleared by the next read that works: a store that throws on every
+emission is one broken read, not forty unmet demands. The row carries an **authored** sentence and
+never the store's own error text — that is your runtime string. The dev warning carries the error;
+the row carries the consequence.
+
+**And the model is told.** `actionsMayBeStale` is what carries this row past your triage ledger into
+the [facts block](doc:grounding) a model reads, as a line this library authors:
+
+```text
+  • the app could not re-read its own list of actions here — anything listed after this may be from before that.
+```
+
+The row's own `request` never crosses into that block — it is data, and the facts block admits
+authored sentences only. It is the one `'reported'` row the block prints: every other one is unmet
+demand for your team to triage, while this one is a fact about the surface the model is looking at
+*while it looks*. Without it the disclosure reached a developer's console and the reader about to
+act on the list was served it as current fact with nothing said.
+
+**Honest limits.** The library cannot tell you *why* a read failed, and it will not guess whether
+the stale bindings are still correct — they may well be. It also cannot see a change your store
+never announces: if your action surface moves for a reason that is neither an emission nor a
+reported page change, nothing here will know.
+
+## Dead-end: a page where nothing can act
+
+Binding is what stands between a declared action and a real one — so the session watches for
+the room where that gap swallowed everything. When the cursor comes to rest on a page where an
+agent fire of **every** served action would refuse `NOT_MATERIALIZED` — no actions at all, or
+none of them registered, url-materialisable or instance-wired — it records a
+`kind: 'dead-end'` [gap row](doc:sessions#the-gap-ledger) and warns once.
+
+Nobody has to fire for the trap to exist, so nobody has to fire for it to be recorded. An
+agent that lands there gets a true-but-useless list of things it cannot do, and loops.
+
+**Once per (node, served structure).** The row is an observation, not a verdict, and it is
+deduped on the page plus the **served-structure fingerprint** — what is registered, what is
+visible, what is greyed — deliberately not the structure *version*, which also bumps when a
+journey frame opens or closes. Churn that cannot wire anything must not multiply rows for a page
+whose answer never moved; a page still dead after the next real wiring change is one new fact
+and earns one new row. A mount that fixes the page simply ends them.
+
+The warning always names the same **three** fixes:
+
+1. `registerActions('<page>', …)` — wire what is on screen;
+2. pass `navigate: (href) => router.push(href)` to `createSession` so url gestures materialise;
+3. read the route table with
+   [`fromRoutes(routes, { crossLinks: true })`](doc:graph-sources#cross-links-making-pages-reachable)
+   so every page offers links to the others.
+
+The **sentence in front of them** does not: it names only the refusal that is actually true of
+that room — `NOT_MATERIALIZED` where actions are served but unwired, `GUARD_FAILED` where every
+authored action is hidden behind a closed guard *and* none of them is wired, and
+`UNKNOWN_AFFORDANCE`/`NOT_ON_NODE` where nothing is authored there at all. A dev warning that
+names the wrong refusal sends someone hunting the wrong bug.
+
+Two things it deliberately does **not** call a dead end. A **guard-closed** action is wired:
+its refusal is `GUARD_FAILED`, the next state report may open it, and calling it missing
+wiring would prescribe a fix already done. And an **off-graph** cursor — a page the graph has
+never heard of — is the *other* trap and a permanent one: no mount can add a door to a page
+that does not exist (`registerActions` throws on an unknown node), so it gets its own
+sentence, its own `offGraph: true` on the row, and is asked exactly **once** for the session's
+life. Its cures are different too: author the page, or `sync()` the id the graph actually uses
+for that screen.
+
+The gate arms only where materialisation is a live question — something is registered
+somewhere, or the session holds a `navigate` — and never in a
+[tour session](doc:adoption-ladder), where nothing being bound is the entire point.
+
+## What it does to the trace
+
+`fromLiveStore` rides `registerActions`, so mounts land exactly like hand-written ones —
+structure-axis version bumps, coalescing, dormancy/drift telemetry all apply unchanged. No
+new record shapes. And it is a **zero-value-import leaf**: a static-graph consumer never
+bundles it — see [Tree-shaking](doc:tree-shaking).
+
+See it live in the [Live Desk demo](doc:demos): a support inbox whose graph declares places
+and not a single tool.

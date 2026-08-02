@@ -9,7 +9,7 @@
  *   "Pages first (routes then hand-authored, hand-authored wins), journeys
  *    overlay second and may only add, live actions attach last and only bind —
  *    nothing later in the order may remove anything earlier. Routes may also
- *    contribute link tools; hand-authored tools win."
+ *    contribute link actions; hand-authored actions win."
  *
  * (A live source is validated here but contributes NOTHING to the static fold
  * — its whole meaning is attach-time binding, last in the order; the compiler
@@ -25,24 +25,25 @@
  *   isParam), never by string bytes — '/cart' and 'cart/' are one place, and a
  *   param's NAME is never read, so '/orders/:id' and '/orders/:orderId' agree.
  *   Routing and matching can never disagree because they share one law.
- * - A hand-authored skill wins over a same-id journey SILENTLY — deterministic
+ * - A hand-authored journey wins over a same-id sourced journey SILENTLY — deterministic
  *   and documented (the same stable-and-documented stance matchRoute takes on
  *   ambiguity), because the def author overriding one journey is ordinary use,
- *   not drift. A hand-authored TOOL beats a same-id crossLinks link for the
+ *   not drift. A hand-authored ACTION beats a same-id crossLinks link for the
  *   same reason: overriding one generated link is ordinary use.
  * - Two sources of the SAME kind colliding on an id refuse loudly — that is
  *   ambiguous AUTHORSHIP, and the library never guesses which owner is right.
- * - Sources contribute pages, skills, and (only when crossLinks asked for them)
- *   root-level link tools; a def without crossLinks passes its tools through
+ * - Sources contribute pages, journeys, and (only when crossLinks asked for them)
+ *   root-level link actions; a def without crossLinks passes its actions through
  *   untouched, so "overlay may only add" is structural, not policed.
  *
  * Nothing here mutates the def or any source: the effective def is new at the
  * top level; untouched nested definitions ride through by reference, exactly
  * as safe as handing them to the compiler directly (it clones what it keeps).
  */
-import { SkillGraphValidationError, isLiteralRoute } from '../guards.js';
+import { GraphValidationError, isLiteralRoute } from '../guards.js';
 import { isParam, segmentsOf } from '../route-match.js';
-import type { JourneyDef, NavigationGraphDef, PageNodeDef, ToolDef } from '../../tree/types.js';
+import { actionsOf, hasJourneysKey, journeysOf } from '../../tree/authoring-keys.js';
+import type { JourneyDef, NavigationGraphDef, PageNodeDef, ActionDef } from '../../tree/types.js';
 
 /** One `crossLinks:` ask, held until the effective page set exists (phase 2.5). */
 interface CrossLinkRequest {
@@ -83,31 +84,36 @@ function sameRoute(a: string, b: string): boolean {
 /** Fold `def.sources` into a plain NavigationGraphDef. Consumed only by buildNavigationGraph. */
 export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
   // Null-prototype accumulators, same reason as the compiler's containers:
-  // a page/skill literally named '__proto__' must be a key, not a swap.
+  // a page/journey literally named '__proto__' must be a key, not a swap.
   // Insertion order is load-bearing — page key order feeds matchRoute's
   // stable tie-break and the compiled node order — so the phases below run
   // in the documented order and overrides reuse the FIRST appearance's slot
   // (JS keeps an existing key's position on reassignment).
   const pages: Record<string, PageNodeDef> = Object.create(null) as Record<string, PageNodeDef>;
-  const skills: Record<string, JourneyDef> = Object.create(null) as Record<string, JourneyDef>;
+  const journeys: Record<string, JourneyDef> = Object.create(null) as Record<string, JourneyDef>;
   const crossLinkRequests: CrossLinkRequest[] = [];
   let journeysContributed = false;
 
   // -- phase 1: sources, in declaration order ---------------------------------
-  for (const [index, source] of (def.sources ?? []).entries()) {
+  // Hoisted so the exemption below lands on THIS statement and nothing else: a
+  // `v8 ignore` before a `for` exempts the entire loop, body included, and the
+  // body here is every refusal this function makes.
+  /* v8 ignore next -- the `?? []` arm is unreachable: buildNavigationGraph is the only caller and it only folds when `rawDef.sources` is a non-empty array, so this pre-pass never runs over a def with none. */
+  const declaredSources = def.sources ?? [];
+  for (const [index, source] of declaredSources.entries()) {
     if (!source || typeof source !== 'object') {
-      throw new SkillGraphValidationError(`sources[${index}] is not a source object.`);
+      throw new GraphValidationError(`sources[${index}] is not a source object.`);
     }
     if (source.kind === 'routes') {
       if (!isRecordPayload(source.pages)) {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `sources[${index}] has kind 'routes' but its pages payload is missing or not a plain object — ` +
             `build it with fromRoutes().`,
         );
       }
       for (const [pageId, page] of Object.entries<PageNodeDef>(source.pages)) {
         if (Object.hasOwn(pages, pageId)) {
-          throw new SkillGraphValidationError(
+          throw new GraphValidationError(
             `sources: page '${pageId}' is declared by two routes sources — ambiguous authorship; keep one owner.`,
           );
         }
@@ -118,7 +124,7 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         // hands over `true` or an array, but a hand-crafted source must meet
         // the library's refusal, never a TypeError from the loop in phase 2.5.
         if (source.crossLinks !== true && !Array.isArray(source.crossLinks)) {
-          throw new SkillGraphValidationError(
+          throw new GraphValidationError(
             `sources[${index}] has kind 'routes' but its crossLinks is neither true nor an array of page ` +
               `names — build it with fromRoutes(routes, { crossLinks }).`,
           );
@@ -130,27 +136,27 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         });
       }
     } else if (source.kind === 'journeys') {
-      if (!isRecordPayload(source.skills)) {
-        throw new SkillGraphValidationError(
-          `sources[${index}] has kind 'journeys' but its skills payload is missing or not a plain object — ` +
+      if (!isRecordPayload(source.journeys)) {
+        throw new GraphValidationError(
+          `sources[${index}] has kind 'journeys' but its journeys payload is missing or not a plain object — ` +
             `build it with fromJourneys().`,
         );
       }
       journeysContributed = true;
-      for (const [skillId, skill] of Object.entries<JourneyDef>(source.skills)) {
-        if (Object.hasOwn(skills, skillId)) {
-          throw new SkillGraphValidationError(
-            `sources: skill '${skillId}' is declared by two journeys sources — ambiguous authorship; keep one owner.`,
+      for (const [journeyId, journey] of Object.entries<JourneyDef>(source.journeys)) {
+        if (Object.hasOwn(journeys, journeyId)) {
+          throw new GraphValidationError(
+            `sources: journey '${journeyId}' is declared by two journeys sources — ambiguous authorship; keep one owner.`,
           );
         }
-        skills[skillId] = skill;
+        journeys[journeyId] = journey;
       }
     } else if (source.kind === 'live') {
       // Bind-only and attach-time: nothing to fold. Validated here anyway —
       // the same fail-closed door every source passes — so a hand-crafted
       // {kind:'live'} without attach() dies at build, not at createSession.
       if (typeof source.attach !== 'function') {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `sources[${index}] has kind 'live' but no attach() function — build it with fromLiveStore().`,
         );
       }
@@ -158,7 +164,7 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
       // Fail closed on a kind this build does not understand (a JS caller, or
       // a source object from a newer release) — silently dropping it would be
       // a graph quietly missing what the author declared.
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `sources[${index}] has unknown kind '${String((source as { kind?: unknown }).kind)}' — ` +
           `this build understands 'routes', 'journeys' and 'live'.`,
       );
@@ -177,7 +183,7 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
       sourced.route !== undefined &&
       !sameRoute(handPage.route, sourced.route)
     ) {
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `page '${pageId}' declares route '${handPage.route}' by hand and '${sourced.route}' from a ` +
           `routes source — one page cannot live at two routes. Drift made visible: fix it at the owner.`,
       );
@@ -188,25 +194,25 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         : handPage;
   }
 
-  // -- phase 2.5: crossLinks — a route table may also contribute LINK TOOLS ---
+  // -- phase 2.5: crossLinks — a route table may also contribute LINK ACTIONS -
   // AFTER the page fold, deliberately: a link is offered on "every effective
   // page except the target", and the effective set (sourced pages + the def's
   // hand-authored ones) exists only here. That is the whole reason the source
-  // carries the REQUEST instead of finished tools.
+  // carries the REQUEST instead of finished actions.
   //
-  // Nothing new is invented for the link: it is a root-level multi-attach tool
+  // Nothing new is invented for the link: it is a root-level multi-attach action
   // exactly as an author would have written it, so every downstream layer —
-  // compileTool, the url gesture, handlerFor's navigate synthesis, the gap
-  // ledger — sees an ordinary tool and needed no change to serve it.
-  const linkTools: Record<string, ToolDef & { on: string | string[] }> = Object.create(null) as Record<
+  // compileAction, the url gesture, handlerFor's navigate synthesis, the gap
+  // ledger — sees an ordinary action and needed no change to serve it.
+  const linkActions: Record<string, ActionDef & { on: string | string[] }> = Object.create(null) as Record<
     string,
-    ToolDef & { on: string | string[] }
+    ActionDef & { on: string | string[] }
   >;
   for (const { index, request, pageIds } of crossLinkRequests) {
     const named = request !== true;
     for (const pageId of named ? request : pageIds) {
       if (named && !pageIds.includes(pageId)) {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `sources[${index}]: crossLinks names '${pageId}', which that routes source does not declare.`,
         );
       }
@@ -219,7 +225,7 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
         // already refuses the named case at the factory, where the author is
         // looking; this is the same door for a hand-crafted source.
         if (named) {
-          throw new SkillGraphValidationError(
+          throw new GraphValidationError(
             `sources[${index}]: crossLinks names '${pageId}', whose effective route ` +
               `${typeof route === 'string' ? `'${route}' has a ':param' segment` : 'is missing'} — ` +
               `a link to it could never be built (the library never guesses params).`,
@@ -229,11 +235,11 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
       }
       const on = Object.keys(pages).filter((candidate) => candidate !== pageId);
       // The target is the only page there is: nowhere to offer the link. An
-      // `on: []` tool would die in the compiler naming a tool the author never
+      // `on: []` action would die in the compiler naming an action the author never
       // wrote, so the link simply does not exist — nothing is hidden, because
       // there was never a page it could have appeared on.
       if (on.length === 0) continue;
-      linkTools[`go-to-${pageId}`] = {
+      linkActions[`go-to-${pageId}`] = {
         // The agent-facing string stays the AUTHORED class: a source-code
         // constant frame around the table's own `does` (else the page id, also
         // authored). No runtime text ever reaches a description.
@@ -246,29 +252,31 @@ export function mergeSources(def: NavigationGraphDef): NavigationGraphDef {
       };
     }
   }
-  const contributedLinks = Object.keys(linkTools).length > 0;
+  const contributedLinks = Object.keys(linkActions).length > 0;
   if (contributedLinks) {
-    // Hand-authored tools overlay the links and WIN, silently — the journeys
+    // Hand-authored actions overlay the links and WIN, silently — the journeys
     // precedent: a def that already declares 'go-to-projects' keeps its own.
-    for (const [name, tool] of Object.entries(def.tools ?? {})) linkTools[name] = tool;
+    for (const [name, action] of Object.entries(actionsOf(def) ?? {})) linkActions[name] = action;
   }
 
-  // -- phase 3: hand-authored skills overlay (hand wins, silently) ------------
-  for (const [skillId, skill] of Object.entries(def.skills ?? {})) {
-    skills[skillId] = skill;
+  // -- phase 3: hand-authored journeys overlay (hand wins, silently) ----------
+  for (const [journeyId, journey] of Object.entries(journeysOf(def) ?? {})) {
+    journeys[journeyId] = journey;
   }
 
   // The effective def drops `sources` (fully consumed here — nothing
   // downstream may be tempted to read them twice) and keeps everything else.
   const { sources: _consumed, ...rest } = def;
+  const carryJourneys = journeysContributed || hasJourneysKey(def);
   return {
     ...rest,
     pages,
     // Untouched unless crossLinks actually produced something: a def that never
-    // asked keeps its own `tools` object, key order and all.
-    ...(contributedLinks ? { tools: linkTools } : {}),
-    // Preserve "no skills key" when neither the def nor any source spoke —
+    // asked keeps its own actions object, key order and all (`rest` still
+    // carries `actions:`).
+    ...(contributedLinks ? { actions: linkActions } : {}),
+    // Preserve "no journeys key" when neither the def nor any source spoke —
     // the effective def should look like one the author could have written.
-    ...(journeysContributed || def.skills !== undefined ? { skills } : {}),
+    ...(carryJourneys ? { journeys } : {}),
   };
 }

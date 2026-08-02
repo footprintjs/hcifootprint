@@ -18,26 +18,31 @@
  *    would match undefined and invert the author's intent).
  */
 import { describe, expect, it } from 'vitest';
-import { skillGraph } from '../src/index.js';
-import type { SkillGraph } from '../src/index.js';
+import { buildNavigationGraph } from '../src/index.js';
+import type { NavigationGraph } from '../src/index.js';
 
-function shop(): SkillGraph {
-  return skillGraph('undef', { description: 'undefined-semantics fixture' })
-    .page('p', { route: '/' })
-    .affordance('select', {
-      on: 'p',
-      description: 'Open one item',
-      binding: { kind: 'programmatic', provider: 'x' },
-      effect: { writes: ['sel'] },
-    })
-    .affordance('buy', {
-      on: 'p',
-      description: 'Buy the open item',
-      binding: { kind: 'programmatic', provider: 'x' },
-      guard: { sel: { ne: '' } },
-      effect: { writes: ['cart'] },
-    })
-    .build();
+function shop(): NavigationGraph {
+  return buildNavigationGraph('undef', {
+    does: 'undefined-semantics fixture',
+    pages: {
+      p: { route: '/' },
+    },
+    actions: {
+      select: {
+        on: 'p',
+        does: 'Open one item',
+        binding: { kind: 'programmatic', provider: 'x' },
+        writes: ['sel'],
+      },
+      buy: {
+        on: 'p',
+        does: 'Buy the open item',
+        binding: { kind: 'programmatic', provider: 'x' },
+        when: { sel: { ne: '' } },
+        writes: ['cart'],
+      },
+    },
+  });
 }
 
 describe('updateState drops undefined uniformly (rule 1)', () => {
@@ -49,7 +54,7 @@ describe('updateState drops undefined uniformly (rule 1)', () => {
     expect(s.state()['sel']).toBe('');
 
     // Settlement path (the incident's path): handler reports undefined.
-    s.registerTools({ group: 'g', tools: { select: () => {} } });
+    s.registerHandlers({ group: 'g', handlers: { select: () => {} } });
     const fired = s.fire('select', { source: 'agent' });
     expect(fired.ok).toBe(true);
     const settled = s.updateState({ sel: undefined });
@@ -67,7 +72,7 @@ describe('updateState drops undefined uniformly (rule 1)', () => {
 
   it('a declared write reported as undefined is a MISSING write — effectVerified false', async () => {
     const s = shop().createSession({ node: 'p', state: { sel: '' } });
-    s.registerTools({ group: 'g', tools: { select: () => {} } });
+    s.registerHandlers({ group: 'g', handlers: { select: () => {} } });
     const fired = s.fire('select', { source: 'agent' });
     if (!fired.ok) throw new Error('fire refused');
     await new Promise((resolve) => setTimeout(resolve, 0)); // let the handler complete
@@ -94,7 +99,7 @@ describe('guards treat undefined as unevaluable (rule 2)', () => {
 
   it('fire on such an edge records the honesty marker on the transition', () => {
     const s = shop().createSession({ node: 'p', state: { sel: undefined } });
-    s.registerTools({ group: 'g', tools: { buy: () => {} } });
+    s.registerHandlers({ group: 'g', handlers: { buy: () => {} } });
     const fired = s.fire('buy', { source: 'agent' });
     if (!fired.ok) throw new Error('fire refused');
     expect(fired.transition.guardUnevaluated).toEqual(['sel']);
@@ -105,9 +110,9 @@ describe('the null-dress regression, end to end', () => {
   it('wrong payload key can no longer walk a null item past a value guard', () => {
     const s = shop().createSession({ node: 'p', state: { sel: '', cart: [] as string[] } });
     let selected: string | undefined;
-    s.registerTools({
+    s.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         // The incident's handler shape: destructures a key the caller never sent.
         select: (payload?: unknown) => {
           const { itemId } = (payload ?? {}) as { itemId?: string };

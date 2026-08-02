@@ -1,6 +1,6 @@
 /**
  * fromLiveStore() — the app's live action store drives the EXISTING
- * declare-then-bind wire (registerToolGroup), reconciled by identity key
+ * declare-then-bind wire (registerActions), reconciled by identity key
  * `${node}.${name}`(+instance): new registers, gone releases, an enabled flip
  * rides setEnabled, and an UNCHANGED action is never re-registered (a chatty
  * store must cause zero last-wins warnings and zero spurious structure bumps).
@@ -52,7 +52,7 @@ function ordersGraph(store: LiveActionStore, warnings: string[] = []) {
 const microtasks = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe('attach / detach / re-attach', () => {
-  it('createSession attaches: store actions land as mount-declared tools and really execute', async () => {
+  it('a store the app already had becomes mount-declared actions that really execute', async () => {
     const calls: unknown[] = [];
     const store = fakeStore([
       { node: 'orders', name: 'refresh', does: 'Refresh the order list', handler: (p?: unknown) => void calls.push(p) },
@@ -91,6 +91,37 @@ describe('attach / detach / re-attach', () => {
     session.detachSources();
     store.emit();
     expect(session.available().edges.some((e) => e.affordanceId === 'orders.refresh')).toBe(false);
+  });
+
+  it('…even when the STORE ignores its own unsubscribe — detach does not depend on good manners', () => {
+    // Unsubscribing is the store's promise, not ours, and a store that keeps
+    // calling a released listener is an ordinary bug in somebody else's code.
+    // Trusting it would mean a detached session growing bindings again, from a
+    // source it has already let go of — so the released side latches shut on its
+    // own account rather than relying on the notification stopping.
+    const listeners = new Set<() => void>();
+    let current: LiveAction[] = [
+      { node: 'orders', name: 'refresh', does: 'Refresh', handler: () => undefined },
+    ];
+    const rudeStore: LiveActionStore = {
+      subscribe(onChange) {
+        listeners.add(onChange);
+        return () => undefined; // says it unsubscribed; keeps the listener
+      },
+      actions: () => current.map((action) => ({ ...action })),
+    };
+
+    const session = ordersGraph(rudeStore);
+    expect(session.available().edges.some((e) => e.affordanceId === 'orders.refresh')).toBe(true);
+
+    session.detachSources();
+    // The store now announces a WHOLE NEW action, to the listener it never let go.
+    current = [{ node: 'orders', name: 'archive', does: 'Archive', handler: () => undefined }];
+    for (const listener of listeners) listener();
+
+    const ids = session.available().edges.map((e) => e.affordanceId);
+    expect(ids).not.toContain('orders.refresh'); // still released
+    expect(ids).not.toContain('orders.archive'); // and nothing new was minted
   });
 });
 
@@ -162,18 +193,18 @@ describe('reconcile by identity — the chatty-store discipline', () => {
     });
   });
 
-  it('an action for a DECLARED tool binds silently — attach last, only bind, no declared-wins spam', async () => {
+  it('a store entry matching an action the graph already declares BINDS to it, silently', async () => {
     const warnings: string[] = [];
     const ran: string[] = [];
     const store = fakeStore([
       { node: 'orders', name: 'refresh', does: 'Refresh (store copy)', handler: () => void ran.push('refresh') },
     ]);
     const graph = buildNavigationGraph('shop', {
-      pages: { orders: { tools: { refresh: { does: 'Refresh the order list' } } } },
+      pages: { orders: { actions: { refresh: { does: 'Refresh the order list' } } } },
       sources: [fromLiveStore(store)],
     });
     const session = graph.createSession({ node: 'orders', onWarn: (m) => warnings.push(m) });
-    expect(warnings).toEqual([]); // the declared tool was BOUND, never re-declared
+    expect(warnings).toEqual([]); // the declared action was BOUND, never re-declared
     // The central declaration stays the audited description; the store's handler runs.
     const edge = session.available().edges.find((e) => e.affordanceId === 'orders.refresh')!;
     expect(edge.description).toBe('Refresh the order list');
@@ -289,5 +320,41 @@ describe('error stance — loud at attach, isolated inside the notify loop', () 
       spy.mockRestore();
       detach();
     }
+  });
+});
+
+describe('a control the store can SEE but has nothing wired to yet', () => {
+  it('declares it and serves it honestly unmaterialized, instead of pretending it works', async () => {
+    // A store that knows the surface (a server-driven menu, a plugin registry)
+    // before it knows the code behind each entry. The action exists on the page,
+    // so the agent is told it is there — and told, in the same row, that nothing
+    // in this app is wired to perform it.
+    const store = fakeStore([{ node: 'orders', name: 'export', does: 'Export the order list' }]);
+    const session = ordersGraph(store);
+
+    expect(session.available().edges.map((e) => e.affordanceId)).toContain('orders.export');
+    expect(session.fire('orders.export', { source: 'agent' })).toMatchObject({
+      ok: false,
+      reason: 'NOT_MATERIALIZED',
+    });
+
+    // Reconciliation is by IDENTITY, so re-announcing the same `orders.export`
+    // with a handler attached changes nothing — the documented way to replace an
+    // action's behaviour is to remove it and add it back.
+    store.set([
+      { node: 'orders', name: 'export', does: 'Export the order list', handler: () => undefined },
+    ]);
+    await microtasks();
+    expect(session.fire('orders.export', { source: 'agent' })).toMatchObject({
+      reason: 'NOT_MATERIALIZED',
+    });
+
+    store.set([]); //                                     gone
+    await microtasks();
+    store.set([
+      { node: 'orders', name: 'export', does: 'Export the order list', handler: () => undefined },
+    ]);
+    await microtasks();
+    expect(session.fire('orders.export', { source: 'agent' }).ok).toBe(true);
   });
 });

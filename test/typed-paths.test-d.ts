@@ -5,16 +5,16 @@
  * asserts the error exists.
  */
 import { buildNavigationGraph, fromRoutes } from '../src/index.js';
-import type { JourneyDef, SkillDef2 } from '../src/index.js';
+import type { JourneyDef } from '../src/index.js';
 
 const graph = buildNavigationGraph('shop', {
   pages: {
     catalog: {
-      areas: { 'filter-rail': { tools: { 'set-color': { does: 'Filter by color' } } } },
-      tools: { 'add-to-cart': { does: 'Add' } },
+      areas: { 'filter-rail': { actions: { 'set-color': { does: 'Filter by color' } } } },
+      actions: { 'add-to-cart': { does: 'Add' } },
     },
     checkout: {
-      modals: { 'confirm-order': { tools: { 'place-order': { does: 'Place', confirm: true } } } },
+      modals: { 'confirm-order': { actions: { 'place-order': { does: 'Place', confirm: true } } } },
     },
   },
 });
@@ -22,15 +22,15 @@ const graph = buildNavigationGraph('shop', {
 const session = graph.createSession();
 
 // Real paths compile:
-session.registerToolGroup('catalog');
-session.registerToolGroup('catalog.filter-rail');
-session.registerToolGroup('checkout.confirm-order');
+session.registerActions('catalog');
+session.registerActions('catalog.filter-rail');
+session.registerActions('checkout.confirm-order');
 session.setVisible('checkout.confirm-order', true);
 session.show('catalog');
 
 // A typo is a COMPILE error — the whole point of the guardrail:
 // @ts-expect-error 'catalog.filter-rai' is not a declared node path
-session.registerToolGroup('catalog.filter-rai');
+session.registerActions('catalog.filter-rai');
 // @ts-expect-error 'ghost' is not a page
 session.setVisible('ghost', true);
 
@@ -38,20 +38,20 @@ session.setVisible('ghost', true);
 // fromRoutes carries its table's literal keys through `const` inference so a
 // source-contributed page passes the same guardrail hand-authored pages do.
 const sourced = buildNavigationGraph('shop-sourced', {
-  pages: { catalog: { tools: { 'add-to-cart': { does: 'Add' } } } },
+  pages: { catalog: { actions: { 'add-to-cart': { does: 'Add' } } } },
   sources: [fromRoutes({ home: '/', orders: '/orders/:id' })],
 });
 const sourcedSession = sourced.createSession();
 
 // Hand-authored and source-contributed pages both compile:
-sourcedSession.registerToolGroup('catalog');
-sourcedSession.registerToolGroup('home');
-sourcedSession.registerToolGroup('orders');
+sourcedSession.registerActions('catalog');
+sourcedSession.registerActions('home');
+sourcedSession.registerActions('orders');
 sourcedSession.show('orders');
 
 // And a typo is still a COMPILE error, not a silent runtime no-op:
 // @ts-expect-error 'oders' is neither a declared page nor a source page
-sourcedSession.registerToolGroup('oders');
+sourcedSession.registerActions('oders');
 
 // -- a sources-only def: `pages` may be OMITTED entirely ---------------------
 // Two mutation proofs ride the typecheck gate here: against required `pages`
@@ -65,28 +65,80 @@ const sourcesOnly = buildNavigationGraph('shop-sources-only', {
 const sourcesOnlySession = sourcesOnly.createSession();
 
 // The routes-source pages are the ONLY typed paths, and they compile:
-sourcesOnlySession.registerToolGroup('home');
+sourcesOnlySession.registerActions('home');
 sourcesOnlySession.show('cart');
 
 // @ts-expect-error 'hom' is not a page any source declared
-sourcesOnlySession.registerToolGroup('hom');
+sourcesOnlySession.registerActions('hom');
 
-// -- JourneyDef, and the old name that still compiles ------------------------
-// `SkillDef2` was renamed to `JourneyDef` (no number-suffixed names on a public
-// surface) and left behind as a deprecated ALIAS, so 0.5.0 code keeps building.
-// This is the mutation proof for both halves: against a rename with no alias,
-// or an alias that is a lookalike shape rather than the same type, this file
-// fails `npm run typecheck`.
+// -- JourneyDef — ONE name, and it is the name you author with ----------------
+// This block used to prove that the number-suffixed `SkillDef2` still compiled
+// as a deprecated alias of `JourneyDef`. At 1.0 there is no alias to prove: the
+// old name is DELETED, and test/one-word-journey.test-d.ts is where that
+// absence is asserted. What is left here is the half that is still a claim —
+// the type a `journeys:` block accepts is the exported one, so a consumer can
+// build a journey in a variable and hand it in.
 const journey: JourneyDef = { does: 'Buy a dress end to end', steps: ['add-to-cart'] };
-const underTheOldName: SkillDef2 = journey;
-const andBackAgain: JourneyDef = underTheOldName;
 
-// Either name authors the same `skills:` block:
 buildNavigationGraph('shop-journeys', {
-  pages: { catalog: { tools: { 'add-to-cart': { does: 'Add' } } } },
-  skills: { purchase: andBackAgain },
+  pages: { catalog: { actions: { 'add-to-cart': { does: 'Add' } } } },
+  journeys: { purchase: journey },
 });
 
 // @ts-expect-error a journey's `does` is REQUIRED — the planner-facing sentence
 const noDoes: JourneyDef = { steps: ['add-to-cart'] };
 void noDoes;
+
+/**
+ * WRITING DOWN WHAT YOU WERE HANDED MUST NEVER REQUIRE A DEPENDENCY YOU DID NOT
+ * CHOOSE. `CommitBundle` and `MCPToolDescription` are re-exported for what this
+ * package RETURNS; `WhereFilter` is the same rule on the input side — it is the
+ * shape of every `when:` and `enabledWhen:`, half of `VerifyContract`, and the
+ * type of `Journey.precondition`. A consumer factoring a guard into a helper
+ * has to be able to name it from here.
+ */
+import type {
+  CommitBundle,
+  MCPToolDescription,
+  VerifyContract,
+  WhereFilter,
+} from '../src/index.js';
+
+const reusableGuard: WhereFilter = { 'cart.items': { gt: 0 } };
+// It really is the guard type the authoring keys take…
+const guarded: JourneyDef = { does: 'Check out', steps: [], when: reusableGuard };
+// …and really is one half of the exported contract union.
+const contract: VerifyContract = reusableGuard;
+declare const bundles: CommitBundle[];
+declare const tools: MCPToolDescription[];
+void guarded;
+void contract;
+void bundles;
+void tools;
+
+/**
+ * THE TESTING ENTRY'S GENERICS CARRY DEFAULTS, like every generic on the main
+ * entry (`InteractionSession<Paths extends string = string>`, `NavigationGraph
+ * <Paths = string>`, `RoutesSource<PageIds = string>`). Without one, writing
+ * down what `testApp()` handed you — `let app: TestApp` — is a TS2314 rather
+ * than the obvious thing, and a consumer annotating a variable in a test should
+ * not have to restate a state type the call already inferred.
+ */
+import type {
+  Resolver,
+  ResolverContext,
+  ResolverOutcome,
+  TestApp,
+  TestAppOptions,
+} from '../src/testing/index.js';
+
+declare const bareApp: TestApp;
+declare const bareOptions: TestAppOptions;
+declare const bareResolver: Resolver;
+declare const bareContext: ResolverContext;
+declare const bareOutcome: ResolverOutcome;
+void bareApp;
+void bareOptions;
+void bareResolver;
+void bareContext;
+void bareOutcome;

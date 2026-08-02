@@ -10,7 +10,7 @@
  * Deterministic by construction: no clock, no network, no model. The only
  * moving part is the app.
  */
-import { skillsAsTools } from '../../src/index.js';
+import { serveToAgent } from '../../src/index.js';
 import type { ServeResult } from '../../src/index.js';
 import { wireWizard } from './wire.js';
 
@@ -50,7 +50,7 @@ function describe(expects: unknown): string {
 
 async function main(): Promise<void> {
   const wired = wireWizard();
-  const port = skillsAsTools(wired.session);
+  const port = serveToAgent(wired.session);
 
   /**
    * Which controls the app currently says are greyed. Read off `available()`
@@ -74,18 +74,18 @@ async function main(): Promise<void> {
   console.log(greyedLine());
 
   section('turn 2 · it opens the journey');
-  const opened = port.call('wizard.skill.new-project', {});
+  const opened = port.call('wizard.journey.new-project', {});
   show(opened, ['frame', 'judgment', 'readySteps']);
 
   section('turn 3 · it reaches for Next while the button is greyed');
-  show(port.call('wizard.skill.new-project', { step: 'next-to-review' }), [
+  show(port.call('wizard.journey.new-project', { step: 'next-to-review' }), [
     'judgment',
     'did',
     'reason',
   ]);
 
   section('turn 4 · it names the project — and the app agrees it happened');
-  const named = port.call('wizard.skill.new-project', {
+  const named = port.call('wizard.journey.new-project', {
     step: 'name-it',
     input: { name: 'Ion channel screen' },
   });
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
   ]);
 
   section('turn 5 · it picks a recipe the app does not have');
-  const picked = port.call('wizard.skill.new-project', {
+  const picked = port.call('wizard.journey.new-project', {
     step: 'pick-recipe',
     input: { recipe: 'not-a-recipe' },
   });
@@ -116,14 +116,14 @@ async function main(): Promise<void> {
   ]);
 
   section('turn 6 · it picks a real one, and Next un-greys');
-  port.call('wizard.skill.new-project', { step: 'pick-recipe', input: { recipe: 'dose-response' } });
+  port.call('wizard.journey.new-project', { step: 'pick-recipe', input: { recipe: 'dose-response' } });
   await flush();
   const afterRecipe = port.call('wizard.whats_here', {});
   showActions(afterRecipe);
   console.log(greyedLine());
 
   section('turn 7 · Next, through the app’s own router — no handler anywhere');
-  const moved = port.call('wizard.skill.new-project', { step: 'next-to-review' });
+  const moved = port.call('wizard.journey.new-project', { step: 'next-to-review' });
   await flush();
   show(port.call('wizard.did_it_work', { transitionId: moved['transitionId'] }), [
     'settled',
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
   const row = spineless.session.gaps().find((gap) => gap.kind === 'dead-end');
   // Selected fields: the row also carries a wall-clock timestamp, and a
   // transcript a doc is written from must be the same bytes every run.
-  show({ ...row } as ServeResult, ['kind', 'node', 'availableActions', 'availableSkills']);
+  show({ ...row } as ServeResult, ['kind', 'node', 'availableActions', 'availableJourneys']);
 
   wired.detach();
   spineless.detach();

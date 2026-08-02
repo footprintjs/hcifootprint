@@ -143,7 +143,12 @@ function render(value: unknown, depth: number, seen: Set<object>): string | unde
     const parts: string[] = [];
     // Key-sorted, so the comparison is about the input and not about the order a
     // JSON parser happened to hand the keys over in.
-    for (const [key, child] of entries.sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))) {
+    // Hoisted so the exemption lands on THIS statement only: a `v8 ignore`
+    // before a `for` exempts the whole loop, and the body below carries the
+    // undefined-drop rule the comment two lines down calls load-bearing.
+    /* v8 ignore next -- the comparator's equal arm is unreachable: these are one object's own keys, so no two are the same string and the sort never asks whether they tie. */
+    const sorted = entries.sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0));
+    for (const [key, child] of sorted) {
       // An undefined-valued key is DROPPED, matching the receipts snapshot
       // (sanitizeProduced omits it). Without this, `{a:1,b:undefined}` on the
       // wire would refuse against `{a:1}` on the card — a false refusal caused

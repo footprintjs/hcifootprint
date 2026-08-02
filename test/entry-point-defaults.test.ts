@@ -3,14 +3,14 @@
  *
  * A JS caller is not held to the TypeScript signature, so every public entry
  * point they can reach with fewer arguments than it declares has to survive
- * that call. `session.fire('page.tool')` did not: it read `opts.source` off
+ * that call. `session.fire('page.action')` did not: it read `opts.source` off
  * `undefined` and died with a TypeError (a production integration hit exactly
  * that line in the shipped bundle).
  *
  * Two rules are proved here, and both are mutation proofs against pre-fix code:
  *
  *   1. fire() is RUNTIME-optional and TYPE-required. The missing principal
- *      reads as 'agent' — the assumption commitSkill()/confirmAsk() already
+ *      reads as 'agent' — the assumption commitJourney()/confirmAsk() already
  *      publish — and never as 'user': an unattributed machine action must not
  *      enter the gap ledger or the commit log as a human one, and the
  *      never-trap gate (which only refuses agents) must not be disarmed by a
@@ -20,7 +20,7 @@
  *      naming the pages the caller could have started on.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph } from '../src/index.js';
+import { Session, buildNavigationGraph } from '../src/index.js';
 import type { FireOptions, FireResult } from '../src/index.js';
 import { initialState, shop, wire } from './fixture.js';
 
@@ -104,9 +104,9 @@ describe('InteractionSession.fire() with no options — the tree gates run first
   const graph = () =>
     buildNavigationGraph('shop', {
       pages: {
-        catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart' } } },
+        catalog: { actions: { 'add-to-cart': { does: 'Add the dress to the cart' } } },
         checkout: {
-          modals: { 'confirm-order': { tools: { 'place-order': { does: 'Place the order' } } } },
+          modals: { 'confirm-order': { actions: { 'place-order': { does: 'Place the order' } } } },
         },
       },
     });
@@ -124,9 +124,9 @@ describe('InteractionSession.fire() with no options — the tree gates run first
     ]);
   });
 
-  it('a wired tool fires through the override and records the agent as principal', () => {
+  it('a wired action fires through the override and records the agent as principal', () => {
     const session = graph().createSession({ node: 'catalog' });
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
 
     const result = okFire(asJsCaller(session).fire('catalog.add-to-cart'));
 
@@ -134,13 +134,15 @@ describe('InteractionSession.fire() with no options — the tree gates run first
   });
 });
 
-describe('createSession() with no options — no default can be invented, so the refusal speaks', () => {
+describe('a flat Session with no starting page — no default can be invented, so the refusal speaks', () => {
   it('names the pages it could have started on instead of dying with a TypeError', () => {
     const flat = shop();
 
     let thrown: unknown;
     try {
-      (flat as { createSession: (opts?: unknown) => unknown }).createSession();
+      // The JS caller a flat Session really meets: `new Session(spec)` with the
+      // one decision nothing can make for them left out.
+      new (Session as unknown as new (spec: unknown, opts?: unknown) => unknown)(flat.spec);
     } catch (error) {
       thrown = error;
     }
@@ -153,7 +155,7 @@ describe('createSession() with no options — no default can be invented, so the
 
   it('the tree API needs no options at all — it starts on the first declared page', () => {
     const session = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { 'add-to-cart': { does: 'Add' } } }, cart: {} },
+      pages: { catalog: { actions: { 'add-to-cart': { does: 'Add' } } }, cart: {} },
     }).createSession();
 
     expect(session.node).toBe('catalog');

@@ -1,14 +1,14 @@
 import { defineTool } from 'agentfootprint';
 import type { Tool } from 'agentfootprint';
-import type { ServeResult, SkillToolsPort } from 'hcifootprint';
+import type { ServeResult, JourneyToolsPort } from 'hcifootprint';
 
 /**
  * THE BRIDGE — Mode B's tool surface, handed to an agentfootprint Agent.
  *
- * `skillsAsTools(session)` already produces the exact tool array and the router
+ * `journeysAsTools(session)` already produces the exact tool array and the router
  * for it, so this file adds exactly two things and nothing else:
  *
- *   1. NAME SANITISING. The library's names are dotted ('onboarding.skill.signup')
+ *   1. NAME SANITISING. The library's names are dotted ('onboarding.journey.signup')
  *      because dots are fine in MCP. Anthropic and OpenAI accept only
  *      [A-Za-z0-9_-], so every dot becomes an underscore on the way out and the
  *      original is looked up on the way back in. The map is the only state here.
@@ -41,7 +41,7 @@ export function sanitizeToolName(name: string): string {
   return name.replace(/[^A-Za-z0-9_-]/g, '_');
 }
 
-export function createToolBridge(port: SkillToolsPort, settle: () => Promise<void>): ToolBridge {
+export function createToolBridge(port: JourneyToolsPort, settle: () => Promise<void>): ToolBridge {
   const calls: ToolCallRecord[] = [];
   const routes = new Map<string, string>();
 

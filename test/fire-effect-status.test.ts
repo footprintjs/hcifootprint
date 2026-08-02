@@ -15,8 +15,8 @@
  *   the transition and stamped the failure object as data.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
-import type { Binding, FireResult, SkillGraph } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { Binding, FireResult, NavigationGraph } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -27,15 +27,19 @@ function fired(result: FireResult): Extract<FireResult, { ok: true }> {
   return result;
 }
 
-function app(): SkillGraph {
-  return skillGraph('app')
-    .page('a')
-    .page('b')
-    .affordance('save', { on: 'a', description: 'Save the form', binding, effect: { writes: ['saved'] } })
-    .affordance('archive', { on: 'a', description: 'Archive it', binding, effect: { writes: ['archived'] } })
-    .affordance('ping', { on: 'a', description: 'Ping — declares no writes', binding })
-    .affordance('go', { on: 'a', description: 'Go to b', binding, effect: { navigatesTo: 'b' } })
-    .build();
+function app(): NavigationGraph {
+  return buildNavigationGraph('app', {
+    pages: {
+      a: {},
+      b: {},
+    },
+    actions: {
+      save: { on: 'a', does: 'Save the form', binding, writes: ['saved'] },
+      archive: { on: 'a', does: 'Archive it', binding, writes: ['archived'] },
+      ping: { on: 'a', does: 'Ping — declares no writes', binding },
+      go: { on: 'a', does: 'Go to b', binding, goTo: 'b' },
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +49,7 @@ function app(): SkillGraph {
 describe('effectStatus at return time — fire() reports only what it knows', () => {
   it('a tap-mode fire is pending: the app’s report will decide', () => {
     const session = app().createSession({ node: 'a', state: { saved: false } });
-    session.registerTools({ group: 'g', tools: { save: () => undefined } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => undefined } });
     const f = fired(session.fire('save', { source: 'agent' }));
     expect(f.settlement).toBe('awaiting-state');
     expect(f.effectStatus).toBe('pending');
@@ -53,7 +57,7 @@ describe('effectStatus at return time — fire() reports only what it knows', ()
 
   it('a tapless fire with a handler is pending: the handler has not run yet', () => {
     const session = app().createSession({ node: 'a' }); // no state ⇒ no state tap
-    session.registerTools({ group: 'g', tools: { save: () => undefined } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => undefined } });
     const f = fired(session.fire('save', { source: 'agent' }));
     expect(f.settlement).toBe('awaiting-state'); // 0.3.0 meaning, unchanged
     expect(f.effectStatus).toBe('pending');
@@ -75,7 +79,7 @@ describe('effectStatus at return time — fire() reports only what it knows', ()
     // "…by us, later" — so a caller read a queued handler as a done deed.
     const ran: string[] = [];
     const session = app().createSession({ node: 'a', state: {} });
-    session.registerTools({ group: 'g', tools: { ping: () => ran.push('ping') } });
+    session.registerHandlers({ group: 'g', handlers: { ping: () => ran.push('ping') } });
     const f = fired(session.fire('ping', { source: 'agent' }));
     expect(f.settlement).toBe('settled'); // a commit bundle exists…
     expect(f.effectStatus).toBe('pending'); // …and nobody has done anything yet
@@ -94,7 +98,7 @@ describe('effectStatus at return time — fire() reports only what it knows', ()
 
   it('record-only (invoke:false) is pending, then performed when the app reports', async () => {
     const session = app().createSession({ node: 'a', state: { saved: false } });
-    session.registerTools({ group: 'g', tools: { save: () => undefined } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => undefined } });
     // The DOM sensor's mode: the browser already ran the app's onClick.
     const f = fired(session.fire('save', { source: 'user', invoke: false }));
     expect(f.effectStatus).toBe('pending');
@@ -125,7 +129,7 @@ describe('effectStatus at return time — fire() reports only what it knows', ()
 describe('whenSettled — how the fire came to rest', () => {
   it('a handler that returns data performs, and its data rides the settlement', async () => {
     const session = app().createSession({ node: 'a' }); // tapless: completion IS the signal
-    session.registerTools({ group: 'g', tools: { save: () => ({ id: 'row-1' }) } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => ({ id: 'row-1' }) } });
     const f = fired(session.fire('save', { source: 'agent' }));
     const settled = await f.whenSettled;
     expect(settled.effectStatus).toBe('performed');
@@ -138,7 +142,7 @@ describe('whenSettled — how the fire came to rest', () => {
 
   it('carries a COPY of the transition — a consumer cannot rewrite the trace', async () => {
     const session = app().createSession({ node: 'a', state: {} });
-    session.registerTools({ group: 'g', tools: { ping: () => undefined } });
+    session.registerHandlers({ group: 'g', handlers: { ping: () => undefined } });
     const f = fired(session.fire('ping', { source: 'agent' }));
     const settled = await f.whenSettled;
     settled.transition.outcome = 'superseded';
@@ -152,9 +156,9 @@ describe('whenSettled — how the fire came to rest', () => {
       state: { saved: false },
       onWarn: (m) => warnings.push(m),
     });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         save: () => {
           throw new Error('api down');
         },
@@ -170,9 +174,9 @@ describe('whenSettled — how the fire came to rest', () => {
 
   it('a throwing handler on a committed navigation claim refuses AND rolls back', async () => {
     const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         go: () => {
           throw new Error('router crashed');
         },
@@ -191,9 +195,9 @@ describe('whenSettled — how the fire came to rest', () => {
     // the throw proves our handler failed. Neither is averaged away — and the
     // settlement was already answered 'performed' before the throw arrived.
     const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         save: () => {
           session.updateState({ saved: true }); // real report, settles synchronously
           throw new Error('post-report cleanup failed');
@@ -262,9 +266,9 @@ describe('a returned {ok:false} is a failure, not data', () => {
       state: { saved: false },
       onWarn: (m) => warnings.push(m),
     });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: { save: () => ({ ok: false, error: 'card declined' }) },
+      handlers: { save: () => ({ ok: false, error: 'card declined' }) },
     });
     const f = fired(session.fire('save', { source: 'agent' }));
     await flush();
@@ -290,7 +294,7 @@ describe('a returned {ok:false} is a failure, not data', () => {
 
   it('rolls back a committed navigation claim, same as a throw', async () => {
     const session = app().createSession({ node: 'a', state: {}, onWarn: () => undefined });
-    session.registerTools({ group: 'g', tools: { go: () => ({ ok: false }) } });
+    session.registerHandlers({ group: 'g', handlers: { go: () => ({ ok: false }) } });
     const f = fired(session.fire('go', { source: 'agent' }));
     expect(session.node).toBe('b'); // the claim moved the cursor…
     await flush();
@@ -311,7 +315,7 @@ describe('a returned {ok:false} is a failure, not data', () => {
       state: { saved: false },
       onWarn: () => undefined,
     });
-    session.registerTools({ group: 'g', tools: { save: () => ({ ok: false, error: 'nope' }) } });
+    session.registerHandlers({ group: 'g', handlers: { save: () => ({ ok: false, error: 'nope' }) } });
     const f = fired(session.fire('save', { source: 'agent' }));
     await f.whenSettled;
     expect(session.gaps()).toEqual([]); // exact parity with the throw path
@@ -319,9 +323,9 @@ describe('a returned {ok:false} is a failure, not data', () => {
 
   it('still keeps ordinary returns as data — {ok:true} and error-only objects', async () => {
     const session = app().createSession({ node: 'a' });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         save: () => ({ ok: true, id: 'row-9' }),
         archive: () => ({ error: 'shown to the user, not a protocol refusal' }),
       },
@@ -345,13 +349,13 @@ describe('Mode B — the planner sees the invocation truth too', () => {
   function port() {
     const graph = buildNavigationGraph('shop', {
       pages: {
-        catalog: { tools: { 'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] } } },
+        catalog: { actions: { 'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] } } },
       },
-      skills: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
+      journeys: { purchase: { does: 'Buy a dress', steps: ['add-to-cart'] } },
     });
     const session = graph.createSession({ state: { cart: [] }, onWarn: () => undefined });
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
-    return skillsAsTools(session);
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    return serveToAgent(session);
   }
 
   it('do_action carries effectStatus, and no promise ever crosses the wire', () => {

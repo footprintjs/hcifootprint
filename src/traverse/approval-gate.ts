@@ -217,6 +217,7 @@ function lastNoAbout(question: ApprovalQuestion): OpenAsk | undefined {
     // thing the person refused, and the gate never guesses in the permissive
     // direction (same-input.ts, THE ASYMMETRY).
     if (sameInput(question.input, ask.input) === 'different') continue;
+    /* v8 ignore next -- both `?? 0` arms are unreachable: #answerAsk is the only writer of `answer`, and it stamps `answeredAt` in the same breath, so every ask that survives the `answer === undefined` skip above carries a timestamp. (The tie-break the line makes IS exercised — "the person answered twice, and not in the order the cards were made" in human-approval.test.ts — but v8 cannot exempt part of a line.) */
     if (latest === undefined || (ask.answeredAt ?? 0) >= (latest.answeredAt ?? 0)) latest = ask;
   }
   return latest?.answer === 'declined' ? latest : undefined;
@@ -230,6 +231,7 @@ function lastNoAbout(question: ApprovalQuestion): OpenAsk | undefined {
 function liveGrant(question: ApprovalQuestion): { ok: true; askId: string } | { ok: false; expiredAskId?: string } {
   let expiredAskId: string | undefined;
   for (const row of question.standingGrants) {
+    /* v8 ignore next -- unreachable: alwaysApprove is the only thing that ever pushes onto standingGrants and every row it writes is kind 'always-approved'; the check keeps this loop honest if the list ever holds more than one kind. */
     if (row.kind !== 'always-approved') continue;
     if (row.affordanceId !== question.affordanceId) continue;
     if (row.principal !== HUMAN) continue;
@@ -271,6 +273,7 @@ export function stale(
   if (rules.refuseWhenWorldMoved === true) {
     // The row's own stamp is preferred; the ask's is the fallback for a row
     // written before the stamp existed. Neither is guessed.
+    /* v8 ignore next -- the fallback arm is unreachable in a session this build wrote: every confirm row #answerAsk and alwaysApprove create stamps `stateVersion`. It stands for a row written by an older release, where the ask's own anchor is the nearest true answer. */
     const approvedAt = row.stateVersion ?? ask.askedAtStateVersion;
     if (approvedAt !== stateVersion) return true;
   }

@@ -1,15 +1,38 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "entryPoints": ["src/index.ts", "src/mcp.ts", "src/react/index.ts", "src/sensor/index.ts", "src/testing/index.ts", "src/testing/lint.ts"],
-  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": [
+    "src/index.ts",
+    "src/mcp.ts",
+    "src/react/index.ts",
+    "src/sensor/index.ts",
+    "src/testing/index.ts",
+    "src/testing/lint.ts"
+  ],
+  "plugin": [
+    "typedoc-plugin-markdown"
+  ],
   "readme": "none",
   "githubPages": false,
   "hideGenerator": true,
   "excludePrivate": true,
   "excludeProtected": true,
   "excludeInternal": true,
-  "exclude": ["**/*.test.ts", "test/**/*"],
+  "exclude": [
+    "**/*.test.ts",
+    "test/**/*"
+  ],
   "categorizeByGroup": true,
-  "sort": ["alphabetical"],
-  "skipErrorChecking": true
+  "sort": [
+    "alphabetical"
+  ],
+  "skipErrorChecking": true,
+  "intentionallyNotExported": [
+    "ChildPaths",
+    "SourcePagePaths"
+  ],
+  "externalSymbolLinkMappings": {
+    "footprintjs": {
+      "UntrackedSource": "#"
+    }
+  }
 }

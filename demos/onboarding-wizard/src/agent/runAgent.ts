@@ -1,5 +1,5 @@
 import { Agent, isPaused } from 'agentfootprint';
-import { skillsAsTools } from 'hcifootprint';
+import { journeysAsTools } from 'hcifootprint';
 
 import type { OnboardingSession } from '../app/graph.js';
 import { settle as defaultSettle } from '../app/settle.js';
@@ -53,7 +53,7 @@ export function createConversation(opts: ConversationOptions): Conversation {
   const settle = opts.settle ?? defaultSettle;
   // The serving mode: skills as fixed tools, three generics, disclosure in
   // results. confirmHighEffect stays ON — the confirm gate is the demo.
-  const port = skillsAsTools(opts.session, { source: 'agent', confirmHighEffect: true });
+  const port = journeysAsTools(opts.session, { source: 'agent', confirmHighEffect: true });
   const bridge = createToolBridge(port, settle);
 
   const agent = Agent.create({

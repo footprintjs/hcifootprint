@@ -1,0 +1,188 @@
+---
+title: Graph sources & the merge order
+description: fromRoutes, fromJourneys and fromLiveStore turn the descriptions your app already owns into graph input — under one documented merge order, so nobody re-types anything.
+---
+
+An app already owns descriptions of itself: a **route table** its router navigates by, a set
+of **journeys** its team designs, often a **live store** of the actions currently on screen.
+Until sources existed, each had to be re-typed by hand into the graph definition — glue that
+drifts the moment either side edits. With sources, the graph **reads the owner's truth
+instead of copying it**.
+
+```ts twoslash
+import { buildNavigationGraph, fromRoutes, fromJourneys } from 'hcifootprint';
+
+const graph = buildNavigationGraph('onboarding', {
+  sources: [
+    fromRoutes({
+      welcome: '/',
+      account: { route: '/account', does: 'Create your account' },
+      confirm: '/confirm',
+    }),
+    fromJourneys({
+      signup: { does: 'Finish signing up', steps: ['create-account'] },
+    }),
+  ],
+  // hand-authored still works — what the route table cannot know: which actions live where
+  pages: {
+    account: { actions: { 'create-account': { does: 'Create the account' } } },
+  },
+});
+```
+
+## The merge order
+
+One sentence, printed here verbatim and enforced in code:
+
+> **Pages first (routes then hand-authored, hand-authored wins), journeys overlay second and
+> may only add, live actions attach last and only bind — nothing later in the order may
+> remove anything earlier. Routes may also contribute link actions; hand-authored actions win.**
+
+The order is deterministic, and it is the reason a traveler can trust the floor under their
+feet: nothing that arrives later — a journey, a live store emission — can remove or hide a
+page action laid down earlier. That structural guarantee is one third of the
+[never-trap invariant](doc:actuation#the-never-trap-invariant).
+
+The refinements, each deliberate:
+
+- **Hand-authored wins per page id, with one courtesy** — a hand-authored page missing
+  `route` inherits the source's route (that IS the use case: the table owns the address, your
+  hand owns the actions). The same page declaring two DIFFERENT routes refuses loudly — two
+  names for one URL is drift made visible. Route equality is judged by the matcher's own
+  segment reading, never string bytes.
+- **A hand-authored journey wins over a same-id one from a source, silently** — deterministic and
+  documented. A hand-authored **tool** beats a same-id `crossLinks` link the same way, for
+  the same reason: overriding one generated link is ordinary use, not drift.
+- **Two sources of the SAME kind colliding on an id refuse loudly** — ambiguous authorship.
+- **A known kind with an unreadable payload fails closed** in the library's own voice.
+
+A definition without `sources` takes the identity path and compiles bit-for-bit as before —
+sources are additive by construction.
+
+## `fromRoutes` — pages are the spine
+
+Your route table becomes page nodes. Page names are **explicit** — the table's keys. This
+library does not guess a name from `/orders/:id`; the one refusal direction that is always
+safe is asking the author for the name.
+
+**`fromRoutes` gives you pages, not actions** — the spine is places, not gestures, and a
+route table honestly knows nothing about which buttons live on a screen. Reaching a seeded
+page is the [url gesture](doc:actuation) derived from its route; pages seeded here are found
+again by `matchRoute` for the URLs their routes describe, because both sides share one
+segment law.
+
+And they join the same **typed node path union**: `registerActions('account')` compiles
+when `account` came from `fromRoutes`, and a typo is still a compile error.
+
+## Cross-links: making pages reachable
+
+A spine of places with no way to walk between them is not a map. Reported from a production
+integration: a route table contributed 28 pages and **zero actions**, and on a wizard page
+holding one file-select control the agent truthfully answered *"there is no action that would
+take you to the Projects list"* — and looped. The integration's workaround was three
+navigation tools hand-attached to all 28 pages.
+
+`crossLinks` is the opt-in that turns pages into the one action a route can honestly
+describe: **go to this address**.
+
+```ts twoslash
+import { buildNavigationGraph, fromRoutes } from 'hcifootprint';
+
+const graph = buildNavigationGraph('app', {
+  sources: [
+    fromRoutes(
+      {
+        home: '/',
+        projects: { route: '/projects', does: 'the Projects list' },
+        wizard: '/projects/new',
+        project: '/projects/:id', // paramful — skipped by `true`
+      },
+      { crossLinks: true }, // or a named subset: ['projects']
+    ),
+  ],
+});
+
+// → go-to-home, go-to-projects, go-to-wizard: each a root-level tool with a
+//   `url` binding carrying the route, `goTo` making the claim, role 'next',
+//   offered on every page in the effective graph except its own target.
+graph.spec.affordances['go-to-projects'].binding;
+//                                       ^?
+```
+
+It is **opt-in** because inventing 28 tools nobody asked for is the other way to be wrong.
+
+### The two option shapes
+
+The [literal-address law](doc:actuation) decides what can be linked — an address either
+exists as bytes or the gesture does not exist — and the two forms take the two honest stances
+toward it:
+
+| `crossLinks:` | means | a `:param` route | an unknown name |
+|---|---|---|---|
+| `true` | every page in **this table** whose route is fully literal | **skipped** — a documented filter | — |
+| `['projects', …]` | exactly these pages | **refuses** | **refuses** |
+
+A blanket ask gets whatever is linkable; an explicit ask is answered for by name. Both
+refusals fire at the `fromRoutes` call, where the author is looking, rather than at a
+`buildNavigationGraph` three files away.
+
+### Where the links are actually made — merge phase 2.5
+
+`fromRoutes` records the **request**, not finished tools, and that is not bookkeeping: a link
+is offered on *every effective page except its own target*, and the effective page set — this
+table **plus** the def's hand-authored pages — exists only inside the merge. So the fold runs
+as its own phase, **after** the page fold and before the journeys overlay:
+
+1. sources contribute pages (and journeys);
+2. hand-authored pages overlay them, hand wins;
+3. **2.5 — cross-links materialise**, now that the page set is final;
+4. hand-authored journeys overlay the journeys.
+
+Each link is an ordinary **root-level tool**, exactly as you would have written it by hand:
+`goTo` makes the navigation claim (and derives role `next`), a `url` binding carries the
+address as bytes, and the authored `does` is a source-code constant framed around the route
+table's own label — *"Go to the Projects list"*. Nothing downstream needed changing, which is
+the point: the compiler, the url gesture, `navigate` synthesis and the gap ledger all see a
+tool like any other. A target that is the *only* page contributes no link at all — there is
+nowhere to offer it, and an `on: []` tool would die naming a tool you never wrote.
+
+### Hand-authored actions win
+
+A def that already declares its own `go-to-projects` **keeps its own**, silently — the same
+stance a hand-authored journey takes over a same-id one from a source. Overriding one generated link is
+ordinary use, not drift. That is the clause the merge order sentence gained:
+
+> **… Routes may also contribute link actions; hand-authored actions win.**
+
+The links then materialise through machinery that needed no changes: they are ordinary root
+tools, so the session's [`navigate` option](doc:actuation) synthesizes the navigation, a
+registered handler still wins, and without either the agent's fire refuses `NOT_MATERIALIZED`
+carrying `gestureKind: 'url'` — the gap ledger naming exactly which wire is missing.
+
+Cross-links are also the cheapest cure for a
+[dead-end page](doc:live-bindings#dead-end-a-page-where-nothing-can-act): a room whose only
+door is one nobody wired. Worked end to end in
+[Guarded journeys](doc:guarded-journeys).
+
+## `fromJourneys` — journeys overlay, and may only add
+
+A journey arrives in the `JourneyDef` shape — `does` / `steps` / `when` — one
+authoring vocabulary, not a second dialect. Journeys compile through the existing journeys
+pass, so an unknown or ambiguous step dies at build time in the builder's existing voice.
+Structurally, the output is journeys-only: a journey **cannot** remove or hide a page action —
+overlay-may-only-add is not policed, it is impossible.
+
+## `fromLiveStore` — live actions attach last, and only bind
+
+The third source is a **runtime** source: the app's live action store — the smallest
+respectable contract, `subscribe` + `actions()`, the shape React itself blesses — drives the
+existing declare-then-bind wire per session. It contributes nothing at build; `createSession`
+attaches it, and it can only *bind*. The full story, including its error stance and the
+reconcile rules, is on [Live bindings](doc:live-bindings).
+
+## Leaf modules — the tree-shaking story
+
+Each source factory is its own leaf module: importing `fromRoutes` never drags `fromLiveStore`,
+the session machinery, or footprintjs into your bundle — `fromLiveStore` has **zero** value
+imports. The repo's own test suite bundles the shipped `dist/` and pins the numbers. See
+[Tree-shaking](doc:tree-shaking).

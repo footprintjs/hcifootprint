@@ -69,7 +69,7 @@ export function ChatPanel({ desk, bridge }: { desk: Desk; bridge: DeskBridge }):
   return (
     <section className="panel chat">
       <h2>
-        Ask the desk assistant <code>skillsAsTools()</code>
+        Ask the desk assistant <code>serveToAgent()</code>
       </h2>
 
       <div className="provider">

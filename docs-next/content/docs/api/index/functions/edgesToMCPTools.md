@@ -4,15 +4,15 @@ title: edgesToMCPTools
 
 # Function: edgesToMCPTools()
 
-> **edgesToMCPTools**(`spec`, `edges`, `opts?`): `MCPToolDescription`[]
+> **edgesToMCPTools**(`spec`, `edges`, `opts?`): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
-Defined in: [src/serve/mcp.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp.ts#L38)
+Defined in: [src/serve/mcp.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp.ts#L42)
 
 ## Parameters
 
 ### spec
 
-[`SkillGraphSpec`](/api/index/interfaces/SkillGraphSpec)
+[`NavigationGraphSpec`](/api/index/interfaces/NavigationGraphSpec)
 
 ### edges
 
@@ -26,4 +26,4 @@ Defined in: [src/serve/mcp.ts:38](https://github.com/footprintjs/hcifootprint/bl
 
 ## Returns
 
-`MCPToolDescription`[]
+[`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]

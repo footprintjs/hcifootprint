@@ -36,6 +36,12 @@ Re-exports [GraphHealth](/api/testing/interfaces/GraphHealth)
 
 ***
 
+### JourneyHealth
+
+Re-exports [JourneyHealth](/api/testing/interfaces/JourneyHealth)
+
+***
+
 ### LintCode
 
 Re-exports [LintCode](/api/testing/type-aliases/LintCode)
@@ -63,9 +69,3 @@ Re-exports [LintOptions](/api/testing/interfaces/LintOptions)
 ### LintSeverity
 
 Re-exports [LintSeverity](/api/testing/type-aliases/LintSeverity)
-
-***
-
-### SkillHealth
-
-Re-exports [SkillHealth](/api/testing/interfaces/SkillHealth)

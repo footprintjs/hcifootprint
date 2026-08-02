@@ -4,7 +4,7 @@
  * `lintGraph` returns a flat list of findings; `checkGraph` rolls them into a
  * single answer a consumer can act on without iterating: a boolean `ok`, counts,
  * findings grouped by the kind of drift a frontend dev recognises (control /
- * page / flow), a per-skill feasibility list, and a ready-to-print `summary`.
+ * page / flow), a per-journey feasibility list, and a ready-to-print `summary`.
  * The whole health gate is one line:
  *
  *   const health = checkGraph(graph, { initialState });
@@ -18,15 +18,15 @@
  * a real flow sets up, so it would raise false alarms.
  */
 import { lintGraph } from './lint.js';
-import type { LintFinding, LintOptions } from './lint.js';
+import type { LintCode, LintFinding, LintOptions } from './lint.js';
 import type { NavigationGraph } from '../../tree/types.js';
 
 /** The human-recognisable drift buckets a finding falls into. */
 export type DriftType = 'control' | 'page' | 'flow' | 'note';
 
-export interface SkillHealth {
+export interface JourneyHealth {
   id: string;
-  /** No error-severity finding blocks this skill from completing. */
+  /** No error-severity finding blocks this journey from completing. */
   feasible: boolean;
   /** State keys that block it (from the flow findings), when not feasible. */
   blockedOn: string[];
@@ -41,47 +41,53 @@ export interface GraphHealth {
   findings: LintFinding[];
   /** Findings grouped by drift type — control (buttons/inputs), page, flow, note. */
   byType: Record<DriftType, LintFinding[]>;
-  /** Per-skill feasibility rollup. */
-  skills: SkillHealth[];
+  /** Per-journey feasibility rollup. */
+  journeys: JourneyHealth[];
   /** Pages nothing can navigate to. */
   unreachablePages: string[];
   /** A ready-to-print, plain-language report. Empty-ish (a ✓ line) when healthy. */
   summary: string;
 }
 
-const TYPE_OF: Record<string, DriftType> = {
+// KEYED BY THE UNION, NOT BY `string`. The grouping used to carry a `?? 'note'`
+// fallback whose comment claimed it was unreachable "while TYPE_OF names every
+// LintCode" — a claim nothing enforced, so a ninth code would have compiled
+// clean and silently made the sentence false. Typed this way, a new LintCode is
+// a build error at this table, which is where the decision belongs.
+const TYPE_OF: Record<LintCode, DriftType> = {
   'dangling-guard-key': 'control',
   'unsatisfiable-guard': 'control',
   'unreachable-page': 'page',
   'dead-end-page': 'page',
-  'uncompletable-skill': 'flow',
-  'skill-step-order': 'flow',
-  'skill-step-cycle': 'flow',
+  'uncompletable-journey': 'flow',
+  'journey-step-order': 'flow',
+  'journey-step-cycle': 'flow',
   'unconsumed-write': 'note',
 };
 
 const TYPE_LABEL: Record<DriftType, string> = {
   control: 'Control drift (buttons / inputs)',
   page: 'Page drift',
-  flow: 'Flow drift (skills)',
+  flow: 'Flow drift (journeys)',
   note: 'Advisory notes',
 };
 
-/** One-call health check: lint + group by drift type + per-skill rollup + a printable summary. */
+/** One-call health check: lint + group by drift type + per-journey rollup + a printable summary. */
 export function checkGraph(graph: NavigationGraph, opts?: LintOptions): GraphHealth {
   const findings = lintGraph(graph, opts);
 
   const byType: Record<DriftType, LintFinding[]> = { control: [], page: [], flow: [], note: [] };
-  for (const finding of findings) byType[TYPE_OF[finding.code] ?? 'note'].push(finding);
+  for (const finding of findings) byType[TYPE_OF[finding.code]].push(finding);
 
   const errors = findings.filter((f) => f.severity === 'error').length;
   const warnings = findings.filter((f) => f.severity === 'warning').length;
 
-  const skills: SkillHealth[] = Object.values(graph.spec.skills).map((skill) => {
-    const blocking = findings.filter((f) => f.skill === skill.id && f.severity === 'error');
+  const journeys: JourneyHealth[] = Object.values(graph.spec.journeys).map((journey) => {
+    const blocking = findings.filter((f) => f.journey === journey.id && f.severity === 'error');
     return {
-      id: skill.id,
+      id: journey.id,
       feasible: blocking.length === 0,
+      /* v8 ignore next -- the `?? []` arm is unreachable: both journey-scoped codes that reach error severity (uncompletable-journey, journey-step-cycle) always name the keys they are about. */
       blockedOn: [...new Set(blocking.flatMap((f) => f.keys ?? []))],
     };
   });
@@ -97,7 +103,7 @@ export function checkGraph(graph: NavigationGraph, opts?: LintOptions): GraphHea
     warnings,
     findings,
     byType,
-    skills,
+    journeys,
     unreachablePages,
     summary: formatHealth(graph.id, findings, byType, errors, warnings),
   };
@@ -124,7 +130,8 @@ function formatHealth(
     if (group.length === 0) continue;
     lines.push('', `  ▸ ${TYPE_LABEL[type]}`);
     for (const f of group) {
-      const where = f.affordance ?? f.skill ?? f.page ?? '';
+      /* v8 ignore next -- the `?? ''` arm is unreachable from lintGraph, which scopes every finding it emits to an action, a journey or a page; unlike formatFindings this summary is private, so no caller can hand it a placeless one. */
+      const where = f.affordance ?? f.journey ?? f.page ?? '';
       lines.push(`     • [${f.severity.toUpperCase()}] ${where}`, `       ${f.message}`, `       → ${f.remedy}`);
     }
   }

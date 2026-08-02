@@ -8,14 +8,14 @@ Defined in: [src/graph/sources/types.ts:115](https://github.com/footprintjs/hcif
 
 What a live source needs from a session — structural and type-only, so
 fromLiveStore stays a zero-value-import leaf. InteractionSession satisfies
-it as-is: the declare-then-bind wire (registerToolGroup) plus the visibility
+it as-is: the declare-then-bind wire (registerActions) plus the visibility
 wire (show/setVisible) an app may drive after its own handler flips tabs.
 
 ## Methods
 
-### registerToolGroup()
+### registerActions()
 
-> **registerToolGroup**(`path`, `opts?`): [`ToolGroupHandle`](/api/index/interfaces/ToolGroupHandle)
+> **registerActions**(`path`, `opts?`): [`ActionGroupHandle`](/api/index/interfaces/ActionGroupHandle)
 
 Defined in: [src/graph/sources/types.ts:116](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L116)
 
@@ -27,11 +27,11 @@ Defined in: [src/graph/sources/types.ts:116](https://github.com/footprintjs/hcif
 
 ##### opts?
 
-[`RegisterToolGroupOptions`](/api/index/interfaces/RegisterToolGroupOptions)
+[`RegisterActionGroupOptions`](/api/index/interfaces/RegisterActionGroupOptions)
 
 #### Returns
 
-[`ToolGroupHandle`](/api/index/interfaces/ToolGroupHandle)
+[`ActionGroupHandle`](/api/index/interfaces/ActionGroupHandle)
 
 ***
 

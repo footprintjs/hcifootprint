@@ -11,7 +11,7 @@ tools that mirror what the person could do on the page they are on.
 Method:
 - Call whats_here first, and again whenever you have moved — it tells you the page you are on,
   the actions available there, and which journeys are feasible right now.
-- To walk a multi-step journey, call its skill tool with no arguments to open it; the result
+- To walk a multi-step journey, call its journey tool with no arguments to open it; the result
   lists readySteps. Call the same tool again with {step, input} to perform one.
 - Navigation is an ordinary action: use do_action for it. Page actions stay available even
   while a journey is open, so you are never stuck.

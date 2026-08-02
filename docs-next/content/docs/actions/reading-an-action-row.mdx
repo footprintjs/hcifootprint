@@ -1,0 +1,109 @@
+---
+title: What kind of edge am I holding?
+description: "A reading guide for the served action row — every stamp, the declaration behind it, and what it is evidence of. There is no kind field, because the kinds compose: the kind of an edge IS the set of declarations it carries."
+---
+
+## The failure this prevents
+
+A production integration rendering the action list wanted **one word** to switch on — is this a
+navigation, a guarded action, a high-effect one, a busy one, a disabled one? — and was deriving it
+from the stamps by hand, in its own code, against a row whose shape it had to learn by reading
+JSON.
+
+The [ask](https://github.com/footprintjs/hcifootprint/blob/main/LIBRARY_ASK.md) was a `kind` field.
+It was declined, and what it was owed instead is this page: **the table, as a reading guide rather
+than a field on the wire.**
+
+## Why there is no `kind`
+
+Two reasons, either sufficient on its own.
+
+**1. The kinds compose.** Take the Pay button on a checkout page: it sits behind a guard, it charges
+a card, it goes to a receipt page, and right now it is mid-charge. All four are true of one control
+at one moment:
+
+```jsonc
+{ "action": "checkout.pay", "does": "Pay for the order",
+  "goesTo": "receipt",            // it navigates
+  "highEffect": true,             // it is high-effect
+  "enabled": false,               // it is switched off
+  "busy": "Charging your card…" } // and it is working
+```
+
+An enum has to pick one — and whichever it picks, the other three go invisible **exactly when all
+four are true**, which is the moment a reader most needs all four. So the row carries one stamp per
+declaration instead, each absent when the app declared nothing.
+
+**The kind of an edge IS the set of declarations it carries.** That set is already on the row.
+
+**2. Evidence follows the declared claim, never a new classification.** Every stamp below traces to
+one thing *the app said*, and its evidence answers *that* claim. A `kind` would be **this library's**
+word about the edge — a served fact with no declaration behind it — and the first question a reader
+may always ask here, *who said this?*, would have no answer.
+
+## The table
+
+Read it as: *this key is on the row because the app declared that thing, and here is what would
+prove or disprove it.*
+
+| stamp on the row | the declaration behind it | what it claims | its evidence |
+|---|---|---|---|
+| **`goesTo`** | `goTo: '<page id>'` | this action will move you to that page | [`arrival`](doc:navigation-claims) — `'claimed'` until a `sync()` lands on that page, then `'observed'`. No third value. |
+| **`highEffect`** | `confirm: true` | a person should decide before this runs | the [confirm card and its receipts](doc:receipts); under [enforcement](doc:receipts#requirehumanapproval--make-approve-enforceable), a recorded `askId` |
+| **`enabled: false`** | `enabledWhen`, `enabled:` at registration, `handle.setEnabled(…, false)`, or a [live store row](doc:live-bindings) | on screen and not clickable | `TOOL_DISABLED` on a fire — carrying the failing `enabledWhen` conjuncts as `evidence` **only** where a condition is what proved it ([Guards](doc:guards#enabledwhen--the-other-question)) |
+| **`busy`** | `busy:` at registration, `handle.setBusy(…)`, or a live store row | the app is working on this control right now | none, and deliberately: it is [the app's own label](doc:when-a-control-is-busy), never checked, never timed out |
+| **`materialized: false`** | *nothing* — the absence of a handler, a `navigate`-derivable href, or an instance wiring | firing this would execute nothing | `NOT_MATERIALIZED` on an agent fire, carrying the declared [`gesture`](doc:actuation) |
+| **`guardUnevaluated`** | a `when` key your projector never seeded | this edge is here **on faith** | the key names themselves — `graph.requiredStateKeys()` is the fix |
+| **`holds`** | `declareHolds(…)` | what is in the box right now | it is [a reading, not a binding](doc:what-a-control-holds) — firing still sends your own `input` |
+| **`expects`** | `input:` (schema, or the literal `'none'`) | what a caller must send | `PAYLOAD_INVALID`, which carries the contract back with the refusal |
+| **`instances`** + **`enumeration`** | `repeats: true` on a container | this row stands for N cards, addressed by key — and `enumeration` says whether that list is complete (`'selector'`) or only what is mounted (`'mounted-window'`) | `INSTANCE_REQUIRED` / `INSTANCE_UNKNOWN`, each listing the live keys |
+| **`activation`** | a [presence](doc:presence) source other than the ordinary two | how the library came to believe this is on screen | the word itself; the ordinary `'registered'` / `'synced'` never ride |
+
+## The one that is never a stamp
+
+**`when` — the availability guard — has no key on the row, and that is not an omission.** A failed
+`when` *hides* the edge: it is not served at all, so there is no row to carry a stamp. The only
+trace a guard leaves on a served row is `guardUnevaluated`, which says the opposite thing — the
+condition could not be judged, and the edge is here on faith.
+
+So *guarded* is never a property of a row you are holding. It is either a row you were never given,
+or a row with a taken-on-faith marker on it. [Guards](doc:guards) has the full asymmetry.
+
+## Presence is the whole claim
+
+Every stamp above is **presence-only**, and the rule is the same one everywhere:
+
+- **A key means the app declared it.**
+- **No key means this library does not know** — never the opposite of the claim.
+
+There is no `enabled: true`, no `busy: false`, no `highEffect: false` on a served row. A cheerful
+`false` on the rows nobody wired would be a claim about a session that was never asked — and worse,
+it would make the *absence* of the key on the remaining rows read as *nobody knows*, which is
+precisely the fact the presence rule exists to preserve.
+
+## The two rows are the same row
+
+A `whats_here` **action** row and a journey frame's **`readySteps`** row describe the same edge, and
+they agree by construction:
+
+| | `whats_here` action | `readySteps` step |
+|---|---|---|
+| the id key | `action` | `step` |
+| `does`, `goesTo`, `highEffect`, `guardUnevaluated`, `materialized`, `expects` | ✔ | ✔ |
+| `holds`, `enabled`, `busy`, `instances`, `activation` | ✔ | — |
+
+The second group is about the control **as it sits on screen**, and a frame's ready list is a plan
+rather than a screen. When you need the screen state of a step, `whats_here` is the door — that is
+what it is for, and the [modes page](doc:modes) says so on the same rail.
+
+## Honest limits
+
+- **The table describes what the app declared, not what is true.** A `goesTo` on an edge nothing is
+  wired to still says `goesTo`; a `busy` label on a control that finished a minute ago still says
+  `busy`. Every row here is *the app said*, and the library speaks in that voice on purpose.
+- **A stamp is never another stamp's cause.** A disabled-and-busy control has had two true things
+  said about it, and *off because busy* is an inference neither of them made. The refusal that
+  carries both says so out loud rather than leaving the hole a reader would fill in itself.
+- **New declarations add stamps; they never repartition the old ones.** That is the whole reason
+  this is a set rather than an enum — a new fact about an edge is a new optional key, and every
+  reader that branched on the old ones keeps working.

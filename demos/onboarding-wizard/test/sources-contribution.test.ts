@@ -30,8 +30,8 @@ describe('what the sources contributed', () => {
   });
 
   it('names the skills the journey list contributed — this app hand-authors none', () => {
-    expect(reading.skillsFromJourneys.sort()).toEqual(['import-signup', 'signup']);
-    expect(reading.skillsHandAuthored).toEqual([]);
+    expect(reading.journeysFromSources.sort()).toEqual(['import-signup', 'signup']);
+    expect(reading.journeysHandAuthored).toEqual([]);
   });
 
   /**

@@ -15,13 +15,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { Session, buildNavigationGraph } from '../src/index.js';
-import type { SkillGraphSpec } from '../src/index.js';
+import type { NavigationGraphSpec } from '../src/index.js';
 
 function shopDef() {
   return {
     pages: {
       home: {
-        tools: {
+        actions: {
           // Explicit url gesture.
           'open-cart': { does: 'Open the cart', binding: { kind: 'url', href: '/cart' }, goTo: 'cart' },
           // No binding — the gesture derives from the target page's route.
@@ -105,7 +105,7 @@ describe('url materialisation through navigate', () => {
       node: 'home',
       navigate: (href) => void calls.push(`navigate:${href}`),
     });
-    session.registerToolGroup('home', {
+    session.registerActions('home', {
       handlers: { 'open-cart': () => void calls.push('handler') },
     });
     const fired = session.fire('home.open-cart', { source: 'agent' });
@@ -204,7 +204,7 @@ describe('the raw-spec door — the belt behind the three authoring doors', () =
     // re-check is load-bearing: without it, the synthesized handler would
     // hand the router '/orders/:id' VERBATIM — a guessed-param navigation
     // laundered as ok:true / performed.
-    const spec: SkillGraphSpec = {
+    const spec: NavigationGraphSpec = {
       id: 'raw',
       pages: { home: { id: 'home' } },
       affordances: {
@@ -217,7 +217,7 @@ describe('the raw-spec door — the belt behind the three authoring doors', () =
           role: 'action',
         },
       },
-      skills: {},
+      journeys: {},
     };
     const seen: string[] = [];
     const session = new Session(spec, { node: 'home', navigate: (href) => void seen.push(href) });
@@ -241,10 +241,10 @@ describe('tab semantics — its own gesture, descriptive in v1', () => {
       pages: {
         orders: {
           tabs: {
-            open: { tools: { refresh: { does: 'Refresh open orders' } } },
-            history: { tools: { export: { does: 'Export order history' } } },
+            open: { actions: { refresh: { does: 'Refresh open orders' } } },
+            history: { actions: { export: { does: 'Export order history' } } },
           },
-          tools: {
+          actions: {
             'show-history': { does: 'Switch to the history tab', binding: { kind: 'tab', target: 'orders.history' } },
           },
         },
@@ -266,7 +266,7 @@ describe('tab semantics — its own gesture, descriptive in v1', () => {
     session.show('orders.open'); // the app says: the open tab is the visible one
     // A handler that flips tabs but FORGETS the visibility wire: firing it must
     // not move presence — fire() records, it does not see the screen.
-    session.registerToolGroup('orders', { handlers: { 'show-history': () => undefined } });
+    session.registerActions('orders', { handlers: { 'show-history': () => undefined } });
     const fired = session.fire('orders.show-history', { source: 'agent' });
     expect(fired.ok).toBe(true);
     if (!fired.ok) return;

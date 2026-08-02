@@ -15,6 +15,16 @@ A container node: areas coexist (AND), tabs exclude (at most one shown), modals 
 
 ## Properties
 
+### actions?
+
+> `optional` **actions?**: `Record`\<`string`, [`ActionDef`](/api/index/interfaces/ActionDef)\>
+
+Defined in: [src/tree/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L100)
+
+The controls on this node.
+
+***
+
 ### areas?
 
 > `optional` **areas?**: `Record`\<`string`, `NodeDef`\>
@@ -82,18 +92,10 @@ Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/b
 
 ***
 
-### tools?
-
-> `optional` **tools?**: `Record`\<`string`, [`ToolDef`](/api/index/interfaces/ToolDef)\>
-
-Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
-
-***
-
 ### when?
 
-> `optional` **when?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
+> `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
 Defined in: [src/tree/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L86)
 
-Container guard: every descendant tool's guard is AND-narrowed by this.
+Container guard: every descendant action's guard is AND-narrowed by this.

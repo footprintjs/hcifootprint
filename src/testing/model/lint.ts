@@ -5,7 +5,7 @@
  * app evolves the graph drifts from it. This function reads ONLY the compiled
  * graph (no app, no run, no test code) and reports the structural drift it can
  * prove from the graph alone: a control gated on state nothing produces, a
- * guard that can never be true, a skill that can never finish, a page nothing
+ * guard that can never be true, a journey that can never finish, a page nothing
  * can reach. It is the cheap CI gate — run it on every commit.
  *
  * Two design commitments:
@@ -28,9 +28,9 @@
  * It never imports Session (which pulls in the footprint engine), so a
  * lint-only CI step stays engine-free and tree-shakeable.
  */
-import type { SkillGraphSpec } from '../../atom/types.js';
+import type { NavigationGraphSpec } from '../../atom/types.js';
 import type { NavigationGraph } from '../../tree/types.js';
-import { stepDependencies } from '../../graph/skill-deps.js';
+import { stepDependencies } from '../../graph/step-deps.js';
 import { unsatisfiableKeys } from './satisfiable.js';
 
 export type LintSeverity = 'error' | 'warning' | 'info';
@@ -38,9 +38,9 @@ export type LintSeverity = 'error' | 'warning' | 'info';
 export type LintCode =
   | 'dangling-guard-key'
   | 'unsatisfiable-guard'
-  | 'uncompletable-skill'
-  | 'skill-step-order'
-  | 'skill-step-cycle'
+  | 'uncompletable-journey'
+  | 'journey-step-order'
+  | 'journey-step-cycle'
   | 'unreachable-page'
   | 'dead-end-page'
   | 'unconsumed-write';
@@ -54,8 +54,8 @@ export interface LintFinding {
   remedy: string;
   /** The action (affordance) the finding is about, when it is action-scoped. */
   affordance?: string;
-  /** The skill the finding is about, when skill-scoped. */
-  skill?: string;
+  /** The journey the finding is about, when journey-scoped. */
+  journey?: string;
   /** The page the finding is about, when page-scoped. */
   page?: string;
   /** The state key(s) implicated. */
@@ -103,7 +103,7 @@ function list(keys: string[]): string {
  * externalKeys to promote provably-dead findings to errors.
  */
 export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFinding[] {
-  const spec: SkillGraphSpec = graph.spec;
+  const spec: NavigationGraphSpec = graph.spec;
   const affordances = spec.affordances;
   const affList = Object.values(affordances);
   const findings: LintFinding[] = [];
@@ -154,14 +154,15 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
     }
   }
 
-  // --- 3/4/5. skill completability, step order, and cycles -------------------
-  for (const skill of Object.values(spec.skills)) {
-    const steps = skill.steps;
+  // --- 3/4/5. journey completability, step order, and cycles -------------------
+  for (const journey of Object.values(spec.journeys)) {
+    const steps = journey.steps;
     const producedSoFar = new Set<string>([...initialKeys, ...externalKeys]);
     for (let i = 0; i < steps.length; i++) {
       const stepId = steps[i];
       const aff = affordances[stepId];
-      if (!aff) continue; // build() guarantees step ids resolve; defensive only
+      /* v8 ignore next -- unreachable: buildNavigationGraph refuses a journey step that matches no action ("step 'x' matches no action"), so every id in `steps` resolves by the time a graph exists to lint. */
+      if (!aff) continue;
       for (const guardKey of Object.keys(aff.guard ?? {})) {
         if (producedSoFar.has(guardKey)) continue;
         const laterWriter = steps
@@ -169,22 +170,22 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
           .find((other) => (affordances[other]?.effect?.writes ?? []).includes(guardKey));
         if (laterWriter) {
           findings.push({
-            code: 'skill-step-order',
+            code: 'journey-step-order',
             severity: 'warning',
-            skill: skill.id,
+            journey: journey.id,
             affordance: stepId,
             keys: [guardKey],
-            message: `In skill “${skill.id}”, step “${stepId}” needs “${guardKey}”, but the step that produces it (“${laterWriter}”) is listed after it. As ordered, this step is blocked when the skill reaches it.`,
+            message: `In journey “${journey.id}”, step “${stepId}” needs “${guardKey}”, but the step that produces it (“${laterWriter}”) is listed after it. As ordered, this step is blocked when the journey reaches it.`,
             remedy: REMEDY_ACTION,
           });
         } else if (!producible.has(guardKey)) {
           findings.push({
-            code: 'uncompletable-skill',
+            code: 'uncompletable-journey',
             severity: grounded ? 'error' : 'warning',
-            skill: skill.id,
+            journey: journey.id,
             affordance: stepId,
             keys: [guardKey],
-            message: `Skill “${skill.id}” can never finish: step “${stepId}” is gated on “${guardKey}”, which nothing produces (no step writes it, and it is not in the initial/external state).`,
+            message: `Journey “${journey.id}” can never finish: step “${stepId}” is gated on “${guardKey}”, which nothing produces (no step writes it, and it is not in the initial/external state).`,
             remedy: REMEDY_ACTION,
           });
         }
@@ -220,11 +221,11 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
           stepDependencies(affordances, steps, dep.affordanceId).some((d) => d.affordanceId === stepId)
         ) {
           findings.push({
-            code: 'skill-step-cycle',
+            code: 'journey-step-cycle',
             severity: 'error',
-            skill: skill.id,
+            journey: journey.id,
             keys: [...new Set(dep.viaKeys)],
-            message: `Skill “${skill.id}” has steps “${stepId}” and “${dep.affordanceId}” that each need state the other writes — a dependency cycle, so neither can go first.`,
+            message: `Journey “${journey.id}” has steps “${stepId}” and “${dep.affordanceId}” that each need state the other writes — a dependency cycle, so neither can go first.`,
             remedy: REMEDY_ACTION,
           });
         }
@@ -266,8 +267,8 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
   // --- 8. unconsumed write: a declared write no guard ever reads --------------
   const readKeys = new Set<string>();
   for (const aff of affList) for (const key of Object.keys(aff.guard ?? {})) readKeys.add(key);
-  for (const skill of Object.values(spec.skills)) {
-    for (const key of Object.keys(skill.precondition ?? {})) readKeys.add(key);
+  for (const journey of Object.values(spec.journeys)) {
+    for (const key of Object.keys(journey.precondition ?? {})) readKeys.add(key);
   }
   for (const aff of affList) {
     const orphan = (aff.effect?.writes ?? []).filter((key) => !readKeys.has(key));
@@ -294,7 +295,7 @@ export function formatFindings(findings: LintFinding[]): string {
   const ordered = [...findings].sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
   return ordered
     .map((f) => {
-      const where = f.affordance ?? f.skill ?? f.page ?? '';
+      const where = f.affordance ?? f.journey ?? f.page ?? '';
       return `[${f.severity.toUpperCase()}] ${f.code}${where ? ` (${where})` : ''}\n  ${f.message}\n  → ${f.remedy}`;
     })
     .join('\n\n');

@@ -41,11 +41,11 @@ import type {
   ApprovalResult,
   AskStatus,
   AvailableEdge,
-  AvailableSkill,
+  AvailableJourney,
   AvailableSlice,
   BeginWorkOptions,
   Binding,
-  CommitSkillResult,
+  CommitJourneyResult,
   ConfirmReceipts,
   ConfirmRecord,
   ConfirmTrailStep,
@@ -68,21 +68,22 @@ import type {
   SessionEventName,
   SessionEvents,
   SessionOptions,
-  SkillFrame,
-  SkillGraphSpec,
-  SkillPlan,
-  SkillPlanStep,
+  JourneyFrame,
+  NavigationGraphSpec,
+  DependencyEdge,
+  JourneyPlan,
+  JourneyPlanStep,
   StimulusKind,
   SyncResult,
-  ToolGroup,
+  ActionGroup,
   TransitionRecord,
-  TrySkillPlanResult,
+  TryJourneyPlanResult,
   UpdateOptions,
   UpdateResult,
   WorkHandle,
   WorkRow,
 } from '../atom/types.js';
-import { edgesToMCPTools, leaveSkillTool } from '../serve/mcp.js';
+import { edgesToMCPTools, leaveJourneyTool } from '../serve/mcp.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
 import type { SettlementLatch } from './settlement.js';
 import { checkApproval, stale } from './approval-gate.js';
@@ -94,17 +95,18 @@ import { redactFields } from './redact-fields.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { NO_INPUT, expectsOf } from './expects.js';
 import { checkVerify, filterVerdict } from './verify.js';
-import { stepDependencies } from '../graph/skill-deps.js';
-import { ToolRegistry } from '../registry/registry.js';
-import type { Registration, ToolHandler } from '../registry/registry.js';
+import { stepDependencies, unblockingDependencies } from '../graph/step-deps.js';
+import { routeBetween, type RouteStep } from '../graph/reach.js';
+import { ActionRegistry } from '../registry/registry.js';
+import type { Registration, ActionHandler } from '../registry/registry.js';
 
 /**
  * Who an UNATTRIBUTED action is charged to.
  *
  * `FireOptions.source` is required in the types, so this only ever answers for
  * a caller the types never reached — plain JS, or an options object built at
- * runtime. It is not a new policy: `commitSkill()`, `confirmAsk()` and
- * `skillsAsTools()` already publish exactly this assumption, and the session is
+ * runtime. It is not a new policy: `commitJourney()`, `confirmAsk()` and
+ * `serveToAgent()` already publish exactly this assumption, and the session is
  * documented as an agent's actuator — the app self-reporting its OWN motion is
  * the side that says so ('user' / 'system').
  *
@@ -277,14 +279,14 @@ interface PendingTransition {
   settleOnCompletion?: boolean;
 }
 
-/** registerTools() input: one group per component/section, existing handlers by reference. */
-export interface RegisterToolsOptions {
+/** registerHandlers() input: one group per component/section, existing handlers by reference. */
+export interface RegisterHandlersOptions {
   group: string;
-  tools: Record<string, ToolHandler>;
+  handlers: Record<string, ActionHandler>;
 }
 
-/** registerTools() output: optional exact-provenance triggers + the group's cleanup. */
-export interface RegisteredTools {
+/** registerHandlers() output: optional exact-provenance triggers + the group's cleanup. */
+export interface RegisteredHandlers {
   /**
    * Wrapped manual triggers (same signature as the app's handlers): calling
    * one records the action as source 'user' AND invokes the handler — the
@@ -294,12 +296,31 @@ export interface RegisteredTools {
    * tiers instead (DOM sensor / effect-signature inference).
    */
   triggers: Record<string, (payload?: unknown) => FireResult>;
+  /**
+   * Grey out (or restore) one of the actions THIS group registered — the same
+   * control the tree API's group handle has always offered, scoped the same way.
+   * Reaching for an action the group did not register is refused by name.
+   */
+  setEnabled: (actionId: string, enabled: boolean) => void;
+  /**
+   * Say this control is WORKING right now — the app's own label for it, or
+   * `undefined` to clear. The third state a control has, scoped and refused the
+   * same way `setEnabled` is.
+   *
+   * It is here for the same reason `setEnabled` is: the door that mounted a
+   * control owns its state, and greyed/working are not two different kinds of
+   * ownership. Its absence also had a consequence beyond symmetry —
+   * `useWorking` (hcifootprint/react) takes handles by their `setBusy`, so a
+   * flat-session app could mount its controls through this door and then could
+   * not hand the result to the React binding at all.
+   */
+  setBusy: (actionId: string, label: string | undefined) => void;
   /** Unregister everything this call registered (call on unmount). */
   unregister: () => void;
 }
 
 export class Session {
-  readonly #spec: SkillGraphSpec;
+  readonly #spec: NavigationGraphSpec;
   #node: string;
   #version = 0;
   /** Committed state deltas only (settle / stimulus / inference). */
@@ -384,8 +405,8 @@ export class Session {
   /** runtimeStageId → keys tracked-read, collected live via the scope channel. */
   readonly #readsByStep = new Map<string, string[]>();
   readonly #recorder: ScopeRecorder;
-  /** The one open skill frame (v0: one at a time). */
-  #frame: SkillFrame | null = null;
+  /** The one open journey frame (v0: one at a time). */
+  #frame: JourneyFrame | null = null;
   /**
    * Record id whose handler is executing its SYNCHRONOUS portion right now.
    * updateState() called from inside that portion attributes directly to this
@@ -430,8 +451,8 @@ export class Session {
   /** Unbound-work complaints already made (the #warnedOnce discipline — see #warnWorkOnce). */
   readonly #workWarned = new Set<string>();
   /** Closed frames (completed / cancelled / demoted), oldest first. */
-  readonly #frames: SkillFrame[] = [];
-  readonly #registry: ToolRegistry;
+  readonly #frames: JourneyFrame[] = [];
+  readonly #registry: ActionRegistry;
   /**
    * THE VALUE DOOR — how the app says what a control HOLDS, keyed by canonical
    * affordance id. Two maps rather than one because the two doors are not peers:
@@ -465,7 +486,7 @@ export class Session {
    * the same pair says nothing new. New WIRING re-arms it: a mount may have
    * fixed the page, and a page still dead afterwards is a new fact. The
    * fingerprint, not `structureVersion`, is the axis: that counter also bumps
-   * for skill-frame open/close/demote, which cannot wire anything. Off-graph
+   * for journey-frame open/close/demote, which cannot wire anything. Off-graph
    * nodes are keyed `off-graph:<node>` and never re-arm — nothing on screen can
    * author a page. Grows one entry per emitted row, the ledger's own class.
    */
@@ -538,7 +559,7 @@ export class Session {
   /** Monotonic counter for generated tool-group ids (never caller-supplied). */
   #groupSeq = 0;
 
-  constructor(spec: SkillGraphSpec, opts: SessionOptions) {
+  constructor(spec: NavigationGraphSpec, opts: SessionOptions) {
     // `opts?.` where the type says the argument is required: a JS caller who
     // wrote `createSession()` deserves this library's own sentence naming the
     // pages it could have started on, not a TypeError from reading `.node` off
@@ -583,10 +604,11 @@ export class Session {
     };
     this.#commitValues = opts.commitValues ?? 'delta';
     this.#warn = opts.onWarn ?? ((message) => console.warn(message));
-    this.#registry = new ToolRegistry(this.#warn);
+    this.#registry = new ActionRegistry(this.#warn);
     this.#recorder = {
       id: 'hcifootprint-session',
       onRead: (event) => {
+        /* v8 ignore next -- unreachable: footprintjs stamps both a key and a runtimeStageId on every read it reports, so this tap never sees a half-formed event. The guard is what keeps a malformed one out of the reads index instead of filing it under 'undefined'. */
         if (!event.key || !event.runtimeStageId) return;
         const reads = this.#readsByStep.get(event.runtimeStageId) ?? [];
         reads.push(event.key);
@@ -667,12 +689,12 @@ export class Session {
   }
 
   /** The compiled spec every lookup goes through — NavSession overlays mount-declared tools here. */
-  protected get spec(): SkillGraphSpec {
+  protected get spec(): NavigationGraphSpec {
     return this.#spec;
   }
 
   /** The live-binding registry (protected seam for NavSession's per-instance handlers). */
-  protected get registry(): ToolRegistry {
+  protected get registry(): ActionRegistry {
     return this.#registry;
   }
 
@@ -789,23 +811,23 @@ export class Session {
     this.#emit('structure', { version: this.#version, structureVersion: this.#structureVersion });
   }
 
-  /** Generate an opaque group identity (never caller-supplied — see ToolGroup). */
+  /** Generate an opaque group identity (never caller-supplied — see ActionGroup). */
   protected nextGroupId(prefix = 'group'): string {
     return `${prefix}#${(this.#groupSeq += 1)}`;
   }
 
   /**
-   * Flip a registered tool between clickable and greyed-out (used by the
-   * ToolGroup handle). A real change is world motion — it bumps the structure
+   * Flip a registered action between clickable and greyed-out (used by the
+   * ActionGroup handle). A real change is world motion — it bumps the structure
    * axis so a stale plan is caught and the surface re-serves.
    */
-  protected setToolEnabled(affordanceId: string, enabled: boolean): void {
+  protected setActionEnabled(affordanceId: string, enabled: boolean): void {
     if (this.#registry.setEnabled(affordanceId, enabled)) this.noteStructureChange();
   }
 
   /**
-   * Say — or stop saying — that a registered tool is WORKING RIGHT NOW (the
-   * ToolGroup handle's `setBusy`). A real change is world motion for the same
+   * Say — or stop saying — that a registered action is WORKING RIGHT NOW (the
+   * ActionGroup handle's `setBusy`). A real change is world motion for the same
    * reason a `setEnabled` flip is: the served row now reads differently, so a
    * plan made against the old one is stale.
    *
@@ -815,7 +837,7 @@ export class Session {
    * {@link AvailableEdge.busy}: a clock is not evidence, and the ceiling on
    * waiting belongs to whoever is waiting.
    */
-  protected setToolBusy(affordanceId: string, busy: string | undefined): void {
+  protected setActionBusy(affordanceId: string, busy: string | undefined): void {
     const label = this.busyLabel(affordanceId, busy);
     // A REFUSED label is not a CLEAR. `undefined` in means "stop saying it";
     // anything else that failed the door leaves the standing word exactly where
@@ -870,7 +892,7 @@ export class Session {
   }
 
   /**
-   * Whether firing this tool should be refused as TOOL_DISABLED. Protected seam
+   * Whether firing this action should be refused as TOOL_DISABLED. Protected seam
    * so InteractionSession can consult the INSTANCE-keyed registration first —
    * a per-row disabled button ('id[instance]') must block, not just the base id.
    *
@@ -879,7 +901,7 @@ export class Session {
    * flip, a live store row, or the authored `enabledWhen` — should reach the
    * agent as the same retriable refusal.
    */
-  protected isToolDisabled(affordanceId: string, _opts: FireOptions): boolean {
+  protected isActionDisabled(affordanceId: string, _opts: FireOptions): boolean {
     return this.declaredDisabled(affordanceId) || this.#registry.isEnabled(affordanceId) === false;
   }
 
@@ -926,7 +948,7 @@ export class Session {
    * the authored sentence beside it keeps forbidding a guess.
    *
    * Re-read on the refusal path rather than threaded through
-   * {@link isToolDisabled}: that seam is a boolean a subclass overrides
+   * {@link isActionDisabled}: that seam is a boolean a subclass overrides
    * (nav-session.ts), and this asks the same declaration against the same state
    * view one statement later, so the two cannot disagree.
    */
@@ -942,6 +964,7 @@ export class Session {
       .map((condition) => ({ ...condition }));
     // An `enabledWhen: {}` proves disabled while naming nothing (evaluateFilter
     // never matches an empty filter). No conjuncts, no key — absence, not [].
+    /* v8 ignore next -- the `undefined` arm is unreachable: it stands for an `enabledWhen: {}` (which proves disabled while naming nothing), and BOTH authoring doors refuse an empty filter before a graph exists. It keeps 'no conjuncts' spelled as absence rather than as an empty list. */
     return failing.length > 0 ? failing : undefined;
   }
 
@@ -1077,8 +1100,10 @@ export class Session {
       if (released) return;
       released = true;
       const live = this.#holdsDeclared.get(key);
+      /* v8 ignore next -- unreachable: these closures are the ONLY writers of #holdsDeclared, each releases once (the `released` latch above), and a stack is deleted only when its last reader leaves — so this reader's own stack is always still here. */
       if (!live) return;
       const at = live.lastIndexOf(read);
+      /* v8 ignore next -- and its own entry is always still in that stack, for the same reason. */
       if (at === -1) return;
       live.splice(at, 1);
       if (live.length === 0) this.#holdsDeclared.delete(key);
@@ -1212,54 +1237,99 @@ export class Session {
   }
 
   // -------------------------------------------------------------------------
-  // registerTools — the live-binding wire (declare statically, bind dynamically)
+  // registerHandlers — the live-binding wire (declare statically, bind dynamically)
   // -------------------------------------------------------------------------
 
   /**
-   * Build a ToolGroup handle for a generated group id. Protected: the PUBLIC
-   * registration entry points (registerToolGroup / registerTool) live on
-   * InteractionSession (the tree API — they take a node path). The flat/legacy
-   * graph registers via {@link registerTools}. `setEnabled` may be overridden
-   * for instance-aware key mapping.
+   * Build an ActionGroup handle for a generated group id. Protected: the PUBLIC
+   * node-scoped entry points (registerActions / registerAction) live on
+   * InteractionSession (the tree API — they take a node path). A flat Session
+   * binds through {@link registerHandlers}. `setEnabled` may be overridden for
+   * instance-aware key mapping.
    */
-  protected makeToolGroup(
+  protected makeActionGroup(
     group: string,
     node?: string,
-    setEnabled?: (toolId: string, enabled: boolean) => void,
-    setBusy?: (toolId: string, busy: string | undefined) => void,
-  ): ToolGroup {
+    setEnabled?: (actionId: string, enabled: boolean) => void,
+    setBusy?: (actionId: string, busy: string | undefined) => void,
+  ): ActionGroup {
     return {
       id: group,
       ...(node !== undefined ? { node } : {}),
-      setEnabled: setEnabled ?? ((toolId: string, enabled: boolean) => this.setToolEnabled(toolId, enabled)),
-      setBusy: setBusy ?? ((toolId: string, busy: string | undefined) => this.setToolBusy(toolId, busy)),
+      setEnabled: setEnabled ?? ((actionId: string, enabled: boolean) => this.setActionEnabled(actionId, enabled)),
+      setBusy: setBusy ?? ((actionId: string, busy: string | undefined) => this.setActionBusy(actionId, busy)),
       unregister: () => this.unregisterGroup(group),
     };
   }
 
   /**
-   * Register handlers on the FLAT graph (skillGraph — no node tree). Takes a
-   * caller `group` string; the tree API (InteractionSession.registerToolGroup)
-   * is preferred where you have a node path — it returns a handle so you never
-   * invent a group name.
+   * Bind the app's existing handlers to declared actions on a FLAT graph (no
+   * node tree). Takes a caller `group` string; the tree API
+   * (InteractionSession.registerActions) is preferred where you have a node
+   * path — it returns a handle so you never invent a group name.
    */
-  registerTools(opts: RegisterToolsOptions): RegisteredTools {
-    const unknown = Object.keys(opts.tools).filter((id) => !this.spec.affordances[id]);
+  registerHandlers(opts: RegisterHandlersOptions): RegisteredHandlers {
+    const unknown = Object.keys(opts.handlers).filter((id) => !this.spec.affordances[id]);
     if (unknown.length > 0) {
       throw new Error(
-        `hcifootprint: registerTools group '${opts.group}' includes undeclared affordance(s) ` +
-          `${unknown.map((u) => `'${u}'`).join(', ')} — declare them in the skill graph first ` +
+        `hcifootprint: registerHandlers group '${opts.group}' includes undeclared affordance(s) ` +
+          `${unknown.map((u) => `'${u}'`).join(', ')} — declare them in the navigation graph first ` +
           `(known: ${Object.keys(this.spec.affordances).join(', ')}).`,
       );
     }
     const triggers: Record<string, (payload?: unknown) => FireResult> = {};
-    for (const [affordanceId, handler] of Object.entries(opts.tools)) {
+    for (const [affordanceId, handler] of Object.entries(opts.handlers)) {
       this.#registry.register(opts.group, affordanceId, handler);
       triggers[affordanceId] = (payload?: unknown) =>
         this.fire(affordanceId, { source: 'user', payload });
     }
     this.noteStructureChange();
-    return { triggers, unregister: () => this.unregisterGroup(opts.group) };
+    const registered = new Set(Object.keys(opts.handlers));
+    return {
+      triggers,
+      // A door that registers an action should be able to grey it out — the
+      // group handle on the tree API has always offered this, and its absence
+      // here was an asymmetry rather than a decision: a flat session could mount
+      // a control and then had no way to say it is currently unclickable.
+      //
+      // SCOPED TO WHAT THIS GROUP REGISTERED, which is why the capability is not
+      // simply public on the session: enablement belongs to whoever mounted the
+      // control, and a caller reaching past that would be switching off someone
+      // else's button.
+      setEnabled: (actionId: string, enabled: boolean) => {
+        this.#assertGroupGoverns(opts.group, registered, actionId, 'enable/disable');
+        this.setActionEnabled(actionId, enabled);
+      },
+      // THE THIRD STATE, through the same door and under the same scope. A
+      // control is clickable, switched off, or working; two of the three had a
+      // wire here and the third did not, which is an asymmetry rather than a
+      // decision — and one with a consequence, since `useWorking` takes handles
+      // by their `setBusy`.
+      setBusy: (actionId: string, label: string | undefined) => {
+        this.#assertGroupGoverns(opts.group, registered, actionId, 'set busy on');
+        this.setActionBusy(actionId, label);
+      },
+      unregister: () => this.unregisterGroup(opts.group),
+    };
+  }
+
+  /**
+   * A group governs only what it mounted. Shared by both state wires on the
+   * handle so they can never drift into two different scoping rules — the
+   * refusal names what this group actually registered, so the caller can see
+   * whose control they reached for.
+   */
+  #assertGroupGoverns(
+    group: string,
+    registered: ReadonlySet<string>,
+    actionId: string,
+    verb: string,
+  ): void {
+    if (registered.has(actionId)) return;
+    throw new Error(
+      `hcifootprint: group '${group}' cannot ${verb} '${actionId}' — it registered ` +
+        `${[...registered].map((id) => `'${id}'`).join(', ')}. A group governs only what it mounted.`,
+    );
   }
 
   /** Remove every live binding currently owned by `group` (component unmount). */
@@ -1297,60 +1367,60 @@ export class Session {
     };
   }
 
-  /** Skill-level disclosure for the planning LLM (descriptions + feasibility, no tool detail). */
-  availableSkills(): { version: number; node: string; skills: AvailableSkill[] } {
-    const skills: AvailableSkill[] = [];
-    for (const skill of Object.values(this.spec.skills)) {
-      const pre = this.#evalGuard(skill.precondition);
-      const entry = this.spec.affordances[skill.steps[0]];
+  /** Journey-level disclosure for the planning LLM (descriptions + feasibility, no tool detail). */
+  availableJourneys(): { version: number; node: string; journeys: AvailableJourney[] } {
+    const journeys: AvailableJourney[] = [];
+    for (const journey of Object.values(this.spec.journeys)) {
+      const pre = this.#evalGuard(journey.precondition);
+      const entry = this.spec.affordances[journey.steps[0]];
       const entryGuard = this.#evalGuard(entry.guard);
-      skills.push({
-        id: skill.id,
-        description: skill.description,
-        steps: [...skill.steps],
+      journeys.push({
+        id: journey.id,
+        description: journey.description,
+        steps: [...journey.steps],
         preconditionPassed: pre.matched,
         evidence: pre.conditions,
         ...(pre.unevaluable.length > 0 ? { preconditionUnevaluable: pre.unevaluable } : {}),
         entryAvailable: entry.on.includes(this.#node) && entryGuard.matched,
       });
     }
-    return { version: this.#version, node: this.#node, skills };
+    return { version: this.#version, node: this.#node, journeys };
   }
 
   // -------------------------------------------------------------------------
-  // Skill frames — on-demand disclosure: serve skills, expand tools on commit
+  // Journey frames — on-demand disclosure: serve journeys, expand tools on commit
   // -------------------------------------------------------------------------
 
   /**
-   * Commit to a skill: opens a frame so toMCPTools()/contextBrief() serve ONLY
-   * that skill's currently-fireable steps plus escape tools — the token win
-   * (skills for planning, tools on commit). One frame at a time in v0.
+   * Commit to a journey: opens a frame so toMCPTools()/contextBrief() serve ONLY
+   * that journey's currently-fireable steps plus escape tools — the token win
+   * (journeys for planning, tools on commit). One frame at a time in v0.
    *
    * Never-trap invariant: an agent commit whose entry step cannot materialise
    * right now is refused ENTRY_NOT_MATERIALIZED instead of opening a frame
    * that could never act (see the gate below).
    */
-  commitSkill(
-    skillId: string,
+  commitJourney(
+    journeyId: string,
     opts?: { source?: Principal; expectedVersion?: number },
-  ): CommitSkillResult {
-    const skill = this.spec.skills[skillId];
-    if (!skill) {
-      return { ok: false, reason: 'UNKNOWN_SKILL', known: Object.keys(this.spec.skills) };
+  ): CommitJourneyResult {
+    const journey = this.spec.journeys[journeyId];
+    if (!journey) {
+      return { ok: false, reason: 'UNKNOWN_JOURNEY', known: Object.keys(this.spec.journeys) };
     }
     if (opts?.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
       return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
     }
     if (this.#frame) {
-      return { ok: false, reason: 'FRAME_ALREADY_OPEN', skillId: this.#frame.skillId };
+      return { ok: false, reason: 'FRAME_ALREADY_OPEN', journeyId: this.#frame.journeyId };
     }
-    const pre = this.#evalGuard(skill.precondition);
+    const pre = this.#evalGuard(journey.precondition);
     if (!pre.matched) {
       return { ok: false, reason: 'PRECONDITION_FAILED', evidence: pre.conditions };
     }
     const principal = opts?.source ?? 'agent';
     // THE NEVER-TRAP COMMIT GATE (fifth refusal, after the existing four): a
-    // skill whose ENTRY step could not act right now must never open its frame
+    // journey whose ENTRY step could not act right now must never open its frame
     // — the agent would stand in a narrowed room where the first thing it was
     // promised cannot act. The question is couldMaterialise: handlerFor's
     // widened resolution (registered, else navigate-derived) PLUS any
@@ -1362,12 +1432,12 @@ export class Session {
     // retriable, not missing wiring). The refusal lands ONE gap row and
     // touches no state — no transition, no commit bundle.
     if (principal === 'agent' && !this.#allowUnmaterialized) {
-      const entryId = skill.steps[0];
+      const entryId = journey.steps[0];
       const entry = this.spec.affordances[entryId];
       if (!this.couldMaterialise(entryId)) {
         this.recordRejection(entryId, 'ENTRY_NOT_MATERIALIZED', principal, undefined, undefined, {
           gestureKind: entry?.binding?.kind,
-          skillId,
+          journeyId,
         });
         return {
           ok: false,
@@ -1378,7 +1448,7 @@ export class Session {
       }
     }
     this.#frame = {
-      skillId,
+      journeyId,
       status: 'open',
       principal,
       openedAt: Date.now(),
@@ -1388,7 +1458,7 @@ export class Session {
     };
     this.#version++; // the served action space just changed
     this.#bumpStructure();
-    return { ok: true, frame: this.#frameCopy()!, plan: this.skillPlan(skillId), version: this.#version };
+    return { ok: true, frame: this.#frameCopy()!, plan: this.journeyPlan(journeyId), version: this.#version };
   }
 
   /**
@@ -1396,12 +1466,12 @@ export class Session {
    * committed while the frame was open, else 'cancelled'. Returns the closed
    * frame, or null when none was open.
    */
-  leaveSkill(opts?: { reason?: 'completed' | 'cancelled' }): SkillFrame | null {
+  leaveJourney(opts?: { reason?: 'completed' | 'cancelled' }): JourneyFrame | null {
     if (!this.#frame) return null;
-    const skill = this.spec.skills[this.#frame.skillId];
+    const journey = this.spec.journeys[this.#frame.journeyId];
     // Completion counts observed AND inferred steps; inferredSteps on the
     // returned frame says which of them were guesses.
-    const allDone = skill.steps.every(
+    const allDone = journey.steps.every(
       (step) => this.#frame!.firedSteps.includes(step) || this.#frame!.inferredSteps.includes(step),
     );
     this.#frame.status = opts?.reason ?? (allDone ? 'completed' : 'cancelled');
@@ -1409,43 +1479,138 @@ export class Session {
     this.#frames.push(this.#frame);
     const closed = this.#frameCopy(this.#frame);
     this.#frame = null;
-    this.#version++; // back to skill-level disclosure
+    this.#version++; // back to journey-level disclosure
     this.#bumpStructure();
     return closed;
   }
 
-  /** The open skill frame (snapshot), or null. */
-  skillFrame(): SkillFrame | null {
+  /** The open journey frame (snapshot), or null. */
+  journeyFrame(): JourneyFrame | null {
     return this.#frameCopy();
   }
 
   /** Frame history: every closed frame (completed / cancelled / demoted), oldest first. */
-  frames(): SkillFrame[] {
+  frames(): JourneyFrame[] {
     return this.#frames.map((f) => this.#frameCopy(f)!);
   }
 
   /**
-   * The DERIVED intra-skill dependency DAG with live status. Dependencies are
+   * HOW DO I GET THERE — the fewest declared hops from where the cursor is to
+   * `pageId`, each naming the action whose claim makes the hop.
+   *
+   * `[]` when you are already there; `null` when nobody declares a route — the
+   * honest absence, not "it cannot be reached", because an app may navigate in
+   * ways it never declared.
+   *
+   * DERIVED from `effect.navigatesTo`, which exists for other reasons. Pages
+   * declare no edges to each other; an action's claim IS the edge, so there is
+   * nothing to author and nothing that can drift.
+   *
+   * A ROUTE IS NOT A PLAN, and not a permission. It reports declared hops in
+   * fewest-hops order — arithmetic, not preference; a preferred order toward a
+   * goal is a journey, which is declared. And it does not promise the hops are
+   * open: a guard may be closed or a control greyed. Availability is answered
+   * on the row of the action you are about to reach for, and is deliberately
+   * NOT guessed here for pages you have not arrived at, because the state at a
+   * page this session has never seen is a thing it cannot honestly speak to.
+   */
+  howToReach(pageId: string): RouteStep[] | null {
+    // A PAGE NOBODY DECLARED IS A DIFFERENT ANSWER FROM A PAGE NOBODY ROUTES TO,
+    // and `null` cannot be both. Read as honest absence, a typo or a renamed page
+    // would say "this app declares no way there" — turning a caller's mistake
+    // into a finding about the app, and an under-declared graph is exactly what a
+    // reader of this method is trying to detect. Every sibling read refuses an
+    // unknown id by name (`explain`, `journeyPlan`), and the known list is right
+    // here, so the refusal teaches instead of misinforming.
+    if (!Object.hasOwn(this.spec.pages, pageId)) {
+      throw new Error(
+        `hcifootprint: unknown page '${pageId}'. Known: ${Object.keys(this.spec.pages).join(', ')}.`,
+      );
+    }
+    return routeBetween(this.spec.affordances, this.#node, pageId);
+  }
+
+  /**
+   * WHAT WOULD FREE THIS ACTION — the actions whose declared writes touch a key
+   * this one is waiting on, each with the specific keys.
+   *
+   * The same rule `journeyPlan` runs over a journey's steps, widened to every
+   * declared action: DERIVED, never authored. Both halves already exist for
+   * other reasons (`writes` powers verification; `guard` and `enabledWhen`
+   * power availability), so nothing new is declared and nothing can drift.
+   *
+   * IT ANSWERS A QUESTION A GREYED CONTROL OTHERWISE CANNOT. `enabled: false`
+   * says a control is off; this says what the app itself claims would change
+   * that — so a reader stops re-firing a dead button to find out.
+   *
+   * FOUR HONESTY LIMITS, each a test:
+   * - **Only the conditions that did NOT hold.** The keys are evaluated against
+   *   live state, never read off the declaration. A control is offered at all
+   *   only once its guard HOLDS, so naming actions that write a satisfied
+   *   condition's keys would answer with the actions that DESTROY the thing the
+   *   control is standing on — "discard the draft", "log out" — and read as
+   *   advice to fire them. Inverted, and inverted toward the highest-effect
+   *   actions in the app. What is not holding it back is not an answer to what
+   *   would free it.
+   * - **A claim, not a promise.** `writes` is the app's claim that an action
+   *   changes a key. This reports the claim; firing that action is not promised
+   *   to free this one.
+   * - **Silence over guessing.** An action nobody claims to write a key for
+   *   returns `[]` — the honest "nothing here knows what would change it",
+   *   never an invented suggestion. A condition the library could not evaluate
+   *   is dropped by the same law: it is not evidence of a block.
+   * - **Never a plan.** The list is unordered and unranked. Ordering intent is
+   *   a journey, which is declared, not derived.
+   *
+   * Scope is every declared action, not just this node's: the control that
+   * frees a greyed button often lives on another page, and hiding a true
+   * answer to keep the list short would be the wrong trade.
+   */
+  whatUnblocks(affordanceId: string): DependencyEdge[] {
+    const aff = this.spec.affordances[affordanceId];
+    return unblockingDependencies(
+      this.spec.affordances,
+      Object.keys(this.spec.affordances),
+      affordanceId,
+      [...this.#unmetKeys(aff?.guard), ...this.#unmetKeys(aff?.enabledWhen)],
+    );
+  }
+
+  /**
+   * The conjunct keys of one declared condition that the app's CURRENT state
+   * does not meet. Unevaluable keys never appear — `#evalGuard` drops them
+   * before evaluating, so this can only ever name a key the library actually
+   * read and actually found wanting.
+   */
+  #unmetKeys(filter: WhereFilter | undefined): string[] {
+    if (!filter) return [];
+    return this.#evalGuard(filter)
+      .conditions.filter((condition) => !condition.result)
+      .map((condition) => condition.key);
+  }
+
+  /**
+   * The DERIVED intra-journey dependency DAG with live status. Dependencies are
    * computed, never authored: step B depends on step A when A's declared
    * effect.writes overlap B's guard keys — the guard×effect atoms already
    * encode the ordering, so it cannot drift from the graph.
    */
-  skillPlan(skillId: string): SkillPlan {
-    const skill = this.spec.skills[skillId];
-    if (!skill) {
+  journeyPlan(journeyId: string): JourneyPlan {
+    const journey = this.spec.journeys[journeyId];
+    if (!journey) {
       throw new Error(
-        `hcifootprint: unknown skill '${skillId}'. Known: ${Object.keys(this.spec.skills).join(', ')}.`,
+        `hcifootprint: unknown journey '${journeyId}'. Known: ${Object.keys(this.spec.journeys).join(', ')}.`,
       );
     }
-    const steps: SkillPlanStep[] = skill.steps.map((stepId) => {
+    const steps: JourneyPlanStep[] = journey.steps.map((stepId) => {
       const aff = this.spec.affordances[stepId];
-      const dependsOn = stepDependencies(this.spec.affordances, skill.steps, stepId);
+      const dependsOn = stepDependencies(this.spec.affordances, journey.steps, stepId);
 
       const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
-      const frameForSkill = this.#frame?.skillId === skillId ? this.#frame : null;
-      const status = frameForSkill?.firedSteps.includes(stepId)
+      const frameForJourney = this.#frame?.journeyId === journeyId ? this.#frame : null;
+      const status = frameForJourney?.firedSteps.includes(stepId)
         ? 'done'
-        : frameForSkill?.inferredSteps.includes(stepId)
+        : frameForJourney?.inferredSteps.includes(stepId)
           ? 'inferred-done'
           : !matched
             ? 'blocked'
@@ -1460,33 +1625,33 @@ export class Session {
         onNodes: [...aff.on],
         ...(status === 'blocked' ? { blockedOn: conditions.filter((c) => !c.result) } : {}),
         ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
-      } as SkillPlanStep;
+      } as JourneyPlanStep;
     });
-    return { skillId, description: skill.description, steps };
+    return { journeyId, description: journey.description, steps };
   }
 
   /**
-   * skillPlan() for an id the caller did not author — a model's, a URL's, a
+   * journeyPlan() for an id the caller did not author — a model's, a URL's, a
    * config file's — answering with a value instead of a throw. Same plan; the
-   * failure arm is the UNKNOWN_SKILL shape commitSkill() already returns.
+   * failure arm is the UNKNOWN_JOURNEY shape commitJourney() already returns.
    *
-   * skillPlan() keeps throwing, deliberately. Every caller inside the library
+   * journeyPlan() keeps throwing, deliberately. Every caller inside the library
    * passes an id the spec itself just yielded, and there an unknown id is a bug
    * that should stop the program, not a branch someone forgets to write. This
-   * is the door for ids that arrive from outside, where not-a-skill is an
+   * is the door for ids that arrive from outside, where not-a-journey is an
    * ordinary answer.
    *
    * Membership is Object.hasOwn rather than a truthiness lookup BECAUSE the ids
-   * here are untrusted: `skills['constructor']` is truthy on any plain object,
+   * here are untrusted: `journeys['constructor']` is truthy on any plain object,
    * so a lookup would sail past the guard and fail downstream reading `.steps`
    * off Object's constructor — a TypeError where the caller asked for exactly
-   * the honest "no such skill" this method exists to give.
+   * the honest "no such journey" this method exists to give.
    */
-  trySkillPlan(skillId: string): TrySkillPlanResult {
-    if (!Object.hasOwn(this.spec.skills, skillId)) {
-      return { ok: false, reason: 'UNKNOWN_SKILL', known: Object.keys(this.spec.skills) };
+  tryJourneyPlan(journeyId: string): TryJourneyPlanResult {
+    if (!Object.hasOwn(this.spec.journeys, journeyId)) {
+      return { ok: false, reason: 'UNKNOWN_JOURNEY', known: Object.keys(this.spec.journeys) };
     }
-    return { ok: true, plan: this.skillPlan(skillId) };
+    return { ok: true, plan: this.journeyPlan(journeyId) };
   }
 
   // -------------------------------------------------------------------------
@@ -1594,7 +1759,7 @@ export class Session {
     // that did not hold ride the refusal and the ledger row exactly as
     // GUARD_FAILED's do above, so a reader can NAME the field instead of being
     // told a conclusion. Absent for the imperative wires — see #disabledEvidence.
-    if (opts.invoke !== false && this.isToolDisabled(affordanceId, opts)) {
+    if (opts.invoke !== false && this.isActionDisabled(affordanceId, opts)) {
       const evidence = this.#disabledEvidence(affordanceId);
       this.recordRejection(affordanceId, 'TOOL_DISABLED', source, evidence);
       return { ok: false, reason: 'TOOL_DISABLED', affordanceId, ...(evidence ? { evidence } : {}) };
@@ -2215,6 +2380,7 @@ export class Session {
     // a caller can query can never name different fires.
     const open = this.awaitingSettlement();
     const known = this.#transitions.find((t) => t.id === transitionId);
+    /* v8 ignore next 6 -- two of the three arms below are unreachable, and v8 can only exempt the statement they live in. The 'opened no settlement' arm: every ok fire leaves an open latch or a RETAINED settlement, so a fired id never gets this far. The `?? 'stimulus'` fallback: a stimulus row's name is defaulted where the row is recorded, so it is never missing here. Both keep the refusal a sentence rather than a shrug if either invariant is relaxed. */
     const what =
       known === undefined
         ? `no transition '${transitionId}' in this session`
@@ -2338,6 +2504,7 @@ export class Session {
       // settle THAT record precisely instead of stranding it forever.
       const deltaKeys = Object.keys(delta);
       const own = this.#pending.filter((p) => {
+        /* v8 ignore next -- the `?? []` arm is unreachable: a fire only joins #pending when its affordance DECLARED writes, so every pending here has some. */
         const writes = p.affordance.effect?.writes ?? [];
         return writes.length > 0 && writes.every((key) => deltaKeys.includes(key));
       });
@@ -2392,7 +2559,7 @@ export class Session {
         // to the plan — 'inferred-done' — or the agent blind-refires the step.
         if (
           this.#frame &&
-          this.spec.skills[this.#frame.skillId].steps.includes(inferred.id) &&
+          this.spec.journeys[this.#frame.journeyId].steps.includes(inferred.id) &&
           !this.#frame.firedSteps.includes(inferred.id) &&
           !this.#frame.inferredSteps.includes(inferred.id)
         ) {
@@ -2615,6 +2782,7 @@ export class Session {
       if (record !== undefined && record.cause.kind === 'fired') {
         return {
           transitionId,
+          /* v8 ignore next 3 -- the `{}` arm is unreachable: a record of kind 'fired' always names the action that was fired. It is written this way because TransitionRecord.cause types the field across BOTH kinds. */
           ...(record.cause.affordanceId !== undefined
             ? { affordanceId: record.cause.affordanceId }
             : {}),
@@ -2641,6 +2809,7 @@ export class Session {
     }
     if (this.#invokingRecordId !== null) {
       const record = this.#transitions.find((t) => t.id === this.#invokingRecordId);
+      /* v8 ignore next 9 -- the else arm is unreachable: #invokingRecordId is set only while a FIRE's handler is running, and that fire's record is in the log under the action that made it. The `{}` inside is unreachable for the same reason the one above is — a fired record always names its action. */
       if (record !== undefined && record.cause.kind === 'fired') {
         return {
           transitionId: record.id,
@@ -2825,11 +2994,11 @@ export class Session {
   }
 
   // -------------------------------------------------------------------------
-  // Gap ledger — unmet demand, the input to "which skill should we build next"
+  // Gap ledger — unmet demand, the input to "which journey should we build next"
   // -------------------------------------------------------------------------
 
   /**
-   * Report an ask that no available action or skill could serve (typically
+   * Report an ask that no available action or journey could serve (typically
    * called by the agent's report_gap tool before it apologizes). The row is
    * token-lean by design: the ask plus NAME lists, never descriptions.
    */
@@ -2869,8 +3038,8 @@ export class Session {
     principal: Principal,
     evidence?: FilterCondition[],
     precomputedActions?: string[],
-    /** Extra triage words for wiring-shaped refusals (which gesture; which skill asked). */
-    detail?: { gestureKind?: Binding['kind']; skillId?: string },
+    /** Extra triage words for wiring-shaped refusals (which gesture; which journey asked). */
+    detail?: { gestureKind?: Binding['kind']; journeyId?: string },
   ): void {
     this.#pushGap({
       kind: 'fire-rejected',
@@ -2878,7 +3047,7 @@ export class Session {
       node: this.#node,
       version: this.#version,
       availableActions: precomputedActions ?? this.available().edges.map((e) => e.affordanceId),
-      availableSkills: Object.keys(this.spec.skills),
+      availableJourneys: Object.keys(this.spec.journeys),
       affordanceId,
       rejectionReason,
       principal,
@@ -2886,15 +3055,15 @@ export class Session {
       // and a caller annotating those must not rewrite the ledger.
       ...(evidence !== undefined ? { evidence: evidence.map((c) => ({ ...c })) } : {}),
       ...(detail?.gestureKind !== undefined ? { gestureKind: detail.gestureKind } : {}),
-      ...(detail?.skillId !== undefined ? { skillId: detail.skillId } : {}),
+      ...(detail?.journeyId !== undefined ? { journeyId: detail.journeyId } : {}),
     });
   }
 
   /** Names only — token-lean and injection-safe context for triage. */
-  #gapContext(): { availableActions: string[]; availableSkills: string[] } {
+  #gapContext(): { availableActions: string[]; availableJourneys: string[] } {
     return {
       availableActions: this.available().edges.map((e) => e.affordanceId),
-      availableSkills: Object.keys(this.spec.skills),
+      availableJourneys: Object.keys(this.spec.journeys),
     };
   }
 
@@ -3030,6 +3199,7 @@ export class Session {
     // `!== 'observed'` rather than `=== 'claimed'`: the fire may not have settled
     // yet — a router that moves before its own promise resolves is the ordinary
     // case — so the stamp lands here and #settle's `??=` leaves it standing.
+    /* v8 ignore next -- unreachable: the claim window is closed one line above, so no second observation can re-enter with the same claim, and the record a live claim points at is always still in the log. The guard is what makes 'one observation per claim' true of the STAMP and not just of the window. */
     if (record === undefined || record.arrival === 'observed') return;
     record.arrival = 'observed';
     this.#emitTransition(record);
@@ -3046,7 +3216,7 @@ export class Session {
   }
 
   /**
-   * THE PAGE-LEVEL NEVER-TRAP. The commit gate refuses a skill FRAME that
+   * THE PAGE-LEVEL NEVER-TRAP. The commit gate refuses a journey FRAME that
    * opens onto an entry nothing can perform; this is the same law one level
    * up, about the room itself. A page where NOTHING the graph puts there could
    * act is a room with no doors: the agent is told the truth ("here is what is
@@ -3056,7 +3226,7 @@ export class Session {
    *
    * ARMED only when materialisation is a live question — `(registry.hasAny()
    * || navigate) && !allowUnmaterializedFires` — the same condition available()
-   * uses to stamp `materialized` and commitSkill's entry gate uses to run at
+   * uses to stamp `materialized` and commitJourney's entry gate uses to run at
    * all. A session nothing has ever registered on is not "trapped"; it is a
    * graph being read. A tour's fires are honest no-ops by contract.
    *
@@ -3065,7 +3235,7 @@ export class Session {
    * else instance-wired), so a registered-but-DISABLED action still counts as a
    * door (TOOL_DISABLED is retriable, not missing wiring). It is asked over
    * FULL capability — every affordance the graph places on this page, NOT the
-   * available() slice, which two filters have already narrowed. The skill frame
+   * available() slice, which two filters have already narrowed. The journey frame
    * is one (so an open frame can never manufacture a dead end); the GUARD is
    * the other, and it matters more: an empty-cart checkout serves zero edges
    * while `pay` sits registered behind `cartCount > 0`. That page is wired. Its
@@ -3087,7 +3257,7 @@ export class Session {
     if (!this.#registry.hasAny() && this.#navigate === undefined) return;
     const offGraph = this.spec.pages[this.#node] === undefined;
     // Keyed on the served-structure FINGERPRINT, not the structure VERSION:
-    // that axis also bumps for skill-frame open/close/demote — churn that
+    // that axis also bumps for journey-frame open/close/demote — churn that
     // cannot wire anything, so re-arming on it multiplies rows for a page whose
     // answer never moved. Re-ask when the WIRING changed, never when the
     // disclosure filter did. Off-graph is keyed on the node alone: no structure
@@ -3129,14 +3299,14 @@ export class Session {
    * wrong refusal sends someone hunting the wrong bug. Every refusal teaches —
    * but only what is TRUE of this room: 'every fire would be refused
    * NOT_MATERIALIZED' holds ONLY where actions are served-but-unwired, and
-   * prescribing registerToolGroup for a page the graph never heard of hands the
+   * prescribing registerActions for a page the graph never heard of hands the
    * developer a call that throws.
    */
   #deadEndWarning(offGraph: boolean, served: number, authored: number): string {
     if (offGraph) {
       return (
         `hcifootprint: the cursor is on '${this.#node}', which is NOT a page in this graph — an agent ` +
-        `standing here is served nothing, and no mount can change that (registerToolGroup('${this.#node}', …) ` +
+        `standing here is served nothing, and no mount can change that (registerActions('${this.#node}', …) ` +
         `throws: the node is unknown). Two ways out: author the page — or add it to the route table you pass ` +
         `to fromRoutes — so it has a name and actions; or sync() the id the graph uses for this screen (a raw ` +
         `URL is not a node id unless a route table mapped it). Recorded as a dead-end gap row ONCE: no ` +
@@ -3167,7 +3337,7 @@ export class Session {
   /** The three cures, shared by every on-graph sentence (off-graph has its own). */
   #deadEndFixes(): string {
     return (
-      `Three ways out: registerToolGroup('${this.#node}', …) to wire what is on screen; pass ` +
+      `Three ways out: registerActions('${this.#node}', …) to wire what is on screen; pass ` +
       `navigate: (href) => router.push(href) to createSession so url gestures materialise; or read the ` +
       `route table with fromRoutes(routes, { crossLinks: true }) so every page offers links to the others. ` +
       `Recorded as a dead-end gap row.`
@@ -3625,6 +3795,7 @@ export class Session {
   ): ConfirmRecord {
     ask.answer = answer;
     ask.answeredAt = this.#now();
+    /* v8 ignore next -- the else arm is unreachable: both doors that answer a card (approveAsk, declineAsk) REQUIRE `by`, which is what makes a recorded decision attributable to a person. */
     if (opts?.by !== undefined) ask.answeredBy = opts.by;
     const row: ConfirmRecord = {
       kind: answer,
@@ -3640,6 +3811,7 @@ export class Session {
       // The door has no principal argument, so this cannot be anything else. And
       // NO transitionId: nothing has fired yet, which is the whole point.
       principal: 'user',
+      /* v8 ignore next -- the `{}` arm is unreachable for the same reason: `by` is required at both doors, so an answered row always carries the person it came from. */
       ...(opts?.by !== undefined ? { by: opts.by } : {}),
       ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
       enforced: true,
@@ -3715,6 +3887,7 @@ export class Session {
     if (this.#humanApproval === undefined) return false;
     if (ask.answer !== 'approved' || ask.spent === true) return false;
     const row = this.#approvalRows.get(ask.askId);
+    /* v8 ignore next -- unreachable: the two lines above have already proven a policy is in force and this ask is APPROVED, and under a policy the only thing that approves an ask (#answerAsk) files its row in the same breath. */
     if (row === undefined) return false;
     return stale(row, ask, {
       rules: this.#humanApproval,
@@ -3760,6 +3933,7 @@ export class Session {
       standingGrants: this.#standingGrants,
       stateVersion: this.#stateVersion,
       now: this.#now(),
+      /* v8 ignore next -- the `?? {}` arm is unreachable: the gate is only consulted for a fire this session HOLDS, which is exactly the case where a policy exists. */
       rules: this.#humanApproval ?? {},
     });
   }
@@ -3850,6 +4024,7 @@ export class Session {
     // single ALLOW is spent, and the next fire under it refuses APPROVAL_SPENT.
     if (verdict.via === 'approved') {
       const ask = this.#openAsks.get(verdict.askId);
+      /* v8 ignore next -- the else arm is unreachable: a verdict of via 'approved' was reached by reading that very ask out of this map, so it is still there to spend. */
       if (ask) ask.spent = true;
     }
     this.#pushConfirm({
@@ -3935,6 +4110,7 @@ export class Session {
   /** A compact, injection-safe tail of the fire journal (names + principal + outcome). */
   #recentTrail(max = 5): ConfirmTrailStep[] {
     return this.#transitions.slice(-max).map((t) => ({
+      /* v8 ignore next 4 -- neither `?? 'unknown'` is reachable, and v8 can only exempt the property they live in: a 'fired' row always names its action, and a stimulus row's name is defaulted where the row is recorded. They keep this trail printable rather than spelling 'undefined' at a human if either invariant is relaxed. */
       what:
         t.cause.kind === 'fired'
           ? t.cause.affordanceId ?? 'unknown'
@@ -4002,14 +4178,14 @@ export class Session {
 
   /**
    * Per-edge MCP tool descriptors for the CURRENT slice. Regenerated per call
-   * — never cached. With a skill frame open, serves ONLY the frame's
+   * — never cached. With a journey frame open, serves ONLY the frame's
    * currently-fireable steps + escape tools (authored cancel/back roles and a
-   * synthetic leave-skill) — the on-demand disclosure contract.
+   * synthetic leave-journey) — the on-demand disclosure contract.
    */
   toMCPTools(opts?: { lossySchemas?: boolean }): MCPToolDescription[] {
     const served = this.#servedEdges();
     const tools = edgesToMCPTools(this.spec, served.edges, opts);
-    if (served.escape) tools.push(leaveSkillTool(this.spec, this.#frame!.skillId));
+    if (served.escape) tools.push(leaveJourneyTool(this.spec, this.#frame!.journeyId));
     return tools;
   }
 
@@ -4027,6 +4203,7 @@ export class Session {
     );
     const omitted = Math.max(0, relevant.length - max);
     const shown = relevant.slice(-max);
+    /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: footprintjs declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
     const changedKeysById = new Map(
       this.#log
         .list()
@@ -4035,16 +4212,17 @@ export class Session {
 
     const lines: string[] = [`You are on: ${this.#nodeLabel(this.#node)}.`];
     if (this.#frame) {
-      const skill = this.spec.skills[this.#frame.skillId];
+      const journey = this.spec.journeys[this.#frame.journeyId];
       lines.push(
-        `Open skill: ${this.#frame.skillId} — ${skill.description} ` +
-          `(${this.#frame.firedSteps.length}/${skill.steps.length} steps done).`,
+        `Open journey: ${this.#frame.journeyId} — ${journey.description} ` +
+          `(${this.#frame.firedSteps.length}/${journey.steps.length} steps done).`,
       );
     }
     for (const f of this.#frames) {
       if (f.status !== 'demoted') continue;
+      /* v8 ignore next -- the `?? 0` arm is unreachable (only DEMOTED frames get here, and a demotion stamps closedAtVersion in the same breath), and v8 cannot exempt part of a line — the version comparison itself IS exercised, both ways, in context-brief.test.ts. */
       if (sinceVersion !== undefined && (f.closedAtVersion ?? 0) < sinceVersion) continue;
-      lines.push(`Note: skill ${f.skillId} was demoted — its precondition no longer holds.`);
+      lines.push(`Note: journey ${f.journeyId} was demoted — its precondition no longer holds.`);
     }
     lines.push(
       sinceVersion !== undefined
@@ -4063,7 +4241,7 @@ export class Session {
     );
     const served = this.#servedEdges();
     const names = served.edges.map((e) => e.affordanceId + (e.highEffect ? ' [high-effect]' : ''));
-    if (served.escape) names.push('leave-skill');
+    if (served.escape) names.push('leave-journey');
     lines.push(`Available now: ${names.length > 0 ? names.join(', ') : '(nothing on this page)'}.`);
 
     return { node: this.#node, version: this.#version, frame: this.#frameCopy(), text: lines.join('\n') };
@@ -4251,13 +4429,14 @@ export class Session {
 
   /** A fire this session refused: it did not happen, and the reason is the typed one. */
   #refusedLine(gap: GapRecord): string {
+    /* v8 ignore next -- the `?? 'someone'` arm is unreachable: every refusal row is written by recordRejection, which stamps the principal that reached for the action. It exists so a row from an older release still reads as a sentence. */
     const who = gap.principal ?? 'someone';
     const what = this.#actionLabel(gap.affordanceId);
-    // A commit gate's refusal, not a fire's — the ONE row that carries a skill.
+    // A commit gate's refusal, not a fire's — the ONE row that carries a journey.
     // Saying "fired" about it would report an attempt that never happened,
     // inside the block whose whole job is not doing that.
-    if (gap.skillId !== undefined) {
-      return `did NOT happen — ${who}'s attempt to start ${gap.skillId} was refused: ${gap.rejectionReason} (its first step is ${what})`;
+    if (gap.journeyId !== undefined) {
+      return `did NOT happen — ${who}'s attempt to start ${gap.journeyId} was refused: ${gap.rejectionReason} (its first step is ${what})`;
     }
     return `did NOT happen — ${who}'s fire of ${what} was refused: ${gap.rejectionReason}`;
   }
@@ -4308,6 +4487,7 @@ export class Session {
   // -------------------------------------------------------------------------
 
   #stateView(): Record<string, unknown> {
+    /* v8 ignore next -- the `?? {}` arm is unreachable: the heap is constructed with the session's initial state, so it always has one to answer with. */
     return (this.#heap.getState() ?? {}) as Record<string, unknown>;
   }
 
@@ -4328,12 +4508,13 @@ export class Session {
    * click/tab/programmatic gestures NEVER synthesize — they are not addresses;
    * for them navigate changes only the WORDS of the refusal (FireResult.gesture).
    */
-  protected handlerFor(affordanceId: string, _opts: FireOptions): ToolHandler | undefined {
+  protected handlerFor(affordanceId: string, _opts: FireOptions): ActionHandler | undefined {
     const registered = this.#registry.handlerFor(affordanceId);
     if (registered) return registered;
     const navigate = this.#navigate;
     if (navigate === undefined) return undefined;
     const aff = this.spec.affordances[affordanceId];
+    /* v8 ignore next -- unreachable: every caller has already found this affordance in the spec (fire resolves it first; the commit gate asks about a declared journey step). The guard states the precondition where the url synthesis depends on it. */
     if (!aff) return undefined;
     const href = gestureHref(aff, this.spec.pages);
     if (href === undefined) return undefined;
@@ -4363,7 +4544,7 @@ export class Session {
    * registry edits apply immediately; the trace row + version bump flush once
    * per microtask, and a leave+enter of the same shape within one window
    * cancels to nothing (StrictMode double-mounts and HMR never pollute the
-   * trace). This also fixes the verified v1 gap: registerTools never bumped
+   * trace). This also fixes the verified v1 gap: registerHandlers never bumped
    * the version, so a plan made before a mount/unmount passed CAS after it.
    */
   protected noteStructureChange(): void {
@@ -4525,7 +4706,7 @@ export class Session {
 
     if (
       this.#frame &&
-      this.spec.skills[this.#frame.skillId].steps.includes(aff.id) &&
+      this.spec.journeys[this.#frame.journeyId].steps.includes(aff.id) &&
       !this.#frame.firedSteps.includes(aff.id)
     ) {
       this.#frame.firedSteps.push(aff.id);
@@ -4542,7 +4723,7 @@ export class Session {
   #servedEdges(): { edges: AvailableEdge[]; escape: boolean } {
     const edges = this.available().edges;
     if (!this.#frame) return { edges, escape: false };
-    const steps = this.spec.skills[this.#frame.skillId].steps;
+    const steps = this.spec.journeys[this.#frame.journeyId].steps;
     return {
       edges: edges.filter(
         (e) => steps.includes(e.affordanceId) || e.role === 'cancel' || e.role === 'back',
@@ -4552,16 +4733,16 @@ export class Session {
   }
 
   /**
-   * Demotion: after any world change, an open frame whose skill PRECONDITION
+   * Demotion: after any world change, an open frame whose journey PRECONDITION
    * no longer holds is closed as 'demoted' — the served context re-collapses
-   * to skill level and the agent replans. Step guards failing is normal DAG
-   * progress and never demotes; skills without a precondition never demote.
+   * to journey level and the agent replans. Step guards failing is normal DAG
+   * progress and never demotes; journeys without a precondition never demote.
    */
   #checkFrameAfterWorldChange(): void {
     if (!this.#frame) return;
-    const skill = this.spec.skills[this.#frame.skillId];
-    if (!skill.precondition) return;
-    if (this.#evalGuard(skill.precondition).matched) return;
+    const journey = this.spec.journeys[this.#frame.journeyId];
+    if (!journey.precondition) return;
+    if (this.#evalGuard(journey.precondition).matched) return;
     this.#frame.status = 'demoted';
     this.#frame.closedAtVersion = this.#version;
     this.#frames.push(this.#frame);
@@ -4570,7 +4751,7 @@ export class Session {
     this.#bumpStructure();
   }
 
-  #frameCopy(frame: SkillFrame | null = this.#frame): SkillFrame | null {
+  #frameCopy(frame: JourneyFrame | null = this.#frame): JourneyFrame | null {
     return frame
       ? { ...frame, firedSteps: [...frame.firedSteps], inferredSteps: [...frame.inferredSteps] }
       : null;
@@ -4600,6 +4781,7 @@ export class Session {
   /** One authored-strings-only line per transition for contextBrief(). */
   #briefLine(t: TransitionRecord, changedKeysById: Map<string, string[]>): string {
     if (t.cause.kind === 'fired') {
+      /* v8 ignore next -- the `?? ''` arm is unreachable: this branch has already read `cause.kind === 'fired'`, and a fired row always names its action. */
       const aff = this.spec.affordances[t.cause.affordanceId ?? ''];
       const moved =
         t.toNode && t.toNode !== t.fromNode
@@ -4616,6 +4798,7 @@ export class Session {
       }
       if (t.effectVerified === false) flags.push('declared effect not observed');
       const suffix = flags.length > 0 ? ` [${flags.join('; ')}]` : '';
+      /* v8 ignore next -- the `?? ''` arm is unreachable for the same reason the lookup above is: the id came off a fired row, so the spec always has its description. */
       return `${t.cause.principal} fired ${t.cause.affordanceId} — ${aff?.description ?? ''}${moved}${suffix}`;
     }
     if (t.toNode && t.toNode !== t.fromNode) {
@@ -4626,6 +4809,7 @@ export class Session {
     }
     // Key NAMES are the designed disclosure (values never enter text) — but a
     // tap could relay hostile keys, so they are hardened before rendering.
+    /* v8 ignore next -- the `?? []` arm is unreachable: every stimulus row that reaches this line committed a bundle under its own id (an empty one still counts — that is the cursor stop the sentence below is about). */
     const keys = (changedKeysById.get(t.id) ?? []).map(
       // eslint-disable-next-line no-control-regex
       (key) => key.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60),
@@ -4683,7 +4867,7 @@ export class Session {
  * Literal-ness is judged by the matcher's own segment law (segmentsOf/isParam)
  * so routing, matching and materialisation can never disagree.
  */
-function gestureHref(aff: Affordance, pages: SkillGraphSpec['pages']): string | undefined {
+function gestureHref(aff: Affordance, pages: NavigationGraphSpec['pages']): string | undefined {
   if (aff.binding) {
     if (aff.binding.kind !== 'url') return undefined;
     return fullyLiteral(aff.binding.href) ? aff.binding.href : undefined;
@@ -4771,7 +4955,7 @@ function sanitizeProduced(value: unknown, depth = 0): unknown {
   // A bigint survives structuredClone — this library's usual wire bar — and then
   // THROWS in JSON.stringify, which is how every MCP result crosses. One app
   // value of this type would cost the model the whole answer (facts, actions and
-  // skills), so it crosses as its decimal digits: the same number, in the only
+  // journeys), so it crosses as its decimal digits: the same number, in the only
   // type JSON has for it.
   if (typeof value === 'bigint') return `${value}`;
   if (value === null || typeof value !== 'object') return value; // number, boolean, undefined

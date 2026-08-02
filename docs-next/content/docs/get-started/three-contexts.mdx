@@ -1,0 +1,274 @@
+---
+title: The three contexts
+description: "Map, traversal, actions — the three questions an agent asks about your app, each answered in the same three parts: what you declare, what you wire, and what the agent gets."
+---
+
+An agent driving your app asks three questions, in this order:
+
+1. **What can this app do?** — the **map**
+2. **Where am I, and how do I get there?** — **traversal**
+3. **What is possible here?** — **actions**
+
+This library exposes exactly those three contexts and nothing else. Each one has the same
+three parts: something you **declare**, something you **wire**, and something the **agent
+gets**. Learn that shape once and the whole surface follows — including the parts you have
+not read yet.
+
+| Context | The question | You declare | You wire | The agent gets |
+|---|---|---|---|---|
+| **Map** | What can this app do? | pages and journeys — or adopt the route table you already have | **nothing** | one tool per journey; the tool list **is** the map |
+| **Traversal** | Where am I, and how do I get there? | `route` on a page, `goTo` on an action | `createSession()` and one router line, `session.sync()` | where it is, arrival claimed-or-observed, the declared hops to a destination |
+| **Actions** | What is possible here? | `does`, `writes`, `enabledWhen`, `goTo`, `confirm`, `verify`, `input` | `registerActions()` handlers, `setEnabled` / `setBusy`, `updateState()` | rows carrying `enabled`, `busy`, `holds`, `goesTo`, `expects`, `highEffect`, `unblockedBy` |
+
+The rest of the documentation is these three, in this order. If you have not run anything
+yet, [the quick start](doc:quick-start) walks all three in three steps.
+
+## 1 · The map — what can this app do?
+
+### Declare it
+
+The map is the app as you already picture it: places, the things inside them, and the named
+flows worth finishing. One sentence per action — that sentence is your label *and* the tool
+description the model reads.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    catalog: {
+      route: '/catalog',
+      actions: {
+        'add-to-cart': { does: 'Add the open dress to the cart', writes: ['cart.items'] },
+      },
+    },
+    checkout: {
+      route: '/checkout',
+      actions: {
+        'place-order': {
+          does: 'Place the order',
+          enabledWhen: { 'cart.items': { gt: 0 } },
+          confirm: true,
+        },
+      },
+    },
+  },
+  journeys: {
+    purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] },
+  },
+});
+```
+
+Or **adopt what you already have.** A route table, a journey list, a live action store are
+already descriptions of the app; `fromRoutes`, `fromJourneys` and `fromLiveStore` fold them
+into the same graph under one documented merge order, so nobody re-types anything.
+
+→ [The navigation graph](doc:navigation-graph) · [Journeys](doc:journeys) ·
+[Graph sources](doc:graph-sources)
+
+### Wire it — nothing
+
+**A map is static data.** `buildNavigationGraph` validates and freezes the whole definition
+in one call: unknown `goTo` targets, guard-operator typos, ambiguous journey steps and
+contradictory conditions all throw at build time. Nothing has run, nothing is mounted, no
+session exists.
+
+That is what makes the map reviewable. It can be linted in CI, printed into a pull request
+and argued about by people who are not in front of the app — before a single handler is
+bound. The [drift harness](doc:testing) does exactly that, statically.
+
+### What the agent gets
+
+One tool per journey, plus four fixed generics — `whats_here`, `do_action`, `did_it_work`,
+`why`. **The tool list is the map.** Those bytes never change for the life of a conversation,
+so the prompt cache stays warm and any plain MCP host can drive it with no dynamic-tool
+support.
+
+```ts twoslash
+import { buildNavigationGraph, serveToAgent } from 'hcifootprint';
+const graph = buildNavigationGraph('shop', {
+  pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the open dress to the cart' } } } },
+  journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+});
+const session = graph.createSession();
+// ---cut---
+const port = serveToAgent(session);
+
+port.tools();   // shop.journey.purchase · shop.whats_here · shop.why · shop.do_action · shop.did_it_work
+```
+
+**A whole-page dump is never served, and that is the thesis rather than an optimisation.**
+The map says what the app *can* do; what arrives on any given turn is only what is doable
+*here*. Everything this library does downstream — the cursor, the guards, the row stamps —
+exists to keep those two things apart.
+
+→ [Journeys as fixed tools](doc:modes) · [The MCP server](doc:mcp)
+
+## 2 · Traversal — where am I, and how do I get there?
+
+### Declare it
+
+Two fields, and they live on the map you already authored: **`route` on a page**, **`goTo` on
+an action**.
+
+```ts
+pages: {
+  cart:     { route: '/cart', actions: { pay: { does: 'Check out', goTo: 'checkout' } } },
+  checkout: { route: '/checkout' },
+}
+```
+
+**An action's claim *is* the edge.** Pages declare no edges to one another and should not:
+what connects two places is always something a person does — a link, a button, a redirect —
+and a second copy of a fact already stated is a copy that drifts. That is why traversal has
+no declaration page of its own; there is nothing else to author.
+
+→ [How to reach a page](doc:how-to-reach) · [A destination the app mints](doc:minted-destinations)
+
+### Wire it
+
+`createSession()`, and one line wherever your router already knows the page changed.
+
+```ts
+const session = graph.createSession({ node: 'catalog' });
+
+session.sync('checkout');   // the router moved → the cursor moves
+```
+
+`sync()` reports **observed reality**, so an unauthored page is not an error: the cursor
+follows the app, and the session honestly serves zero actions there rather than pretending.
+
+→ [Sessions](doc:sessions) · [Presence & visibility](doc:presence)
+
+### What the agent gets
+
+- **Where it is** — told, never inferred from a screenshot.
+- **Whether it actually arrived.** A navigating action declares no `writes`, so from the side
+  of the control it just fired, success looks exactly like nothing happening. `goesTo`
+  discloses the claim *before* the fire; `arrival` says afterwards whether an observation has
+  corroborated it — `claimed` or `observed`, and there is deliberately no third value meaning
+  *did not arrive*, because not having seen something is not evidence that it failed.
+- **The declared hops to a destination**, walked from those same `goTo` claims.
+
+→ [Navigation claims](doc:navigation-claims) · [How to reach a page](doc:how-to-reach)
+
+## 3 · Actions — what is possible here?
+
+### Declare it
+
+Everything an action is, said once, where the action lives:
+
+```ts
+'place-order': {
+  does: 'Place the order',                    // the sentence the model reads
+  writes: ['orders.latest'],                  // what it changes
+  enabledWhen: { 'cart.items': { gt: 0 } },   // when the button is live
+  goTo: 'receipt',                            // where it takes you
+  confirm: true,                              // a person decides first
+  verify: { 'orders.latest': { ne: '' } },    // the app's own "did that happen?"
+  input: 'none',                              // what a caller must send
+}
+```
+
+→ [Guards](doc:guards) · [Actuation](doc:actuation) · [A read is an action](doc:reading-data)
+
+### Wire it
+
+Your own functions, by reference, when the component that renders them mounts:
+
+```ts
+const group = session.registerActions('checkout', {
+  handlers: { 'place-order': (input) => shop.placeOrder(input) },
+});
+
+group.setEnabled('place-order', false);                 // the greyed button
+group.setBusy('place-order', 'Placing your order…');    // your words, never ours
+session.updateState({ 'cart.items': 3 });               // your store → conditions re-evaluate
+group.unregister();                                     // on unmount — idempotent
+```
+
+→ [Live bindings](doc:live-bindings) · [The human sensor](doc:human-sensor) ·
+[The React binding](doc:react-binding)
+
+### What the agent gets
+
+One row per action that is offered here, carrying only what your app actually said:
+
+```json
+{
+  "action": "checkout.place-order",
+  "does": "Place the order",
+  "goesTo": "receipt",
+  "highEffect": true,
+  "enabled": false,
+  "unblockedBy": [
+    { "action": "catalog.add-to-cart", "writes": ["cart.items"], "inFlight": true }
+  ]
+}
+```
+
+Read that row as a person reading the screen would: the button is there, it is greyed, the
+thing that would turn it on is *already running*, and it is high-effect — so a person decides
+before an agent may fire it. Every stamp is **presence-only** — a key means the app said so, and no key
+means the library does not know. There is no cheerful `enabled: true` on rows nobody asked
+about, and no `busy: false` invented for an app that never wired busy.
+
+`holds` says what the control is holding right now, `expects` says what a caller must send,
+`busy` is the app's own label for *working*.
+
+→ [Reading an action row](doc:reading-an-action-row) · [What would free it](doc:what-would-free-it) ·
+[What a control holds](doc:what-a-control-holds) · [When a control is busy](doc:when-a-control-is-busy)
+
+## Declared or wired? One question decides
+
+You will meet the same fact twice — once as something you write in the graph, once as
+something you call at runtime — and there is one question that tells you which it is:
+
+> **Can this fact change while the page is open?**
+>
+> If **no**, it is a **declaration**. If **yes**, it is a **wire**.
+
+| The fact | Declared, because it does not change | Wired, because it does |
+|---|---|---|
+| Whether a control is live | `enabledWhen: { 'cart.items': { gt: 0 } }` | `group.setEnabled('place-order', false)` |
+| Whether a control is working | *nothing — there is no `busyWhen`* | `group.setBusy('place-order', 'Placing…')` |
+| Which page you are on | `route: '/receipt'` — the address never moves | `session.sync('receipt')` — which page is open does |
+| What the app's state is | *nothing — the graph never holds state* | `session.updateState({ … })` |
+
+There is deliberately **no `busyWhen`**: a condition can prove a state, but it cannot author
+a label, and a library-written label would be a library-written meaning. Working is the app's
+word, so it arrives on the app's wire.
+
+## The fourth thing — the one you never build
+
+Everything relational between actions is **derived from declarations you already made for
+other reasons**. It is not a fourth context, because there is nothing to build.
+
+```ts
+session.whatUnblocks('checkout.place-order');
+// [{ affordanceId: 'catalog.add-to-cart', viaKeys: ['cart.items'] }]
+
+session.howToReach('checkout');
+// [{ action: 'catalog.open-cart', to: 'cart' }, { action: 'cart.pay', to: 'checkout' }]
+```
+
+Nobody wrote either edge. `add-to-cart` declares `writes: ['cart.items']` so that success can
+be verified; `place-order` declares `enabledWhen` on the same key so the button greys itself.
+Join the two and the dependency is unambiguously there. `pay` declares `goTo: 'checkout'` so
+the agent knows where it lands; join those claims and the route falls out.
+
+Because both halves already exist for their own reasons, the relation **cannot drift from the
+graph** — there is no second list to forget to update. There is no edge API in this library:
+not between pages, not between actions.
+
+The only thing you declare that cannot be derived is **intent** — *these steps, in this
+order, toward this goal*. That is a [journey](doc:journeys), and it is yours, because a
+preferred order is meaning and meaning belongs to the app.
+
+## Where next
+
+- **Adopting incrementally?** [The adoption ladder](doc:adoption-ladder) — the first rung
+  needs no handlers at all, and cannot touch your app.
+- **Want to see it run?** [Demos](doc:demos) — every one runs with no API key and no network.
+- **Keeping it true?** [The drift harness](doc:testing) fails in CI rather than in front of
+  a user.

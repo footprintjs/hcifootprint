@@ -9,7 +9,7 @@
  * The POC case — '/orders/123' → the orders page — is the first test.
  */
 import { describe, expect, it } from 'vitest';
-import { matchRoute, skillGraph } from '../src/index.js';
+import { matchRoute, buildNavigationGraph } from '../src/index.js';
 import type { RoutedPages } from '../src/index.js';
 
 const shopRoutes: RoutedPages = {
@@ -25,10 +25,12 @@ describe('matchRoute — the reported case', () => {
   });
 
   it('reads the routes off a compiled spec — the field the author already wrote', () => {
-    const spec = skillGraph('shop')
-      .page('catalog', { route: '/products' })
-      .page('cart', { route: '/cart' })
-      .build().spec;
+    const spec = buildNavigationGraph('shop', {
+      pages: {
+        catalog: { route: '/products' },
+        cart: { route: '/cart' },
+      },
+    }).spec;
     expect(matchRoute(spec.pages, '/cart')).toBe('cart');
     expect(matchRoute(spec.pages, '/products')).toBe('catalog');
   });
@@ -138,7 +140,12 @@ describe('matchRoute — determinism when the map is ambiguous', () => {
 
 describe('matchRoute — composed with sync(), which it does not touch', () => {
   const shopGraph = () =>
-    skillGraph('shop').page('catalog', { route: '/products' }).page('order', { route: '/orders/:id' }).build();
+    buildNavigationGraph('shop', {
+      pages: {
+        catalog: { route: '/products' },
+        order: { route: '/orders/:id' },
+      },
+    });
 
   it('a matched path moves the cursor to a real page, on the graph', () => {
     const graph = shopGraph();

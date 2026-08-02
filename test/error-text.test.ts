@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { errorText } from '../src/serve/error-text.js';
 import { VERIFY_FAILED_EXPLANATION } from '../src/traverse/verify.js';
 
-describe('errorText()', () => {
+describe('an app’s own failure, rendered small enough to cross a wire', () => {
   it('renders the ordinary shapes an app fails with', () => {
     expect(errorText(new Error('api down'))).toBe('Error: api down');
     expect(errorText('card declined')).toBe('card declined');

@@ -1,0 +1,182 @@
+---
+title: What a control holds
+description: The draft already in the box, on the action row the model reads — declared by your app, read late, never scraped, and governed by the same redaction list as the payload it is about to become.
+---
+
+## The failure this prevents
+
+A model could see that an action takes a value, and could see the app's committed state, and
+could not see the one thing a person looking at the screen sees for free: **the draft already
+sitting in the box.** A half-typed message, the option already selected, the quantity someone set
+two turns ago.
+
+So it did one of the two things it could do. It asked the human to retype what they were looking
+at, or it invented a value and fired.
+
+`holds` is that fact, on the row, one turn before anything fires.
+
+## The two wires
+
+Only where your app already holds the value in a variable. It hands over **a way to read it**,
+never a copy.
+
+**At registration** — the component already has the state:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+
+const graph = buildNavigationGraph('desk', {
+  pages: {
+    compose: {
+      actions: {
+        save: {
+          does: 'Save the draft',
+          input: { type: 'object', properties: { body: { type: 'string' } }, required: ['body'] },
+        },
+      },
+    },
+  },
+});
+const session = graph.createSession({ node: 'compose' });
+declare const draft: { body: string };
+// ---cut---
+session.registerActions('compose', {
+  handlers: { save: () => undefined },
+  holds: { save: () => ({ body: draft.body }) }, // a reader, run when a row is served
+});
+```
+
+**From the [human sensor](doc:human-sensor)** — the same `value()` getter a declared control
+already hands over for the payload of a real gesture, forwarded to the row:
+
+```ts twoslash
+import { watchPage } from 'hcifootprint/sensor';
+import type { InteractionSession } from 'hcifootprint';
+
+declare const session: InteractionSession;
+declare const field: HTMLInputElement;
+declare const draft: { body: string };
+// ---cut---
+const watch = watchPage(session, { root: document.body });
+watch.attach({ edge: 'compose.save', element: field, value: () => ({ body: draft.body }) });
+// one declaration, two readers of it: the payload of a gesture that happened,
+// and the row describing the control nobody has used yet
+```
+
+One declaration, and the per-element one **wins** when both exist — most specific, the same
+declaration-outranks-recognition rule the sensor's own two evidence levels follow.
+
+## What the model gets
+
+```jsonc
+{ "action": "compose.save", "does": "Save the draft",
+  "expects": { "type": "object", "properties": { "body": { "type": "string" } } },
+  "holds": { "body": "ship it before" } }        // ← what the box has RIGHT NOW
+```
+
+**A reading, never a binding.** Firing still sends the caller's own `input` — `holds` says what
+the control had when the row was served, and a human typing between the two makes the row stale by
+design. It is a fact about the app one turn early, not a promise about the next fire.
+
+**Read late.** The getter runs when the row is assembled, so two `whats_here` calls a keystroke
+apart carry two different values. There is no cached first read anywhere in this path.
+
+It is also **bounded exactly like a handler's return** — depth, breadth and string length capped by
+the same sanitizer — so a control holding a large object cannot blow up a tool result. A reader
+answering something the bounded copy drops entirely (a function, say) lands back in the absence
+column below rather than serving an empty shape.
+
+## Absence is the default, and it is honest
+
+An absent `holds` key means **the library does not know**, never that the box is empty. Seven ways
+to get nothing, and every one of them serves no key at all — never `holds: undefined`, never `null`
+as a stand-in, never a guess:
+
+| the situation | what is served |
+| --- | --- |
+| nothing declared | no key — and there is **no fallback** to state or to the DOM |
+| the reader answers `undefined` | no key — `undefined` is how this library spells absence |
+| the reader **throws** — or the value it returned throws when read | no key, plus one dev warning **per action**. Never `null`: `null` is a value the app *chose*, and stamping it would report a cleared box the human never cleared |
+| the value is a **`Map`, `Set`, `Date`** or anything else with no own fields to carry | no key, plus one dev warning. The bounded copy would come out `{}`, and `holds: {}` says *the box is empty* about a box that is full |
+| the action declares `input: 'none'` | no key — an action that refuses a value has no value to hold, and a reader must not re-open a door the author shut |
+| the row stands for **many rows** (a `repeats` container) | no key, and a warning once per action saying why |
+| a **sensor** declaration for an id no action answers to | filed, never served — and deliberately not a warning, because a control can be handed over before the tool that declares it is mounted |
+
+**Reading the value is part of the read.** The reader can return perfectly well and the throw
+happen one level down, when the value's own properties are read — a revoked proxy, an object from a
+component mid-teardown. That is caught in the same place, because this row is assembled on every
+`available()` and inside every refused fire's gap context: one bad app object must not be able to
+take the whole served surface down with it.
+
+The registration door is stricter, because it can be: `registerActions('compose', { holds: { 'not-a-tool': … } })`
+throws and **names the unknown tool**. A leaf name and its qualified id are the same declaration —
+`{ save: … }` and `{ 'compose.save': … }` file one reader, never two.
+
+**Nothing is ever read off the DOM.** That is the sensor's own law and it holds here for the same
+reason: the DOM is a *rendering* of your app's state, not the state — a component library's
+combobox keeps its value in state and its input's `value` empty, and scraping it produces a
+plausible-looking wrong value, which on a row a model reads is indistinguishable from a right one.
+
+### Why a repeats row holds nothing
+
+One served row stands for **every mounted card** of a repeats container — that is what `instances`
+says out loud — while a value reader answers once. There is no arithmetic that turns the one into
+the other: picking a row would be a guessed instance, and a guessed instance on a value is a lie
+about which card the human is looking at. The value still rides the **fire**, which carries the
+instance key.
+
+## Redaction point 4 — the hidden field cannot ride the row instead
+
+What a control holds **is** the future fire's payload, one turn early. So
+[`redactedFields.payload`](doc:receipts#redactedfields--hiding-a-field-inside-the-data) governs it
+too — the same list, the same dot paths, the same `'[REDACTED]'` marker — or a field hidden from the
+log and the approval card simply rides out in the clear a turn sooner, on the row a model reads
+before it fires anything.
+
+```ts twoslash
+import type { NavigationGraph } from 'hcifootprint';
+declare const graph: NavigationGraph;
+// ---cut---
+const session = graph.createSession({
+  node: 'compose',
+  redactedFields: { payload: ['password'] }, // ← the SAME list that hides it on the record
+});
+```
+
+With a `holds` reader answering `{ password: 's3cret' }`, the model's row reads:
+
+```jsonc
+{ "action": "compose.sign-in", "holds": { "password": "[REDACTED]" } }
+```
+
+…while the real value still does everything it always did: the human's approval binds to it, and
+the fire that spends that approval crosses. The consent gate compares the fire against a faithful
+detached copy, never against a rendering, so a marker can never turn a mismatch into a match.
+
+The four points, now stated as four: the record's `payload`, the record's `produced`, the receipts'
+`willUse.input`, and the served row's `holds`.
+
+## Lifetimes
+
+- **`unregister()` releases the readers with the handlers.** An unmounted component's closure still
+  answering *what does this control hold* is exactly the stale read this surface exists to avoid.
+- **`detach()` and `stop()` release a sensor-forwarded reader**, the same way they release the
+  listener beside it.
+- **Declarations stack.** Two elements may declare the same edge (a mobile button and a desktop one,
+  a StrictMode double-invoke): the newest serves, and releasing it hands the row back to the older
+  rather than silencing an edge that is still declared.
+
+## Honest limits
+
+- **`holds` is a reading of your app, and only as true as the reader you handed over.** The library
+  does not check it against anything — it cannot.
+- **It is not a data channel.** One reader per **served action**, no instance dimension, no
+  free-form keys. Serving the app's data is [a read modelled as an action](doc:reading-data), which
+  has a settlement behind it.
+- **Keep the reader a read.** It runs once per served row, on a path every refused fire also walks
+  (a rejection builds a row for its gap context). Return the variable you already hold — never
+  compute, fetch, or write in it.
+- **A path names a field inside a value.** A control holding a bare string is named the same way it
+  is on the record — which is to say it cannot be. Redact by field, or do not put it on the row.
+- **It never changes what a fire sends.** If the model wants to submit what the box holds, it has
+  to pass it as `input`.

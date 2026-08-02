@@ -4,7 +4,7 @@ title: GroundTruth
 
 # Interface: GroundTruth
 
-Defined in: [src/atom/types.ts:1830](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1830)
+Defined in: [src/atom/types.ts:1812](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1812)
 
 The authoritative record of what this session ACTUALLY did — position plus
 every attempt and how it came to rest, in words a model is told outrank the
@@ -21,7 +21,7 @@ every attempt, including the refused ones, in one authored channel.
 `text` carries AUTHORED constants and authored ids only. What it excludes is
 as deliberate as what it holds: no state values or payloads (the
 two-string-class invariant, extended to history), no produced data (that is
-the data channel), no available actions or skills (options are whats_here's
+the data channel), no available actions or journeys (options are whats_here's
 job — facts are what happened, and the two stay non-overlapping so both stay
 lean), no runtime free text, and no interpretation — one line per occurrence.
 
@@ -31,7 +31,7 @@ lean), no runtime free text, and no interpretation — one line per occurrence.
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1831](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1831)
+Defined in: [src/atom/types.ts:1813](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1813)
 
 ***
 
@@ -39,7 +39,7 @@ Defined in: [src/atom/types.ts:1831](https://github.com/footprintjs/hcifootprint
 
 > **text**: `string`
 
-Defined in: [src/atom/types.ts:1833](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1833)
+Defined in: [src/atom/types.ts:1815](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1815)
 
 ***
 
@@ -47,4 +47,4 @@ Defined in: [src/atom/types.ts:1833](https://github.com/footprintjs/hcifootprint
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:1832](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1832)
+Defined in: [src/atom/types.ts:1814](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1814)

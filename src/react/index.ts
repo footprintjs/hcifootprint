@@ -31,7 +31,7 @@
  * edges into the two calls the core has always had:
  *
  * ```ts
- * useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, tools: saveTool, session });
+ * useWorking({ busy: save.isPending, label: 'Saving your draft…', error: save.error, actions: saveAction, session });
  * ```
  *
  * The core underneath is plain promises and callbacks — `beginWork` in the
@@ -54,7 +54,7 @@
  *   library compiles with `lib: ["ES2022"]`, so naming `document` in `src/` is a
  *   compile error. That is the point of `WatchOptions.root` being required, and a
  *   wrapper that only renamed `watchPage` would be a second name for one thing.
- * - Handler registration. See the note on `useControl`: `registerToolGroup` is
+ * - Handler registration. See the note on `useControl`: `registerActions` is
  *   already the library's one mount door, and the edge id a declaration needs is
  *   the engine's to resolve rather than a skin's to reconstruct.
  *

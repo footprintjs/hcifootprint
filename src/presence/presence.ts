@@ -63,6 +63,7 @@ export class PresenceIndex {
     if (!held) return; // idempotent per handle
     this.#open.delete(token);
     if (held.instance === undefined) {
+      /* v8 ignore next -- the `?? 1` arm is unreachable: open() and this release are the only writers, the token was just proven live, and every open bumped a count — so a released node handle always has one to give back. */
       const next = (this.#nodeCounts.get(held.node) ?? 1) - 1;
       if (next <= 0) {
         this.#nodeCounts.delete(held.node);
@@ -76,7 +77,9 @@ export class PresenceIndex {
       }
     } else {
       const byInstance = this.#instanceCounts.get(held.node);
+      /* v8 ignore next -- unreachable for the same reason as the node counter above: an instance row is created by its own open() and only removed when its last holder releases, so a live token always finds its map. */
       if (!byInstance) return;
+      /* v8 ignore next -- and always finds its count in that map, by the same balance. */
       const next = (byInstance.get(held.instance) ?? 1) - 1;
       if (next <= 0) byInstance.delete(held.instance);
       else byInstance.set(held.instance, next);

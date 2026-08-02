@@ -10,6 +10,29 @@ What a component says about the work it is doing right now.
 
 ## Properties
 
+### actions?
+
+> `readonly` `optional` **actions?**: [`BusyControl`](/api/react/type-aliases/BusyControl) \| readonly [`BusyControl`](/api/react/type-aliases/BusyControl)[]
+
+Defined in: [src/react/use-working.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L161)
+
+The control handle, or handles, that should carry the label while this is
+working — the spinner in the button, said out loud on the row a model reads.
+
+Omit it and the hook keeps the work ledger only, which is the honest answer
+for work no single control stands for (a background sync, a page-level
+load). ONE WRITER PER CONTROL: point the hook at a handle or drive that
+handle's `setBusy` by hand, never both, or two writers will take turns
+describing one control.
+
+An adapter written inline is FINE and needs no memo. Identity is all this
+hook can compare, so a fresh object each render is a new control to it — the
+old one is told to stop and the new one to start, about one action — and the
+session coalesces world motion by fingerprint, so a take-back-and-re-say
+inside one window cancels to nothing at all.
+
+***
+
 ### busy
 
 > `readonly` **busy**: `boolean`
@@ -65,7 +88,7 @@ Defined in: [src/react/use-working.ts:120](https://github.com/footprintjs/hcifoo
 Your own words for what is happening — 'Saving your draft…'.
 
 It rides two rails as DATA and never enters an authored sentence: the work
-row's `label`, and the `busy` label on every control in `tools`. The core
+row's `label`, and the `busy` label on every control in `actions`. The core
 caps it and refuses a non-string with its own warning; nothing here judges
 it. Write labels a stranger may read — never interpolate a secret, a
 customer's name, or the payload.
@@ -79,29 +102,6 @@ customer's name, or the payload.
 Defined in: [src/react/use-working.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L163)
 
 The session this component reports to.
-
-***
-
-### tools?
-
-> `readonly` `optional` **tools?**: [`BusyControl`](/api/react/type-aliases/BusyControl) \| readonly [`BusyControl`](/api/react/type-aliases/BusyControl)[]
-
-Defined in: [src/react/use-working.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-working.ts#L161)
-
-The control handle, or handles, that should carry the label while this is
-working — the spinner in the button, said out loud on the row a model reads.
-
-Omit it and the hook keeps the work ledger only, which is the honest answer
-for work no single control stands for (a background sync, a page-level
-load). ONE WRITER PER CONTROL: point the hook at a handle or drive that
-handle's `setBusy` by hand, never both, or two writers will take turns
-describing one control.
-
-An adapter written inline is FINE and needs no memo. Identity is all this
-hook can compare, so a fresh object each render is a new control to it — the
-old one is told to stop and the new one to start, about one tool — and the
-session coalesces world motion by fingerprint, so a take-back-and-re-say
-inside one window cancels to nothing at all.
 
 ***
 

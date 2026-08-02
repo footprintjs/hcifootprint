@@ -52,7 +52,7 @@ describe('hcifootprint/testing/lint is engine-free (footprint imported as type o
     'src/testing/model/lint.ts',
     'src/testing/model/check.ts',
     'src/testing/model/satisfiable.ts',
-    'src/graph/skill-deps.ts',
+    'src/graph/step-deps.ts',
   ];
 
   for (const file of lintGraphFiles) {

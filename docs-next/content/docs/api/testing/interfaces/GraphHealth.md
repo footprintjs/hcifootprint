@@ -36,6 +36,16 @@ The full lint output (errors, warnings, and advisory notes).
 
 ***
 
+### journeys
+
+> **journeys**: [`JourneyHealth`](/api/testing/interfaces/JourneyHealth)[]
+
+Defined in: [src/testing/model/check.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/check.ts#L45)
+
+Per-journey feasibility rollup.
+
+***
+
 ### ok
 
 > **ok**: `boolean`
@@ -43,16 +53,6 @@ The full lint output (errors, warnings, and advisory notes).
 Defined in: [src/testing/model/check.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/check.ts#L37)
 
 True when there are no error-severity findings — the release-readiness signal.
-
-***
-
-### skills
-
-> **skills**: [`SkillHealth`](/api/testing/interfaces/SkillHealth)[]
-
-Defined in: [src/testing/model/check.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/check.ts#L45)
-
-Per-skill feasibility rollup.
 
 ***
 

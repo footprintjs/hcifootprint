@@ -164,7 +164,7 @@ export interface VerifyFailure {
 }
 
 // ---------------------------------------------------------------------------
-// Authoring definitions (what skillGraph() accepts)
+// Authoring definitions (the compiled vocabulary a Session runs on)
 // ---------------------------------------------------------------------------
 
 /** Derived when omitted: effect.navigatesTo → 'next', otherwise 'action'. */
@@ -183,38 +183,16 @@ export interface PageDef {
   description?: string;
 }
 
-export interface AffordanceDef {
-  /** Page id(s) where this affordance is offered. */
-  on: string | string[];
-  /**
-   * AUTHORED planner-facing text — the only string class ever served to an
-   * LLM as instruction/description. Runtime-resolved strings (labels, user
-   * content) are data, never description (prompt-injection firewall).
-   */
-  description: string;
-  binding: Binding;
-  /**
-   * Serializable availability predicate over projected state. Omit for an
-   * always-offered affordance — `{}` is rejected at build() because
-   * footprint's evaluator deliberately never matches an empty filter.
-   */
-  guard?: WhereFilter;
-  effect?: Effect;
-  /**
-   * Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
-   * or the literal `'none'`, the author's explicit "this action takes NO
-   * input". OMITTING it is a different statement: absence means the library
-   * does not know the shape, so it never guesses one.
-   */
-  schema?: unknown;
-  /** The app's own post-settlement check that the action really happened. */
-  verify?: VerifyContract;
-  /** Marks edges that need server-side step-up/confirmation. Advisory client-side. */
-  highEffect?: boolean;
-  role?: CanonicalRole;
-}
-
-export interface SkillDef {
+/**
+ * A journey in the COMPILED vocabulary, before its id is attached — the shape
+ * that lands in {@link NavigationGraphSpec.journeys} as a {@link Journey}.
+ *
+ * Not to be confused with `JourneyDef` (tree/types.ts), which is the AUTHORING
+ * shape: authors write `does`/`when`, the compiler emits `description`/
+ * `precondition`. Two vocabularies, two names, one thing — the dual identity
+ * this whole layer is built on (navigation in, journey graph out).
+ */
+export interface JourneySpec {
   /** AUTHORED planner-facing text (same string class as affordance descriptions). */
   description: string;
   /** Affordance ids, in canonical order. v0: linear; step-DAG is roadmap. */
@@ -258,7 +236,7 @@ export interface Affordance {
    * edge exists here at all. A failed guard HIDES the edge; a false
    * `enabledWhen` SERVES it carrying `enabled: false` (a greyed button an agent
    * can see) and refuses an execution fire as TOOL_DISABLED. Authored via
-   * `ToolDef.enabledWhen`, ideally from the same expression that renders
+   * `ActionDef.enabledWhen`, ideally from the same expression that renders
    * `<button disabled={…}>`. Keys it cannot evaluate never disable anything:
    * the library does not guess a control greyed out.
    */
@@ -283,16 +261,18 @@ export interface Affordance {
  */
 export type ActivationLevel = 'synced' | 'assumed' | 'registered' | 'shown' | 'hidden';
 
-export interface Skill extends SkillDef {
+/** One compiled journey: {@link JourneySpec} with the id it is filed under. */
+export interface Journey extends JourneySpec {
   id: string;
 }
 
-export interface SkillGraphSpec {
+export interface NavigationGraphSpec {
   id: string;
   description?: string;
   pages: Record<string, Page>;
   affordances: Record<string, Affordance>;
-  skills: Record<string, Skill>;
+  /** The compiled journeys, by id — the same word the definition declares them under. */
+  journeys: Record<string, Journey>;
 }
 
 // ---------------------------------------------------------------------------
@@ -507,20 +487,20 @@ export interface SessionEvents {
 export type SessionEventName = keyof SessionEvents;
 
 /**
- * The handle returned by registerToolGroup — the group's IDENTITY. You never
+ * The handle returned by registerActions — the group's IDENTITY. You never
  * name a group with a string (two components would collide and you'd have to
  * invent unique names); registration hands you this handle and you act through
  * it. `id` is a generated opaque token, exposed only for telemetry/warnings.
  */
-export interface ToolGroup {
+export interface ActionGroup {
   /** Generated identity of this registration (for telemetry/debug — not caller-supplied). */
   readonly id: string;
   /** The node path this group is registered on (tree API); undefined for the flat API. */
   readonly node?: string;
-  /** Grey out / re-enable one tool in this group (a disabled button). */
-  setEnabled(toolId: string, enabled: boolean): void;
+  /** Grey out / re-enable one action in this group (a disabled button). */
+  setEnabled(actionId: string, enabled: boolean): void;
   /**
-   * Say that one tool in this group is WORKING RIGHT NOW, in your own words —
+   * Say that one action in this group is WORKING RIGHT NOW, in your own words —
    * or hand `undefined` to stop saying it. See {@link AvailableEdge.busy}: the
    * label is yours, presence is the whole claim, and there is no boolean form.
    *
@@ -528,19 +508,19 @@ export interface ToolGroup {
    * library and never implemented by a consumer, so every handle in existence
    * can say the third state rather than some of them.
    */
-  setBusy(toolId: string, busy: string | undefined): void;
+  setBusy(actionId: string, busy: string | undefined): void;
   /** Remove this group's registrations (call on unmount). Idempotent. */
   unregister(): void;
 }
 
-/** The handle returned by registerTool — a single-tool ToolGroup. */
-export interface ToolHandle {
+/** The handle returned by registerAction — a single-action ActionGroup. */
+export interface ActionHandle {
   readonly id: string;
   readonly node?: string;
-  readonly toolId: string;
-  /** Grey out / re-enable this tool. */
+  readonly actionId: string;
+  /** Grey out / re-enable this action. */
   setEnabled(enabled: boolean): void;
-  /** Say this tool is working right now, in your own words — `undefined` stops saying it. */
+  /** Say this action is working right now, in your own words — `undefined` stops saying it. */
   setBusy(busy: string | undefined): void;
   unregister(): void;
 }
@@ -722,7 +702,7 @@ export interface AvailableEdge {
    *
    * FOUR wires land here, so an app can say it wherever it already knows it:
    * `enabled:` at registration, `handle.setEnabled(…)`, a live store's
-   * `LiveAction.enabled`, and the declarative `ToolDef.enabledWhen`.
+   * `LiveAction.enabled`, and the declarative `ActionDef.enabledWhen`.
    */
   enabled?: boolean;
   /**
@@ -735,7 +715,7 @@ export interface AvailableEdge {
    * the app's state one turn early, and firing does not send it.
    *
    * TWO WIRES land here, and only where the app already holds the value in a
-   * variable: `holds:` at registration ({@link RegisterToolGroupOptions}), and
+   * variable: `holds:` at registration ({@link RegisterActionGroupOptions}), and
    * the sensor forwarding a declared control's `value()` getter. The sensor's
    * per-element declaration wins when both exist — most specific, the same
    * declaration-outranks rule the sensor's own two evidence levels follow.
@@ -780,7 +760,7 @@ export interface AvailableEdge {
    * or `groundTruth()`.
    *
    * THREE WIRES, mirroring `enabled`'s, so an app says it wherever it already
-   * knows it: `busy:` at registration, `handle.setBusy(toolId, label)`, and a
+   * knows it: `busy:` at registration, `handle.setBusy(actionId, label)`, and a
    * live store's `LiveAction.busy`. There is deliberately NO declarative
    * `busyWhen` — a condition can prove a state, but it cannot author a label, and
    * a library-written label is a library-written meaning. Nothing is read off the
@@ -826,7 +806,7 @@ export interface AvailableSlice {
   edges: AvailableEdge[];
 }
 
-export interface AvailableSkill {
+export interface AvailableJourney {
   id: string;
   description: string;
   steps: string[];
@@ -834,7 +814,7 @@ export interface AvailableSkill {
   evidence: FilterCondition[];
   /** Precondition keys absent from the state view — feasibility unknown, said so. */
   preconditionUnevaluable?: string[];
-  /** Whether the skill's first step is available right now (on-node + guard). */
+  /** Whether the journey's first step is available right now (on-node + guard). */
   entryAvailable: boolean;
 }
 
@@ -854,7 +834,7 @@ export interface FireOptions {
    * Who is acting. Required here on purpose — a typed caller should never
    * leave provenance to an assumption. It is only ever assumed for a caller
    * the types never reached (plain JS): an omitted source reads as 'agent',
-   * the same assumption `commitSkill()` and `confirmAsk()` publish, never as
+   * the same assumption `commitJourney()` and `confirmAsk()` publish, never as
    * 'user' — a machine action must not enter the ledger as a human one.
    */
   source: Principal;
@@ -1227,7 +1207,7 @@ export interface WorkRow {
 // ---------------------------------------------------------------------------
 
 export type GapReason =
-  | 'no-skill-matched'
+  | 'no-journey-matched'
   | 'guard-blocked'
   | 'needs-backend-data'
   /** Sensor-health drift: e.g. a registration outside the router-confirmed page persisted past the grace window. */
@@ -1238,7 +1218,7 @@ export type GapReason =
  * One row of unmet demand. Four kinds:
  * - 'fire-rejected'      — an attempted action the session refused (unknown id,
  *   failed guard, wrong page, stale plan, bad payload). Recorded automatically.
- * - 'reported'           — an ask no available action or skill could serve,
+ * - 'reported'           — an ask no available action or journey could serve,
  *   reported explicitly (typically by the agent's report_gap tool).
  * - 'unmaterialized-fire' — an ALLOWED no-op agent fire: the session runs with
  *   `allowUnmaterializedFires` (a guide/tour flow) and the tool it fired has no
@@ -1270,7 +1250,7 @@ export type GapReason =
  *
  * Rows are deliberately TOKEN-LEAN and structured — the ask plus NAME lists,
  * never descriptions or transcripts — so a consumer's batch triage LLM can
- * cluster thousands of them cheaply to discover which skills/tools to build
+ * cluster thousands of them cheaply to discover which journeys/actions to build
  * next. `request` is runtime data (user text): export it as data, never feed
  * it to a planner as instructions.
  *
@@ -1283,7 +1263,7 @@ export type GapReason =
  * a "what to build next" query — a triage model that reads a blocked forgery as
  * a feature request will propose building the hole back in.
  * `availableActions` lists full capability at that position (not narrowed by
- * any open skill frame). The ledger grows unbounded for the session's life —
+ * any open journey frame). The ledger grows unbounded for the session's life —
  * export via onGap and drain, like the transition log.
  */
 export interface GapRecord {
@@ -1297,13 +1277,13 @@ export interface GapRecord {
    * are the actions the page OFFERS while none of them can act.
    */
   availableActions: string[];
-  availableSkills: string[];
+  availableJourneys: string[];
   // dead-end rows:
   /**
    * The cursor is resting on a node the graph has never heard of — the same
    * fact {@link SyncResult}.offGraph reports, kept on the row so triage can
    * separate the two traps without re-deriving it. It is the PERMANENT one: no
-   * mount can add a door to an unauthored page (registerToolGroup throws on an
+   * mount can add a door to an unauthored page (registerActions throws on an
    * unknown node), so it is recorded ONCE per node for the session's life
    * rather than re-asked on every structure change. Cure: author the page, or
    * sync() the id the graph actually uses for that screen.
@@ -1334,7 +1314,7 @@ export interface GapRecord {
     | 'INSTANCE_UNKNOWN'
     | 'TOOL_DISABLED'
     | 'NOT_MATERIALIZED'
-    /** commitSkill refused: the skill's ENTRY step could not materialise (never-trap gate). */
+    /** commitJourney refused: the journey's ENTRY step could not materialise (never-trap gate). */
     | 'ENTRY_NOT_MATERIALIZED'
     // requireHumanApproval refusals — SECURITY rows, not missing capability.
     | 'APPROVAL_REQUIRED'
@@ -1352,11 +1332,11 @@ export interface GapRecord {
    */
   gestureKind?: Binding['kind'];
   /**
-   * The skill whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
-   * `affordanceId` on those rows is the entry STEP; this names the skill the
+   * The journey whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
+   * `affordanceId` on those rows is the entry STEP; this names the journey the
    * planner actually asked for.
    */
-  skillId?: string;
+  journeyId?: string;
   // reported rows:
   /** The user's ask (runtime data; length-capped). */
   request?: string;
@@ -1685,7 +1665,7 @@ export type ApprovalResult =
     };
 
 // ---------------------------------------------------------------------------
-// Skill frames — on-demand disclosure (serve skills; expand tools on commit)
+// Journey frames — on-demand disclosure (serve journeys; expand tools on commit)
 // ---------------------------------------------------------------------------
 
 export type StepStatus = 'done' | 'inferred-done' | 'ready' | 'blocked' | 'off-node';
@@ -1696,7 +1676,7 @@ export interface DependencyEdge {
   viaKeys: string[];
 }
 
-export interface SkillPlanStep {
+export interface JourneyPlanStep {
   affordanceId: string;
   description: string;
   /**
@@ -1712,18 +1692,20 @@ export interface SkillPlanStep {
   guardUnevaluated?: string[];
 }
 
-/** The derived intra-skill dependency DAG with live status. */
-export interface SkillPlan {
-  skillId: string;
+/** The derived intra-journey dependency DAG with live status. */
+export interface JourneyPlan {
+  /** The journey this plan is for. */
+  journeyId: string;
   description: string;
-  steps: SkillPlanStep[];
+  steps: JourneyPlanStep[];
 }
 
 export type FrameStatus = 'open' | 'completed' | 'cancelled' | 'demoted';
 
-/** One committed pass at a skill. 'demoted' = the skill's precondition broke mid-flow. */
-export interface SkillFrame {
-  skillId: string;
+/** One committed pass at a journey. 'demoted' = the journey's precondition broke mid-flow. */
+export interface JourneyFrame {
+  /** The journey this frame is open on. */
+  journeyId: string;
   status: FrameStatus;
   principal: Principal;
   openedAt: number;
@@ -1732,7 +1714,7 @@ export interface SkillFrame {
   firedSteps: string[];
   /**
    * Steps attributed by effect-signature INFERENCE while this frame was open
-   * — guesses, kept separate from observed fires. skillPlan shows them as
+   * — guesses, kept separate from observed fires. journeyPlan shows them as
    * 'inferred-done' so an agent re-executes only as a visible choice.
    */
   inferredSteps: string[];
@@ -1740,28 +1722,28 @@ export interface SkillFrame {
 }
 
 /**
- * trySkillPlan()'s answer: the plan, or the unknown-id refusal as a VALUE.
+ * tryJourneyPlan()'s answer: the plan, or the unknown-id refusal as a VALUE.
  *
- * Its failure arm is CommitSkillResult's UNKNOWN_SKILL arm, field for field —
- * same reason string, same `known` list. Two methods that answer the same
- * question ("is this a skill?") must not teach a caller two shapes for the
+ * Its failure arm is CommitJourneyResult's UNKNOWN_JOURNEY arm, field for field
+ * — same reason string, same `known` list. Two methods that answer the same
+ * question ("is this a journey?") must not teach a caller two shapes for the
  * answer, or handling one of them is no preparation for the other.
  */
-export type TrySkillPlanResult =
-  | { ok: true; plan: SkillPlan }
-  | { ok: false; reason: 'UNKNOWN_SKILL'; known: string[] };
+export type TryJourneyPlanResult =
+  | { ok: true; plan: JourneyPlan }
+  | { ok: false; reason: 'UNKNOWN_JOURNEY'; known: string[] };
 
-export type CommitSkillResult =
-  | { ok: true; frame: SkillFrame; plan: SkillPlan; version: number }
-  | { ok: false; reason: 'UNKNOWN_SKILL'; known: string[] }
+export type CommitJourneyResult =
+  | { ok: true; frame: JourneyFrame; plan: JourneyPlan; version: number }
+  | { ok: false; reason: 'UNKNOWN_JOURNEY'; known: string[] }
   | { ok: false; reason: 'STALE_CURSOR'; version: number }
   | { ok: false; reason: 'PRECONDITION_FAILED'; evidence: FilterCondition[] }
-  | { ok: false; reason: 'FRAME_ALREADY_OPEN'; skillId: string }
+  | { ok: false; reason: 'FRAME_ALREADY_OPEN'; journeyId: string }
   /**
-   * The never-trap commit gate: the skill's ENTRY step would answer an agent
+   * The never-trap commit gate: the journey's ENTRY step would answer an agent
    * fire NOT_MATERIALIZED right now, so the frame that could never act is
    * never opened (an agent standing in a room where nothing it was promised
-   * works is a planning trap, even with the leave-skill escape). Fires only
+   * works is a planning trap, even with the leave-journey escape). Fires only
    * for agent commits outside a tour (allowUnmaterializedFires). `gesture`
    * carries the entry step's declared binding, when it has one — the refusal
    * names the wiring that is missing.
@@ -1787,7 +1769,7 @@ export interface ContextBriefOptions {
 export interface ContextBrief {
   node: string;
   version: number;
-  frame: SkillFrame | null;
+  frame: JourneyFrame | null;
   text: string;
 }
 
@@ -1823,7 +1805,7 @@ export interface GroundTruthOptions {
  * `text` carries AUTHORED constants and authored ids only. What it excludes is
  * as deliberate as what it holds: no state values or payloads (the
  * two-string-class invariant, extended to history), no produced data (that is
- * the data channel), no available actions or skills (options are whats_here's
+ * the data channel), no available actions or journeys (options are whats_here's
  * job — facts are what happened, and the two stay non-overlapping so both stay
  * lean), no runtime free text, and no interpretation — one line per occurrence.
  */

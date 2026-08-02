@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { shop, initialState } from './fixture.js';
 import type { GapRecord } from '../src/index.js';
 
-describe('gap ledger — unmet demand', () => {
+describe('what an agent reached for and could not have', () => {
   it('a rejected fire records a row automatically, with reason and context names', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     s.fire('add-to-cart', { source: 'agent', payload: { productId: 'p1' } }); // guard fails (not authenticated)
@@ -28,7 +28,7 @@ describe('gap ledger — unmet demand', () => {
     expect(gaps[1]).toMatchObject({ kind: 'fire-rejected', rejectionReason: 'UNKNOWN_AFFORDANCE', affordanceId: 'ghost-action' });
     // context is NAMES ONLY — token-lean, injection-safe:
     expect(gaps[0].availableActions).toEqual(['login']);
-    expect(gaps[0].availableSkills).toEqual(['purchase']);
+    expect(gaps[0].availableJourneys).toEqual(['purchase']);
   });
 
   it('reportGap records an unserved ask, length-capped, with reason', () => {

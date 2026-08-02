@@ -63,7 +63,7 @@ describe('the demand backlog', () => {
     const app = createWizardApp();
     // Two reaches for the unwired click, one for a guard-blocked step.
     app.session.fire('welcome.import-from-google', { source: 'agent' });
-    app.session.commitSkill('import-signup', { source: 'agent' });
+    app.session.commitJourney('import-signup', { source: 'agent' });
     app.session.fire('welcome.to-profile', { source: 'agent', expectedVersion: -1 });
 
     const backlog = readGapBacklog(app.session.gaps());

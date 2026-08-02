@@ -11,7 +11,7 @@ describe('the compiled graph', () => {
 
   it('declares no actions at all — every one of them arrives from the store', () => {
     expect(Object.keys(graph.spec.affordances)).toEqual([]);
-    expect(Object.keys(graph.spec.skills)).toEqual([]);
+    expect(Object.keys(graph.spec.journeys)).toEqual([]);
   });
 
   it('declares the desk’s shape, with its routes', () => {

@@ -19,7 +19,7 @@ import { readJourneys } from '../src/panels/journeyReadiness.js';
 describe('the never-trap commit gate', () => {
   it('refuses an agent commit whose entry step could never act, naming the missing wiring', () => {
     const app = createWizardApp();
-    const refused = app.session.commitSkill('import-signup', { source: 'agent' });
+    const refused = app.session.commitJourney('import-signup', { source: 'agent' });
 
     // Narrowed by a throw rather than an assertion, so the fields below are
     // read off the arm the union actually returned — and a surprise arm fails
@@ -35,14 +35,14 @@ describe('the never-trap commit gate', () => {
     });
 
     // The frame that could never act was never opened.
-    expect(app.session.skillFrame()).toBeNull();
+    expect(app.session.journeyFrame()).toBeNull();
     expect(app.session.frames()).toEqual([]);
     app.destroy();
   });
 
   it('lands exactly ONE gap row for it — naming the skill, the step and the gesture kind', () => {
     const app = createWizardApp();
-    app.session.commitSkill('import-signup', { source: 'agent' });
+    app.session.commitJourney('import-signup', { source: 'agent' });
 
     const backlog = readGapBacklog(app.session.gaps());
     expect(backlog.total).toBe(1);
@@ -50,7 +50,7 @@ describe('the never-trap commit gate', () => {
       kind: 'fire-rejected',
       rejectionReason: 'ENTRY_NOT_MATERIALIZED',
       affordanceId: 'welcome.import-from-google',
-      skillId: 'import-signup',
+      journeyId: 'import-signup',
       gestureKind: 'element',
       principal: 'agent',
     });
@@ -66,7 +66,7 @@ describe('the never-trap commit gate', () => {
       bundles: app.session.commitLog().length,
       state: app.store.snapshot(),
     };
-    app.session.commitSkill('import-signup', { source: 'agent' });
+    app.session.commitJourney('import-signup', { source: 'agent' });
 
     expect(app.session.transitions()).toHaveLength(before.transitions);
     expect(app.session.commitLog()).toHaveLength(before.bundles);
@@ -76,9 +76,9 @@ describe('the never-trap commit gate', () => {
 
   it('says the same thing read-only, so a panel can show it without triggering it', () => {
     const app = createWizardApp();
-    const reading = readJourneys(app.session.availableSkills().skills, app.session.available());
+    const reading = readJourneys(app.session.availableJourneys().journeys, app.session.available());
 
-    const broken = reading.rows.find((row) => row.skillId === 'import-signup');
+    const broken = reading.rows.find((row) => row.journeyId === 'import-signup');
     expect(broken?.entryWiring).toBe('not-wired');
     expect(broken?.entryGestureKind).toBe('element');
     // Reading it left no trace at all — that is the point of asking this way.
@@ -88,9 +88,9 @@ describe('the never-trap commit gate', () => {
 
   it('lets a HUMAN commit the same journey — the gate is about the agent’s actuator, not the app’s', () => {
     const app = createWizardApp();
-    const committed = app.session.commitSkill('import-signup', { source: 'user' });
+    const committed = app.session.commitJourney('import-signup', { source: 'user' });
     expect(committed.ok).toBe(true);
-    expect(app.session.skillFrame()?.skillId).toBe('import-signup');
+    expect(app.session.journeyFrame()?.journeyId).toBe('import-signup');
     app.destroy();
   });
 
@@ -101,13 +101,13 @@ describe('the never-trap commit gate', () => {
     app.session.fire('welcome.to-profile', { source: 'agent' });
     await settle();
 
-    const opened = app.session.commitSkill('signup', { source: 'agent' });
+    const opened = app.session.commitJourney('signup', { source: 'agent' });
     expect(opened.ok).toBe(true);
 
     // The frame narrows what is DISCLOSED, never what exists. The page's own
     // actions — including the way out — are still served.
     const served = app.session.available().edges.map((edge) => edge.affordanceId);
-    const steps = app.session.skillPlan('signup').steps.map((step) => step.affordanceId);
+    const steps = app.session.journeyPlan('signup').steps.map((step) => step.affordanceId);
     const notSteps = served.filter((id) => !steps.includes(id));
     expect(notSteps).toContain('profile.back-to-welcome');
     expect(notSteps.length).toBeGreaterThan(0);

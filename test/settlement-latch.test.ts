@@ -22,7 +22,7 @@ const settlement = (over: Partial<FireSettlement> = {}): FireSettlement => ({
   ...over,
 });
 
-describe('createSettlementLatch() — one answer, delivered once', () => {
+describe('one answer, delivered once, however many callers are waiting', () => {
   it('resolves with the settlement it was given', async () => {
     const latch = createSettlementLatch();
     latch.settle(settlement({ effectStatus: 'performed' }));
@@ -57,7 +57,7 @@ describe('createSettlementLatch() — one answer, delivered once', () => {
   });
 });
 
-describe('settledNow() — the arms whose truth is known synchronously', () => {
+describe('the fires whose answer is already known, with nothing to wait for', () => {
   it('delivers on await without any further event', async () => {
     const latch = settledNow(settlement({ effectStatus: 'unobservable' }));
     await expect(latch.promise).resolves.toMatchObject({ effectStatus: 'unobservable' });

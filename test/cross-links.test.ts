@@ -4,12 +4,12 @@
  *
  * The reported field failure this kills (from a production integration): a
  * fromRoutes table contributed 28 pages and ZERO actions. On a wizard page
- * whose only tool was a file-select, the agent answered "there is NO action
+ * whose only action was a file-select, the agent answered "there is NO action
  * that would take you to the Projects list" — correctly, on the information it
- * was given — and looped. The workaround was three hand-written nav tools
+ * was given — and looped. The workaround was three hand-written nav actions
  * attached to all 28 pages.
  *
- * The stance: opt-in (inventing 28 tools nobody asked for is the other way to
+ * The stance: opt-in (inventing 28 actions nobody asked for is the other way to
  * be wrong), and the literal-address law decides what can be linked — a blanket
  * `true` FILTERS param routes, an explicit name REFUSES.
  *
@@ -18,7 +18,7 @@
  * sources-only def compiled to ZERO affordances no matter what was asked.
  */
 import { describe, expect, it } from 'vitest';
-import { SkillGraphValidationError, buildNavigationGraph, fromRoutes } from '../src/index.js';
+import { GraphValidationError, buildNavigationGraph, fromRoutes } from '../src/index.js';
 import type { GraphSource, NavigationGraphDef } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -36,13 +36,13 @@ function appRoutes() {
 /** The def as the app would write it: the spine from routes, one hand-authored page with the real work on it. */
 function appDef(crossLinks: true | readonly ('home' | 'projects' | 'wizard' | 'project')[]): NavigationGraphDef {
   return {
-    pages: { wizard: { tools: { 'pick-file': { does: 'Choose a file to upload' } } } },
+    pages: { wizard: { actions: { 'pick-file': { does: 'Choose a file to upload' } } } },
     sources: [fromRoutes(appRoutes(), { crossLinks })],
   };
 }
 
 describe('the factory — what fromRoutes records, and what it refuses', () => {
-  it('records the REQUEST, not tools — the factory sees one table, never the effective graph', () => {
+  it('records the REQUEST, not actions — the factory sees one table, never the effective graph', () => {
     expect(fromRoutes(appRoutes(), { crossLinks: true }).crossLinks).toBe(true);
     expect(fromRoutes(appRoutes(), { crossLinks: ['projects'] }).crossLinks).toEqual(['projects']);
   });
@@ -77,7 +77,7 @@ describe('the factory — what fromRoutes records, and what it refuses', () => {
   });
 });
 
-describe('materialisation — the links become ordinary root-level tools', () => {
+describe('materialisation — the links become ordinary root-level actions', () => {
   // Built per test, not once at describe scope: if the param filter ever broke,
   // compileTool would refuse the paramful href and a shared build would take
   // the whole FILE down as a collection error instead of naming the behaviour
@@ -111,7 +111,7 @@ describe('materialisation — the links become ordinary root-level tools', () =>
   });
 
   it('offered on every EFFECTIVE page except the target — hand-authored pages included', () => {
-    // 'wizard' is hand-authored (it carries the real tool) and still appears in
+    // 'wizard' is hand-authored (it carries the real action) and still appears in
     // every other link's on-list: the effective page set is why materialisation
     // lives in the merge and not in the factory.
     expect(graph().spec.affordances['go-to-home'].on).toEqual(['projects', 'wizard', 'project']);
@@ -120,7 +120,7 @@ describe('materialisation — the links become ordinary root-level tools', () =>
 
   it('a page that cannot be a link TARGET is still a place you can stand', () => {
     // The param page gets no link OF ITS OWN, and still receives everyone else's.
-    expect(graph().toolNodes['go-to-home']).toContain('project');
+    expect(graph().actionNodes['go-to-home']).toContain('project');
   });
 
   it('a named subset contributes exactly those, and nothing else', () => {
@@ -129,16 +129,16 @@ describe('materialisation — the links become ordinary root-level tools', () =>
   });
 
   it('a one-page table contributes nothing — there is nowhere to offer the link', () => {
-    // Not a refusal and not a broken `on: []` tool that would die in the
-    // compiler naming a tool the author never wrote: the link does not exist,
+    // Not a refusal and not a broken `on: []` action that would die in the
+    // compiler naming an action the author never wrote: the link does not exist,
     // because no page exists it could have appeared on.
     const solo = buildNavigationGraph('app', { sources: [fromRoutes({ home: '/' }, { crossLinks: true })] });
     expect(Object.keys(solo.spec.affordances)).toEqual([]);
   });
 
-  it('a def that never asked keeps its own tools untouched — key order and all', () => {
+  it('a def that never asked keeps its own actions untouched — key order and all', () => {
     const plain = buildNavigationGraph('app', {
-      tools: {
+      actions: {
         'open-help': { does: 'Open help', on: 'home' },
         'open-search': { does: 'Open search', on: 'home' },
       },
@@ -148,23 +148,23 @@ describe('materialisation — the links become ordinary root-level tools', () =>
   });
 });
 
-describe('merge order — "routes may also contribute link tools; hand-authored tools win"', () => {
-  it('a hand-authored tool with the same id wins SILENTLY (the journeys precedent)', () => {
+describe('merge order — "routes may also contribute link actions; hand-authored actions win"', () => {
+  it('a hand-authored action with the same id wins SILENTLY (the journeys precedent)', () => {
     const graph = buildNavigationGraph('app', {
-      pages: { wizard: { tools: { 'pick-file': { does: 'Choose a file to upload' } } } },
-      tools: { 'go-to-projects': { does: 'Open the projects list in a side panel', on: 'wizard' } },
+      pages: { wizard: { actions: { 'pick-file': { does: 'Choose a file to upload' } } } },
+      actions: { 'go-to-projects': { does: 'Open the projects list in a side panel', on: 'wizard' } },
       sources: [fromRoutes(appRoutes(), { crossLinks: true })],
     });
     expect(graph.spec.affordances['go-to-projects']).toMatchObject({
       description: 'Open the projects list in a side panel',
       on: ['wizard'],
     });
-    expect(graph.spec.affordances['go-to-projects'].binding).toBeUndefined(); // the author's tool, whole
+    expect(graph.spec.affordances['go-to-projects'].binding).toBeUndefined(); // the author's action, whole
   });
 
-  it('links come first and hand-authored tools after — one deterministic key order', () => {
+  it('links come first and hand-authored actions after — one deterministic key order', () => {
     const graph = buildNavigationGraph('app', {
-      tools: { 'open-help': { does: 'Open help', on: 'home' } },
+      actions: { 'open-help': { does: 'Open help', on: 'home' } },
       sources: [fromRoutes({ home: '/', projects: '/projects' }, { crossLinks: true })],
     });
     expect(Object.keys(graph.spec.affordances)).toEqual(['go-to-home', 'go-to-projects', 'open-help']);
@@ -174,7 +174,7 @@ describe('merge order — "routes may also contribute link tools; hand-authored 
     const smuggled = { kind: 'routes', pages: { home: { route: '/' } }, crossLinks: 'yes please' };
     expect(() =>
       buildNavigationGraph('app', { sources: [smuggled as unknown as GraphSource] }),
-    ).toThrow(SkillGraphValidationError);
+    ).toThrow(GraphValidationError);
     expect(() =>
       buildNavigationGraph('app', { sources: [smuggled as unknown as GraphSource] }),
     ).toThrow(/crossLinks is neither true nor an array of page names/);
@@ -209,7 +209,7 @@ describe('the links ride the EXISTING machinery — nothing downstream needed ch
     if (!fired.ok) return;
     const settled = await fired.whenSettled;
     // handlerFor synthesized `() => navigate('/projects')` from the url binding
-    // — the same wire an explicit url tool has used since 0.4.
+    // — the same wire an explicit url action has used since 0.4.
     expect(settled.effectStatus).toBe('performed');
     expect(seen).toEqual(['/projects']);
     expect(session.node).toBe('projects');
@@ -236,9 +236,9 @@ describe('the links ride the EXISTING machinery — nothing downstream needed ch
       node: 'wizard',
       navigate: () => void calls.push('navigate'),
     });
-    session.registerTools({
+    session.registerHandlers({
       group: 'app-shell',
-      tools: { 'go-to-projects': () => void calls.push('handler') },
+      handlers: { 'go-to-projects': () => void calls.push('handler') },
     });
     session.fire('go-to-projects', { source: 'agent' });
     await tick();

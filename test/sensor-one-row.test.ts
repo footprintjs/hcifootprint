@@ -232,7 +232,7 @@ describe('the record-only guarantee, restated where a reader will look for it', 
     let registeredRuns = 0;
     // BOTH doors are wired, which is the dangerous shape: a registered handler for
     // the agent, and the app's own onClick for the human.
-    session.registerToolGroup('inbox', { handlers: { send: () => (registeredRuns += 1) } });
+    session.registerActions('inbox', { handlers: { send: () => (registeredRuns += 1) } });
     button.addEventListener('click', () => (appRuns += 1));
     const watch = watchPage(session, { root: surface });
 

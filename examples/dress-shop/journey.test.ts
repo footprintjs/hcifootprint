@@ -1,7 +1,7 @@
 /**
  * The end-to-end journey the demo (and the planned X2 study) is built on:
  * user browses and picks a dress by hand, the agent takes over and completes
- * the purchase inside a skill frame, then the user asks about the order —
+ * the purchase inside a journey frame, then the user asks about the order —
  * one session, one commit log, full provenance, every answer explainable.
  */
 import { describe, expect, it } from 'vitest';
@@ -32,19 +32,19 @@ describe('dress-shop — the full mixed-initiative journey', () => {
     expect(s.node).toBe('product');
     expect(s.state()['selectedDressId']).toBe('d3');
 
-    // ── AGENT takes over: skills-first disclosure, then the purchase frame ──
-    const skills = s.availableSkills().skills;
-    expect(skills.map((sk) => sk.id)).toEqual(['find-dress', 'purchase', 'track-order']);
-    expect(skills.find((sk) => sk.id === 'track-order')!.preconditionPassed).toBe(false); // no orders yet
+    // ── AGENT takes over: journeys-first disclosure, then the purchase frame ──
+    const journeys = s.availableJourneys().journeys;
+    expect(journeys.map((sk) => sk.id)).toEqual(['find-dress', 'purchase', 'track-order']);
+    expect(journeys.find((sk) => sk.id === 'track-order')!.preconditionPassed).toBe(false); // no orders yet
 
-    const committed = s.commitSkill('purchase', { source: 'agent' });
+    const committed = s.commitJourney('purchase', { source: 'agent' });
     expect(committed).toMatchObject({ ok: true });
 
     // Disclosure: only the frame's fireable steps + escape are served
     const toolNames = s.toMCPTools().map((t) => t.name);
     expect(toolNames).toContain('dress-shop.add-to-cart');
-    expect(toolNames).toContain('dress-shop.leave-skill');
-    expect(toolNames).not.toContain('dress-shop.search-dresses'); // not in the skill
+    expect(toolNames).toContain('dress-shop.leave-journey');
+    expect(toolNames).not.toContain('dress-shop.search-dresses'); // not in the journey
 
     // The agent walks the derived plan; each fire executes the app's REAL handler
     s.fire('add-to-cart', { source: 'agent' });
@@ -60,13 +60,13 @@ describe('dress-shop — the full mixed-initiative journey', () => {
     expect(s.state()['lastOrderId']).toBe('ord-1');
     expect(app.appState().cart).toEqual([]); // the REAL app state changed — not a simulation
 
-    expect(s.skillFrame()!.firedSteps).toEqual([
+    expect(s.journeyFrame()!.firedSteps).toEqual([
       'add-to-cart',
       'go-to-cart',
       'proceed-to-checkout',
       'place-order',
     ]);
-    expect(s.leaveSkill()!.status).toBe('completed');
+    expect(s.leaveJourney()!.status).toBe('completed');
 
     // ── USER asks: "what happened / where's my order?" ──────────────────────
     const brief = s.contextBrief();
@@ -112,7 +112,7 @@ describe('dress-shop — the full mixed-initiative journey', () => {
     });
   });
 
-  it('lazy tools: page groups mount and unmount as the user moves', async () => {
+  it('lazy actions: page groups mount and unmount as the user moves', async () => {
     const app = createDressShopApp();
     const s = app.session;
     const home = Object.fromEntries(s.available().edges.map((e) => [e.affordanceId, e.materialized]));

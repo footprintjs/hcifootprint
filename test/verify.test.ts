@@ -36,7 +36,7 @@
  *   a no-op fire earns a verdict about an action nobody performed.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { VERIFY_FAILED_EXPLANATION, checkVerify, filterVerdict } from '../src/traverse/verify.js';
 import type {
   FireResult,
@@ -53,7 +53,7 @@ function wizard(verify: VerifyContract, opts?: { writes?: string[] }): Navigatio
   return buildNavigationGraph('wizard', {
     pages: {
       setup: {
-        tools: {
+        actions: {
           pick: {
             does: 'Pick the recipe',
             verify,
@@ -61,7 +61,7 @@ function wizard(verify: VerifyContract, opts?: { writes?: string[] }): Navigatio
           },
         },
       },
-      review: { tools: { submit: { does: 'Submit it', writes: ['submitted'] } } },
+      review: { actions: { submit: { does: 'Submit it', writes: ['submitted'] } } },
     },
   });
 }
@@ -88,7 +88,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
       state: { recipe: '' },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', {
+    session.registerActions('setup', {
       handlers: { pick: () => session.updateState({ recipe: 'sourdough' }, { stimulus: 'push' }) },
     });
 
@@ -105,7 +105,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
       state: { recipe: '' },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const fired = session.fire('setup.pick', { source: 'agent' });
     const settled = await settledOf(fired);
@@ -127,7 +127,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
       stateTap: false,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled).toMatchObject({ effectStatus: 'refused', outcome: 'rolled-back', verifyHeld: false });
@@ -142,7 +142,7 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
       state: { recipe: '', recipeConfirmed: false },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const fired = session.fire('setup.pick', { source: 'agent' });
     session.updateState({ recipe: 'sourdough' }); // a REAL report, attributed
@@ -157,12 +157,12 @@ describe('verify — a handler that RAN is not the same as an action that HAPPEN
   it('walks the cursor back when the refused action had CLAIMED a navigation', async () => {
     const graph = buildNavigationGraph('wizard', {
       pages: {
-        setup: { tools: { next: { does: 'Go on', goTo: 'review', verify: { stepDone: { eq: true } } } } },
+        setup: { actions: { next: { does: 'Go on', goTo: 'review', verify: { stepDone: { eq: true } } } } },
         review: {},
       },
     });
     const session = graph.createSession({ node: 'setup', state: { stepDone: false }, onWarn: () => undefined });
-    session.registerToolGroup('setup', { handlers: { next: () => undefined } });
+    session.registerActions('setup', { handlers: { next: () => undefined } });
 
     const fired = session.fire('setup.next', { source: 'agent' });
     expect(session.node).toBe('review'); // the claim moved the cursor optimistically
@@ -182,7 +182,7 @@ describe('verify — what it cannot check, it does not judge', () => {
       state: { recipe: '' }, // the verify key is not in the projection at all
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: 'unevaluable' });
@@ -198,7 +198,7 @@ describe('verify — what it cannot check, it does not judge', () => {
       state: { recipe: '' },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled).toMatchObject({ effectStatus: 'refused', verifyHeld: false });
@@ -206,10 +206,10 @@ describe('verify — what it cannot check, it does not judge', () => {
 
   it('no contract declared: the settlement carries no verdict at all', async () => {
     const graph = buildNavigationGraph('wizard', {
-      pages: { setup: { tools: { pick: { does: 'Pick the recipe' } } } },
+      pages: { setup: { actions: { pick: { does: 'Pick the recipe' } } } },
     });
     const session = graph.createSession({ node: 'setup', state: {}, onWarn: () => undefined });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled.effectStatus).toBe('performed');
@@ -243,7 +243,7 @@ describe('verify — the predicate the app owns', () => {
       state: { recipe: '' },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', {
+    session.registerActions('setup', {
       handlers: {
         pick: () => {
           selected = true; // stands in for the app's own DOM/store
@@ -262,7 +262,7 @@ describe('verify — the predicate the app owns', () => {
       (state as Record<string, unknown>)['recipe'] = 'mutated by the predicate';
       return true;
     }).createSession({ node: 'setup', state: { recipe: 'sourdough' }, onWarn: () => undefined });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(handed).not.toBeNull();
@@ -274,7 +274,7 @@ describe('verify — the predicate the app owns', () => {
     const session = wizard(() => {
       throw new Error('the DOM node was gone');
     }).createSession({ node: 'setup', state: { recipe: '' }, onWarn: warn });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: 'unevaluable' });
@@ -288,7 +288,7 @@ describe('verify — the predicate the app owns', () => {
       state: { recipe: '' },
       onWarn: warn,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
 
     const settled = await settledOf(session.fire('setup.pick', { source: 'agent' }));
     expect(settled).toMatchObject({ effectStatus: 'performed', verifyHeld: 'unevaluable' });
@@ -307,8 +307,8 @@ describe('verify — the refusal crosses the wire as words, not [object Object]'
       state: { recipe: '' },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('setup', { handlers: { pick: () => undefined } });
-    const port = skillsAsTools(session);
+    session.registerActions('setup', { handlers: { pick: () => undefined } });
+    const port = serveToAgent(session);
 
     const fired = port.call('wizard.do_action', { action: 'pick' });
     await flush();
@@ -336,32 +336,20 @@ describe('verify — an empty {} is refused at every door, in the author’s own
     // not in their graph. Every refusal teaches, or it is not worth throwing.
     expect(() =>
       buildNavigationGraph('wizard', {
-        pages: { setup: { tools: { pick: { does: 'Pick', verify: {} } } } },
+        pages: { setup: { actions: { pick: { does: 'Pick', verify: {} } } } },
       }),
     ).toThrow(/empty verify \{\}[\s\S]*Omit 'verify' entirely/);
   });
 
-  it('and the other two doors already did — all three now say the same thing', () => {
-    // The fluent builder…
-    expect(() =>
-      skillGraph('wizard')
-        .page('setup')
-        .affordance('pick', {
-          description: 'Pick',
-          on: 'setup',
-          binding: { kind: 'element', locator: { role: 'button', name: 'Pick' } },
-          verify: {},
-        }),
-    ).toThrow(/empty verify/);
-    // …and the mount door.
+  it('and the mount door says the same thing — one law, both doors', () => {
     const session = buildNavigationGraph('wizard', { pages: { setup: {} } }).createSession({
       node: 'setup',
       state: {},
       onWarn: () => undefined,
     });
     expect(() =>
-      session.registerToolGroup('setup', {
-        tools: { bad: { does: 'Bad', verify: {}, handler: () => undefined } },
+      session.registerActions('setup', {
+        actions: { bad: { does: 'Bad', verify: {}, handler: () => undefined } },
       }),
     ).toThrow(/empty verify/);
   });
@@ -371,7 +359,7 @@ describe('verify — an empty {} is refused at every door, in the author’s own
 // The leaf module, on its own
 // ---------------------------------------------------------------------------
 
-describe('verify — the module', () => {
+describe('grading a proof: held, failed, or a question nobody can answer', () => {
   const evaluate = () => ({ matched: true, conditions: [], unevaluable: [] });
   const noWarn = () => undefined;
   const noState = () => ({});
@@ -392,5 +380,24 @@ describe('verify — the module', () => {
     expect(check.verdict).toBe('failed');
     if (check.verdict !== 'failed') return;
     expect(check.failure).not.toHaveProperty('evidence');
+  });
+
+  it('an answer that is not true or false is unevaluable, and the warning NAMES what came back', () => {
+    // The dangerous one is first: a pending Promise is truthy, so reading it as
+    // a pass would certify every action forever. The warning has to be specific
+    // enough that the author sees their missing `await` in it.
+    const said: string[] = [];
+    const warn = (message: string): void => void said.push(message);
+    const answering = (value: unknown): string => {
+      said.length = 0;
+      expect(checkVerify(() => value as boolean, evaluate, noState, warn).verdict).toBe('unevaluable');
+      return said.join('');
+    };
+
+    expect(answering(Promise.resolve(true))).toMatch(/returned a Promise instead of true or false/);
+    expect(answering(null)).toMatch(/returned null instead/);
+    expect(answering(['ok'])).toMatch(/returned an array instead/);
+    expect(answering('yes')).toMatch(/returned a string instead/);
+    expect(answering(1)).toMatch(/returned a number instead/);
   });
 });

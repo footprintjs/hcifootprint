@@ -4,7 +4,7 @@ title: PageNodeDef
 
 # Interface: PageNodeDef
 
-Defined in: [src/tree/types.ts:107](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L107)
+Defined in: [src/tree/types.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L108)
 
 A container node: areas coexist (AND), tabs exclude (at most one shown), modals overlay.
 
@@ -13,6 +13,20 @@ A container node: areas coexist (AND), tabs exclude (at most one shown), modals 
 - [`NodeDef`](/api/index/interfaces/NodeDef)
 
 ## Properties
+
+### actions?
+
+> `optional` **actions?**: `Record`\<`string`, [`ActionDef`](/api/index/interfaces/ActionDef)\>
+
+Defined in: [src/tree/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L100)
+
+The controls on this node.
+
+#### Inherited from
+
+[`NodeDef`](/api/index/interfaces/NodeDef).[`actions`](/api/index/interfaces/NodeDef#actions)
+
+***
 
 ### areas?
 
@@ -97,7 +111,7 @@ Template container: instances carry runtime keys (order cards, product tiles).
 
 > `optional` **route?**: `string`
 
-Defined in: [src/tree/types.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L108)
+Defined in: [src/tree/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L109)
 
 ***
 
@@ -113,25 +127,13 @@ Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/b
 
 ***
 
-### tools?
-
-> `optional` **tools?**: `Record`\<`string`, [`ToolDef`](/api/index/interfaces/ToolDef)\>
-
-Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
-
-#### Inherited from
-
-[`NodeDef`](/api/index/interfaces/NodeDef).[`tools`](/api/index/interfaces/NodeDef#tools)
-
-***
-
 ### when?
 
-> `optional` **when?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
+> `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
 Defined in: [src/tree/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L86)
 
-Container guard: every descendant tool's guard is AND-narrowed by this.
+Container guard: every descendant action's guard is AND-narrowed by this.
 
 #### Inherited from
 

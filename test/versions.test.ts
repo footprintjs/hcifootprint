@@ -25,23 +25,23 @@ describe('version split — state × structure × total', () => {
     expect(s.structureVersion).toBe(v.structure);
   });
 
-  it('opening/leaving a skill frame bumps version AND structureVersion, never stateVersion', () => {
+  it('opening/leaving a journey frame bumps version AND structureVersion, never stateVersion', () => {
     const s = shop().createSession({ node: 'catalog', state: { ...initialState, authenticated: true } });
     wire(s, 'add-to-cart'); // entry materialised (0.4.x never-trap commit gate)
     const v = { state: s.stateVersion, structure: s.structureVersion };
-    s.commitSkill('purchase');
+    s.commitJourney('purchase');
     expect(s.structureVersion).toBe(v.structure + 1);
-    s.leaveSkill();
+    s.leaveJourney();
     expect(s.structureVersion).toBe(v.structure + 2);
     expect(s.stateVersion).toBe(v.state);
   });
 
-  it('registerTools bumps the cursor once per microtask — one structure-swap row, empty commit', async () => {
+  it('registerHandlers bumps the cursor once per microtask — one structure-swap row, empty commit', async () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const v = s.version;
     const bundles = s.commitLog().length;
-    s.registerTools({ group: 'a', tools: { login: () => undefined } });
-    s.registerTools({ group: 'b', tools: { 'add-to-cart': () => undefined } });
+    s.registerHandlers({ group: 'a', handlers: { login: () => undefined } });
+    s.registerHandlers({ group: 'b', handlers: { 'add-to-cart': () => undefined } });
     expect(s.version).toBe(v); // raw edits apply immediately; the ROW coalesces
     await tick();
     expect(s.version).toBe(v + 1); // ONE bump for both registrations
@@ -54,7 +54,7 @@ describe('version split — state × structure × total', () => {
   it('mount+unmount inside one window cancels to NOTHING (StrictMode/HMR flicker)', async () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const v = s.version;
-    const reg = s.registerTools({ group: 'strict', tools: { login: () => undefined } });
+    const reg = s.registerHandlers({ group: 'strict', handlers: { login: () => undefined } });
     reg.unregister();
     await tick();
     expect(s.version).toBe(v); // net-zero churn: no row, no bump
@@ -64,7 +64,7 @@ describe('version split — state × structure × total', () => {
   it('the CAS fix: a plan made before a mount goes stale after it', async () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const planned = s.available().version;
-    s.registerTools({ group: 'late', tools: { login: () => undefined } });
+    s.registerHandlers({ group: 'late', handlers: { login: () => undefined } });
     await tick();
     const rejected = s.fire('login', { source: 'agent', expectedVersion: planned });
     expect(rejected).toMatchObject({ ok: false, reason: 'STALE_CURSOR' });

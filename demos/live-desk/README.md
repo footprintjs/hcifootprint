@@ -55,7 +55,7 @@ the same tools, the same session and the same panels are driven by a real model 
 | `src/desk/graph.ts` | `buildNavigationGraph` — places only, `sources: [fromLiveStore(store)]` |
 | `src/desk/projection.ts` | the lean state the guards and the instance selector read |
 | `src/desk/wiring.ts` | the whole seam: sync / show / setVisible / updateState |
-| `src/agent/bridge.ts` | Mode B (`skillsAsTools`) handed to an agentfootprint Agent |
+| `src/agent/bridge.ts` | Mode B (`serveToAgent`) handed to an agentfootprint Agent |
 | `src/agent/mockScript.ts` | the scripted model — every sentence derived from a real result |
 | `src/panels/*.ts` | pure derivations: the rack, the backlog clusters, the receipts |
 | `src/ui/*` | the app surface and the panel wall |

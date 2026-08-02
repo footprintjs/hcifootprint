@@ -22,7 +22,7 @@ Defined in: [src/presence/presence.ts:30](https://github.com/footprintjs/hcifoot
 
 > **fingerprint**(): `string`
 
-Defined in: [src/presence/presence.ts:128](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L128)
+Defined in: [src/presence/presence.ts:131](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L131)
 
 The served-structure identity used for coalesced world-motion detection:
 node presence + visibility signals. Instance churn is EXCLUDED by design.
@@ -37,7 +37,7 @@ node presence + visibility signals. Instance churn is EXCLUDED by design.
 
 > **hasAny**(): `boolean`
 
-Defined in: [src/presence/presence.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L111)
+Defined in: [src/presence/presence.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L114)
 
 True when ANY handle (node OR instance) is open — "the mount layer is in use".
 
@@ -51,7 +51,7 @@ True when ANY handle (node OR instance) is open — "the mount layer is in use".
 
 > **hasAnyHandles**(): `boolean`
 
-Defined in: [src/presence/presence.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L106)
+Defined in: [src/presence/presence.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L109)
 
 True when ANY node handle is open — the signal that presence is in use at all.
 
@@ -65,7 +65,7 @@ True when ANY node handle is open — the signal that presence is in use at all.
 
 > **hasInstance**(`node`, `instance`): `boolean`
 
-Defined in: [src/presence/presence.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L101)
+Defined in: [src/presence/presence.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L104)
 
 #### Parameters
 
@@ -87,7 +87,7 @@ Defined in: [src/presence/presence.ts:101](https://github.com/footprintjs/hcifoo
 
 > **instancesOf**(`node`): `string`[]
 
-Defined in: [src/presence/presence.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L97)
+Defined in: [src/presence/presence.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L100)
 
 Mounted instance keys of a repeats node (the mounted WINDOW, not existence).
 
@@ -107,7 +107,7 @@ Mounted instance keys of a repeats node (the mounted WINDOW, not existence).
 
 > **isPresent**(`node`): `boolean`
 
-Defined in: [src/presence/presence.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L88)
+Defined in: [src/presence/presence.ts:91](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L91)
 
 A node is present when at least one NODE handle is open on it.
 
@@ -149,7 +149,7 @@ Defined in: [src/presence/presence.ts:41](https://github.com/footprintjs/hcifoot
 
 > **presentNodes**(): `string`[]
 
-Defined in: [src/presence/presence.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L92)
+Defined in: [src/presence/presence.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L95)
 
 #### Returns
 
@@ -161,7 +161,7 @@ Defined in: [src/presence/presence.ts:92](https://github.com/footprintjs/hcifoot
 
 > **setVisible**(`node`, `visible`): `void`
 
-Defined in: [src/presence/presence.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L115)
+Defined in: [src/presence/presence.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L118)
 
 #### Parameters
 
@@ -183,7 +183,7 @@ Defined in: [src/presence/presence.ts:115](https://github.com/footprintjs/hcifoo
 
 > **visibility**(`node`): `boolean` \| `undefined`
 
-Defined in: [src/presence/presence.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L120)
+Defined in: [src/presence/presence.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/presence/presence.ts#L123)
 
 The explicit signal, or undefined when none was ever given (→ honesty markers above).
 

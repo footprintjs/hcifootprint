@@ -255,7 +255,7 @@ describe('the built package (dist) stays shakeable for a real consumer', () => {
 
   /**
    * THE SAME PROOF FOR THE WORKING HOOK, AND IT GUARDS A SHARPER EDGE. Everything
-   * `useWorking` needs from the core is a TYPE — `ToolHandle` and two methods
+   * `useWorking` needs from the core is a TYPE — `ActionHandle` and two methods
    * picked off `Session` — and a type is erased. Turn one of those into a value
    * import and the whole session machinery (plus footprintjs behind it) lands in
    * the bundle of any page that renders a spinner. That is not a size regression,

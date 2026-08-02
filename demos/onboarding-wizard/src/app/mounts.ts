@@ -1,4 +1,4 @@
-import type { ToolGroupHandle, ToolHandler } from 'hcifootprint';
+import type { ActionGroupHandle, ActionHandler } from 'hcifootprint';
 
 import type { OnboardingSession } from './graph.js';
 import type { Router } from './router.js';
@@ -43,7 +43,7 @@ export interface MountController {
 export function pageHandlers(
   store: WizardStore,
   router: Router,
-): Record<WizardPageId, Record<string, ToolHandler>> {
+): Record<WizardPageId, Record<string, ActionHandler>> {
   return {
     welcome: {
       'verify-email': () => {
@@ -81,7 +81,7 @@ export function createMountController(
   router: Router,
 ): MountController {
   const handlers = pageHandlers(store, router);
-  let mounted: { page: WizardPageId; handle: ToolGroupHandle } | null = null;
+  let mounted: { page: WizardPageId; handle: ActionGroupHandle } | null = null;
 
   function release(): void {
     if (!mounted) return;
@@ -97,7 +97,7 @@ export function createMountController(
       release();
       mounted = {
         page: pageId,
-        handle: session.registerToolGroup(pageId, { handlers: handlers[pageId] }),
+        handle: session.registerActions(pageId, { handlers: handlers[pageId] }),
       };
     },
     clear: release,

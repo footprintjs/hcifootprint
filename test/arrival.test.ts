@@ -27,7 +27,7 @@
  *   unmaterialized fire that must never be corroborated.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { Session, TransitionRecord } from '../src/index.js';
 import { shop, initialState, wire } from './fixture.js';
 
@@ -49,16 +49,21 @@ function cartReady(): Session {
 
 /** A two-page graph whose one action is a TAB flip, with or without a declared destination. */
 function tabApp(opts?: { declaresDestination?: boolean }) {
-  return skillGraph('app', { description: 'Tabs' })
-    .page('settings')
-    .page('billing')
-    .affordance('open-billing-tab', {
-      on: 'settings',
-      description: 'Switch to the billing tab',
-      binding: { kind: 'tab', target: 'billing' },
-      ...(opts?.declaresDestination === false ? {} : { effect: { navigatesTo: 'billing' } }),
-    })
-    .build();
+  return buildNavigationGraph('app', {
+    does: 'Tabs',
+    pages: {
+      settings: {},
+      billing: {},
+    },
+    actions: {
+      'open-billing-tab': {
+        on: 'settings',
+        does: 'Switch to the billing tab',
+        binding: { kind: 'tab', target: 'billing' },
+        ...(opts?.declaresDestination === false ? {} : { goTo: 'billing' }),
+      },
+    },
+  });
 }
 
 /**
@@ -67,28 +72,35 @@ function tabApp(opts?: { declaresDestination?: boolean }) {
  * settling is where the window's ordering can be told apart from the record's.
  */
 function orderDesk(): Session {
-  const graph = skillGraph('orders', { description: 'An order desk' })
-    .page('cart')
-    .page('confirmation')
-    .page('search')
-    .affordance('place', {
-      on: 'cart',
-      description: 'Place the order',
-      binding: { kind: 'element', locator: { role: 'button', name: 'Place order' }, actuation: 'click' },
-      effect: { navigatesTo: 'confirmation', writes: ['orderId'] },
-    })
-    .affordance('place-express', {
-      on: 'cart',
-      description: 'Place the order with express delivery',
-      binding: { kind: 'element', locator: { role: 'button', name: 'Express' }, actuation: 'click' },
-      effect: { navigatesTo: 'confirmation', writes: ['expressId'] },
-    })
-    .affordance('note', {
-      on: ['cart', 'confirmation', 'search'],
-      description: 'Note something down',
-      binding: { kind: 'element', locator: { role: 'button', name: 'Note' }, actuation: 'click' },
-    })
-    .build();
+  const graph = buildNavigationGraph('orders', {
+    does: 'An order desk',
+    pages: {
+      cart: {},
+      confirmation: {},
+      search: {},
+    },
+    actions: {
+      place: {
+        on: 'cart',
+        does: 'Place the order',
+        binding: { kind: 'element', locator: { role: 'button', name: 'Place order' }, actuation: 'click' },
+        goTo: 'confirmation',
+        writes: ['orderId'],
+      },
+      'place-express': {
+        on: 'cart',
+        does: 'Place the order with express delivery',
+        binding: { kind: 'element', locator: { role: 'button', name: 'Express' }, actuation: 'click' },
+        goTo: 'confirmation',
+        writes: ['expressId'],
+      },
+      note: {
+        on: ['cart', 'confirmation', 'search'],
+        does: 'Note something down',
+        binding: { kind: 'element', locator: { role: 'button', name: 'Note' }, actuation: 'click' },
+      },
+    },
+  });
   const session = graph.createSession({ node: 'cart', state: {}, onWarn: () => undefined });
   wire(session, 'place', 'place-express', 'note');
   return session;
@@ -227,17 +239,22 @@ describe('the observation joins it — exactly, or by the route table, and never
   });
 
   it('a param route never outbids a more literal one — the whole table is asked', async () => {
-    const graph = skillGraph('orders', { description: 'Orders' })
-      .page('orders', { route: '/orders' })
-      .page('orderDetail', { route: '/orders/:id' })
-      .page('newOrder', { route: '/orders/new' })
-      .affordance('open-order', {
-        on: 'orders',
-        description: 'Open an order',
-        binding: { kind: 'element', locator: { role: 'link', name: 'Order' }, actuation: 'click' },
-        effect: { navigatesTo: 'orderDetail' },
-      })
-      .build();
+    const graph = buildNavigationGraph('orders', {
+      does: 'Orders',
+      pages: {
+        orders: { route: '/orders' },
+        orderDetail: { route: '/orders/:id' },
+        newOrder: { route: '/orders/new' },
+      },
+      actions: {
+        'open-order': {
+          on: 'orders',
+          does: 'Open an order',
+          binding: { kind: 'element', locator: { role: 'link', name: 'Order' }, actuation: 'click' },
+          goTo: 'orderDetail',
+        },
+      },
+    });
 
     const wandered = graph.createSession({ node: 'orders', onWarn: () => undefined });
     wire(wandered, 'open-order');
@@ -264,16 +281,21 @@ describe('the observation joins it — exactly, or by the route table, and never
 
 describe('the window is one claim wide', () => {
   it('two fires claiming the same page: only the NEWEST can be corroborated', async () => {
-    const graph = skillGraph('app', { description: 'Two doors, one room' })
-      .page('home')
-      .page('target')
-      .affordance('go', {
-        on: ['home', 'target'],
-        description: 'Go to the target page',
-        binding: { kind: 'element', locator: { role: 'link', name: 'Go' }, actuation: 'click' },
-        effect: { navigatesTo: 'target' },
-      })
-      .build();
+    const graph = buildNavigationGraph('app', {
+      does: 'Two doors, one room',
+      pages: {
+        home: {},
+        target: {},
+      },
+      actions: {
+        go: {
+          on: ['home', 'target'],
+          does: 'Go to the target page',
+          binding: { kind: 'element', locator: { role: 'link', name: 'Go' }, actuation: 'click' },
+          goTo: 'target',
+        },
+      },
+    });
     const session = graph.createSession({ node: 'home', onWarn: () => undefined });
     wire(session, 'go');
 
@@ -361,7 +383,7 @@ describe('silence is never a verdict', () => {
       expect(record.outcome).toBe('committed');
 
       // …and the served answer says nothing about failing, either.
-      const port = skillsAsTools(session);
+      const port = serveToAgent(session);
       const answer = port.call('shop.did_it_work', { transitionId: id });
       expect(answer['arrival']).toBe('claimed');
       expect(JSON.stringify(answer).toLowerCase()).not.toContain('timed out');
@@ -428,7 +450,7 @@ describe('did_it_work serves it beside the receipt, never as the verdict', () =>
     const id = await goToCart(session);
     session.sync('cart', { stimulus: 'navigation' });
 
-    const answer = skillsAsTools(session).call('shop.did_it_work', { transitionId: id });
+    const answer = serveToAgent(session).call('shop.did_it_work', { transitionId: id });
     expect(answer).toMatchObject({ ok: true, settled: true, arrival: 'observed', toNode: 'cart' });
     expect(String(answer['arrivalMeans'])).toContain('corroboration, not proof');
     // The three settlement axes are untouched: arrival is a fourth fact, not a
@@ -440,7 +462,7 @@ describe('did_it_work serves it beside the receipt, never as the verdict', () =>
   it("an uncorroborated one reads 'claimed' — and says that is not a failure", async () => {
     const session = cartReady();
     const id = await goToCart(session);
-    const answer = skillsAsTools(session).call('shop.did_it_work', { transitionId: id });
+    const answer = serveToAgent(session).call('shop.did_it_work', { transitionId: id });
     expect(answer['arrival']).toBe('claimed');
     expect(String(answer['arrivalMeans'])).toContain('That is not a failure');
   });
@@ -453,7 +475,7 @@ describe('did_it_work serves it beside the receipt, never as the verdict', () =>
     session.updateState({ cart: ['p1'], cartCount: 3 });
     await fired.whenSettled;
 
-    const answer = skillsAsTools(session).call('shop.did_it_work', {
+    const answer = serveToAgent(session).call('shop.did_it_work', {
       transitionId: fired.transition.id,
     });
     expect(answer['settled']).toBe(true);

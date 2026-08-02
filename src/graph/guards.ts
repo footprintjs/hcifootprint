@@ -1,6 +1,6 @@
 /**
- * Shared guard-shape enforcement — one spine for BOTH authoring surfaces
- * (the v1 fluent skillGraph() and the D18 appMap() object literal).
+ * Shared guard-shape enforcement — one spine for every authoring door
+ * (buildNavigationGraph's walk, the graph sources, mount-time declaration).
  *
  * footprint's evaluator fails shape mistakes SILENTLY at runtime (unknown
  * operators are ignored; denied keys never match). Authoring is where they
@@ -26,10 +26,15 @@ export const DENIED_GUARD_KEYS = new Set([
   '__lookupSetter__',
 ]);
 
-export class SkillGraphValidationError extends Error {
+/**
+ * Every authoring refusal this package throws — from buildNavigationGraph, from
+ * the source factories, and from mount-time declaration. Named for the thing it
+ * judges (a graph), not for one of the vocabularies that reach it.
+ */
+export class GraphValidationError extends Error {
   constructor(message: string) {
     super(`hcifootprint: ${message}`);
-    this.name = 'SkillGraphValidationError';
+    this.name = 'GraphValidationError';
   }
 }
 
@@ -39,14 +44,13 @@ const BAD_SEGMENT = /[.[\]#/|]/;
 /**
  * The ONE segment-name law. It lived inside buildNavigationGraph; it lives
  * here (the shared authoring-enforcement leaf) so graph sources can refuse a
- * bad page/skill id at the factory with the SAME words the compiler would use
- * at build — one law, two doors, zero drift. Behavior is byte-identical to the
- * original appmap-private copy.
+ * bad page/journey id at the factory with the SAME words the compiler would use
+ * at build — one law, two doors, zero drift.
  */
 export function checkSegment(owner: string, name: string): void {
-  if (!name || !name.trim()) throw new SkillGraphValidationError(`${owner}: empty name.`);
+  if (!name || !name.trim()) throw new GraphValidationError(`${owner}: empty name.`);
   if (BAD_SEGMENT.test(name)) {
-    throw new SkillGraphValidationError(
+    throw new GraphValidationError(
       `${owner}: '${name}' contains a reserved character (. [ ] # / |) — names become path identities.`,
     );
   }
@@ -70,19 +74,19 @@ export function isLiteralRoute(routeOrHref: string): boolean {
  * href carries a ':param' segment can NEVER materialise — the library never
  * guesses params, so no navigate function will ever be handed a filled-in
  * address for it. Refused loudly at authoring (both doors: the compiler's
- * compileTool and mount-declared tools), judged by the MATCHER's own segment
+ * compileAction and mount-declared actions), judged by the MATCHER's own segment
  * law (segmentsOf/isParam) so what authoring refuses and what materialisation
  * derives can never disagree. What cannot materialise YET (a handler arriving
  * at mount) is deliberately NOT refused here — that is the commit gate's job.
  */
 export function checkLiteralHref(owner: string, href: unknown): void {
   if (typeof href !== 'string') {
-    throw new SkillGraphValidationError(
+    throw new GraphValidationError(
       `${owner} declares a url binding whose href is not a string (got ${typeof href}).`,
     );
   }
   if (!isLiteralRoute(href)) {
-    throw new SkillGraphValidationError(
+    throw new GraphValidationError(
       `${owner} declares a url binding with href '${href}' — a ':param' segment can never materialise ` +
         `(the library never guesses params). Give the gesture a fully literal address, or bind a handler instead.`,
     );
@@ -104,8 +108,8 @@ export function composeGuards(
       const target = (merged[key] ??= {});
       for (const [op, value] of Object.entries(ops as Record<string, unknown>)) {
         if (op in target && JSON.stringify(target[op]) !== JSON.stringify(value)) {
-          throw new SkillGraphValidationError(
-            `tool '${owner}': ancestor and descendant guards disagree on '${key}.${op}' ` +
+          throw new GraphValidationError(
+            `action '${owner}': ancestor and descendant guards disagree on '${key}.${op}' ` +
               `(${JSON.stringify(target[op])} vs ${JSON.stringify(value)}) — children can only narrow.`,
           );
         }
@@ -120,8 +124,8 @@ export function composeGuards(
  * The sorted, deduped set of top-level state keys a collection of guards
  * (WhereFilters) reads. A WhereFilter is a FLAT `key → { op: value }` map, so
  * its own-enumerable keys ARE the state keys the evaluator looks up — the same
- * `Object.keys(guard)` set #evalGuard tests for presence before deciding. Both
- * authoring surfaces build their `requiredStateKeys()` on this.
+ * `Object.keys(guard)` set #evalGuard tests for presence before deciding.
+ * `requiredStateKeys()` is built on this.
  */
 export function guardStateKeys(guards: Iterable<Record<string, unknown> | undefined>): string[] {
   const keys = new Set<string>();
@@ -136,30 +140,30 @@ export function guardStateKeys(guards: Iterable<Record<string, unknown> | undefi
 export function validateGuardShape(owner: string, guard: Record<string, unknown>): void {
   for (const [key, ops] of Object.entries(guard)) {
     if (DENIED_GUARD_KEYS.has(key)) {
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `${owner} key '${key}' is on footprint's denied list — it would silently never match at runtime.`,
       );
     }
     if (!ops || typeof ops !== 'object' || Array.isArray(ops)) {
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `${owner} key '${key}' must map to an operator object like { eq: value } ` +
           `(operators: ${[...FILTER_OPERATORS].join(', ')}).`,
       );
     }
     if (Object.keys(ops).length === 0) {
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `${owner} key '${key}' has an empty operator object {} — the evaluator would silently ignore it ` +
           `(or never match if it is the only key). Give it an operator like { eq: value } or remove the key.`,
       );
     }
     for (const [op, value] of Object.entries(ops as Record<string, unknown>)) {
       if (!FILTER_OPERATORS.has(op)) {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `${owner} key '${key}' uses unknown operator '${op}' (valid: ${[...FILTER_OPERATORS].join(', ')}).`,
         );
       }
       if ((op === 'in' || op === 'notIn') && !Array.isArray(value)) {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `${owner} key '${key}' operator '${op}' needs an ARRAY (got ${typeof value}) — ` +
             `a non-array compiles but silently never matches at runtime.`,
         );

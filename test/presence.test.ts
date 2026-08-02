@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { PresenceIndex } from '../src/index.js';
 
-describe('PresenceIndex', () => {
+describe('what is on the screen right now — counted, never inferred', () => {
   it('refcounts node handles; release is idempotent per handle (StrictMode-safe)', () => {
     const index = new PresenceIndex();
     const first = index.open('a.b');
@@ -29,6 +29,23 @@ describe('PresenceIndex', () => {
     expect(index.isPresent('orders.card')).toBe(false); // node presence = NODE handles only
     card.release();
     expect(index.instancesOf('orders.card')).toEqual(['o-2']);
+  });
+
+  it('refcounts each CARD of a repeats node separately, so one unmount does not empty the row', () => {
+    const index = new PresenceIndex();
+    const first = index.open('orders.card', 'o-1');
+    index.open('orders.card', 'o-1'); // the same card, mounted twice (StrictMode)
+    first.release();
+    expect(index.hasInstance('orders.card', 'o-1')).toBe(true);
+  });
+
+  it('answers about a node nobody ever mounted a card of, instead of throwing', () => {
+    const index = new PresenceIndex();
+    expect(index.instancesOf('orders.card')).toEqual([]);
+    expect(index.hasInstance('orders.card', 'o-1')).toBe(false);
+    // …and about a node that has cards, but not the one asked about.
+    index.open('orders.card', 'o-1');
+    expect(index.hasInstance('orders.card', 'o-2')).toBe(false);
   });
 
   it('visibility is an explicit signal store — undefined until someone says', () => {

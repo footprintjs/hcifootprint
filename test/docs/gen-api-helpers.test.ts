@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { deriveTitle, rewriteLinks } from '../../scripts/gen-fumadocs-api.mjs';
 
-describe('deriveTitle — TypeDoc H1 → clean sidebar title', () => {
+describe('a generated page arrives with the title a reader should see in the sidebar', () => {
   it('strips the kind prefix and call parens', () => {
     expect(deriveTitle('# Function: buildNavigationGraph()\n\nbody', 'x')).toBe(
       'buildNavigationGraph',
@@ -27,7 +27,7 @@ describe('deriveTitle — TypeDoc H1 → clean sidebar title', () => {
   });
 });
 
-describe('rewriteLinks — TypeDoc markdown → served Fumadocs routes', () => {
+describe('a generated cross-reference points at the route the site really serves', () => {
   it('strips .md from internal links, preserving anchors', () => {
     expect(rewriteLinks('[a](/api/index/classes/Foo.md#bar)')).toBe(
       '[a](/api/index/classes/Foo#bar)',

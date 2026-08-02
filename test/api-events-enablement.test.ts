@@ -1,10 +1,10 @@
 /**
- * The API pass: passive event surface (on), tool enablement (setEnabled +
- * TOOL_DISABLED), the handle-identity registration (registerToolGroup /
- * registerTool — no caller-supplied group string), and typed node paths.
+ * The API pass: passive event surface (on), action enablement (setEnabled +
+ * TOOL_DISABLED), the handle-identity registration (registerActions /
+ * registerAction — no caller-supplied group string), and typed node paths.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillGraph } from '../src/index.js';
+import { buildNavigationGraph } from '../src/index.js';
 import type { Binding, TransitionRecord } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
@@ -14,10 +14,10 @@ function shop() {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        areas: { rail: { tools: { search: { does: 'Search', writes: ['n'] } } } },
-        tools: { 'add-to-cart': { does: 'Add to cart', writes: ['cart'] } },
+        areas: { rail: { actions: { search: { does: 'Search', writes: ['n'] } } } },
+        actions: { 'add-to-cart': { does: 'Add to cart', writes: ['cart'] } },
       },
-      checkout: { tools: { 'place-order': { does: 'Place order', confirm: true } } },
+      checkout: { actions: { 'place-order': { does: 'Place order', confirm: true } } },
     },
   });
 }
@@ -31,8 +31,8 @@ describe('events — a passive observer surface (never business logic)', () => {
     session.on('structure', () => (seen.structure += 1));
 
     // The app binds its button first: since 0.3.0 an agent fire of an unbound
-    // tool is a NOT_MATERIALIZED rejection (it would execute nothing).
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    // action is a NOT_MATERIALIZED rejection (it would execute nothing).
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.fire('catalog.add-to-cart', { source: 'agent' }); // transition (pending)
     session.updateState({ cart: ['x'] }); // settle → transition + state
     expect(seen.transition).toBeGreaterThanOrEqual(2);
@@ -50,7 +50,7 @@ describe('events — a passive observer surface (never business logic)', () => {
   it("a throwing listener is isolated — it never breaks the session", () => {
     const warnings: string[] = [];
     const session = shop().createSession({ node: 'catalog', state: { cart: [] }, onWarn: (m) => warnings.push(m) });
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.on('transition', () => {
       throw new Error('observer exploded');
     });
@@ -61,7 +61,7 @@ describe('events — a passive observer surface (never business logic)', () => {
 
   it('the transition payload is a copy — a listener cannot mutate the log', () => {
     const session = shop().createSession({ node: 'catalog', state: { cart: [] } });
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.on('transition', (t: TransitionRecord) => {
       (t as { fromNode: string }).fromNode = 'TAMPERED';
     });
@@ -84,7 +84,7 @@ describe('events — a passive observer surface (never business logic)', () => {
 describe('enablement — a greyed button the agent sees but cannot fire', () => {
   it('registered-disabled is served with enabled:false and refuses to fire (TOOL_DISABLED)', () => {
     const session = shop().createSession({ node: 'catalog', state: {} });
-    const group = session.registerToolGroup('catalog', {
+    const group = session.registerActions('catalog', {
       handlers: { 'add-to-cart': () => undefined },
       enabled: { 'add-to-cart': false },
     });
@@ -102,7 +102,7 @@ describe('enablement — a greyed button the agent sees but cannot fire', () => 
 
   it('setEnabled flips bump the structure version (a stale plan is caught)', async () => {
     const session = shop().createSession({ node: 'catalog', state: {} });
-    const group = session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    const group = session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
     await tick();
     const v = session.structureVersion;
     group.setEnabled('add-to-cart', false);
@@ -115,7 +115,7 @@ describe('enablement — a greyed button the agent sees but cannot fire', () => 
 
   it('the record-only DOM sensor (invoke:false) is never blocked by disabled', () => {
     const session = shop().createSession({ node: 'catalog', state: {} });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: { 'add-to-cart': () => undefined },
       enabled: { 'add-to-cart': false },
     });
@@ -130,7 +130,7 @@ describe('enablement — a greyed button the agent sees but cannot fire', () => 
             row: {
               repeats: true,
               instances: (s) => (s['ids'] as string[]) ?? [],
-              tools: { cancel: { does: 'Cancel this order' } },
+              actions: { cancel: { does: 'Cancel this order' } },
             },
           },
         },
@@ -138,7 +138,7 @@ describe('enablement — a greyed button the agent sees but cannot fire', () => 
     });
     const session = map.createSession({ node: 'list', state: { ids: ['o-1', 'o-2'] } });
     let ran = false;
-    const group = session.registerToolGroup('list.row', {
+    const group = session.registerActions('list.row', {
       instance: 'o-1',
       handlers: { cancel: () => { ran = true; } },
       enabled: { cancel: false }, // this row's button is greyed out
@@ -149,7 +149,7 @@ describe('enablement — a greyed button the agent sees but cannot fire', () => 
     expect(ran).toBe(false); // the handler must NOT have run
 
     // a DIFFERENT instance (o-2) is unaffected — enablement is per instance
-    session.registerToolGroup('list.row', { instance: 'o-2', handlers: { cancel: () => undefined } });
+    session.registerActions('list.row', { instance: 'o-2', handlers: { cancel: () => undefined } });
     expect(session.fire('list.row.cancel', { source: 'agent', instance: 'o-2' }).ok).toBe(true);
 
     // and re-enabling o-1 flushes a structure bump (stale plan caught)
@@ -162,12 +162,12 @@ describe('enablement — a greyed button the agent sees but cannot fire', () => 
   });
 });
 
-describe('observer completeness + copy safety (review fixes)', () => {
+describe('every event an observer is promised really fires, and it receives a COPY', () => {
   it("a handler that throws emits a 'transition' (rejected) — observers never stick on 'pending'", async () => {
     const session = shop().createSession({ node: 'catalog', state: { cart: [] }, onWarn: () => undefined });
     const outcomes: string[] = [];
     session.on('transition', (t) => outcomes.push(t.outcome));
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => { throw new Error('boom'); } } });
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => { throw new Error('boom'); } } });
     session.fire('catalog.add-to-cart', { source: 'agent' });
     await tick();
     expect(outcomes).toContain('rejected'); // not stuck on 'pending'
@@ -176,7 +176,7 @@ describe('observer completeness + copy safety (review fixes)', () => {
 
   it('a transition listener cannot corrupt the log via nested payload/produced', () => {
     const session = shop().createSession({ node: 'catalog', state: { cart: [] } });
-    session.registerToolGroup('catalog', { handlers: { 'add-to-cart': () => undefined } });
+    session.registerActions('catalog', { handlers: { 'add-to-cart': () => undefined } });
     session.on('transition', (t) => {
       if (t.payload) (t.payload as { sku: string }).sku = 'TAMPERED';
     });
@@ -187,9 +187,9 @@ describe('observer completeness + copy safety (review fixes)', () => {
 });
 
 describe('registration identity — a handle, never a caller-supplied string', () => {
-  it('registerToolGroup returns a handle with a generated id; unregister() removes it', () => {
+  it('registerActions returns a handle with a generated id; unregister() removes it', () => {
     const session = shop().createSession({ node: 'catalog', state: {} });
-    const group = session.registerToolGroup('catalog.rail', { handlers: { search: () => undefined } });
+    const group = session.registerActions('catalog.rail', { handlers: { search: () => undefined } });
     expect(typeof group.id).toBe('string');
     expect(group.node).toBe('catalog.rail');
     expect(session.available().edges.find((e) => e.affordanceId === 'catalog.rail.search')!.materialized).toBe(true);
@@ -198,11 +198,11 @@ describe('registration identity — a handle, never a caller-supplied string', (
     expect(session.available().edges.find((e) => e.affordanceId === 'catalog.rail.search')!.materialized).not.toBe(true);
   });
 
-  it('registerTool binds one tool and its handle setEnabled/unregister work', async () => {
+  it('registerAction binds one action and its handle setEnabled/unregister work', async () => {
     const session = shop().createSession({ node: 'catalog', state: {} });
     let ran = false;
-    const handle = session.registerTool('catalog', 'add-to-cart', { does: '', handler: () => { ran = true; } });
-    expect(handle.toolId).toBe('add-to-cart');
+    const handle = session.registerAction('catalog', 'add-to-cart', { does: '', handler: () => { ran = true; } });
+    expect(handle.actionId).toBe('add-to-cart');
     session.fire('catalog.add-to-cart', { source: 'agent' });
     await tick();
     expect(ran).toBe(true);
@@ -212,11 +212,18 @@ describe('registration identity — a handle, never a caller-supplied string', (
     expect(session.available().edges.find((e) => e.affordanceId === 'catalog.add-to-cart')!.materialized).not.toBe(true);
   });
 
-  it('the flat/legacy graph still uses registerTools (registerToolGroup is tree-only)', async () => {
-    const g = skillGraph('g').page('a').affordance('act', { on: 'a', description: 'Act', binding }).build();
+  it('the flat/legacy graph still uses registerHandlers (registerActions is tree-only)', async () => {
+    const g = buildNavigationGraph('g', {
+      pages: {
+        a: {},
+      },
+      actions: {
+        act: { on: 'a', does: 'Act', binding },
+      },
+    });
     const session = g.createSession({ node: 'a', state: {} });
     let ran = false;
-    const reg = session.registerTools({ group: 'legacy', tools: { act: () => { ran = true; } } });
+    const reg = session.registerHandlers({ group: 'legacy', handlers: { act: () => { ran = true; } } });
     reg.triggers['act']();
     await tick(); // handlers invoke on a microtask
     expect(ran).toBe(true);

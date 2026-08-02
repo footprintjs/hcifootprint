@@ -2,7 +2,7 @@
  * Recognising a handler that FAILED BY RETURNING rather than by throwing.
  *
  * `{ ok: false, … }` is the failure vocabulary this library itself speaks —
- * FireResult's own rejection arms, commitSkill's typed UNKNOWN_SKILL — so an
+ * FireResult's own rejection arms, commitJourney's typed UNKNOWN_JOURNEY — so an
  * app author mirroring that convention in their handler is speaking to us on
  * purpose. Until now only a `throw` reached the failure path, so a returned
  * failure was recorded as a SUCCESSFUL transition carrying the failure object

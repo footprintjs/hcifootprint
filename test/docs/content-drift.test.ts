@@ -3,15 +3,27 @@
  * actually says, and a page that exists must be reachable.
  *
  * The link checker already proves every internal link resolves. It cannot see
- * the other two ways docs rot: a page nobody wired into the sidebar, and a
- * sentence copied out of the source that the source has since reworded. Both
+ * the other three ways docs rot: a page nobody wired into the sidebar, a
+ * sentence copied out of the source that the source has since reworded, and a
+ * SHAPE that no longer matches the shape the site claims to have. All three
  * have exactly one honest cure — assert against the real thing.
  *
+ * WHY THE SHAPE IS GATED. The site organises itself around three contexts (map,
+ * traversal, actions), each with the same three parts — declare it, wire it,
+ * what the agent gets. That is a claim made to a reader deciding whether to
+ * adopt, so it is asserted like any other claim. The previous split was by
+ * PHASE (build it, then serve it): useful to whoever writes the library, and
+ * meaningless to whoever is evaluating it.
+ *
  * Mutation proofs: every assertion below fails against the tree as it stood
- * before this documentation change — the two new pages are absent from their
- * meta.json files, the merge-order sentence lacks its link-tools clause in the
- * homes that had not been amended, and no page quoted the verify refusal, the
- * no-input refusal or the anti-narration line at all.
+ * before this documentation change — the taxonomy page and its meta entry do
+ * not exist, the top-level order is the build/serve split, the merge-order
+ * sentence lacks its link-actions clause in the homes that had not been amended,
+ * and no page quoted the verify refusal, the no-input refusal or the
+ * anti-narration line at all.
+ *
+ * Pages are read BY ID (./doc-page.ts), never by folder: reorganising the
+ * sidebar must not be able to redden a gate about content.
  *
  * NOT gated: docs/design/*.md. Those are dated records of what a numbered
  * design decided at the time ("Status: SHIPPED (0.4.x line)"); amending the
@@ -21,9 +33,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildNavigationGraph, fromRoutes, skillsAsTools } from '../../src/index.js';
+import { buildNavigationGraph, fromRoutes, serveToAgent } from '../../src/index.js';
 import { VERIFY_FAILED_EXPLANATION } from '../../src/traverse/verify.js';
 import { checkNoInput } from '../../src/traverse/payload-shape.js';
+import { docPage, readDocPage } from './doc-page.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DOCS = path.join(REPO, 'docs-next', 'content', 'docs');
@@ -33,24 +46,121 @@ const read = (relative: string): string => readFileSync(path.join(REPO, relative
 const flatten = (text: string): string => text.replace(/[*>"]/g, ' ').replace(/\s+/g, ' ').trim();
 
 describe('the sidebar and the filesystem agree', () => {
-  const sections = ['get-started', 'build', 'serve', 'reference'];
+  /**
+   * Derived, not listed: a hard-coded section list stops gating the moment
+   * someone adds a section, which is exactly when a gate is worth having.
+   * `api/` is generated (gen-fumadocs-api.mjs owns its meta files).
+   */
+  const sections = readdirSync(DOCS, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== 'api')
+    .map((entry) => entry.name);
+
+  it('finds the sections at all (a passing gate over zero folders is not a gate)', () => {
+    expect(sections.length).toBeGreaterThanOrEqual(5);
+  });
 
   it.each(sections)('%s: every listed page exists and every page is listed', (section) => {
     const meta = JSON.parse(read(`docs-next/content/docs/${section}/meta.json`)) as { pages: string[] };
-    // A meta entry may be a markdown link out of the tree ('[API Reference](/api)').
-    const listed = meta.pages.filter((page) => !page.startsWith('['));
+    // Two meta entries are not pages: a markdown link out of the tree
+    // ('[API Reference](/api)') and a '---Separator---' heading.
+    const listed = meta.pages.filter((page) => !page.startsWith('[') && !page.startsWith('---'));
     const onDisk = readdirSync(path.join(DOCS, section))
       .filter((name) => name.endsWith('.mdx'))
       .map((name) => name.replace(/\.mdx$/, ''));
     expect([...listed].sort()).toEqual([...onDisk].sort());
   });
+});
 
-  it('the two pages this change adds are wired where they were asked for', () => {
-    const build = JSON.parse(read('docs-next/content/docs/build/meta.json')) as { pages: string[] };
-    const serve = JSON.parse(read('docs-next/content/docs/serve/meta.json')) as { pages: string[] };
-    expect(build.pages).toContain('guarded-journeys');
-    expect(build.pages.indexOf('guarded-journeys')).toBe(build.pages.indexOf('skills') + 1);
-    expect(serve.pages.indexOf('grounding')).toBe(serve.pages.indexOf('receipts') + 1);
+describe('the three contexts ARE the shape of the documentation', () => {
+  /**
+   * The taxonomy is a claim the site makes to a reader deciding whether to adopt:
+   * this library exposes three contexts, and each has the same three parts. A
+   * sidebar that quietly reorganises around something else falsifies it, so the
+   * structure is asserted rather than described.
+   *
+   * MUTATION PROOF: restore the build/serve split (grouping by PHASE) and every
+   * case below goes red naming what is missing.
+   */
+  const meta = (section: string): { pages: string[] } =>
+    JSON.parse(read(`docs-next/content/docs/${section}/meta.json`)) as { pages: string[] };
+  const contexts = ['map', 'traversal', 'actions'];
+
+  it('the top level is the three contexts, in the order an agent asks them', () => {
+    expect(meta('.').pages).toEqual(['index', 'get-started', ...contexts, 'reference']);
+  });
+
+  it('the taxonomy is the FIRST thing a reader meets after the quick start', () => {
+    expect(meta('get-started').pages.slice(0, 2)).toEqual(['quick-start', 'three-contexts']);
+  });
+
+  it.each(contexts)('%s: declarations come first and the served answer comes last', (context) => {
+    const separators = meta(context).pages.filter((page) => page.startsWith('---'));
+    expect(separators[0]).toBe('---Declare it---');
+    expect(separators.at(-1)).toBe('---What the agent gets---');
+    // Every page sits UNDER a separator — an unlabelled run is a page nobody
+    // can place in the taxonomy the sidebar claims to be organised by.
+    expect(meta(context).pages[0]!.startsWith('---')).toBe(true);
+  });
+
+  it('the phase folders are gone and every page they held is filed under a context', () => {
+    const folders = readdirSync(DOCS, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    // Grouping by PHASE (build it, then serve it) is useful to whoever writes
+    // the library and meaningless to whoever is deciding whether to adopt it.
+    expect(folders).not.toContain('build');
+    expect(folders).not.toContain('serve');
+
+    const filed = new Set(contexts.flatMap((context) => meta(context).pages));
+    // One page from each half of the old split, plus the two derivations —
+    // the pages whose home moving is the whole point of the restructure.
+    for (const id of [
+      'navigation-graph',
+      'graph-sources',
+      'sessions',
+      'presence',
+      'reading-an-action-row',
+      'what-would-free-it',
+      'how-to-reach',
+      'modes',
+    ]) {
+      expect(filed, `${id} is not filed under any context`).toContain(id);
+    }
+  });
+
+  it('the page that teaches the taxonomy carries all three questions verbatim', () => {
+    const page = flatten(readDocPage('three-contexts'));
+    for (const question of [
+      'What can this app do?',
+      'Where am I, and how do I get there?',
+      'What is possible here?',
+    ]) {
+      expect(page).toContain(question);
+    }
+    // The rule that falls out of the taxonomy, and the fourth thing that is not
+    // a context because nobody builds it.
+    expect(page).toContain('Can this fact change while the page is open?');
+    expect(page).toContain('whatUnblocks');
+    expect(page).toContain('howToReach');
+  });
+
+  /**
+   * THE TOOL LIST IS THE MAP — that page's own thesis — so the names it prints
+   * are a claim about the wire, and the migration note tells hosts to re-pin
+   * tool names on them. The block is ```ts twoslash, which gates the TYPES in
+   * it; the comment beside the call is prose, and prose is where this drifted:
+   * two of the four generics were shown unprefixed and the order was wrong.
+   */
+  it('the tool list that page prints is the tool list the port serves', () => {
+    const graph = buildNavigationGraph('shop', {
+      pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the open dress to the cart' } } } },
+      journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+    });
+    const served = serveToAgent(graph.createSession({ onWarn: () => undefined }))
+      .tools()
+      .map((tool) => tool.name)
+      .join(' · ');
+    expect(flatten(readDocPage('three-contexts'))).toContain(served);
   });
 });
 
@@ -59,7 +169,7 @@ describe('the merge order is ONE sentence, identical in every home that quotes i
   // type it documents, the module that enforces it, the source-kind types, the
   // demo that runs it, and the suite that asserts it.
   const homes = [
-    'docs-next/content/docs/build/graph-sources.mdx',
+    docPage('graph-sources'),
     'src/tree/types.ts',
     'src/graph/sources/merge.ts',
     'src/graph/sources/types.ts',
@@ -72,15 +182,15 @@ describe('the merge order is ONE sentence, identical in every home that quotes i
   const sentenceIn = (relative: string): string => {
     const flat = flatten(read(relative));
     const start = flat.indexOf('Pages first');
-    const end = flat.indexOf('hand-authored tools win');
+    const end = flat.indexOf('hand-authored actions win');
     expect(start, `${relative} does not quote the merge order`).toBeGreaterThanOrEqual(0);
-    expect(end, `${relative} is missing the link-tools clause`).toBeGreaterThan(start);
-    return flat.slice(start, end + 'hand-authored tools win'.length);
+    expect(end, `${relative} is missing the link-actions clause`).toBeGreaterThan(start);
+    return flat.slice(start, end + 'hand-authored actions win'.length);
   };
 
-  it('all seven homes carry byte-identical prose, link-tools clause included', () => {
+  it('all seven homes carry byte-identical prose, link-actions clause included', () => {
     const [first, ...rest] = homes.map(sentenceIn);
-    expect(first).toContain('Routes may also contribute link tools; hand-authored tools win');
+    expect(first).toContain('Routes may also contribute link actions; hand-authored actions win');
     for (const [index, sentence] of rest.entries()) {
       expect(sentence, `${homes[index + 1]} drifted from ${homes[0]}`).toBe(first);
     }
@@ -88,10 +198,10 @@ describe('the merge order is ONE sentence, identical in every home that quotes i
 });
 
 describe('a doc that quotes a refusal quotes the refusal the library emits', () => {
-  const sessions = flatten(read('docs-next/content/docs/serve/sessions.mdx'));
-  const journeys = flatten(read('docs-next/content/docs/build/guarded-journeys.mdx'));
-  const grounding = flatten(read('docs-next/content/docs/serve/grounding.mdx'));
-  const graph = flatten(read('docs-next/content/docs/build/navigation-graph.mdx'));
+  const sessions = flatten(readDocPage('sessions'));
+  const journeys = flatten(readDocPage('guarded-journeys'));
+  const grounding = flatten(readDocPage('grounding'));
+  const graph = flatten(readDocPage('navigation-graph'));
 
   it('the verify refusal sentence is the authored constant', () => {
     expect(sessions).toContain(flatten(VERIFY_FAILED_EXPLANATION));
@@ -126,18 +236,18 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
     // is missing. Reworded in modes.ts and not in the page, and the page would be
     // teaching a sentence no model ever receives.
     const session = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true } } } },
+      pages: { checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true } } } },
     }).createSession({ node: 'checkout', onWarn: () => undefined });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const asked = port.call('shop.do_action', { action: 'place-order' });
     const paused = port.call('shop.did_it_work', { transitionId: asked['askId'] as string });
 
-    expect(flatten(read('docs-next/content/docs/serve/receipts.mdx'))).toContain(flatten(String(asked['why'])));
+    expect(flatten(readDocPage('receipts'))).toContain(flatten(String(asked['why'])));
     // …and the page that teaches the whole surface quotes the same sentence.
-    expect(flatten(read('docs-next/content/docs/serve/paused-not-failed.mdx'))).toContain(
+    expect(flatten(readDocPage('paused-not-failed'))).toContain(
       flatten(String(asked['why'])),
     );
-    expect(flatten(read('docs-next/content/docs/serve/modes.mdx'))).toContain(
+    expect(flatten(readDocPage('modes'))).toContain(
       flatten('Paused, not failed: no outcome exists because nothing was fired.'),
     );
     expect(String(paused['howToAct'])).toContain(
@@ -153,12 +263,12 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
     // stronger word than the model is ever handed.
     const session = buildNavigationGraph('shop', {
       pages: {
-        catalog: { tools: { 'go-to-cart': { does: 'Open the cart', goTo: 'cart' } } },
-        cart: { tools: { checkout: { does: 'Check out' } } },
+        catalog: { actions: { 'go-to-cart': { does: 'Open the cart', goTo: 'cart' } } },
+        cart: { actions: { checkout: { does: 'Check out' } } },
       },
     }).createSession({ node: 'catalog', onWarn: () => undefined });
-    session.registerToolGroup('catalog', { handlers: { 'go-to-cart': () => undefined } });
-    const port = skillsAsTools(session);
+    session.registerActions('catalog', { handlers: { 'go-to-cart': () => undefined } });
+    const port = serveToAgent(session);
     const id = port.call('shop.do_action', { action: 'go-to-cart' })['transitionId'] as string;
     await port.whenSettled(id);
 
@@ -168,7 +278,7 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
     const observed = port.call('shop.did_it_work', { transitionId: id });
     expect(observed['arrival']).toBe('observed');
 
-    const page = flatten(read('docs-next/content/docs/serve/navigation-claims.mdx'));
+    const page = flatten(readDocPage('navigation-claims'));
     expect(page).toContain(flatten(String(claimed['arrivalMeans'])));
     expect(page).toContain(flatten(String(observed['arrivalMeans'])));
   });
@@ -178,7 +288,7 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
     // read. It is authored on the library's side, so a rewording that never
     // reached the page would leave the page teaching a sentence nobody receives.
     const session = buildNavigationGraph('desk', {
-      pages: { home: { tools: { look: { does: 'Look around' } } } },
+      pages: { home: { actions: { look: { does: 'Look around' } } } },
     }).createSession({ node: 'home', onWarn: () => undefined });
     session.reportGap({
       request: 'live action store read failed; serving bindings from before the failure',
@@ -190,7 +300,7 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
       .text.split('\n')
       .find((row) => row.includes('could not re-read'))!;
 
-    expect(flatten(read('docs-next/content/docs/build/live-bindings.mdx'))).toContain(flatten(line));
+    expect(flatten(readDocPage('live-bindings'))).toContain(flatten(line));
     // …and the row's own request — runtime text on any other source — does not cross.
     expect(session.groundTruth().text).not.toContain('serving bindings from before');
   });
@@ -198,7 +308,7 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
   it('the dead-end warning names the same three fixes the docs name', () => {
     const warnings: string[] = [];
     const graphWithNothing = buildNavigationGraph('trap', {
-      pages: { home: { tools: { look: { does: 'Look around' } } }, empty: {} },
+      pages: { home: { actions: { look: { does: 'Look around' } } }, empty: {} },
     });
     const session = graphWithNothing.createSession({
       node: 'home',
@@ -210,8 +320,8 @@ describe('a doc that quotes a refusal quotes the refusal the library emits', () 
     session.sync('empty');
 
     expect(warnings).toHaveLength(1);
-    const liveBindings = read('docs-next/content/docs/build/live-bindings.mdx');
-    for (const fix of ['registerToolGroup', 'navigate:', 'crossLinks: true']) {
+    const liveBindings = readDocPage('live-bindings');
+    for (const fix of ['registerActions', 'navigate:', 'crossLinks: true']) {
       expect(warnings[0]).toContain(fix);
       expect(liveBindings).toContain(fix);
     }
@@ -222,7 +332,7 @@ describe('the minted-destination cookbook quotes the refusals it teaches around'
   // The whole page turns on two build-time refusals. A page that paraphrases
   // them teaches an author to search their console for a sentence nobody emits,
   // which is the same failure as a doc quoting a reworded runtime string.
-  const page = flatten(read('docs-next/content/docs/serve/minted-destinations.mdx'));
+  const page = flatten(readDocPage('minted-destinations'));
 
   const threw = (act: () => unknown): string => {
     try {
@@ -239,7 +349,7 @@ describe('the minted-destination cookbook quotes the refusals it teaches around'
         pages: {
           orders: {
             route: '/orders',
-            tools: { open: { does: 'Open an order', binding: { kind: 'url', href: '/orders/:id' } } },
+            actions: { open: { does: 'Open an order', binding: { kind: 'url', href: '/orders/:id' } } },
           },
           'order-detail': { route: '/orders/:id' },
         },
@@ -263,7 +373,7 @@ describe('the minted-destination cookbook quotes the refusals it teaches around'
       pages: {
         orders: {
           route: '/orders',
-          tools: {
+          actions: {
             'place-order': {
               does: 'Place the order',
               goTo: 'order-detail',
@@ -275,9 +385,9 @@ describe('the minted-destination cookbook quotes the refusals it teaches around'
       },
     });
     const session = graph.createSession({ node: 'orders', onWarn: () => undefined });
-    session.registerToolGroup('orders', { handlers: { 'place-order': () => ({ orderId: '8fa2' }) } });
+    session.registerActions('orders', { handlers: { 'place-order': () => ({ orderId: '8fa2' }) } });
 
-    const row = skillsAsTools(session).call('desk.whats_here', {})['actions'] as Record<string, unknown>[];
+    const row = serveToAgent(session).call('desk.whats_here', {})['actions'] as Record<string, unknown>[];
     expect(row[0]!['goesTo']).toBe('order-detail');
     // …and the address the app mints is what the route table reads back.
     expect(session.sync('order-detail').node).toBe('order-detail');
@@ -289,14 +399,14 @@ describe('the reading guide documents every stamp a served row can carry', () =>
   // kinds COMPOSE — so the page's claim is that the stamps ARE the taxonomy, and
   // a stamp the row can carry that the page never names would falsify exactly
   // that. Add a key to edgeData and this goes red naming it.
-  const page = read('docs-next/content/docs/serve/reading-an-action-row.mdx');
+  const page = readDocPage('reading-an-action-row');
 
   it('the four that compose are all true of one control at one moment', () => {
     const graph = buildNavigationGraph('shop', {
       pages: {
         checkout: {
           route: '/checkout',
-          tools: {
+          actions: {
             pay: {
               does: 'Pay for the order',
               confirm: true,
@@ -309,9 +419,9 @@ describe('the reading guide documents every stamp a served row can carry', () =>
       },
     });
     const session = graph.createSession({ node: 'checkout', state: { 'checkout.address': '' } });
-    session.registerToolGroup('checkout', { handlers: { pay: () => undefined }, busy: { pay: 'Charging your card…' } });
+    session.registerActions('checkout', { handlers: { pay: () => undefined }, busy: { pay: 'Charging your card…' } });
 
-    const row = (skillsAsTools(session).call('shop.whats_here', {})['actions'] as Record<string, unknown>[])[0]!;
+    const row = (serveToAgent(session).call('shop.whats_here', {})['actions'] as Record<string, unknown>[])[0]!;
     expect(row).toMatchObject({ goesTo: 'receipt', highEffect: true, enabled: false, busy: 'Charging your card…' });
     // The page's headline example is that row, so it has to BE that row.
     for (const [key, value] of Object.entries(row)) {
@@ -323,21 +433,21 @@ describe('the reading guide documents every stamp a served row can carry', () =>
     const graph = buildNavigationGraph('desk', {
       pages: {
         home: {
-          tools: {
+          actions: {
             unbound: { does: 'Nothing is wired to this', when: { neverSeeded: { eq: true } } },
             typed: { does: 'Takes a payload', input: 'none' },
             box: { does: 'Holds a draft' },
           },
-          areas: { cards: { repeats: true, tools: { remove: { does: 'Remove this card' } } } },
+          areas: { cards: { repeats: true, actions: { remove: { does: 'Remove this card' } } } },
         },
       },
     });
     const session = graph.createSession({ node: 'home', onWarn: () => undefined });
-    session.registerToolGroup('home', { handlers: { typed: () => undefined, box: () => undefined } });
-    session.registerToolGroup('home.cards', { instance: 'c-1', handlers: { remove: () => undefined } });
+    session.registerActions('home', { handlers: { typed: () => undefined, box: () => undefined } });
+    session.registerActions('home.cards', { instance: 'c-1', handlers: { remove: () => undefined } });
     session.declareHolds('home.box', () => 'a draft');
 
-    const rows = skillsAsTools(session).call('desk.whats_here', {})['actions'] as Record<string, unknown>[];
+    const rows = serveToAgent(session).call('desk.whats_here', {})['actions'] as Record<string, unknown>[];
     const stamps = new Set(rows.flatMap((row) => Object.keys(row)));
     // The two identity keys are described in prose, not as stamps.
     stamps.delete('action');
@@ -357,14 +467,14 @@ describe('the async recipe and the page under it teach the same sentences', () =
     // rewording that never reached the page leaves the page teaching a sentence
     // nobody is handed.
     const session = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true } } } },
+      pages: { checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true } } } },
     }).createSession({ node: 'checkout', onWarn: () => undefined });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const asked = port.call('shop.do_action', { action: 'place-order' });
     const paused = port.call('shop.did_it_work', { transitionId: asked['askId'] as string });
 
     expect(paused['judgment']).toBe('awaiting-human');
-    expect(flatten(read('docs-next/content/docs/serve/waiting-for-the-app.mdx'))).toContain(
+    expect(flatten(readDocPage('waiting-for-the-app'))).toContain(
       flatten(String(paused['howToAct'])),
     );
   });
@@ -373,7 +483,7 @@ describe('the async recipe and the page under it teach the same sentences', () =
     // Two pages over one subject is a maintenance hazard unless each says what
     // the other is for. Both directions are asserted so neither can be orphaned
     // by a later edit.
-    expect(read('docs-next/content/docs/serve/going-async.mdx')).toContain('doc:waiting-for-the-app');
-    expect(read('docs-next/content/docs/serve/waiting-for-the-app.mdx')).toContain('doc:going-async');
+    expect(readDocPage('going-async')).toContain('doc:waiting-for-the-app');
+    expect(readDocPage('waiting-for-the-app')).toContain('doc:going-async');
   });
 });

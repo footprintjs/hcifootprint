@@ -7,14 +7,14 @@ title: LiveAction
 Defined in: [src/graph/sources/types.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L82)
 
 One action a live store publishes: WHERE it lives (node, plus instance for a
-repeats card), WHAT it is (the RegisteredToolDef vocabulary mounts already
+repeats card), WHAT it is (the RegisteredActionDef vocabulary mounts already
 speak — does/handler/when/writes/goTo/…), and whether it is currently
 clickable. `${node}.${name}` (+instance) is the action's IDENTITY across
 snapshots — same key means same action.
 
 ## Extends
 
-- [`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef)
+- [`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef)
 
 ## Properties
 
@@ -28,7 +28,7 @@ How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`binding`](/api/index/interfaces/RegisteredToolDef#binding)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`binding`](/api/index/interfaces/RegisteredActionDef#binding)
 
 ***
 
@@ -54,7 +54,7 @@ Requires explicit confirmation (the high-effect gate).
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`confirm`](/api/index/interfaces/RegisteredToolDef#confirm)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`confirm`](/api/index/interfaces/RegisteredActionDef#confirm)
 
 ***
 
@@ -68,7 +68,7 @@ AUTHORED intent, one string two readers (consumer label = agent tool description
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`does`](/api/index/interfaces/RegisteredToolDef#does)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`does`](/api/index/interfaces/RegisteredActionDef#does)
 
 ***
 
@@ -84,13 +84,13 @@ False = on screen but greyed out (flows to TOOL_DISABLED). Default true.
 
 ### enabledWhen?
 
-> `optional` **enabledWhen?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
+> `optional` **enabledWhen?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
 Defined in: [src/tree/types.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L52)
 
 Is this control currently CLICKABLE? Declarative disabledness — a different
 question from `when`, which decides whether the control is here at all. A
-failed `when` HIDES the tool; a false `enabledWhen` SERVES it as a greyed
+failed `when` HIDES the action; a false `enabledWhen` SERVES it as a greyed
 button (`enabled: false` on the edge) and refuses a fire as TOOL_DISABLED.
 
 Declare it from the same expression that renders `<button disabled={…}>` and
@@ -102,7 +102,7 @@ its position in the tree.
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`enabledWhen`](/api/index/interfaces/RegisteredToolDef#enabledwhen)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`enabledWhen`](/api/index/interfaces/RegisteredActionDef#enabledwhen)
 
 ***
 
@@ -112,23 +112,23 @@ its position in the tree.
 
 Defined in: [src/tree/types.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L56)
 
-Page this tool claims to navigate to (a top-level page id).
+Page this action claims to navigate to (a top-level page id).
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`goTo`](/api/index/interfaces/RegisteredToolDef#goto)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`goTo`](/api/index/interfaces/RegisteredActionDef#goto)
 
 ***
 
 ### handler?
 
-> `optional` **handler?**: [`ToolHandler`](/api/index/type-aliases/ToolHandler)
+> `optional` **handler?**: [`ActionHandler`](/api/index/type-aliases/ActionHandler)
 
-Defined in: [src/traverse/nav-session.ts:70](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L70)
+Defined in: [src/traverse/nav-session.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L71)
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`handler`](/api/index/interfaces/RegisteredToolDef#handler)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`handler`](/api/index/interfaces/RegisteredActionDef#handler)
 
 ***
 
@@ -149,7 +149,7 @@ shape, so it advertises nothing rather than inventing an empty contract.
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`input`](/api/index/interfaces/RegisteredToolDef#input)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`input`](/api/index/interfaces/RegisteredActionDef#input)
 
 ***
 
@@ -169,7 +169,7 @@ Instance key when the action belongs to one card of a repeats container.
 
 Defined in: [src/graph/sources/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/types.ts#L86)
 
-Leaf tool name (same segment law as every authored name).
+Leaf action name (same segment law as every authored name).
 
 ***
 
@@ -191,7 +191,7 @@ Defined in: [src/tree/types.ts:78](https://github.com/footprintjs/hcifootprint/b
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`role`](/api/index/interfaces/RegisteredToolDef#role)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`role`](/api/index/interfaces/RegisteredActionDef#role)
 
 ***
 
@@ -209,13 +209,13 @@ may read whatever the app can see, the DOM included.
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`verify`](/api/index/interfaces/RegisteredToolDef#verify)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`verify`](/api/index/interfaces/RegisteredActionDef#verify)
 
 ***
 
 ### when?
 
-> `optional` **when?**: `WhereFilter`\<`Record`\<`string`, `unknown`\>\>
+> `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
 Defined in: [src/tree/types.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L38)
 
@@ -223,7 +223,7 @@ Availability guard over projected state (AND-composed with every ancestor `when`
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`when`](/api/index/interfaces/RegisteredToolDef#when)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`when`](/api/index/interfaces/RegisteredActionDef#when)
 
 ***
 
@@ -233,8 +233,8 @@ Availability guard over projected state (AND-composed with every ancestor `when`
 
 Defined in: [src/tree/types.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L54)
 
-State keys this tool claims to change.
+State keys this action claims to change.
 
 #### Inherited from
 
-[`RegisteredToolDef`](/api/index/interfaces/RegisteredToolDef).[`writes`](/api/index/interfaces/RegisteredToolDef#writes)
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`writes`](/api/index/interfaces/RegisteredActionDef#writes)

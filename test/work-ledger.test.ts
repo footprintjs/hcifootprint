@@ -59,12 +59,13 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import { readDocPage } from './docs/doc-page.js';
 import type {
   InteractionSession,
   NavigationGraph,
   ServeResult,
-  SkillToolsPortWithSettlement,
+  JourneyToolsPortWithSettlement,
 } from '../src/index.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -78,14 +79,14 @@ function shopMap(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       catalog: {
-        tools: {
+        actions: {
           'add-to-cart': { does: 'Add the dress to the cart', writes: ['cart'] },
           'save-list': { does: 'Save the wish list', writes: ['list'] },
           'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
         },
       },
       checkout: {
-        tools: { 'place-order': { does: 'Place the order', writes: ['orders'], confirm: true } },
+        actions: { 'place-order': { does: 'Place the order', writes: ['orders'], confirm: true } },
       },
     },
   });
@@ -93,7 +94,7 @@ function shopMap(): NavigationGraph {
 
 interface Wired {
   session: InteractionSession;
-  port: SkillToolsPortWithSettlement;
+  port: JourneyToolsPortWithSettlement;
   warnings: string[];
 }
 
@@ -109,14 +110,14 @@ function wired(
     onWarn: (message: string) => warnings.push(message),
     ...(opts.now !== undefined ? { now: opts.now } : {}),
   });
-  session.registerToolGroup('catalog', {
+  session.registerActions('catalog', {
     handlers: {
       'add-to-cart': handlers['add-to-cart'] ?? (() => undefined),
       'save-list': handlers['save-list'] ?? (() => undefined),
       'go-checkout': handlers['go-checkout'] ?? (() => undefined),
     },
   });
-  return { session, port: skillsAsTools(session), warnings };
+  return { session, port: serveToAgent(session), warnings };
 }
 
 /** Fire in-process and hand back the id the app (and the model) would hold. */
@@ -167,7 +168,7 @@ describe('home 1 — an explicit transitionId binds exactly', () => {
     // fire made BEFORE it, naming that id explicitly from inside its own window.
     let firstId = '';
     let workId = '';
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         'save-list': () => undefined,
         'add-to-cart': () => {
@@ -196,7 +197,7 @@ describe('home 1 — an explicit transitionId binds exactly', () => {
 describe('home 2 — inside a handler, the call window binds it', () => {
   it('a handler that opens work before its first await binds to its own fire', async () => {
     const { session } = wired();
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         'add-to-cart': async () => {
           session.beginWork('Uploading');
@@ -215,7 +216,7 @@ describe('home 2 — inside a handler, the call window binds it', () => {
   it('binds to the handler it is INSIDE, not to the newest fire', async () => {
     const { session } = wired();
     let first: string | undefined;
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         'add-to-cart': async () => {
           first = session.beginWork('slow work').workId;
@@ -593,7 +594,7 @@ describe('did_it_work — the app’s own work, on the arms about a fire', () =>
 
   it('a failed handler settles the fire and leaves the app’s work exactly where it was', async () => {
     const { session, port } = wired();
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         'add-to-cart': () => {
           session.beginWork('a job that outlives the failure');
@@ -680,7 +681,7 @@ describe('ATTACK — done(error) settles or flips a transition', () => {
   it('does not close, answer or age a human’s ask', async () => {
     const { session } = wired();
     session.sync('checkout');
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
     const ask = session.confirmAsk('checkout.place-order', { source: 'agent' });
     const work = session.beginWork('placing the order');
     work.done(new Error('nope'));
@@ -774,7 +775,7 @@ describe('ATTACK — recency attribution', () => {
 
   it('post-await, a handler is no longer inside its own call window: unbound, and warned', async () => {
     const { session, warnings } = wired();
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         'add-to-cart': async () => {
           await flush();
@@ -830,7 +831,7 @@ describe('ATTACK — the pause arms grow a work word', () => {
   it('an ask answer carries no stillWorking, whatever the app has open', () => {
     const { session, port } = wired();
     session.sync('checkout');
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
     const paused = port.call('shop.do_action', { action: 'checkout.place-order' });
     const askId = paused['askId'] as string;
     session.beginWork('some work');
@@ -862,7 +863,7 @@ describe('the leak is documented as the honest failure, not fixed by a timer', (
   it('a leaked handle keeps answering, and the session never garbage-collects it', async () => {
     const { session, port } = wired();
     const id = fireIt(session);
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         'save-list': () => {
           session.beginWork('leaked', { transitionId: id }); // nobody ever calls done()
@@ -897,10 +898,7 @@ describe('the page a reader meets quotes what the library actually serves', () =
 
     const answer = port.call('shop.did_it_work', { transitionId: id });
     const served = String(answer['stillWorkingMeans']);
-    const raw = readFileSync(
-      path.join(REPO, 'docs-next/content/docs/serve/when-the-app-is-still-working.mdx'),
-      'utf8',
-    );
+    const raw = readDocPage('when-the-app-is-still-working');
     const page = flatten(raw);
 
     // The page shows the sentence ELIDED, so what is checked is that its quote

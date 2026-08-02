@@ -37,9 +37,9 @@ export interface SourcesContribution {
   routesBackfilled: RouteFact[];
   /** Hand-authored pages that spelled their own address out (hand-authored wins). */
   routesDeclaredByHand: RouteFact[];
-  /** Skills in the compiled graph that no hand-authored skill declares. */
-  skillsFromJourneys: string[];
-  skillsHandAuthored: string[];
+  /** Journeys in the compiled graph that no hand-authored journey declares. */
+  journeysFromSources: string[];
+  journeysHandAuthored: string[];
   /** The same hand-authored blocks, compiled with no sources. */
   withoutSources: BuildProbe;
   /** One page declared at two addresses, compiled live. */
@@ -69,16 +69,16 @@ function probe(build: () => { spec: { pages: CompiledPages } }): BuildProbe {
 
 export function describeSourcesContribution(input: {
   /** The graph the app is actually running on. */
-  compiled: { spec: { pages: CompiledPages; skills: Record<string, unknown> } };
+  compiled: { spec: { pages: CompiledPages; journeys: Record<string, unknown> } };
   /** The page blocks this app spells out by hand. */
   handPages: Record<string, PageNodeDef>;
   /** Skills this app spells out by hand — none, in this demo. */
-  handSkills?: Record<string, JourneyDef>;
+  handJourneys?: Record<string, JourneyDef>;
 }): SourcesContribution {
   const { compiled, handPages } = input;
-  const handSkills = input.handSkills ?? {};
+  const handJourneys = input.handJourneys ?? {};
   const handPageIds = Object.keys(handPages);
-  const handSkillIds = Object.keys(handSkills);
+  const handJourneyIds = Object.keys(handJourneys);
 
   const routesBackfilled: RouteFact[] = [];
   const routesDeclaredByHand: RouteFact[] = [];
@@ -90,13 +90,13 @@ export function describeSourcesContribution(input: {
   }
 
   return {
-    from: 'graph.spec.pages / graph.spec.skills, diffed against pages.ts and journeys.ts',
+    from: 'graph.spec.pages / graph.spec.journeys, diffed against pages.ts and journeys.ts',
     pagesFromSources: Object.keys(compiled.spec.pages).filter((id) => !handPageIds.includes(id)),
     pagesHandAuthored: handPageIds,
     routesBackfilled,
     routesDeclaredByHand,
-    skillsFromJourneys: Object.keys(compiled.spec.skills).filter((id) => !handSkillIds.includes(id)),
-    skillsHandAuthored: handSkillIds,
+    journeysFromSources: Object.keys(compiled.spec.journeys).filter((id) => !handJourneyIds.includes(id)),
+    journeysHandAuthored: handJourneyIds,
 
     // The load-bearing proof. Same blocks, no sources — and the compiler says
     // why in its own words.

@@ -3,7 +3,7 @@
  *
  * The loop demonstrates the full serving contract:
  *  - each turn injects contextBrief({sinceVersion}) — what the user did between questions
- *  - skills are served as one-line plans (list_skills); committing expands tools
+ *  - journeys are served as one-line plans (list_journeys); committing expands tools
  *  - Claude's action tools are regenerated per request from session.toMCPTools()
  *    (position + guards decide what exists; names sanitized: '.' → '__')
  *  - every fire carries source 'agent'; type `!affordance-id {json}` at the prompt
@@ -20,8 +20,8 @@ const MODEL = 'claude-opus-4-8';
 const SYSTEM = `You are the shopping assistant for a small dress store. You act on the LIVE app
 through tools that mirror what is possible on the user's current page — the tool list changes as
 they (or you) move around. Work method: read the session context given each turn (who did what,
-where the user is now); use list_skills/skill_plan to plan; commit_skill before walking a
-multi-step task, leave_skill when done or when plans change; fire action tools to act. Actions
+where the user is now); use list_journeys/journey_plan to plan; commit_journey before walking a
+multi-step task, leave_journey when done or when plans change; fire action tools to act. Actions
 marked high-effect (like placing an order) need the user's explicit confirmation in chat first.
 If a tool is rejected (guard failed / stale), replan from the fresh context instead of retrying
 blindly. Keep replies short and grounded in what actually happened.`;
@@ -106,7 +106,7 @@ function buildTools(session: ReturnType<typeof createDressShopApp>['session']): 
   const nameMap = new Map<string, string>(); // sanitized tool name → affordanceId
   const actionTools: Anthropic.Tool[] = session.toMCPTools().map((tool) => {
     const safeName = tool.name.replace(/[^a-zA-Z0-9_-]/g, '__');
-    if (tool.name === 'dress-shop.leave-skill') nameMap.set(safeName, 'leave-skill');
+    if (tool.name === 'dress-shop.leave-journey') nameMap.set(safeName, 'leave-journey');
     else nameMap.set(safeName, tool.name.replace(/^dress-shop\./, ''));
     return {
       name: safeName,
@@ -117,30 +117,30 @@ function buildTools(session: ReturnType<typeof createDressShopApp>['session']): 
 
   const metaTools: Anthropic.Tool[] = [
     {
-      name: 'list_skills',
+      name: 'list_journeys',
       description:
-        'List the multi-step skills this app offers, with live feasibility from the current position.',
+        'List the multi-step journeys this app offers, with live feasibility from the current position.',
       input_schema: { type: 'object', properties: {}, additionalProperties: false },
     },
     {
-      name: 'skill_plan',
+      name: 'journey_plan',
       description:
-        'Show a skill\'s step plan: derived dependencies and live status (done/ready/blocked/off-node).',
+        'Show a journey\'s step plan: derived dependencies and live status (done/ready/blocked/off-node).',
       input_schema: {
         type: 'object',
-        properties: { skillId: { type: 'string' } },
-        required: ['skillId'],
+        properties: { journeyId: { type: 'string' } },
+        required: ['journeyId'],
         additionalProperties: false,
       },
     },
     {
-      name: 'commit_skill',
+      name: 'commit_journey',
       description:
-        'Commit to a skill before walking its steps — the action tools then narrow to that skill.',
+        'Commit to a journey before walking its steps — the action tools then narrow to that journey.',
       input_schema: {
         type: 'object',
-        properties: { skillId: { type: 'string' } },
-        required: ['skillId'],
+        properties: { journeyId: { type: 'string' } },
+        required: ['journeyId'],
         additionalProperties: false,
       },
     },
@@ -159,17 +159,17 @@ function buildTools(session: ReturnType<typeof createDressShopApp>['session']): 
 
   const dispatch = async (name: string, input: unknown): Promise<string> => {
     const args = (input ?? {}) as Record<string, unknown>;
-    if (name === 'list_skills') return JSON.stringify(session.availableSkills(), null, 1);
-    if (name === 'skill_plan') return JSON.stringify(session.skillPlan(String(args['skillId'])), null, 1);
-    if (name === 'commit_skill') {
-      return JSON.stringify(session.commitSkill(String(args['skillId']), { source: 'agent' }), null, 1);
+    if (name === 'list_journeys') return JSON.stringify(session.availableJourneys(), null, 1);
+    if (name === 'journey_plan') return JSON.stringify(session.journeyPlan(String(args['journeyId'])), null, 1);
+    if (name === 'commit_journey') {
+      return JSON.stringify(session.commitJourney(String(args['journeyId']), { source: 'agent' }), null, 1);
     }
     if (name === 'why') return session.why(String(args['key']));
 
     const affordanceId = nameMap.get(name);
     if (!affordanceId) return `Unknown tool '${name}'.`;
-    if (affordanceId === 'leave-skill') {
-      return JSON.stringify(session.leaveSkill() ?? { note: 'no skill frame was open' });
+    if (affordanceId === 'leave-journey') {
+      return JSON.stringify(session.leaveJourney() ?? { note: 'no journey frame was open' });
     }
     const result = session.fire(affordanceId, {
       source: 'agent',

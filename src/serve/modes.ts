@@ -1,11 +1,11 @@
 /**
- * Mode B — skills as FIXED tools (the default serving mode, D18 §7).
+ * Mode B — journeys as FIXED tools (the default serving mode, D18 §7).
  *
- * The tool array an LLM sees contains ONE tool per skill plus three fixed
+ * The tool array an LLM sees contains ONE tool per journey plus three fixed
  * generics (whats_here, do_action, why) and NEVER changes for the life of a
  * conversation. Disclosure rides the RESULT channel: every call returns
  * readySteps — what is fireable at the current navigation cursor, right now —
- * and the model acts by calling the SAME skill tool again with {step}.
+ * and the model acts by calling the SAME journey tool again with {step}.
  * Between-turn grounding rides the same channel: whats_here accepts
  * {sinceVersion} and narrates only the delta (who did what since the model's
  * last look), and `why` serves the causal backward slice for a state key —
@@ -23,7 +23,7 @@
  * and the model corrects on the next call.
  *
  * Layering: this file consumes ONLY the public Session surface (available /
- * availableSkills / skillPlan / frames / fire / explain / contextBrief) — it is a pure
+ * availableJourneys / journeyPlan / frames / fire / explain / contextBrief) — it is a pure
  * projection, independently testable, swappable per conversation. One
  * conversation = one mode (a mid-conversation mode flip is a tool-set change
  * = a full cache bust).
@@ -39,12 +39,13 @@ import type {
   Explanation,
   FireResult,
   FireSettlement,
+  JourneyPlanStep,
   Principal,
 } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 import { errorText } from './error-text.js';
 
-export interface SkillToolsOptions {
+export interface JourneyToolsOptions {
   /** Require confirm:true before firing high-effect steps/actions. Default true. */
   confirmHighEffect?: boolean;
   /**
@@ -59,7 +60,7 @@ export interface SkillToolsOptions {
   source?: Principal;
 }
 
-export interface SkillCallArgs {
+export interface JourneyCallArgs {
   step?: string;
   input?: unknown;
   confirm?: boolean;
@@ -89,7 +90,7 @@ export interface DoActionArgs {
 /** Results are plain data objects — serialize one as the tool_result body. */
 export type ServeResult = Record<string, unknown>;
 
-export interface SkillToolsPort {
+export interface JourneyToolsPort {
   /** The STATIC tool array — identical bytes for the life of the conversation. */
   tools(): MCPToolDescription[];
   /** Route a tool_use by name. Unknown names return a structured error result. */
@@ -107,8 +108,8 @@ export interface SkillToolsPort {
    * could not learn the final truth, so it rebuilt one by hand out of a
    * listener and a stopwatch.
    *
-   * OPTIONAL here and REQUIRED on {@link SkillToolsPortWithSettlement}, which is
-   * what {@link skillsAsTools} hands back — so a caller holding a built port
+   * OPTIONAL here and REQUIRED on {@link JourneyToolsPortWithSettlement}, which is
+   * what {@link serveToAgent} hands back — so a caller holding a built port
    * never meets the optionality, and nobody has to check for a member the
    * library always provides. The split is not decoration: this interface is
    * PUBLISHED, and an object literal written against an earlier release — a test
@@ -122,7 +123,7 @@ export interface SkillToolsPort {
    * same facts, in the same words, minus that tool's own envelope. For the
    * caller that already holds the id and wants the settled truth as a result
    * rather than as a promise: a transport folding the final word into the
-   * result of the call that fired (see {@link SkillToolsPort.whenSettled} for
+   * result of the call that fired (see {@link JourneyToolsPort.whenSettled} for
    * the wait itself).
    *
    * Three answers, and they are three different things:
@@ -145,7 +146,7 @@ export interface SkillToolsPort {
    * the one a remote host reads is checked against a real answer by a test
    * rather than kept in step by hand.
    *
-   * OPTIONAL here and REQUIRED on {@link SkillToolsPortWithSettlement}, for the
+   * OPTIONAL here and REQUIRED on {@link JourneyToolsPortWithSettlement}, for the
    * reason stated above: this interface is PUBLISHED, and an object literal
    * written against an earlier release must keep compiling.
    */
@@ -153,32 +154,49 @@ export interface SkillToolsPort {
 }
 
 /**
- * What {@link skillsAsTools} returns: a port whose settlement doors are always
+ * What {@link serveToAgent} returns: a port whose settlement doors are always
  * there. Name the type only if you are storing the port somewhere typed — the
  * factory's inferred return already has them.
  */
-export interface SkillToolsPortWithSettlement extends SkillToolsPort {
+export interface JourneyToolsPortWithSettlement extends JourneyToolsPort {
   whenSettled(transitionId: string): Promise<FireSettlement>;
   settledAnswer(transitionId: string): ServeResult | undefined;
 }
 
-const SKILL_USAGE =
-  ' Call with no arguments to open this skill and see its ready steps; call again with' +
+const JOURNEY_USAGE =
+  ' Call with no arguments to open this journey and see its ready steps; call again with' +
   " {step: '<name from readySteps>', input: {...}} to perform a step. A high-effect step first returns" +
   ' needs-confirm WITH receipts (what it will do and why): show the human, then call again with' +
   ' confirm: true to proceed — or decline: true if they refuse. Steps arrive as DATA in results —' +
   ' they are never separate tools.';
 
+/** The `routeTo` argument's own description — authored, like every other. */
+const ROUTE_TO_ARG_DESCRIPTION =
+  'A page id you want to get to: the reply adds the declared hops from here, each naming the action ' +
+  'that makes it. Fewest hops, which is arithmetic — not a recommendation, and not a promise that ' +
+  'those hops are open right now.';
+
+/** What a route IS, said once, so the hops are never read as permission. */
+const ROUTE_MEANS =
+  'Declared hops, fewest first. Each names the action whose own claim makes it. Whether a hop is ' +
+  'available right now is answered on that action\'s row, not here — and for a page this session has ' +
+  'not visited, nothing here knows.';
+
+/** And what an absent route means, which is not "impossible". */
+const NO_DECLARED_ROUTE =
+  'No action declares a way there from here. That is what this graph says, not a claim that the app ' +
+  'cannot reach it — it may navigate in ways it never declared.';
+
 const WHATS_HERE_DESCRIPTION =
-  'Describe the current position: the page, the open skill (if any), what happened recently, ' +
-  'and the actions and skills available right now. The reply also carries facts — the app’s ' +
+  'Describe the current position: the page, the open journey (if any), what happened recently, ' +
+  'and the actions and journeys available right now. The reply also carries facts — the app’s ' +
   'own authoritative record of what has actually been done and what was refused. Call this ' +
   'whenever you are unsure whether something has already happened; trust facts over your own ' +
   'account of the conversation. Pass sinceVersion (the version from any earlier result) to get ' +
   'only what changed since your last look — including what the user did themselves in the meantime.';
 
 const DO_ACTION_DESCRIPTION =
-  'Perform one available action outside any skill flow. Call whats_here first to see action names. ' +
+  'Perform one available action outside any journey flow. Call whats_here first to see action names. ' +
   'A high-effect action first returns needs-confirm WITH receipts (what it will do and why): show the ' +
   'human, then call again with confirm: true to proceed — or decline: true if they refuse.';
 
@@ -201,6 +219,21 @@ const STILL_PENDING_HOWTO =
 const OUTCOME_MOVED_HOWTO =
   'This is the receipt from when the action came to rest — the app has moved it since (see ' +
   'outcomeNow). Do NOT act on outcome alone: call whats_here to see where things actually stand.';
+
+// The journey frame's next move, in the two shapes it has. They are two
+// sentences and not one with a clause, because grammar rule 4 forbids an
+// instruction that names a move the gate will refuse: "pick one of readySteps"
+// against an empty list is a loop built out of a true sentence. A frame whose
+// only remaining steps are switched off or off-page has a different next move —
+// wait, or go where the step lives — and it gets the sentence that says so.
+const PICK_A_READY_STEP_HOWTO = 'Call this tool again with step set to one of readySteps.';
+
+const NO_READY_STEP_HOWTO =
+  'Nothing in this journey can be fired from here right now. Do not keep trying the steps in ' +
+  'laterSteps — each one says why it is not available: a switched-off control carries enabled: ' +
+  'false and, where the app declared it, unblockedBy naming what it claims would change that. ' +
+  'Wait if something there is already in flight, go to the page a step lives on, or tell the ' +
+  'human what is holding it up.';
 
 // A PAUSE IS NOT A FAILURE — the four sentences of the ask book, and the field
 // report they answer: an agent met needs-confirm, read `ok: false` as an error,
@@ -310,11 +343,20 @@ const DISABLED_WHY =
 // wires can still switch the same control off and none of them declares a
 // reason, so the sentence sends the reader back to the row rather than into a
 // retry loop against a door that never opens.
+//
+// IT IS ALSO WHAT KEEPS `unblockedBy` HONEST BESIDE THE SENTENCE ABOVE. That
+// field is derived from the conjuncts that did NOT hold, so it can only ever be
+// present on a control this clause is also served for — the case where the app
+// DID say something. Where it said nothing, there are no failing conjuncts,
+// `unblockedBy` is absent, and "nothing here knows what would change it" is
+// exactly true. The two sentences cannot meet a row that contradicts them.
 const DISABLED_EVIDENCE_WHY =
   'This control also declares a condition for being clickable, and the app’s own state does not meet ' +
   'it — the parts that did not hold ride this result as evidence, named by the app’s own declaration ' +
-  'and not guessed here. That is what the app declared, not a promise: meeting it may still leave the ' +
-  'control off for a reason nothing here can see. Say what the evidence says, and no more.';
+  'and not guessed here. whats_here may also carry unblockedBy for this control: the actions the app ' +
+  'claims write those same parts. That is what the app declared, not a promise: firing one is not ' +
+  'promised to free this, and meeting the condition may still leave the control off for a reason ' +
+  'nothing here can see. Say what the evidence says, and no more.';
 
 // THE THIRD STATE, at the moment of the reach. A control is clickable, switched
 // off, or WORKING — and only the first two ever had a wire, so a reader that
@@ -455,10 +497,10 @@ const STEP_INPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-export function skillsAsTools(
+export function serveToAgent(
   session: Session,
-  opts?: SkillToolsOptions,
-): SkillToolsPortWithSettlement {
+  opts?: JourneyToolsOptions,
+): JourneyToolsPortWithSettlement {
   const confirmHighEffect = opts?.confirmHighEffect ?? true;
   const source: Principal = opts?.source ?? 'agent';
   const graphId = session.graphId;
@@ -504,20 +546,20 @@ export function skillsAsTools(
     return schema;
   }
 
-  /** The arguments do_action shares with a skill step — everything but `step`. */
+  /** The arguments do_action shares with a journey step — everything but `step`. */
   function sharedStepProperties(): Record<string, unknown> {
     const { step: _step, ...shared } = stepSchema().properties;
     return shared;
   }
 
-  // Skills are declared-only data: the tool array derived from them is static
+  // Journeys are declared-only data: the tool array derived from them is static
   // BY CONSTRUCTION — freeze it once, serve identical bytes every turn.
-  const declaredSkills = session.availableSkills().skills;
-  const skillToolNames = new Map<string, string>(); // tool name → skill id
-  for (const skill of declaredSkills) {
-    skillToolNames.set(sanitizeName(`${graphId}.skill.${skill.id}`), skill.id);
+  const declaredJourneys = session.availableJourneys().journeys;
+  const journeyToolNames = new Map<string, string>(); // tool name → journey id
+  for (const journey of declaredJourneys) {
+    journeyToolNames.set(sanitizeName(`${graphId}.journey.${journey.id}`), journey.id);
   }
-  const skillSteps = new Map(declaredSkills.map((skill) => [skill.id, [...skill.steps]]));
+  const journeySteps = new Map(declaredJourneys.map((journey) => [journey.id, [...journey.steps]]));
   const whatsHereName = sanitizeName(`${graphId}.whats_here`);
   const doActionName = sanitizeName(`${graphId}.do_action`);
   const whyName = sanitizeName(`${graphId}.why`);
@@ -532,11 +574,11 @@ export function skillsAsTools(
     `transitionId to learn how it came to rest. Do not perform the action again.`;
 
   const staticTools: MCPToolDescription[] = [
-    ...declaredSkills.map(
-      (skill) =>
+    ...declaredJourneys.map(
+      (journey) =>
         ({
-          name: sanitizeName(`${graphId}.skill.${skill.id}`),
-          description: skill.description + SKILL_USAGE,
+          name: sanitizeName(`${graphId}.journey.${journey.id}`),
+          description: journey.description + JOURNEY_USAGE,
           inputSchema: stepSchema(),
         }) as MCPToolDescription,
     ),
@@ -549,6 +591,10 @@ export function skillsAsTools(
           sinceVersion: {
             type: 'number',
             description: 'A version from a previous result: the reply narrates only the delta since it.',
+          },
+          routeTo: {
+            type: 'string',
+            description: ROUTE_TO_ARG_DESCRIPTION,
           },
         },
         additionalProperties: false,
@@ -573,7 +619,7 @@ export function skillsAsTools(
         type: 'object',
         properties: {
           action: { type: 'string', description: 'An action name from whats_here.' },
-          // The four shared arguments, taken from the SAME rendered schema a skill
+          // The four shared arguments, taken from the SAME rendered schema a journey
           // step serves — so the two doors can never describe confirm differently.
           ...sharedStepProperties(),
         },
@@ -608,55 +654,56 @@ export function skillsAsTools(
     return new Map(session.available().edges.map((edge) => [edge.affordanceId, edge]));
   }
 
-  function callSkill(skillId: string, args: SkillCallArgs): ServeResult {
-    // Cross-skill switch is implicit — but NEVER destructive-first: the open
-    // frame is left only after the target skill is known to be openable, so a
+  function callJourney(journeyId: string, args: JourneyCallArgs): ServeResult {
+    // Cross-journey switch is implicit — but NEVER destructive-first: the open
+    // frame is left only after the target journey is known to be openable, so a
     // blocked target cannot cost the model its current flow.
-    const openFrame = session.skillFrame();
-    if (openFrame && openFrame.skillId !== skillId) {
-      const target = session.availableSkills().skills.find((skill) => skill.id === skillId);
+    const openFrame = session.journeyFrame();
+    if (openFrame && openFrame.journeyId !== journeyId) {
+      const target = session.availableJourneys().journeys.find((journey) => journey.id === journeyId);
       if (target && !target.preconditionPassed) {
         return {
           ok: false,
           judgment: 'blocked',
-          skill: skillId,
-          why: 'This skill’s precondition does not hold right now. Your current skill is still open.',
+          journey: journeyId,
+          why: 'This journey’s precondition does not hold right now. Your current journey is still open.',
           evidence: structuredClone(target.evidence),
-          keptFrame: openFrame.skillId,
+          keptFrame: openFrame.journeyId,
           ...positionData(),
         };
       }
-      session.leaveSkill();
+      session.leaveJourney();
     }
-    if (!session.skillFrame()) {
-      const committed = session.commitSkill(skillId, { source });
+    if (!session.journeyFrame()) {
+      const committed = session.commitJourney(journeyId, { source });
       if (!committed.ok) {
         if (committed.reason === 'PRECONDITION_FAILED') {
           return {
             ok: false,
             judgment: 'blocked',
-            skill: skillId,
-            why: 'This skill’s precondition does not hold right now.',
+            journey: journeyId,
+            why: 'This journey’s precondition does not hold right now.',
             evidence: structuredClone(committed.evidence),
             ...positionData(),
           };
         }
-        return { ok: false, judgment: 'error', skill: skillId, reason: committed.reason, ...positionData() };
+        return { ok: false, judgment: 'error', journey: journeyId, reason: committed.reason, ...positionData() };
       }
     }
 
     if (args.step === undefined) {
-      return { ok: true, skill: skillId, ...frameData(skillId), ...positionData() };
+      return { ok: true, journey: journeyId, ...frameData(journeyId), ...positionData() };
     }
 
-    const stepId = resolveStep(skillId, args.step);
+    const stepId = resolveStep(journeyId, args.step);
     if (!stepId) {
       return {
         ok: false,
         judgment: 'error',
-        skill: skillId,
+        journey: journeyId,
         reason: 'UNKNOWN_STEP',
-        steps: [...(skillSteps.get(skillId) ?? [])],
+        /* v8 ignore next -- the `?? []` arm is unreachable: journeySteps and the journey tool names are built from one declared list, so a name that resolved to a journeyId always has its steps filed here. */
+        steps: [...(journeySteps.get(journeyId) ?? [])],
         ...positionData(),
       };
     }
@@ -670,7 +717,7 @@ export function skillsAsTools(
         return {
           ok: false,
           judgment: 'declined',
-          skill: skillId,
+          journey: journeyId,
           step: stepId,
           askId: declined.askId,
           ...relayedDeclineData(declined),
@@ -683,7 +730,7 @@ export function skillsAsTools(
       return {
         ok: false,
         judgment: 'needs-confirm',
-        skill: skillId,
+        journey: journeyId,
         step: stepId,
         does: edge.description,
         // `ok: false` is true of the CALL and was read as true of the app. These
@@ -699,23 +746,53 @@ export function skillsAsTools(
     // must win over the frame's ('needs-choice'); on success fireData carries
     // no judgment and the frame's stands.
     return {
-      skill: skillId,
-      ...frameData(skillId),
+      journey: journeyId,
+      ...frameData(journeyId),
       ...fireData(fired, stepId, edge, args),
       ...positionData(),
     };
   }
 
-  function resolveStep(skillId: string, step: string): string | null {
-    const steps = skillSteps.get(skillId) ?? [];
+  function resolveStep(journeyId: string, step: string): string | null {
+    /* v8 ignore next -- the `?? []` arm is unreachable for the same reason as the one in callJourney: only a name that mapped to a declared journey ever reaches this resolver. */
+    const steps = journeySteps.get(journeyId) ?? [];
     if (steps.includes(step)) return step;
     const matches = steps.filter((candidate) => candidate.endsWith(`.${step}`));
     return matches.length === 1 ? matches[0] : null;
   }
 
-  function callWhatsHere(sinceVersion?: number): ServeResult {
+  /**
+   * The declared hops to a page, for the reader who cannot open a map.
+   *
+   * The third context this port serves is TRAVERSAL, and until now a model was
+   * told where it IS but had no way to ask how to get somewhere — the one thin
+   * spot among map, traversal and actions. It rides `whats_here` rather than
+   * arriving as a sixth tool because the tool array is a contract: its bytes are
+   * the same for every caller on every turn, and a new tool would change them.
+   *
+   * THE ROUTE'S LAWS TRAVEL WITH IT ONTO THE WIRE, unchanged:
+   * - NOT A PLAN. Fewest hops is arithmetic. A preferred order toward a goal is
+   *   a journey, which the app declares.
+   * - NOT A PERMISSION. `goTo` is a claim about where an action goes; a guarded
+   *   or greyed hop is still reported, because whether it is open is answered on
+   *   the row you actually reach for — and is never guessed for a page this
+   *   session has not visited.
+   * - `[]` means already there; absence of a route means nobody DECLARED one,
+   *   which is not the same as "you cannot get there".
+   */
+  function routeAnswer(routeTo: string | undefined): ServeResult {
+    if (routeTo === undefined) return {};
+    const hops = session.howToReach(routeTo);
+    if (hops === null) return { routeTo: { to: routeTo, why: NO_DECLARED_ROUTE } };
+    if (hops.length === 0) return { routeTo: { to: routeTo, alreadyHere: true } };
+    return { routeTo: { to: routeTo, hops, means: ROUTE_MEANS } };
+  }
+
+  function callWhatsHere(sinceVersion?: number, routeTo?: string): ServeResult {
     const since = sinceVersion === undefined ? undefined : { sinceVersion };
     const brief = session.contextBrief(since);
+    const rows = session.available().edges;
+    const running = runningNow(rows);
     return {
       ok: true,
       // FIRST, and on the call a model already makes. The field failure was a
@@ -725,14 +802,15 @@ export function skillsAsTools(
       // refused fire is a gap row, not a transition).
       facts: session.groundTruth(since).text,
       brief: brief.text,
-      actions: session.available().edges.map(edgeData),
-      skills: session.availableSkills().skills.map((skill) => ({
-        skill: skill.id,
-        does: skill.description,
-        feasible: skill.preconditionPassed,
-        ...(skill.preconditionUnevaluable ? { feasibilityUnknownFor: skill.preconditionUnevaluable } : {}),
+      actions: rows.map((edge) => edgeData(edge, running)),
+      journeys: session.availableJourneys().journeys.map((journey) => ({
+        journey: journey.id,
+        does: journey.description,
+        feasible: journey.preconditionPassed,
+        ...(journey.preconditionUnevaluable ? { feasibilityUnknownFor: journey.preconditionUnevaluable } : {}),
       })),
       ...positionData(),
+      ...routeAnswer(routeTo),
     };
   }
 
@@ -938,6 +1016,7 @@ export function skillsAsTools(
         why: AMBIGUOUS_ID_WHY,
         askId: twin.askId,
         askedAbout: twin.affordanceId,
+        /* v8 ignore next -- the `{}` arm is unreachable: past the catch above the id NAMES A FIRED TRANSITION (an unknown id and a stimulus/sync row both throw their way out), and a fired transition always carries the action that made it. */
         ...(fired !== undefined ? { did: fired } : {}),
         ...positionData(),
       };
@@ -948,6 +1027,7 @@ export function skillsAsTools(
         ok: true,
         settled: false,
         judgment: 'still-pending',
+        /* v8 ignore next -- the `{}` arm is unreachable for the same reason: an unsettled id is one this session opened a latch for, which only fire() does, and that fire is in the log under the action that made it. */
         ...(did !== undefined ? { did } : {}),
         howToAct: STILL_PENDING_HOWTO,
         // ADDITIVE, on the arm that already says the right word: the judgment is
@@ -960,6 +1040,7 @@ export function skillsAsTools(
     return {
       ok: true,
       settled: true,
+      /* v8 ignore next 3 -- the `{}` arm is unreachable: only fire() ever retains a settlement, so a SETTLED id always belongs to a fired transition, and a fired transition always names its action. */
       ...(settled.transition.cause.affordanceId !== undefined
         ? { did: settled.transition.cause.affordanceId }
         : {}),
@@ -1154,6 +1235,7 @@ export function skillsAsTools(
     const spent = session.transitions().filter((row) => row.askId === askId);
     if (spent.length !== 1) return undefined;
     const forwardTo = spent[0]!.id;
+    /* v8 ignore next -- unreachable today: every ok fire leaves either an open latch or a RETAINED settlement, so the forwarded transition id always answers on the second hop and never throws its way back into the ask book. The set is the termination proof for the one graph shape where the two id spaces really can meet (an action named 'ask' mints ids in the ask counter's own grammar) — written in code rather than in a sentence, because that is what makes it hold when either counter changes. */
     if (visited.has(forwardTo)) return undefined;
     return callDidItWork(forwardTo, new Set([...visited, forwardTo]));
   }
@@ -1203,25 +1285,42 @@ export function skillsAsTools(
     return { youAreOn: session.node, version: session.version };
   }
 
-  function frameData(skillId: string): ServeResult {
-    const frame = session.skillFrame();
-    if (!frame || frame.skillId !== skillId) {
+  function frameData(journeyId: string): ServeResult {
+    const frame = session.journeyFrame();
+    /* v8 ignore next 7 -- unreachable from either caller: both reach this builder only after callJourney has PROVEN a frame for this journey is open (it commits one and returns on every refusal), and nothing between there and here can close it — a demotion needs a state change, and handlers are deferred to a microtask. The arm answers for a frame that closed underneath the call, and it reports the closed frame's own status rather than inventing "no frame". */
+    if (!frame || frame.journeyId !== journeyId) {
       const closed = session
         .frames()
-        .filter((candidate) => candidate.skillId === skillId)
+        .filter((candidate) => candidate.journeyId === journeyId)
         .pop();
       return closed ? { frame: closed.status } : {};
     }
-    const plan = session.skillPlan(skillId);
+    const plan = session.journeyPlan(journeyId);
     if (plan.steps.every((step) => step.status === 'done' || step.status === 'inferred-done')) {
-      session.leaveSkill({ reason: 'completed' });
+      session.leaveJourney({ reason: 'completed' });
       return { frame: 'completed', judgment: 'done' };
     }
-    const edges = edgeById();
+    const rows = session.available().edges;
+    const running = runningNow(rows);
+    const edges = new Map(rows.map((edge) => [edge.affordanceId, edge]));
     // A step whose fire is still awaiting the app's state report is NOT ready
     // to fire again — advertising it would instruct the model to double-fire.
     const awaiting = new Set(session.pending().map((pendingInfo) => pendingInfo.affordanceId));
-    const ready = plan.steps.filter((step) => step.status === 'ready' && !awaiting.has(step.affordanceId));
+    // NOR IS A STEP WHOSE CONTROL THE APP HAS SWITCHED OFF. `journeyPlan` calls
+    // it 'ready' because the DECLARED graph is satisfied — its guard holds and
+    // the cursor is on its page — and that is a true and useful fact. It is not
+    // the same fact as "you can fire this now": the four wires that grey a
+    // control (registration, group handle, live store row, `enabledWhen`) are
+    // live state the plan does not read. Advertising it here would break the
+    // grammar's rule 4 — the instruction below names `readySteps`, and the gate
+    // answers a switched-off step with TOOL_DISABLED forever, which is a loop
+    // built out of two true sentences, and the exact re-fire loop `unblockedBy`
+    // exists to end.
+    const fireable = (step: JourneyPlanStep): boolean =>
+      step.status === 'ready' &&
+      !awaiting.has(step.affordanceId) &&
+      edges.get(step.affordanceId)?.enabled !== false;
+    const ready = plan.steps.filter(fireable);
     return {
       frame: 'open',
       judgment: ready.length === 0 ? 'navigate-or-wait' : ready.length === 1 ? 'one-ready-step' : 'needs-choice',
@@ -1232,7 +1331,7 @@ export function skillsAsTools(
           step: step.affordanceId,
           does: step.description,
           // The SAME claim the action row makes ({@link edgeData}) — a navigating
-          // STEP declares no writes either, so a model inside a skill frame read a
+          // STEP declares no writes either, so a model inside a journey frame read a
           // working link as a dead one for exactly the reason the action row was
           // fixed. This was the last surface still telling the two readers of one
           // edge different things. A CLAIM, said as one: absent when the app
@@ -1242,13 +1341,37 @@ export function skillsAsTools(
           ...(step.guardUnevaluated ? { guardUnevaluated: step.guardUnevaluated } : {}),
           // Declared here but nothing is bound: firing it executes nothing.
           ...(edge?.materialized === false ? { materialized: false } : {}),
+          // The app's own words for what this control is doing, on the step row
+          // as on the action row. Advisory, not a refusal — it does not move the
+          // step out of `readySteps`, it tells the reader why it might wait.
+          ...(edge?.busy !== undefined ? { busy: edge.busy } : {}),
           ...expectsData(edge),
         };
       }),
+      // Everything the model cannot fire this turn, each with why. A step the
+      // plan calls 'ready' whose control is switched off lands here carrying
+      // BOTH facts side by side — grammar rule 1: the plan's word is not
+      // overwritten, because "the declared graph is satisfied and the app
+      // switched the control off" and "the graph does not allow it yet" are
+      // different diagnoses demanding different moves, and one word for both
+      // would have to be wrong about one of them.
       laterSteps: plan.steps
-        .filter((step) => step.status !== 'ready')
-        .map((step) => ({ step: step.affordanceId, status: step.status })),
-      howToAct: 'Call this tool again with step set to one of readySteps.',
+        .filter((step) => !fireable(step) && !awaiting.has(step.affordanceId))
+        .map((step) => {
+          const edge = edges.get(step.affordanceId);
+          return {
+            step: step.affordanceId,
+            status: step.status,
+            ...(edge?.enabled === false ? { enabled: false } : {}),
+            // WHAT WOULD FREE IT, on the journey surface too. This is the
+            // default surface `mcpServer` wraps; serving the answer only on
+            // `whats_here` left the two readers of one edge told different
+            // things again, one release after that was fixed.
+            ...(edge === undefined ? {} : unblockedByFor(edge, running)),
+            ...(edge?.busy !== undefined ? { busy: edge.busy } : {}),
+          };
+        }),
+      howToAct: ready.length > 0 ? PICK_A_READY_STEP_HOWTO : NO_READY_STEP_HOWTO,
     };
   }
 
@@ -1377,6 +1500,7 @@ export function skillsAsTools(
         // app requires an approval it recorded from a person.
         performed: false,
         why: APPROVAL_REQUIRED_WHY,
+        /* v8 ignore next -- the `{}` arm is unreachable: an APPROVAL_REQUIRED refusal means the fire already got past page, guard, payload shape, greyed-out and materialisation — the same four questions that decide whether a row appears in available() — so this door always has that row in hand. */
         ...(edge ? { does: edge.description } : {}),
         ...askData(id, args),
       };
@@ -1391,6 +1515,7 @@ export function skillsAsTools(
       ...('instances' in fired ? { instances: [...fired.instances] } : {}),
       ...('node' in fired ? { node: fired.node } : {}),
       ...('askId' in fired && fired.askId !== undefined ? { askId: fired.askId } : {}),
+      /* v8 ignore next -- unreachable for the same reason as the APPROVAL_MISMATCH arm in approvalWhy below: `differs` rides only on that refusal, and this port derives its approval pointer from the very action, input and instance it is about to fire. */
       ...('differs' in fired ? { differs: fired.differs } : {}),
       ...(fired.reason === 'PAYLOAD_INVALID' ? expectsData(edge) : {}),
       ...(fired.reason === 'STILL_MOUNTING' ? { retriable: true } : {}),
@@ -1454,13 +1579,64 @@ export function skillsAsTools(
     };
   }
 
+  /**
+   * The unblocking claims for a row: each entry names an action and the keys it
+   * claims to write. Ids only, deliberately — an id carries its node, so a
+   * reader can find the action's own row rather than trusting a description
+   * copied here, and the list stays token-lean on a hot surface.
+   *
+   * Only for a control the app has actually switched off. A live control needs
+   * no answer to "what would free it", and answering anyway would invite a
+   * reader to treat a dependency list as a plan.
+   */
+  function unblockedByFor(edge: AvailableEdge, running: RunningSet): ServeResult {
+    if (edge.enabled !== false) return {};
+    const deps = session.whatUnblocks(edge.affordanceId);
+    if (deps.length === 0) return {};
+    return {
+      unblockedBy: deps.map((dep) => ({
+        action: dep.affordanceId,
+        writes: dep.viaKeys,
+        ...(running.has(dep.affordanceId) ? { inFlight: true } : {}),
+      })),
+    };
+  }
+
+  /**
+   * WHETHER THE THING THAT WOULD FREE A CONTROL IS ALREADY RUNNING. Two observed
+   * signals, never a third guessed one: a fire of that action is awaiting its
+   * report (the library's own record), or the app has said it is working
+   * (`busy`). An id is in this set only when one of those is true — absence is
+   * "nothing here knows", never a cheerful "it is idle".
+   *
+   * It turns the reader's next move from a question into a fact: the control
+   * that frees this one is IN FLIGHT, so the move is to wait, not to re-fire it
+   * and not to go hunting for a cause. That is the field incident's exact shape
+   * — an upload running, Next greyed, and an agent with no way to tell "working"
+   * from "broken".
+   *
+   * BUILT ONCE PER ANSWER, and passed down. Both halves are properties of the
+   * session, not of the row being described, so computing them inside the row
+   * builder made one `whats_here` walk every pending fire and every available
+   * edge again for each switched-off control on the page — quadratic on the
+   * per-turn hot path, for an answer that cannot differ between rows.
+   */
+  type RunningSet = ReadonlySet<string>;
+  function runningNow(rows: readonly AvailableEdge[]): RunningSet {
+    const running = new Set(session.pending().map((waiting) => waiting.affordanceId));
+    for (const row of rows) if (row.busy !== undefined) running.add(row.affordanceId);
+    return running;
+  }
+
   /** The authored teaching sentence for one approval refusal, by reason. */
   function approvalWhy(fired: Extract<FireResult, { ok: false }>): ServeResult {
     switch (fired.reason) {
+      /* v8 ignore next 2 -- unreachable: fireData answers an APPROVAL_REQUIRED refusal with the ask ITSELF whenever the call carried arguments, and both of its callers always pass them. This case stands for a caller that fires with none (the parameter is optional), which would otherwise get the one refusal in this family with no teaching at all. */
       case 'APPROVAL_REQUIRED':
         return { why: APPROVAL_REQUIRED_WHY };
       case 'APPROVAL_SPENT':
         return { why: APPROVAL_SPENT_WHY };
+      /* v8 ignore next 8 -- unreachable through this port: the askId it presents is looked up from the very action, input and instance the fire then carries (fireOptions → openAskFor), and that lookup already refuses to answer with a card that differs on any of the three — so the gate cannot find a mismatch behind a pointer this port minted. The arm is what an app driving fire() with its own FireOptions.askId gets. */
       case 'APPROVAL_MISMATCH':
         return {
           why:
@@ -1477,7 +1653,7 @@ export function skillsAsTools(
     }
   }
 
-  function edgeData(edge: AvailableEdge): ServeResult {
+  function edgeData(edge: AvailableEdge, running: RunningSet): ServeResult {
     return {
       action: edge.affordanceId,
       does: edge.description,
@@ -1511,6 +1687,20 @@ export function skillsAsTools(
       // the rest read as "nobody knows", which is a claim about a session that
       // was never asked.
       ...(edge.enabled === false ? { enabled: false } : {}),
+      // WHAT WOULD FREE IT — served only on a control that is actually off, and
+      // only where the app's OWN declarations answer: an action whose `writes`
+      // touch a key this one waits on. Derived, never authored (session
+      // .whatUnblocks), so it cannot drift from the graph.
+      //
+      // The field incident this exists for: an agent met a greyed control, was
+      // told only that it was greyed, and re-fired it in a loop to find out what
+      // would change — then reported the app broken. `enabled: false` says a
+      // control is off; this says what the app itself claims would turn it on.
+      //
+      // A CLAIM, NOT A PROMISE, and silence rather than a guess: where nothing
+      // declares a write for the keys it waits on, the key is absent and the row
+      // says nothing — the same absence law every other stamp here obeys.
+      ...unblockedByFor(edge, running),
       // THE SPINNER IN THE BUTTON, on the agent's row — the app's own words for
       // what it is doing, before anything is reached for. Data, like `holds` and
       // `does` above it: the label is the app's, and no sentence here is built
@@ -1545,9 +1735,9 @@ export function skillsAsTools(
     tools: () => structuredClone(staticTools),
     call(name: string, args?: unknown): ServeResult {
       const parsed = (args ?? {}) as Record<string, unknown>;
-      const skillId = skillToolNames.get(name);
-      if (skillId !== undefined) {
-        return callSkill(skillId, {
+      const journeyId = journeyToolNames.get(name);
+      if (journeyId !== undefined) {
+        return callJourney(journeyId, {
           step: typeof parsed['step'] === 'string' ? parsed['step'] : undefined,
           input: parsed['input'],
           confirm: parsed['confirm'] === true,
@@ -1556,7 +1746,10 @@ export function skillsAsTools(
         });
       }
       if (name === whatsHereName) {
-        return callWhatsHere(typeof parsed['sinceVersion'] === 'number' ? parsed['sinceVersion'] : undefined);
+        return callWhatsHere(
+          typeof parsed['sinceVersion'] === 'number' ? parsed['sinceVersion'] : undefined,
+          typeof parsed['routeTo'] === 'string' ? parsed['routeTo'] : undefined,
+        );
       }
       if (name === whyName) {
         if (typeof parsed['key'] !== 'string' || !parsed['key']) {

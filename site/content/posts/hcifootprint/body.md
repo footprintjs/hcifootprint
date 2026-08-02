@@ -2,11 +2,11 @@
 
 For decades we designed the interaction between a **human** and a **computer** — that's HCI. Now the
 human isn't alone: an **agent** joins their side, acting for them. **HACI Footprint** is the layer for
-that team — it turns your web app's interaction surface into a typed, traversable **skill graph** an
+that team — it turns your web app's interaction surface into a typed, traversable **navigation graph** an
 LLM agent can plan over and act on.
 
 You describe the app the way you already picture it — pages, the containers inside them, and the
-actions inside those — with `buildNavigationGraph('shop', { pages, skills })`. One sentence per
+actions inside those — with `buildNavigationGraph('shop', { pages, journeys })`. One sentence per
 action doubles as its label and the tool description the model reads. In return the agent gets a map
 with a **you-are-here** pin, so it only ever sees what is actually doable at the current cursor —
 instead of re-reading a 100k-token DOM on every visit.
@@ -34,7 +34,7 @@ proven in the [demo](https://github.com/footprintjs/hcifootprint-demo) by a prod
 
 <!--section:gap-->
 
-You don't have to build the whole agentic experience up front. Ship a thin skill graph, then let
+You don't have to build the whole agentic experience up front. Ship a thin navigation graph, then let
 real demand tell you what to build next.
 
 Your UI is the boundary of what an agent *can* do. When a user asks for something the UI **can't**
@@ -52,7 +52,7 @@ the missing data, not by guessing at features.**
 <!--section:coexist-->
 
 HACI Footprint isn't tied to any agent framework — and it doesn't compete with Anthropic's Model
-Context Protocol, it **rides on it**. `skillsAsTools(session)` gives you a fixed, MCP-shaped tool
+Context Protocol, it **rides on it**. `serveToAgent(session)` gives you a fixed, MCP-shaped tool
 surface — `tools()` + `call()` — to bind into LangGraph, LangChain, or a raw Anthropic loop directly.
 The tool set never changes for the life of a conversation, so the prompt cache stays warm; what's
 fireable *right now* travels inside each tool **result** (`readySteps`), not by rewriting the tool
@@ -74,7 +74,7 @@ app changes. The `hcifootprint/testing` subpath catches that drift in dev and CI
 It adds **zero dependencies**, is tree-shakeable, and drives the **real** session, never a copy.
 
 `lintGraph(graph)` is static — no app, no test code — flagging stale logic provable from the graph
-alone: a control gated on state nothing produces, a guard that can never be true, a skill that can
+alone: a control gated on state nothing produces, a guard that can never be true, a journey that can
 never finish. `testApp(graph)` is *"Playwright for your interaction logic, minus the browser"*:
 write mock handlers, drive the graph as a **user** (clicking) or as the **agent** (the real tool
 path), and the honesty marker `effectVerified` flips false the moment a handler stops doing what the

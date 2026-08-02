@@ -20,8 +20,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { skillGraph, skillsAsTools } from '../src/index.js';
-import type { Binding, FireResult, SkillGraph, TransitionRecord } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { Binding, FireResult, NavigationGraph, TransitionRecord } from '../src/index.js';
 import { describeExpectedShape } from '../src/traverse/payload-shape.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
@@ -36,41 +36,46 @@ const VALUE_SCHEMA = {
 
 const TAUGHT_ISSUES = "missing required 'value' — expected { value: string }, received { name: string }";
 
-function tasks(): SkillGraph {
-  return skillGraph('tasks', { description: 'A task list' })
-    .page('list', { route: '/tasks' })
-    .affordance('add-task', {
-      on: 'list',
-      description: 'Add a task to the list',
-      binding,
-      effect: { writes: ['taskCount'] },
-      schema: VALUE_SCHEMA,
-    })
-    .affordance('clear-done', {
-      on: 'list',
-      description: 'Clear the completed tasks',
-      binding,
-      effect: { writes: ['taskCount'] }, // declares writes, declares NO input
-    })
-    .affordance('search', {
-      on: 'list',
-      description: 'Search the list',
-      binding,
-      schema: z.object({ query: z.string() }),
-    })
-    .affordance('rename', {
-      on: 'list',
-      description: 'Rename a task',
-      binding,
-      // A non-serializable validator (yup/superstruct shape) — 'parseable'.
-      schema: {
-        safeParse: (value: unknown) =>
-          typeof value === 'object' && value !== null && 'id' in (value as object)
-            ? { success: true }
-            : { success: false, error: 'id is required' },
+function tasks(): NavigationGraph {
+  return buildNavigationGraph('tasks', {
+    does: 'A task list',
+    pages: {
+      list: { route: '/tasks' },
+    },
+    actions: {
+      'add-task': {
+        on: 'list',
+        does: 'Add a task to the list',
+        binding,
+        writes: ['taskCount'],
+        input: VALUE_SCHEMA,
       },
-    })
-    .build();
+      'clear-done': {
+        on: 'list',
+        does: 'Clear the completed tasks',
+        binding,
+        writes: ['taskCount'], // declares writes, declares NO input
+      },
+      search: {
+        on: 'list',
+        does: 'Search the list',
+        binding,
+        input: z.object({ query: z.string() }),
+      },
+      rename: {
+        on: 'list',
+        does: 'Rename a task',
+        binding,
+        // A non-serializable validator (yup/superstruct shape) — 'parseable'.
+        input: {
+          safeParse: (value: unknown) =>
+            typeof value === 'object' && value !== null && 'id' in (value as object)
+              ? { success: true }
+              : { success: false, error: 'id is required' },
+        },
+      },
+    },
+  });
 }
 
 /** A session with the app's side wired, and the handler's payloads recorded. */
@@ -81,9 +86,9 @@ function wiredSession(options?: { checkPayloadShape?: boolean }) {
     ...(options ?? {}),
   });
   const seen: unknown[] = [];
-  session.registerTools({
+  session.registerHandlers({
     group: 'app',
-    tools: {
+    handlers: {
       'add-task': (payload) => {
         seen.push(payload);
       },
@@ -239,7 +244,7 @@ describe('the validators that already worked keep working', () => {
 describe('whats_here carries the input contract, before anything is fired', () => {
   function actionRows() {
     const { session } = wiredSession();
-    const here = skillsAsTools(session).call('tasks.whats_here');
+    const here = serveToAgent(session).call('tasks.whats_here');
     return new Map(
       (here['actions'] as Array<Record<string, unknown>>).map((row) => [row['action'] as string, row]),
     );
@@ -267,7 +272,7 @@ describe('whats_here carries the input contract, before anything is fired', () =
 
   it('points the model at expects from the static tool schema', () => {
     const { session } = wiredSession();
-    const doAction = skillsAsTools(session)
+    const doAction = serveToAgent(session)
       .tools()
       .find((tool) => tool.name === 'tasks.do_action');
     const input = (doAction?.inputSchema as { properties: Record<string, { description: string }> }).properties[
@@ -281,7 +286,7 @@ describe('whats_here carries the input contract, before anything is fired', () =
 describe('do_action teaches the shape it advertised', () => {
   it('answers a wrong input with issues AND expects — the same shape, said twice', () => {
     const { session, seen } = wiredSession();
-    const result = skillsAsTools(session).call('tasks.do_action', {
+    const result = serveToAgent(session).call('tasks.do_action', {
       action: 'add-task',
       input: { name: 'add milk' },
     });
@@ -303,7 +308,7 @@ describe('do_action teaches the shape it advertised', () => {
 describe('the teach loop closes', () => {
   it('guessed key → taught → corrected → performed', async () => {
     const { session, seen } = wiredSession();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     // 1. The agent guesses, the way the reported one did.
     const guessed = port.call('tasks.do_action', { action: 'add-task', input: { name: 'add milk' } });

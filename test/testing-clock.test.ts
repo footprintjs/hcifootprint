@@ -12,8 +12,8 @@ import type { GapRecord } from '../src/index.js';
 function twoPageGraph() {
   return buildNavigationGraph('two', {
     pages: {
-      catalog: { tools: { browse: { does: 'Browse' } } },
-      settings: { tools: { save: { does: 'Save settings' } } },
+      catalog: { actions: { browse: { does: 'Browse' } } },
+      settings: { actions: { save: { does: 'Save settings' } } },
     },
   });
 }
@@ -31,7 +31,7 @@ describe('injectable clock — InteractionSession', () => {
     session.onGap((gap) => gaps.push(gap));
 
     // A registration on 'settings' while the router says 'catalog' is dormant.
-    session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    session.registerActions('settings', { handlers: { save: () => undefined } });
 
     session.available(); // t=0 — within grace, no drift yet
     expect(gaps.some((g) => g.reason === 'sensor-drift')).toBe(false);
@@ -43,7 +43,7 @@ describe('injectable clock — InteractionSession', () => {
 
   it('defaults to real time when no clock is injected (no crash, no drift immediately)', () => {
     const session = twoPageGraph().createSession({ node: 'catalog', onWarn: () => undefined });
-    session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    session.registerActions('settings', { handlers: { save: () => undefined } });
     // Immediately after registration nothing is past the (3s real) grace window.
     expect(session.available().node).toBe('catalog');
   });
@@ -52,7 +52,7 @@ describe('injectable clock — InteractionSession', () => {
 describe('injectable clock — testApp', () => {
   it('advanceTime drives the grace timer deterministically', () => {
     const app = testApp(twoPageGraph(), { node: 'catalog', dormantGraceMs: 1000 });
-    app.session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    app.session.registerActions('settings', { handlers: { save: () => undefined } });
 
     app.session.available();
     expect(app.report().gaps.some((g) => g.reason === 'sensor-drift')).toBe(false);

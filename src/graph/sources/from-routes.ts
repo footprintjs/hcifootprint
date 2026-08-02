@@ -18,7 +18,7 @@
  * LEAF MODULE on purpose: value-imports only the shared authoring guards.
  * Importing fromRoutes must never drag session machinery into a bundle.
  */
-import { SkillGraphValidationError, checkSegment, isLiteralRoute } from '../guards.js';
+import { GraphValidationError, checkSegment, isLiteralRoute } from '../guards.js';
 import type { PageNodeDef } from '../../tree/types.js';
 import type { RoutesSource } from './types.js';
 
@@ -61,9 +61,29 @@ export function fromRoutes<const R extends Record<string, string | { route: stri
     const route =
       typeof value === 'string' ? value : typeof value === 'object' && value !== null ? value.route : value;
     if (typeof route !== 'string') {
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `fromRoutes page '${pageId}': route must be a string (got ${typeof route}).`,
       );
+    }
+    // A ROUTE TABLE CONTRIBUTES PLACES; ANYTHING ELSE ON A PAGE IS REFUSED,
+    // NEVER DROPPED. The type admits `route` and `does` only, so an authored
+    // literal cannot carry controls — but this factory's whole reason to exist
+    // is the table that DOESN'T come from a literal: a JSON blob, a generated
+    // module, a value cast on the way in. Reading two keys and discarding the
+    // rest turns "my actions vanished" into a silent, typeless bug found by an
+    // agent standing on a page with nothing on it. That is the same failure
+    // `authoring-keys.ts` refuses `tools:`/`skills:` to prevent, one door down.
+    if (typeof value === 'object' && value !== null) {
+      for (const key of Object.keys(value)) {
+        if (key !== 'route' && key !== 'does') {
+          throw new GraphValidationError(
+            `fromRoutes page '${pageId}': '${key}' is not a key a route table declares — a route ` +
+              `contributes a PAGE, never a control. Author actions and journeys on the page in your ` +
+              `graph definition (mergeSources composes the two); a route table says only where a page ` +
+              `lives ('route') and what to call it ('does').`,
+          );
+        }
+      }
     }
     const does = typeof value === 'object' && value !== null ? value.does : undefined;
     // A fresh object per page: a source is a SNAPSHOT value — the author
@@ -77,14 +97,14 @@ export function fromRoutes<const R extends Record<string, string | { route: stri
     // answered for — see the option's doc for why `true` filters instead.
     for (const pageId of crossLinks) {
       if (!Object.hasOwn(pages, pageId)) {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `fromRoutes crossLinks names '${pageId}', which this route table does not declare. ` +
             `Known pages: ${Object.keys(pages).join(', ')}.`,
         );
       }
       const { route } = pages[pageId];
       if (route !== undefined && !isLiteralRoute(route)) {
-        throw new SkillGraphValidationError(
+        throw new GraphValidationError(
           `fromRoutes crossLinks names '${pageId}', whose route '${route}' has a ':param' segment — ` +
             `a link to it could never be built (the library never guesses params). Drop it from crossLinks, ` +
             `or author a tool that supplies the param.`,

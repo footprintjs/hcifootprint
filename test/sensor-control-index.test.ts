@@ -76,7 +76,7 @@ describe('the StrictMode shape: setup → cleanup → setup nets to ONE', () => 
   });
 });
 
-describe('forEdge — what coverage asks about an edge', () => {
+describe('what the coverage answer knows about one declared control', () => {
   it('finds the declaration an edge would be reported through', () => {
     const index = createControlIndex();
     const button = el('button');
@@ -108,7 +108,7 @@ describe('forEdge — what coverage asks about an edge', () => {
   });
 });
 
-describe('teardown', () => {
+describe('letting go of a control the page no longer has', () => {
   it('clear empties the index', () => {
     const index = createControlIndex();
     index.attach({ edge: desk.send, element: el('button') });

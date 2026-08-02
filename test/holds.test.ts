@@ -43,7 +43,7 @@
  * - Warn per served row instead of once per action → 1 red: the flood.
  */
 import { describe, expect, it } from 'vitest';
-import { REDACTED, buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { REDACTED, buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { AvailableEdge, NavigationGraph } from '../src/index.js';
 import { watchPage } from '../src/sensor/index.js';
 import type { RecordOnlyFire, SensorSession } from '../src/sensor/index.js';
@@ -59,7 +59,7 @@ function deskMap(): NavigationGraph {
     pages: {
       compose: {
         route: '/compose',
-        tools: {
+        actions: {
           save: {
             does: 'Save the draft',
             input: { type: 'object', properties: { body: { type: 'string' } }, required: ['body'] },
@@ -77,7 +77,7 @@ function deskMap(): NavigationGraph {
           row: {
             repeats: true,
             instances: (state) => (state['rowIds'] as string[]) ?? [],
-            tools: {
+            actions: {
               rename: {
                 does: 'Rename this row',
                 input: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
@@ -137,7 +137,7 @@ describe('the value door', () => {
   it('a registration-time reader puts the draft on the row', () => {
     const { session } = desk_();
     let body = 'ship it';
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body }) },
     });
@@ -151,7 +151,7 @@ describe('the value door', () => {
     // looks identical on turn one and lies on every turn after.
     const { session } = desk_();
     let body = 'first';
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body }) },
     });
@@ -162,23 +162,23 @@ describe('the value door', () => {
 
   it('a qualified id and a leaf name are the SAME declaration — one canonical key', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { 'compose.save': () => ({ body: 'qualified' }) },
     });
     expect(row(session, 'compose.save')!.holds).toEqual({ body: 'qualified' });
   });
 
-  it('a reader for a tool that is not here is refused BY NAME, not filed quietly', () => {
+  it('a reader for an action that is not here is refused BY NAME, not filed quietly', () => {
     const { session } = desk_();
     expect(() =>
-      session.registerToolGroup('compose', { holds: { 'not-a-tool': () => 'x' } }),
-    ).toThrow(/unknown tool 'not-a-tool'/);
+      session.registerActions('compose', { holds: { 'not-an-action': () => 'x' } }),
+    ).toThrow(/unknown action 'not-an-action'/);
   });
 
   it('the value is BOUNDED exactly like a handler’s return', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'x'.repeat(300) }) },
     });
@@ -189,7 +189,7 @@ describe('the value door', () => {
 
   it('null RIDES — "explicitly nothing" is a value the app chose', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => null },
     });
@@ -209,13 +209,13 @@ describe('absence is a key that is not there', () => {
     // committed state here, `element.value` in a browser. A plausible wrong
     // value is indistinguishable, on the row, from a right one.
     const { session } = desk_({ state: { body: 'the state is not the box', draft: 'nor is this' } });
-    session.registerToolGroup('compose', { handlers: { save: () => undefined } });
+    session.registerActions('compose', { handlers: { save: () => undefined } });
     expect(row(session, 'compose.save')).not.toHaveProperty('holds');
   });
 
   it('a getter answering undefined serves NO KEY, never holds: undefined', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => undefined },
     });
@@ -227,7 +227,7 @@ describe('absence is a key that is not there', () => {
     // null is a value. Stamping it for a failed read would report a box the
     // human never cleared.
     const { session, warnings } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: {
         save: () => {
@@ -241,7 +241,7 @@ describe('absence is a key that is not there', () => {
 
   it('a getter answering a FUNCTION is absence — the bound copy drops it, and nothing is invented', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => () => 'not a value' },
     });
@@ -253,7 +253,7 @@ describe('absence is a key that is not there', () => {
     // time; a control-level getter must not be able to re-open that door one
     // turn earlier.
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { send: () => undefined },
       holds: { send: () => ({ body: 'ignored' }) },
     });
@@ -267,7 +267,7 @@ describe('absence is a key that is not there', () => {
     // every gap row and every REFUSED fire went with it, because a refusal builds
     // the same rows for its gap context.
     const { session, warnings } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined, send: () => undefined },
       holds: {
         save: () =>
@@ -295,7 +295,7 @@ describe('absence is a key that is not there', () => {
     // value this whole surface refuses. An app's genuinely empty object still
     // serves, because there `{}` is the truth.
     const { session, warnings } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => new Map([['body', 'the real draft']]) },
     });
@@ -303,14 +303,14 @@ describe('absence is a key that is not there', () => {
     expect(warnings.some((w) => w.includes('cannot carry') && w.includes('EMPTY box'))).toBe(true);
 
     const dated = desk_();
-    dated.session.registerToolGroup('compose', {
+    dated.session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => new Date('2026-07-27T00:00:00.000Z') },
     });
     expect(row(dated.session, 'compose.save')).not.toHaveProperty('holds');
 
     const empty = desk_();
-    empty.session.registerToolGroup('compose', {
+    empty.session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({}) },
     });
@@ -322,7 +322,7 @@ describe('absence is a key that is not there', () => {
     // inside every refused fire's gap context. An every-turn console flood is its
     // own bug (watch-page.ts says so in those words about its own sink).
     const { session, warnings } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: {
         save: () => {
@@ -339,14 +339,14 @@ describe('absence is a key that is not there', () => {
   it('a bigint crosses as its digits — JSON.stringify would have thrown away the whole answer', () => {
     // A bigint survives structuredClone (this library's usual wire bar) and then
     // throws in JSON.stringify, which is how every MCP result crosses. One app
-    // value of that type cost the model facts, actions AND skills.
+    // value of that type cost the model facts, actions AND journeys.
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ amountCents: 123n }) },
     });
     expect(row(session, 'compose.save')!.holds).toEqual({ amountCents: '123' });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     expect(() => JSON.stringify(port.call('whats_here'))).not.toThrow();
   });
 
@@ -355,7 +355,7 @@ describe('absence is a key that is not there', () => {
     // the one into the other, and a guessed instance on a VALUE is a lie about
     // which card the human is looking at.
     const { session, warnings } = desk_({ state: { rowIds: ['r-1', 'r-2'] } });
-    session.registerToolGroup('compose.row', {
+    session.registerActions('compose.row', {
       instance: 'r-1',
       handlers: { rename: () => undefined },
       holds: { rename: () => ({ name: 'r-1 draft' }) },
@@ -377,7 +377,7 @@ describe('absence is a key that is not there', () => {
 describe('precedence and lifetime', () => {
   it('the per-element DECLARATION outranks the registration reader', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'from the registration' }) },
     });
@@ -387,7 +387,7 @@ describe('precedence and lifetime', () => {
 
   it('releasing the declaration hands the row back to the registration reader', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'from the registration' }) },
     });
@@ -414,7 +414,7 @@ describe('precedence and lifetime', () => {
     // The stale-closure bug this whole surface exists to avoid — a reader that
     // outlived its component answering with the last render's state.
     const { session } = desk_();
-    const handle = session.registerToolGroup('compose', {
+    const handle = session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'still here' }) },
     });
@@ -431,11 +431,11 @@ describe('precedence and lifetime', () => {
     const { session, warnings } = desk_();
     // Two mounts, two groups — the library mints the ids, so this is exactly the
     // shape a desktop component and a mobile one produce.
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'desktop draft' }) },
     });
-    const mobile = session.registerToolGroup('compose', {
+    const mobile = session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'mobile draft' }) },
     });
@@ -448,7 +448,7 @@ describe('precedence and lifetime', () => {
   });
 
   it('a reader for an id no action answers to is filed and simply never served', () => {
-    // Not a refusal: a control can be handed over before its tool mounts, and
+    // Not a refusal: a control can be handed over before its action mounts, and
     // shouting at a mount race would teach nothing true.
     const { session, warnings } = desk_();
     expect(() => session.declareHolds('compose.not-yet-mounted', () => 'x')).not.toThrow();
@@ -464,11 +464,11 @@ describe('precedence and lifetime', () => {
 describe('the row a model reads', () => {
   it('whats_here carries holds on the action row, beside what the action expects', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'ship it' }) },
     });
-    const here = skillsAsTools(session).call('desk.whats_here') as {
+    const here = serveToAgent(session).call('desk.whats_here') as {
       actions: Array<Record<string, unknown>>;
     };
     const save = here.actions.find((action) => action['action'] === 'compose.save')!;
@@ -478,8 +478,8 @@ describe('the row a model reads', () => {
 
   it('no reader means no key on the wire either — the model is told nothing, not "empty"', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', { handlers: { save: () => undefined } });
-    const here = skillsAsTools(session).call('desk.whats_here') as {
+    session.registerActions('compose', { handlers: { save: () => undefined } });
+    const here = serveToAgent(session).call('desk.whats_here') as {
       actions: Array<Record<string, unknown>>;
     };
     expect(here.actions.find((action) => action['action'] === 'compose.save')).not.toHaveProperty('holds');
@@ -487,11 +487,11 @@ describe('the row a model reads', () => {
 
   it('null crosses the wire — the test is against undefined, not truthiness', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => null },
     });
-    const here = skillsAsTools(session).call('desk.whats_here') as {
+    const here = serveToAgent(session).call('desk.whats_here') as {
       actions: Array<Record<string, unknown>>;
     };
     expect(here.actions.find((action) => action['action'] === 'compose.save')).toHaveProperty('holds', null);
@@ -500,7 +500,7 @@ describe('the row a model reads', () => {
   it('it is a READING, not a binding: the fire still sends the caller’s own input', async () => {
     const { session } = desk_();
     const sent: unknown[] = [];
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: (input?: unknown) => void sent.push(input) },
       holds: { save: () => ({ body: 'what the box holds' }) },
     });
@@ -521,11 +521,11 @@ describe('the row a model reads', () => {
 describe('REDACTION POINT 4 — a hidden field cannot ride the row instead', () => {
   it('THE LEAK TEST: the password reads [REDACTED] on the row while the approved fire still crosses', async () => {
     const { session } = desk_({ redactedFields: { payload: ['password'] }, enforce: true });
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { 'sign-in': () => undefined },
       holds: { 'sign-in': () => ({ password: SECRET }) },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     // 1. The row a model reads BEFORE anything fires.
     const here = port.call('desk.whats_here') as { actions: Array<Record<string, unknown>> };
@@ -552,7 +552,7 @@ describe('REDACTION POINT 4 — a hidden field cannot ride the row instead', () 
 
   it('the row and the record hide the SAME field the same way — one value, two homes', async () => {
     const { session } = desk_({ redactedFields: { payload: ['password'] } });
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { 'sign-in': () => undefined },
       holds: { 'sign-in': () => ({ password: SECRET }) },
     });
@@ -566,7 +566,7 @@ describe('REDACTION POINT 4 — a hidden field cannot ride the row instead', () 
   it('the aim holds both ways: the produced list does not govern what a control holds', () => {
     // Two lists rather than one, because the two channels have opposite duties.
     const { session } = desk_({ redactedFields: { produced: ['password'] } });
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { 'sign-in': () => undefined },
       holds: { 'sign-in': () => ({ password: SECRET }) },
     });
@@ -575,7 +575,7 @@ describe('REDACTION POINT 4 — a hidden field cannot ride the row instead', () 
 
   it('nested paths and array elements are hidden on the row, exactly as on the record', () => {
     const { session } = desk_({ redactedFields: { payload: ['auth.token', 'items.token'] } });
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ auth: { token: SECRET }, items: [{ token: SECRET }, { token: SECRET }] }) },
     });
@@ -587,7 +587,7 @@ describe('REDACTION POINT 4 — a hidden field cannot ride the row instead', () 
 
   it('with no option the row carries the raw value — the feature is opt-in, like its three siblings', () => {
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { 'sign-in': () => undefined },
       holds: { 'sign-in': () => ({ password: SECRET }) },
     });
@@ -726,13 +726,13 @@ describe('one reader per served action, never a data bag', () => {
     // declared for the model to answer from. This surface is deliberately not a
     // way back to it — a value is only ever a fact about one served control.
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'ship it' }) },
     });
-    const here = skillsAsTools(session).call('desk.whats_here') as Record<string, unknown>;
+    const here = serveToAgent(session).call('desk.whats_here') as Record<string, unknown>;
     expect(Object.keys(here).sort()).toEqual(
-      ['actions', 'brief', 'facts', 'ok', 'skills', 'version', 'youAreOn'].sort(),
+      ['actions', 'brief', 'facts', 'ok', 'journeys', 'version', 'youAreOn'].sort(),
     );
     expect(here).not.toHaveProperty('data');
     expect(here).not.toHaveProperty('holds');
@@ -745,7 +745,7 @@ describe('one reader per served action, never a data bag', () => {
     // app data in the one channel that is meant to carry none.
     const { session } = desk_();
     let body = 'first';
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body }) },
     });
@@ -760,7 +760,7 @@ describe('one reader per served action, never a data bag', () => {
     // Keyed by action, gated by the same availability every other field is: a
     // reader cannot put a value on a page the human is not on.
     const { session } = desk_();
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: { save: () => undefined },
       holds: { save: () => ({ body: 'ship it' }) },
     });

@@ -277,3 +277,34 @@ describe('an edge with no live locator match is a COVERAGE fact, not an event', 
     expect(ask(el('p', { text: 'Archive' })).kind).toBe('silent');
   });
 });
+
+describe('the walk stops at the root the sensor was scoped to', () => {
+  it('a declared control OUTSIDE that root never claims a gesture inside it', () => {
+    // A page-scoped sensor: `watchPage(session, { root: panel })`. The panel is
+    // itself nested inside a button the graph DOES know ('Send'). A walk that
+    // kept climbing past the root would credit that button with a click that
+    // happened in somebody else's subtree — the sensor reaching outside its own
+    // scope, which is the one thing a scoped root buys.
+    const mounted = mountDesk();
+    const inner = el('button', { text: 'Something the graph never heard of' });
+    const panel = el('div', { children: [inner] });
+    const outer = el('button', { text: 'Send', children: [panel] });
+    mounted.surface.mount(outer);
+
+    const declarations = createControlIndex();
+    const index = buildBindingIndex({
+      edges: mounted.session.available().edges,
+      standsDown: () => false,
+      declarations,
+      cadence: 'commit',
+      canDebounce: true,
+    });
+    // `panel` is the root here — an element, which the port allows.
+    const outcome = matchElement(index, declarations, 'commit', 'click', inner, panel);
+    expect(outcome).toEqual({
+      kind: 'off-graph',
+      role: 'button',
+      name: 'Something the graph never heard of',
+    });
+  });
+});

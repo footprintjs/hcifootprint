@@ -3,12 +3,12 @@
  * frozen in one call (no .build()).
  *
  * The compiler's two jobs:
- * 1. ENFORCEMENT SPINE (same philosophy as skillGraph()): every referential
- *    or shape mistake dies loudly here, because the runtime fails them
- *    silently — typos in node paths, unknown goTo pages, guard-operator
- *    typos, ambiguous skill-step suffixes, narrowing conflicts.
+ * 1. ENFORCEMENT SPINE: every referential or shape mistake dies loudly here,
+ *    because the runtime fails them silently — typos in node paths, unknown
+ *    goTo pages, guard-operator typos, ambiguous journey-step suffixes,
+ *    narrowing conflicts.
  * 2. FLAT PROJECTION: the tree compiles to a Session-compatible
- *    SkillGraphSpec (qualified dot-path ids, composed guards, on=[page]) so
+ *    NavigationGraphSpec (qualified dot-path ids, composed guards, on=[page]) so
  *    every existing layer — frames, brief, gap ledger, MCP emission, the
  *    footprint trace stack — works on tree graphs unchanged. NavSession adds
  *    the tree semantics ON TOP of that projection.
@@ -19,29 +19,30 @@ import type {
   Affordance,
   CanonicalRole,
   Page,
-  Skill,
-  SkillGraphSpec,
+  Journey,
+  NavigationGraphSpec,
 } from '../atom/types.js';
-import { SkillGraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from '../traverse/expects.js';
 import { mergeSources } from '../graph/sources/merge.js';
+import { actionsOf, journeysOf } from './authoring-keys.js';
 import { InteractionSession } from '../traverse/nav-session.js';
 import type { InteractionSessionOptions } from '../traverse/nav-session.js';
 import type { LiveSource } from '../graph/sources/types.js';
-import type { NavigationGraph, NavigationGraphDef, NodePathsOf, MapNode, NodeDef, ToolDef } from './types.js';
+import type { NavigationGraph, NavigationGraphDef, NodePathsOf, MapNode, NodeDef, ActionDef } from './types.js';
 
 /**
  * Compile a navigation graph. The `const` type parameter preserves the literal
- * node names, so the returned graph's session methods (registerToolGroup,
+ * node names, so the returned graph's session methods (registerActions,
  * setVisible, show) accept ONLY real node paths — a typo is a compile error.
  */
 export function buildNavigationGraph<const Def extends NavigationGraphDef>(
   id: string,
   rawDef: Def,
 ): NavigationGraph<NodePathsOf<Def>> {
-  if (!id || !id.trim()) throw new SkillGraphValidationError('buildNavigationGraph(id) requires a non-empty id.');
+  if (!id || !id.trim()) throw new GraphValidationError('buildNavigationGraph(id) requires a non-empty id.');
   // Declared sources fold into ONE plain def BEFORE the walk, so every pass
-  // below (checkSegment, compileTool, resolveStep, freeze) runs unchanged on
+  // below (checkSegment, compileAction, resolveStep, freeze) runs unchanged on
   // merged input. A def without sources takes the identity path — it compiles
   // bit-for-bit as it did before sources existed.
   const def: NavigationGraphDef = rawDef.sources && rawDef.sources.length > 0 ? mergeSources(rawDef) : rawDef;
@@ -55,21 +56,21 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
   // The no-pages refusal judges the EFFECTIVE graph: a def whose only pages
   // come from fromRoutes(...) is a complete graph, not an empty one.
   if (!def.pages || Object.keys(def.pages).length === 0) {
-    throw new SkillGraphValidationError(`buildNavigationGraph '${id}' has no pages — declare at least one.`);
+    throw new GraphValidationError(`buildNavigationGraph '${id}' has no pages — declare at least one.`);
   }
   // The refusal above just proved the EFFECTIVE def has pages ('pages' is
   // optional at the type level — a sources-only def is the headline use case,
   // and mergeSources always materialises the key). Captured once because
   // control-flow narrowing cannot follow `def.pages` into the nested
-  // compileTool below.
+  // compileAction below.
   const declaredPages = def.pages;
 
   // Null-prototype containers: membership checks and lookups must never see
-  // Object.prototype ('toString' as a skill step would otherwise resolve to a
+  // Object.prototype ('toString' as a journey step would otherwise resolve to a
   // FUNCTION and pass), and a page literally named '__proto__' must be a key,
   // not a prototype swap.
   const nodes: Record<string, MapNode> = Object.create(null) as Record<string, MapNode>;
-  const toolNodes: Record<string, string[]> = Object.create(null) as Record<string, string[]>;
+  const actionNodes: Record<string, string[]> = Object.create(null) as Record<string, string[]>;
   const affordances: Record<string, Affordance> = Object.create(null) as Record<string, Affordance>;
   const pages: Record<string, Page> = Object.create(null) as Record<string, Page>;
 
@@ -93,10 +94,10 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       validateGuardShape(`node '${path}' when`, nodeDef.when as Record<string, unknown>);
     }
     if (nodeDef.repeats && kind === 'page') {
-      throw new SkillGraphValidationError(`page '${path}' cannot be repeats — repeat a container inside it.`);
+      throw new GraphValidationError(`page '${path}' cannot be repeats — repeat a container inside it.`);
     }
     if (nodeDef.instances && !nodeDef.repeats) {
-      throw new SkillGraphValidationError(
+      throw new GraphValidationError(
         `node '${path}' declares an instances source but is not repeats: true.`,
       );
     }
@@ -128,7 +129,7 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       for (const [name, childDef] of Object.entries(bucket ?? {})) {
         checkSegment(`node '${path}' child '${name}'`, name);
         if (childNames.has(name)) {
-          throw new SkillGraphValidationError(
+          throw new GraphValidationError(
             `node '${path}' declares '${name}' twice (areas/tabs/modals share one namespace).`,
           );
         }
@@ -139,181 +140,183 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       }
     }
 
-    for (const [name, tool] of Object.entries(nodeDef.tools ?? {})) {
-      checkSegment(`tool '${name}' on '${path}'`, name);
+    // The controls declared on this node, read through the ONE door that knows
+    // the authoring keys (`actions:`) and refuses the renamed one by name.
+    for (const [name, action] of Object.entries(actionsOf(nodeDef) ?? {})) {
+      checkSegment(`action '${name}' on '${path}'`, name);
       if (childNames.has(name)) {
-        throw new SkillGraphValidationError(
-          `'${path}.${name}' is both a container and a tool — give one of them another name.`,
+        throw new GraphValidationError(
+          `'${path}.${name}' is both a container and an action — give one of them another name.`,
         );
       }
       const qualifiedId = `${path}.${name}`;
-      compileTool(qualifiedId, [path], pageId === path ? [pageId] : [pageId], tool, chain);
-      toolNodes[qualifiedId] = [path];
+      compileAction(qualifiedId, [path], pageId === path ? [pageId] : [pageId], action, chain);
+      actionNodes[qualifiedId] = [path];
     }
   }
 
-  // -- root-level multi-attach tools ------------------------------------------
-  for (const [name, tool] of Object.entries(def.tools ?? {})) {
-    checkSegment(`root tool '${name}'`, name);
-    const on = Array.isArray(tool.on) ? [...tool.on] : [tool.on];
+  // -- root-level multi-attach actions ----------------------------------------
+  for (const [name, action] of Object.entries(actionsOf(def) ?? {})) {
+    checkSegment(`root action '${name}'`, name);
+    const on = Array.isArray(action.on) ? [...action.on] : [action.on];
     if (on.length === 0) {
-      throw new SkillGraphValidationError(`root tool '${name}' has on: [] — list at least one page.`);
+      throw new GraphValidationError(`root action '${name}' has on: [] — list at least one page.`);
     }
     for (const pageId of on) {
       if (!Object.hasOwn(declaredPages, pageId)) {
-        throw new SkillGraphValidationError(
-          `root tool '${name}' is offered on unknown page '${pageId}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
+        throw new GraphValidationError(
+          `root action '${name}' is offered on unknown page '${pageId}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
         );
       }
     }
     if (Object.hasOwn(affordances, name) || Object.hasOwn(nodes, name)) {
-      throw new SkillGraphValidationError(`root tool '${name}' collides with an existing id.`);
+      throw new GraphValidationError(`root action '${name}' collides with an existing id.`);
     }
-    compileTool(name, on, on, tool, []);
-    toolNodes[name] = on; // a root tool lives on each page it is offered on
+    compileAction(name, on, on, action, []);
+    actionNodes[name] = on; // a root action lives on each page it is offered on
   }
 
-  function compileTool(
+  function compileAction(
     qualifiedId: string,
     _nodePaths: string[],
     onPages: string[],
-    tool: ToolDef,
+    action: ActionDef,
     guardChain: WhereFilter[],
   ): void {
-    if (qualifiedId === 'leave-skill' || qualifiedId.endsWith('.leave-skill')) {
-      throw new SkillGraphValidationError(
-        `tool name 'leave-skill' is reserved — it is the synthetic escape tool served while a skill frame is open.`,
+    if (qualifiedId === 'leave-journey' || qualifiedId.endsWith('.leave-journey')) {
+      throw new GraphValidationError(
+        `action name 'leave-journey' is reserved — it is the synthetic escape tool served while a journey frame is open.`,
       );
     }
-    if (!tool.does || !tool.does.trim()) {
-      throw new SkillGraphValidationError(
-        `tool '${qualifiedId}' needs a 'does' — it is the one authored string both the consumer and the LLM read.`,
+    if (!action.does || !action.does.trim()) {
+      throw new GraphValidationError(
+        `action '${qualifiedId}' needs a 'does' — it is the one authored string both the consumer and the LLM read.`,
       );
     }
-    if (tool.when) {
-      rejectEmptyFilter(`tool '${qualifiedId}'`, 'when', tool.when);
-      validateGuardShape(`tool '${qualifiedId}' when`, tool.when as Record<string, unknown>);
+    if (action.when) {
+      rejectEmptyFilter(`action '${qualifiedId}'`, 'when', action.when);
+      validateGuardShape(`action '${qualifiedId}' when`, action.when as Record<string, unknown>);
     }
-    if (tool.goTo && !Object.hasOwn(declaredPages, tool.goTo)) {
-      throw new SkillGraphValidationError(
-        `tool '${qualifiedId}' goTo unknown page '${tool.goTo}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
+    if (action.goTo && !Object.hasOwn(declaredPages, action.goTo)) {
+      throw new GraphValidationError(
+        `action '${qualifiedId}' goTo unknown page '${action.goTo}'. Known pages: ${Object.keys(declaredPages).join(', ')}.`,
       );
     }
     // The sentinel is read BEFORE detectSchema, which would otherwise judge the
     // author's explicit "no input" an unrecognized schema and refuse it.
-    if (tool.input !== undefined && !takesNoInput(tool.input) && detectSchema(tool.input) === 'none') {
-      throw new SkillGraphValidationError(
-        `tool '${qualifiedId}' has an unrecognized input schema — pass a Zod schema, a JSON Schema object, ` +
-          `a validator with .safeParse/.parse, or the string 'none' for a tool that takes no input.`,
+    if (action.input !== undefined && !takesNoInput(action.input) && detectSchema(action.input) === 'none') {
+      throw new GraphValidationError(
+        `action '${qualifiedId}' has an unrecognized input schema — pass a Zod schema, a JSON Schema object, ` +
+          `a validator with .safeParse/.parse, or the string 'none' for an action that takes no input.`,
       );
     }
-    if (tool.enabledWhen) {
-      rejectEmptyFilter(`tool '${qualifiedId}'`, 'enabledWhen', tool.enabledWhen);
-      validateGuardShape(`tool '${qualifiedId}' enabledWhen`, tool.enabledWhen as Record<string, unknown>);
+    if (action.enabledWhen) {
+      rejectEmptyFilter(`action '${qualifiedId}'`, 'enabledWhen', action.enabledWhen);
+      validateGuardShape(`action '${qualifiedId}' enabledWhen`, action.enabledWhen as Record<string, unknown>);
     }
-    if (tool.verify && typeof tool.verify !== 'function') {
-      rejectEmptyFilter(`tool '${qualifiedId}'`, 'verify', tool.verify);
-      validateGuardShape(`tool '${qualifiedId}' verify`, tool.verify as Record<string, unknown>);
+    if (action.verify && typeof action.verify !== 'function') {
+      rejectEmptyFilter(`action '${qualifiedId}'`, 'verify', action.verify);
+      validateGuardShape(`action '${qualifiedId}' verify`, action.verify as Record<string, unknown>);
     }
     // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
-    // so it dies here — which also makes "a skill whose entry step's gesture
-    // is such a url" unconstructable, since every static tool passes this door.
-    if (tool.binding?.kind === 'url') checkLiteralHref(`tool '${qualifiedId}'`, tool.binding.href);
-    const guard = composeGuards(qualifiedId, [...guardChain, ...(tool.when ? [tool.when] : [])]) as
+    // so it dies here — which also makes "a journey whose entry step's gesture
+    // is such a url" unconstructable, since every static action passes this door.
+    if (action.binding?.kind === 'url') checkLiteralHref(`action '${qualifiedId}'`, action.binding.href);
+    const guard = composeGuards(qualifiedId, [...guardChain, ...(action.when ? [action.when] : [])]) as
       | WhereFilter
       | undefined;
     const effect =
-      tool.writes || tool.goTo
-        ? { ...(tool.writes ? { writes: [...tool.writes] } : {}), ...(tool.goTo ? { navigatesTo: tool.goTo } : {}) }
+      action.writes || action.goTo
+        ? { ...(action.writes ? { writes: [...action.writes] } : {}), ...(action.goTo ? { navigatesTo: action.goTo } : {}) }
         : undefined;
     affordances[qualifiedId] = deepFreeze(
       {
         id: qualifiedId,
         on: [...onPages],
-        description: tool.does,
-        binding: tool.binding ? structuredClone(tool.binding) : undefined,
+        description: action.does,
+        binding: action.binding ? structuredClone(action.binding) : undefined,
         guard,
         effect,
-        schema: schemaOf(tool.input),
-        ...noInputFlag(tool.input),
-        ...(tool.enabledWhen ? { enabledWhen: structuredClone(tool.enabledWhen) } : {}),
+        schema: schemaOf(action.input),
+        ...noInputFlag(action.input),
+        ...(action.enabledWhen ? { enabledWhen: structuredClone(action.enabledWhen) } : {}),
         // A predicate stays by reference (it is code, like a validator); a
         // declarative contract is cloned, so the compiled graph owns its bytes.
-        ...(tool.verify
-          ? { verify: typeof tool.verify === 'function' ? tool.verify : structuredClone(tool.verify) }
+        ...(action.verify
+          ? { verify: typeof action.verify === 'function' ? action.verify : structuredClone(action.verify) }
           : {}),
-        highEffect: tool.confirm ?? false,
-        role: deriveRole(tool),
+        highEffect: action.confirm ?? false,
+        role: deriveRole(action),
         descriptionSource: 'declared',
       },
       new Set(['schema', 'verify']), // live references stay by reference — ROOT level only
     ) as Affordance;
   }
 
-  // -- skills (qualified paths, unambiguous-suffix resolution) ----------------
-  const skills: Record<string, Skill> = Object.create(null) as Record<string, Skill>;
-  for (const [skillId, skillDef] of Object.entries(def.skills ?? {})) {
-    // Skill ids feed MCP tool names — same character rules as path segments,
-    // or two distinct skills could sanitize to ONE colliding tool name.
-    checkSegment(`skill '${skillId}'`, skillId);
-    if (!skillDef.does || !skillDef.does.trim()) {
-      throw new SkillGraphValidationError(`skill '${skillId}' needs a 'does' (planner-facing text).`);
+  // -- journeys (qualified paths, unambiguous-suffix resolution) --------------
+  const journeys: Record<string, Journey> = Object.create(null) as Record<string, Journey>;
+  for (const [journeyId, journeyDef] of Object.entries(journeysOf(def) ?? {})) {
+    // Journey ids feed MCP tool names — same character rules as path segments,
+    // or two distinct journeys could sanitize to ONE colliding tool name.
+    checkSegment(`journey '${journeyId}'`, journeyId);
+    if (!journeyDef.does || !journeyDef.does.trim()) {
+      throw new GraphValidationError(`journey '${journeyId}' needs a 'does' (planner-facing text).`);
     }
-    if (!skillDef.steps || skillDef.steps.length === 0) {
-      throw new SkillGraphValidationError(`skill '${skillId}' needs at least one step.`);
+    if (!journeyDef.steps || journeyDef.steps.length === 0) {
+      throw new GraphValidationError(`journey '${journeyId}' needs at least one step.`);
     }
-    if (skillDef.when) {
-      rejectEmptyFilter(`skill '${skillId}'`, 'when', skillDef.when);
-      validateGuardShape(`skill '${skillId}' when`, skillDef.when as Record<string, unknown>);
+    if (journeyDef.when) {
+      rejectEmptyFilter(`journey '${journeyId}'`, 'when', journeyDef.when);
+      validateGuardShape(`journey '${journeyId}' when`, journeyDef.when as Record<string, unknown>);
     }
-    const steps = skillDef.steps.map((step) => resolveStep(skillId, step));
-    skills[skillId] = deepFreeze({
-      id: skillId,
-      description: skillDef.does,
+    const steps = journeyDef.steps.map((step) => resolveStep(journeyId, step));
+    journeys[journeyId] = deepFreeze({
+      id: journeyId,
+      description: journeyDef.does,
       steps,
-      precondition: skillDef.when ? structuredClone(skillDef.when) : undefined,
-    }) as Skill;
+      precondition: journeyDef.when ? structuredClone(journeyDef.when) : undefined,
+    }) as Journey;
   }
 
-  function resolveStep(skillId: string, step: string): string {
+  function resolveStep(journeyId: string, step: string): string {
     if (Object.hasOwn(affordances, step)) return step;
     const suffix = `.${step}`;
     const candidates = Object.keys(affordances).filter((qid) => qid.endsWith(suffix));
     if (candidates.length === 1) return candidates[0];
     if (candidates.length === 0) {
-      throw new SkillGraphValidationError(
-        `skill '${skillId}' step '${step}' matches no tool. Known: ${Object.keys(affordances).join(', ')}.`,
+      throw new GraphValidationError(
+        `journey '${journeyId}' step '${step}' matches no action. Known: ${Object.keys(affordances).join(', ')}.`,
       );
     }
-    throw new SkillGraphValidationError(
-      `skill '${skillId}' step '${step}' is ambiguous — qualify it: ${candidates.join(' | ')}.`,
+    throw new GraphValidationError(
+      `journey '${journeyId}' step '${step}' is ambiguous — qualify it: ${candidates.join(' | ')}.`,
     );
   }
 
   // -- freeze + assemble -------------------------------------------------------
   for (const page of Object.values(pages)) Object.freeze(page);
   for (const node of Object.values(nodes)) deepFreeze(node, new Set(['instances']));
-  for (const paths of Object.values(toolNodes)) Object.freeze(paths);
-  const spec: SkillGraphSpec = Object.freeze({
+  for (const paths of Object.values(actionNodes)) Object.freeze(paths);
+  const spec: NavigationGraphSpec = Object.freeze({
     id,
     description: def.does,
     pages: Object.freeze(pages),
     affordances: Object.freeze(affordances),
-    skills: Object.freeze(skills),
+    journeys: Object.freeze(journeys),
   });
   const map: NavigationGraph = {
     id,
     spec,
     nodes: Object.freeze(nodes),
-    toolNodes: Object.freeze(toolNodes),
+    actionNodes: Object.freeze(actionNodes),
     createSession: (opts?: InteractionSessionOptions) => new InteractionSession(map, opts, liveSources),
-    // Tool guards already carry the COMPOSED ancestor chain, but a guard-bearing
-    // container with no static descendant tool contributes keys only via its own
-    // node.guard (composed into mount-declared tools at runtime) — so fold those in too.
+    // Action guards already carry the COMPOSED ancestor chain, but a guard-bearing
+    // container with no static descendant action contributes keys only via its own
+    // node.guard (composed into mount-declared actions at runtime) — so fold those in too.
     requiredStateKeys: () =>
       guardStateKeys([
         ...Object.values(spec.affordances).map((aff) => aff.guard),
-        ...Object.values(spec.skills).map((skill) => skill.precondition),
+        ...Object.values(spec.journeys).map((journey) => journey.precondition),
         ...Object.values(nodes).map((node) => node.guard),
       ]),
   };
@@ -323,9 +326,9 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
 }
 
 
-function deriveRole(tool: ToolDef): CanonicalRole {
-  if (tool.role) return tool.role;
-  if (tool.goTo) return 'next';
+function deriveRole(action: ActionDef): CanonicalRole {
+  if (action.role) return action.role;
+  if (action.goTo) return 'next';
   return 'action';
 }
 
@@ -343,8 +346,8 @@ const EMPTY_FILTER_COST = {
  * correction has to name the author's own declaration: one shared sentence
  * ending "Omit 'when' entirely instead" was raised for `enabledWhen` and
  * `verify` too, sending a reader to delete a field that was not there. The
- * other two authoring doors (the fluent builder, mount-declared tools) already
- * name theirs; this makes all three teach the same correction.
+ * other authoring door (mount-declared actions) already names its own; this
+ * makes both teach the same correction.
  */
 function rejectEmptyFilter(
   owner: string,
@@ -352,7 +355,7 @@ function rejectEmptyFilter(
   filter: WhereFilter,
 ): void {
   if (Object.keys(filter).length === 0) {
-    throw new SkillGraphValidationError(
+    throw new GraphValidationError(
       `${owner} has an empty ${field} {} — footprint's evaluator deliberately NEVER matches an empty ` +
         `filter (anti-vacuous-truth), so ${EMPTY_FILTER_COST[field]}. Omit '${field}' entirely instead.`,
     );

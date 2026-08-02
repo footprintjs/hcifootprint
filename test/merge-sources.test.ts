@@ -4,7 +4,7 @@
  *   "Pages first (routes then hand-authored, hand-authored wins), journeys
  *    overlay second and may only add, live actions attach last and only bind —
  *    nothing later in the order may remove anything earlier. Routes may also
- *    contribute link tools; hand-authored tools win."
+ *    contribute link actions; hand-authored actions win."
  *
  * Exercised through the PUBLIC door (buildNavigationGraph) on purpose: the
  * merge is a pre-pass the author never calls, so what must hold is what a
@@ -12,7 +12,7 @@
  * pre-sources code, where `sources` was unknown and ignored.
  */
 import { describe, expect, it } from 'vitest';
-import { SkillGraphValidationError, buildNavigationGraph, fromJourneys, fromRoutes } from '../src/index.js';
+import { GraphValidationError, buildNavigationGraph, fromJourneys, fromRoutes } from '../src/index.js';
 
 describe('merge order — pages: routes then hand-authored, hand-authored wins', () => {
   it('page key order is routes-source order first, hand additions after (matchRoute tie-break + node order feed on it)', () => {
@@ -25,13 +25,13 @@ describe('merge order — pages: routes then hand-authored, hand-authored wins',
     expect(Object.keys(graph.spec.pages)).toEqual(['home', 'orders', 'catalog']);
   });
 
-  it('hand-authored WINS per page id — its content, its tools, its route spelling', () => {
+  it('hand-authored WINS per page id — its content, its actions, its route spelling', () => {
     const graph = buildNavigationGraph('shop', {
       pages: {
         cart: {
           route: 'cart/', // segment-equal to the source's '/cart' — hand bytes win
           does: 'Hand-authored cart',
-          tools: { empty: { does: 'Empty the cart', writes: ['cart'] } },
+          actions: { empty: { does: 'Empty the cart', writes: ['cart'] } },
         },
       },
       sources: [fromRoutes({ cart: { route: '/cart', does: 'Sourced cart' } })],
@@ -43,7 +43,7 @@ describe('merge order — pages: routes then hand-authored, hand-authored wins',
 
   it('the ONE courtesy: a hand page missing `route` inherits the source route — that IS the use case', () => {
     const graph = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { pay: { does: 'Pay now' } } } },
+      pages: { checkout: { actions: { pay: { does: 'Pay now' } } } },
       sources: [fromRoutes({ checkout: '/checkout' })],
     });
     expect(graph.spec.pages.checkout.route).toBe('/checkout');
@@ -73,27 +73,27 @@ describe('merge order — pages: routes then hand-authored, hand-authored wins',
   });
 });
 
-describe('merge order — journeys overlay second, may only add; hand-authored skill wins silently', () => {
+describe('merge order — journeys overlay second, may only add; hand-authored journey wins silently', () => {
   const PAGES = {
-    catalog: { tools: { 'add-to-cart': { does: 'Add to cart', writes: ['cart'] } } },
+    catalog: { actions: { 'add-to-cart': { does: 'Add to cart', writes: ['cart'] } } },
   };
 
-  it('a hand-authored skill beats a same-id journey WITHOUT a refusal — deterministic and documented', () => {
+  it('a hand-authored journey beats a same-id journey WITHOUT a refusal — deterministic and documented', () => {
     const graph = buildNavigationGraph('shop', {
       pages: PAGES,
-      skills: { purchase: { does: 'Hand-authored purchase', steps: ['add-to-cart'] } },
+      journeys: { purchase: { does: 'Hand-authored purchase', steps: ['add-to-cart'] } },
       sources: [fromJourneys({ purchase: { does: 'Journey purchase', steps: ['add-to-cart'] } })],
     });
-    expect(graph.spec.skills.purchase.description).toBe('Hand-authored purchase');
+    expect(graph.spec.journeys.purchase.description).toBe('Hand-authored purchase');
   });
 
-  it('journeys and hand skills coexist under distinct ids', () => {
+  it('journeys and hand journeys coexist under distinct ids', () => {
     const graph = buildNavigationGraph('shop', {
       pages: PAGES,
-      skills: { restock: { does: 'Hand skill', steps: ['add-to-cart'] } },
-      sources: [fromJourneys({ purchase: { does: 'Journey skill', steps: ['add-to-cart'] } })],
+      journeys: { restock: { does: 'Hand journey', steps: ['add-to-cart'] } },
+      sources: [fromJourneys({ purchase: { does: 'Journey journey', steps: ['add-to-cart'] } })],
     });
-    expect(Object.keys(graph.spec.skills).sort()).toEqual(['purchase', 'restock']);
+    expect(Object.keys(graph.spec.journeys).sort()).toEqual(['purchase', 'restock']);
   });
 });
 
@@ -107,35 +107,35 @@ describe('merge order — same-kind collisions are ambiguous AUTHORSHIP, refused
     ).toThrow(/page 'home' is declared by two routes sources — ambiguous authorship/);
   });
 
-  it('two journeys sources on one skill id', () => {
+  it('two journeys sources on one journey id', () => {
     expect(() =>
       buildNavigationGraph('shop', {
-        pages: { catalog: { tools: { add: { does: 'Add' } } } },
+        pages: { catalog: { actions: { add: { does: 'Add' } } } },
         sources: [
           fromJourneys({ buy: { does: 'A', steps: ['add'] } }),
           fromJourneys({ buy: { does: 'B', steps: ['add'] } }),
         ],
       }),
-    ).toThrow(/skill 'buy' is declared by two journeys sources — ambiguous authorship/);
+    ).toThrow(/journey 'buy' is declared by two journeys sources — ambiguous authorship/);
   });
 });
 
 describe('merge — cross-source references become first-class', () => {
-  it('a hand tool may goTo a routes-sourced page (pre-change: "goTo unknown page")', () => {
+  it('a hand-authored action may goTo a routes-sourced page (pre-change: "goTo unknown page")', () => {
     const graph = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { 'go-home': { does: 'Go home', goTo: 'home' } } } },
+      pages: { catalog: { actions: { 'go-home': { does: 'Go home', goTo: 'home' } } } },
       sources: [fromRoutes({ home: '/' })],
     });
     expect(graph.spec.affordances['catalog.go-home'].effect).toEqual({ navigatesTo: 'home' });
   });
 
-  it('a root tool may live ON a routes-sourced page (pre-change: "offered on unknown page")', () => {
+  it('a root action may live ON a routes-sourced page (pre-change: "offered on unknown page")', () => {
     const graph = buildNavigationGraph('shop', {
       pages: { catalog: {} },
-      tools: { 'open-help': { does: 'Open help', on: ['home'] } },
+      actions: { 'open-help': { does: 'Open help', on: ['home'] } },
       sources: [fromRoutes({ home: '/' })],
     });
-    expect(graph.toolNodes['open-help']).toEqual(['home']);
+    expect(graph.actionNodes['open-help']).toEqual(['home']);
   });
 });
 
@@ -181,18 +181,18 @@ describe('merge — fail closed on what this build cannot read', () => {
         pages: { catalog: {} },
         sources: [{ kind: 'routes' } as never],
       });
-    expect(build).toThrow(SkillGraphValidationError);
+    expect(build).toThrow(GraphValidationError);
     expect(build).toThrow(/sources\[0\] has kind 'routes' but its pages payload is missing or not a plain object/);
   });
 
-  it("a journeys source with a MISSING skills payload is refused in the library's voice", () => {
+  it("a journeys source with a MISSING journeys payload is refused in the library's voice", () => {
     const build = () =>
       buildNavigationGraph('shop', {
         pages: { catalog: {} },
         sources: [{ kind: 'journeys' } as never],
       });
-    expect(build).toThrow(SkillGraphValidationError);
-    expect(build).toThrow(/sources\[0\] has kind 'journeys' but its skills payload is missing or not a plain object/);
+    expect(build).toThrow(GraphValidationError);
+    expect(build).toThrow(/sources\[0\] has kind 'journeys' but its journeys payload is missing or not a plain object/);
   });
 
   it('a PRIMITIVE payload is refused — Object.entries on a string would launder its index keys into page ids', () => {
@@ -205,13 +205,13 @@ describe('merge — fail closed on what this build cannot read', () => {
     ).toThrow(/sources\[0\] has kind 'routes' but its pages payload is missing or not a plain object/);
   });
 
-  it('an ARRAY payload is refused — indices are not skill ids, and the library never guesses', () => {
+  it('an ARRAY payload is refused — indices are not journey ids, and the library never guesses', () => {
     expect(() =>
       buildNavigationGraph('shop', {
         pages: { catalog: {} },
-        sources: [{ kind: 'journeys', skills: [{ does: 'Buy', steps: [] }] } as never],
+        sources: [{ kind: 'journeys', journeys: [{ does: 'Buy', steps: [] }] } as never],
       }),
-    ).toThrow(/sources\[0\] has kind 'journeys' but its skills payload is missing or not a plain object/);
+    ).toThrow(/sources\[0\] has kind 'journeys' but its journeys payload is missing or not a plain object/);
   });
 });
 
@@ -220,10 +220,10 @@ describe('merge — the non-breaking edges', () => {
     does: 'A shop',
     pages: {
       catalog: {
-        tools: { 'add-to-cart': { does: 'Add', when: { authenticated: { eq: true } }, writes: ['cart'] } },
+        actions: { 'add-to-cart': { does: 'Add', when: { authenticated: { eq: true } }, writes: ['cart'] } },
       },
     },
-    skills: { purchase: { does: 'Buy', steps: ['add-to-cart'] } },
+    journeys: { purchase: { does: 'Buy', steps: ['add-to-cart'] } },
   };
 
   it('an empty sources list and empty-content sources compile to the SAME spec as no sources at all', () => {
@@ -248,7 +248,7 @@ describe('merge — the non-breaking edges', () => {
 
   it('the merge never mutates the author\'s def or sources', () => {
     const def = {
-      pages: { checkout: { tools: { pay: { does: 'Pay' } } } },
+      pages: { checkout: { actions: { pay: { does: 'Pay' } } } },
       sources: [fromRoutes({ checkout: '/checkout', home: '/' })],
     };
     const before = JSON.stringify(def);
@@ -278,5 +278,53 @@ describe('merge — the non-breaking edges', () => {
 
   it('omitting pages does not weaken the refusal — a def with neither pages nor sources still dies loudly', () => {
     expect(() => buildNavigationGraph('empty', {})).toThrow(/has no pages — declare at least one/);
+  });
+});
+
+describe('one page cannot live at two addresses — and “the same address” is the matcher’s question', () => {
+  it('refuses a hand route that is a different DEPTH from the sourced one', () => {
+    // The refusal has to notice a mismatch the per-segment walk never reaches:
+    // '/cart' and '/cart/items' agree on every segment they share.
+    expect(() =>
+      buildNavigationGraph('shop', {
+        pages: { cart: { route: '/cart/items' } },
+        sources: [fromRoutes({ cart: '/cart' })],
+      }),
+    ).toThrow(/page 'cart' declares route '\/cart\/items' by hand and '\/cart' from a routes source/);
+  });
+});
+
+describe('asking for a link to a page no link could ever point at', () => {
+  /** A source object written by hand, the way a JS caller or a newer release might. */
+  const handCrafted = (source: unknown) =>
+    buildNavigationGraph('shop', {
+      pages: { home: { route: '/' } },
+      sources: [source as never],
+    });
+
+  it('refuses a NAMED page whose route carries a “:param” segment, and says why', () => {
+    expect(() =>
+      handCrafted({ kind: 'routes', pages: { order: { route: '/orders/:id' } }, crossLinks: ['order'] }),
+    ).toThrow(/'\/orders\/:id' has a ':param' segment/);
+  });
+
+  it('refuses a NAMED page that has no route at all', () => {
+    expect(() => handCrafted({ kind: 'routes', pages: { ghost: {} }, crossLinks: ['ghost'] })).toThrow(
+      /crossLinks names 'ghost', whose effective route is missing/,
+    );
+  });
+
+  it('but a blanket `crossLinks: true` FILTERS those pages out instead of refusing', () => {
+    // An explicit ask earns a refusal; a blanket one asked for whatever is
+    // linkable, so the unlinkable pages are simply not linked to.
+    const graph = handCrafted({
+      kind: 'routes',
+      pages: { list: { route: '/orders' }, order: { route: '/orders/:id' }, ghost: {} },
+      crossLinks: true,
+    });
+    const links = Object.keys(graph.spec.affordances).filter((id) => !id.includes('.'));
+    expect(links).toContain('go-to-list');
+    expect(links).not.toContain('go-to-order');
+    expect(links).not.toContain('go-to-ghost');
   });
 });

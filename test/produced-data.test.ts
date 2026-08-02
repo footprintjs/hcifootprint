@@ -5,7 +5,7 @@
  * what lets an agent SEE the ids it must pick from for a follow-up step.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { Binding } from '../src/index.js';
 
 const binding: Binding = { kind: 'element', locator: { role: 'button', name: 'B' } };
@@ -13,23 +13,22 @@ const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 describe('produced data — handler return surfaced on the record', () => {
   it('captures a search handler’s returned list, available after the settlement', async () => {
-    const graph = skillGraph('shop')
-      .page('catalog')
-      .affordance('search', {
-        on: 'catalog',
-        description: 'Search dresses',
-        binding,
-        effect: { writes: ['resultCount'] },
-      })
-      .build();
+    const graph = buildNavigationGraph('shop', {
+      pages: {
+        catalog: {},
+      },
+      actions: {
+        search: { on: 'catalog', does: 'Search dresses', binding, writes: ['resultCount'] },
+      },
+    });
     const session = graph.createSession({ node: 'catalog', state: { resultCount: 0 } });
     const results = [
       { id: 'd3', name: 'Floral Wrap Dress', color: 'red', price: 120 },
       { id: 'd6', name: 'Scarlet Cocktail Dress', color: 'red', price: 149 },
     ];
-    session.registerTools({
+    session.registerHandlers({
       group: 'catalog',
-      tools: {
+      handlers: {
         search: () => {
           session.updateState({ resultCount: results.length });
           return results; // the app already returns this — we no longer discard it
@@ -47,12 +46,16 @@ describe('produced data — handler return surfaced on the record', () => {
   });
 
   it('the returned snapshot is a fresh copy — mutating it cannot corrupt the record', async () => {
-    const graph = skillGraph('g')
-      .page('a')
-      .affordance('lookup', { on: 'a', description: 'Look up', binding })
-      .build();
+    const graph = buildNavigationGraph('g', {
+      pages: {
+        a: {},
+      },
+      actions: {
+        lookup: { on: 'a', does: 'Look up', binding },
+      },
+    });
     const session = graph.createSession({ node: 'a', state: {} });
-    session.registerTools({ group: 'g', tools: { lookup: () => ({ status: 'processing' }) } });
+    session.registerHandlers({ group: 'g', handlers: { lookup: () => ({ status: 'processing' }) } });
     const fired = session.fire('lookup', { source: 'agent' }) as { transition: { id: string } };
     await tick();
     const first = session.producedFor(fired.transition.id) as { status: string };
@@ -62,14 +65,18 @@ describe('produced data — handler return surfaced on the record', () => {
   });
 
   it('sanitizes: caps long strings, drops functions, bounds arrays', async () => {
-    const graph = skillGraph('g')
-      .page('a')
-      .affordance('big', { on: 'a', description: 'Big', binding })
-      .build();
+    const graph = buildNavigationGraph('g', {
+      pages: {
+        a: {},
+      },
+      actions: {
+        big: { on: 'a', does: 'Big', binding },
+      },
+    });
     const session = graph.createSession({ node: 'a', state: {} });
-    session.registerTools({
+    session.registerHandlers({
       group: 'g',
-      tools: {
+      handlers: {
         big: () => ({
           long: 'x'.repeat(500),
           fn: () => 42,
@@ -86,12 +93,16 @@ describe('produced data — handler return surfaced on the record', () => {
   });
 
   it('captureProduced:false opts a session out entirely', async () => {
-    const graph = skillGraph('g')
-      .page('a')
-      .affordance('act', { on: 'a', description: 'Act', binding })
-      .build();
+    const graph = buildNavigationGraph('g', {
+      pages: {
+        a: {},
+      },
+      actions: {
+        act: { on: 'a', does: 'Act', binding },
+      },
+    });
     const session = graph.createSession({ node: 'a', state: {}, captureProduced: false });
-    session.registerTools({ group: 'g', tools: { act: () => ({ secret: 1 }) } });
+    session.registerHandlers({ group: 'g', handlers: { act: () => ({ secret: 1 }) } });
     const fired = session.fire('act', { source: 'agent' }) as { transition: { id: string } };
     await tick();
     expect(session.producedFor(fired.transition.id)).toBeUndefined();
@@ -99,12 +110,12 @@ describe('produced data — handler return surfaced on the record', () => {
 
   it('Mode B result carries transitionId so the caller can attach produced data', async () => {
     const map = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { search: { does: 'Search dresses', writes: ['resultCount'] } } } },
-      skills: { browse: { does: 'Browse the catalog', steps: ['search'] } },
+      pages: { catalog: { actions: { search: { does: 'Search dresses', writes: ['resultCount'] } } } },
+      journeys: { browse: { does: 'Browse the catalog', steps: ['search'] } },
     });
     const session = map.createSession({ node: 'catalog', state: { resultCount: 0 } });
     const found = [{ id: 'd6', name: 'Scarlet Cocktail Dress' }];
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: {
         search: () => {
           session.updateState({ resultCount: 1 });
@@ -112,9 +123,9 @@ describe('produced data — handler return surfaced on the record', () => {
         },
       },
     });
-    const port = skillsAsTools(session);
-    port.call('shop.skill.browse', {});
-    const step = port.call('shop.skill.browse', { step: 'search' });
+    const port = serveToAgent(session);
+    port.call('shop.journey.browse', {});
+    const step = port.call('shop.journey.browse', { step: 'search' });
     expect(typeof step['transitionId']).toBe('string');
     await tick();
     const produced = session.producedFor(step['transitionId'] as string) as typeof found;

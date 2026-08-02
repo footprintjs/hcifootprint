@@ -15,13 +15,13 @@
  * REPORTING code and leaves BEHAVIOUR untouched — and there is no arrangement of
  * it that can run one human click twice.
  *
- * WHAT IT DELIBERATELY DOES NOT DO: register the handler. `registerToolGroup` is
+ * WHAT IT DELIBERATELY DOES NOT DO: register the handler. `registerActions` is
  * already the library's one mount door and it is framework-free — call it from
  * your own effect. It is not folded in here because a declaration needs the EDGE
- * ID, and that id is the engine's to resolve: `#resolveToolOnNode`
+ * ID, and that id is the engine's to resolve: `#resolveActionOnNode`
  * (nav-session.ts:414-417) prefers `node.leaf` but falls back to a bare root
- * tool, and neither `registerTool` nor `registerToolGroup` hands the resolved id
- * back (atom/types.ts:512-519 — `ToolHandle` carries `node` and `toolId`, never
+ * tool, and neither `registerAction` nor `registerActions` hands the resolved id
+ * back (atom/types.ts — `ActionHandle` carries `node` and `actionId`, never
  * the id). A binding that re-joined `` `${node}.${id}` `` would copy the engine's
  * own qualification into every skin and be silently wrong for a root tool, which
  * is exactly the duplication a skin must refuse.

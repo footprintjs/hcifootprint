@@ -22,7 +22,7 @@ guard over them is not flagged as dangling.
 
 ### initialState?
 
-> `optional` **initialState?**: `Record`\<`string`, `unknown`\> \| `string`[]
+> `optional` **initialState?**: `string`[] \| `Record`\<`string`, `unknown`\>
 
 Defined in: [src/testing/model/lint.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L72)
 

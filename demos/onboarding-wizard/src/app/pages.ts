@@ -26,7 +26,7 @@ import type { PageNodeDef } from 'hcifootprint';
 export const HAND_PAGES = {
   welcome: {
     does: 'Where a new signup starts.',
-    tools: {
+    actions: {
       'verify-email': {
         does: 'Mark the signup email address as verified.',
         writes: ['emailVerified'],
@@ -68,7 +68,7 @@ export const HAND_PAGES = {
 
   profile: {
     does: 'Name and role.',
-    tools: {
+    actions: {
       'save-profile': {
         does: 'Save the name and role on the profile form.',
         writes: ['profileComplete'],
@@ -101,7 +101,7 @@ export const HAND_PAGES = {
 
   plan: {
     does: 'Pick a subscription plan.',
-    tools: {
+    actions: {
       'choose-plan': {
         does: 'Choose a subscription plan.',
         writes: ['plan'],
@@ -135,7 +135,7 @@ export const HAND_PAGES = {
     // with a live probe.)
     route: '/review',
     does: 'Check the details before creating the account.',
-    tools: {
+    actions: {
       'confirm-signup': {
         does: 'Create the account with the details on screen.',
         confirm: true,

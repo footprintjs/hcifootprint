@@ -14,7 +14,7 @@ one settled transition → one fresh StageContext (runId '')
 
 so `causalChain` / `sliceForKey` / `arrayProvenance` answer "why is the app in this state?" with zero new query code (`session.why(key)`).
 
-Also lives here: CAS on `cursorVersion` + guard re-evaluation at fire time · settlement/attribution (transitionId-precise > explicit-stimulus > FIFO) · tier-2 effect-signature inference (exactly-one match, `inferred` flag) · skill frames (commit/leave/demote, derived dependency DAG) · `contextBrief()` (the traverse-path delta, authored strings only).
+Also lives here: CAS on `cursorVersion` + guard re-evaluation at fire time · settlement/attribution (transitionId-precise > explicit-stimulus > FIFO) · tier-2 effect-signature inference (exactly-one match, `inferred` flag) · journey frames (commit/leave/demote, derived dependency DAG) · `contextBrief()` (the traverse-path delta, authored strings only).
 
 Longevity rules (from the footprint execution-model adjudication): fresh context per transition (never `createNext`), `runId` stays `''`, monotonic `runtimeStageId` counter.
 
@@ -104,15 +104,15 @@ record-only sensor fire all answer for the payload. That is where zod already
 sat in 0.3.0 — a schema is the app's statement about its own door, and a fire
 that disagrees with it is drift worth a ledger row whoever made it.
 
-## Answering with a value: `trySkillPlan()`
+## Answering with a value: `tryJourneyPlan()`
 
-`commitSkill()` returns `{ok:false, reason:'UNKNOWN_SKILL', known}` while
-`skillPlan()` threw, so a caller holding a model-supplied id handled the same
-question two ways. `trySkillPlan()` is the second door, returning that identical
-failure shape; `skillPlan()` keeps throwing for the internal callers that pass
+`commitJourney()` returns `{ok:false, reason:'UNKNOWN_JOURNEY', known}` while
+`journeyPlan()` threw, so a caller holding a model-supplied id handled the same
+question two ways. `tryJourneyPlan()` is the second door, returning that identical
+failure shape; `journeyPlan()` keeps throwing for the internal callers that pass
 an id the spec just yielded, where an unknown one is a bug that should stop.
 Membership is `Object.hasOwn` — the ids arriving here are untrusted, and
-`skills['constructor']` is truthy on a plain object.
+`journeys['constructor']` is truthy on a plain object.
 
 ## nav-session.ts — the D18 composition layer
 

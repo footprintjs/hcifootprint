@@ -11,7 +11,7 @@
  *   "Pages first (routes then hand-authored, hand-authored wins), journeys
  *    overlay second and may only add, live actions attach last and only bind —
  *    nothing later in the order may remove anything earlier. Routes may also
- *    contribute link tools; hand-authored tools win."
+ *    contribute link actions; hand-authored actions win."
  *
  * This module is types only (erased at build). Static sources (routes,
  * journeys) contribute at BUILD time; the live source contributes at ATTACH
@@ -22,12 +22,12 @@ import type { ReportGapOptions } from '../../atom/types.js';
 import type { JourneyDef, PageNodeDef } from '../../tree/types.js';
 // Type-only imports from the session layer (erased at build): a source module
 // or a consumer importing these types never drags session machinery.
-import type { RegisteredToolDef, RegisterToolGroupOptions, ToolGroupHandle } from '../../traverse/nav-session.js';
+import type { RegisteredActionDef, RegisterActionGroupOptions, ActionGroupHandle } from '../../traverse/nav-session.js';
 
 /**
  * A route table read as pages — the spine. `PageIds` carries the page names
  * through `const` inference so a source-contributed page is a REAL typed node
- * path on the compiled graph (registerToolGroup/show/setVisible accept it;
+ * path on the compiled graph (registerActions/show/setVisible accept it;
  * a typo stays a compile error).
  */
 export interface RoutesSource<PageIds extends string = string> {
@@ -43,10 +43,10 @@ export interface RoutesSource<PageIds extends string = string> {
   readonly crossLinks?: true | readonly PageIds[];
 }
 
-/** A journey list read as skills — overlaid on the spine; may only add. */
+/** A journey list read as journeys — overlaid on the spine; may only add. */
 export interface JourneysSource {
   readonly kind: 'journeys';
-  readonly skills: Record<string, JourneyDef>;
+  readonly journeys: Record<string, JourneyDef>;
 }
 
 /**
@@ -74,15 +74,15 @@ export type GraphSource = RoutesSource | JourneysSource | LiveSource;
 
 /**
  * One action a live store publishes: WHERE it lives (node, plus instance for a
- * repeats card), WHAT it is (the RegisteredToolDef vocabulary mounts already
+ * repeats card), WHAT it is (the RegisteredActionDef vocabulary mounts already
  * speak — does/handler/when/writes/goTo/…), and whether it is currently
  * clickable. `${node}.${name}` (+instance) is the action's IDENTITY across
  * snapshots — same key means same action.
  */
-export interface LiveAction extends RegisteredToolDef {
+export interface LiveAction extends RegisteredActionDef {
   /** Node path the action lives on (a page or declared container). */
   node: string;
-  /** Leaf tool name (same segment law as every authored name). */
+  /** Leaf action name (same segment law as every authored name). */
   name: string;
   /** Instance key when the action belongs to one card of a repeats container. */
   instance?: string;
@@ -109,11 +109,11 @@ export interface LiveActionStore {
 /**
  * What a live source needs from a session — structural and type-only, so
  * fromLiveStore stays a zero-value-import leaf. InteractionSession satisfies
- * it as-is: the declare-then-bind wire (registerToolGroup) plus the visibility
+ * it as-is: the declare-then-bind wire (registerActions) plus the visibility
  * wire (show/setVisible) an app may drive after its own handler flips tabs.
  */
 export interface LiveBindingPort {
-  registerToolGroup(path: string, opts?: RegisterToolGroupOptions): ToolGroupHandle;
+  registerActions(path: string, opts?: RegisterActionGroupOptions): ActionGroupHandle;
   show(path: string): void;
   setVisible(path: string, visible: boolean): void;
   /**

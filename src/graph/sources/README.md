@@ -14,8 +14,8 @@ a bundler includes only the sources a consumer actually called.
 
 | factory | contributes | when |
 |---|---|---|
-| `fromRoutes(app.routes)` | pages — the spine (plus link tools, if `crossLinks` asked) | build (folded before the walk) |
-| `fromJourneys(app.journeys)` | skills — the overlay | build (compiled by the existing skills pass) |
+| `fromRoutes(app.routes)` | pages — the spine (plus link actions, if `crossLinks` asked) | build (folded before the walk) |
+| `fromJourneys(app.journeys)` | journeys — the overlay | build (compiled by the existing journeys pass) |
 | `fromLiveStore(app.actionStore)` | live bindings per node | attach (every `createSession()`); release via `detachSources()` |
 
 ## The documented merge order (enforced in merge.ts)
@@ -23,10 +23,10 @@ a bundler includes only the sources a consumer actually called.
 > Pages first (routes then hand-authored, hand-authored wins), journeys overlay
 > second and may only add, live actions attach last and only bind — nothing
 > later in the order may remove anything earlier. Routes may also contribute
-> link tools; hand-authored tools win.
+> link actions; hand-authored actions win.
 
 Stances: one courtesy (a hand page missing `route` inherits the source's);
-different routes for one page refuse loudly (drift made visible); a hand skill
+different routes for one page refuse loudly (drift made visible); a hand journey
 wins over a same-id journey silently (deterministic and documented); same-kind
 id collisions refuse (ambiguous authorship); unknown/unreadable source shapes
 fail closed in the library's own voice.
@@ -72,7 +72,7 @@ forty unmet demands.
 Each factory is its own module with at most the shared authoring guards as
 value imports; `fromLiveStore` has ZERO value imports — it drives the session
 instance it is handed through the type-only `LiveBindingPort` (the shape
-`InteractionSession` already satisfies: registerToolGroup + show/setVisible,
+`InteractionSession` already satisfies: registerActions + show/setVisible,
 plus the two optional members `whenPageChanges` and `reportGap`).
 `test/treeshake.test.ts` is the proof: importing `fromRoutes` from the barrel
 bundles no session machinery and no footprintjs.

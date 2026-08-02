@@ -15,7 +15,7 @@
  * from '/orders/:id' — deriving one would be a guess, and the library does not
  * guess. `as const` is load-bearing: it carries the literal keys through
  * fromRoutes' `const` type parameter so a source-contributed page is a REAL
- * typed node path on the compiled graph (a typo in registerToolGroup stays a
+ * typed node path on the compiled graph (a typo in registerActions stays a
  * compile error).
  */
 export const ROUTES = {

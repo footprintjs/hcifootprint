@@ -9,7 +9,7 @@ Defined in: [src/sensor/types.ts:281](https://github.com/footprintjs/hcifootprin
 The handle `watchPage` returns.
 
 A named method rather than a bare closure because a framework binding stores it
-across renders, and `registerToolGroup`'s handle already sets that idiom
+across renders, and `registerActions`'s handle already sets that idiom
 (nav-session.ts:238-257).
 
 `stop()` is idempotent, the same contract a PresenceHandle keeps: watch → stop

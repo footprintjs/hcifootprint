@@ -1,5 +1,335 @@
 # Changelog
 
+## [1.0.0] - 2026-08-02
+
+**The names are frozen.** That is what 1.0 means here, and it is very nearly the whole of what it
+means: from this release the words in the public surface are *the* words, and changing one of them is a
+major version with a migration note rather than a Tuesday. Everything else below is the price of
+freezing them honestly, paid once.
+
+Two words were wrong, and a name you are stuck with is worth one last break.
+
+**"Skill" is not ours any more.** When this library started, a skill was a named multi-step flow and
+the word was free. It is not free now: the agent ecosystem has settled "skill" on a packaged capability
+an agent loads, and a library that keeps a private meaning for a word everyone else uses differently
+spends every conversation explaining which one it meant. What this library actually describes is a
+**journey** — the path a person takes through an app. That is the word the app team already says out
+loud, and it collides with nothing.
+
+**"Tool" was doing two jobs.** It named what you AUTHOR (a button on a page) and what is SERVED (an
+entry in a model's tool array). Those are different things, read by different people, and one word for
+both is how a reader ends up believing the tool array grows when a component mounts. Now each word has
+exactly one job: **you author ACTIONS, you name JOURNEYS, and a TOOL is what is served to a model.**
+`toMCPTools`, `edgesToMCPTools` and `MCPToolDescription` keep the word, because on that side of the
+line it is the correct one.
+
+### A clean break — the old names are DELETED, not deprecated
+
+There is no alias layer, and one is not coming. A deprecated alias is a second name for one thing: both
+names get read, both get copied into new code, and the library spends its life teaching the word it
+just asked you to stop using. The pre-1.0 window is the only hour in which that break is cheap, and
+this is the last of it.
+
+`SkillDef2` is the whole argument in one symbol. It existed because a name was wrong and the fix was
+postponed — and a number-suffixed public name is not a thing this library ships. Renaming it and
+deleting the old one is the fix; carrying both was the bug.
+
+**And every refusal teaches.** The renamed authoring keys are refused BY NAME, never ignored. A
+definition that still says `tools:` or `skills:` fails to COMPILE, because the types no longer carry
+those keys; a definition that reaches the runtime anyway — plain JS, a JSON blob, a cast — throws a
+`GraphValidationError` that names the key to write instead (`src/tree/authoring-keys.ts`). Reading only
+the new key would have compiled a silently EMPTY graph out of a definition full of controls and handed
+a planner an app with nothing in it. A rename a reader can act on beats a graph that quietly lost half
+its meaning. Both sentences are AUTHORED CONSTANTS — no id, no path, no count — so nothing a definition
+contains can reach a message through them.
+
+### The complete rename
+
+Nothing below changes behaviour. Every row is the same mechanism under the word it should have had.
+
+**Authoring — what you write in `buildNavigationGraph(id, def)`**
+
+| 0.11 | 1.0 |
+|---|---|
+| `tools: { … }` on any node | `actions: { … }` |
+| root-level `tools: { … , on }` (multi-attach) | `actions: { … , on }` |
+| `skills: { … }` | `journeys: { … }` |
+| `ToolDef` | `ActionDef` |
+| `SkillDef2` | `JourneyDef` (its real name since 0.6.0) |
+| `NavigationGraph.toolNodes` | `NavigationGraph.actionNodes` |
+| `SkillGraphSpec` | `NavigationGraphSpec` |
+| `SkillGraphValidationError` | `GraphValidationError` |
+
+**The session — mounting, and the journey doors**
+
+| 0.11 | 1.0 |
+|---|---|
+| `registerToolGroup(path, opts)` | `registerActions(path, opts)` |
+| `registerTool(path, id, def)` | `registerAction(path, id, def)` |
+| `RegisterToolGroupOptions` / its `tools:` field | `RegisterActionGroupOptions` / its `actions:` field |
+| `RegisteredToolDef` | `RegisteredActionDef` |
+| `ToolGroup` / `ToolGroupHandle` / `ToolHandle` | `ActionGroup` / `ActionGroupHandle` / `ActionHandle` |
+| `ToolHandle.toolId`, `setEnabled(toolId, …)`, `setBusy(toolId, …)` | `.actionId`, `setEnabled(actionId, …)`, `setBusy(actionId, …)` |
+| `ToolRegistry` / `ToolHandler` | `ActionRegistry` / `ActionHandler` |
+| `registerTools()` / `RegisterToolsOptions` / `RegisteredTools` (flat `Session`) | `registerHandlers()` / `RegisterHandlersOptions` / `RegisteredHandlers` |
+| `availableSkills()` | `availableJourneys()` |
+| `commitSkill()` / `leaveSkill()` / `skillFrame()` | `commitJourney()` / `leaveJourney()` / `journeyFrame()` |
+| `skillPlan()` / `trySkillPlan()` | `journeyPlan()` / `tryJourneyPlan()` |
+| `Skill` / `SkillDef` | `Journey` / `JourneySpec` |
+| `SkillFrame` / `SkillPlan` / `SkillPlanStep` | `JourneyFrame` / `JourneyPlan` / `JourneyPlanStep` |
+| `AvailableSkill` | `AvailableJourney` |
+| `CommitSkillResult` / `TrySkillPlanResult` | `CommitJourneyResult` / `TryJourneyPlanResult` |
+| `frame.skillId`, `plan.skillId`, `FRAME_ALREADY_OPEN.skillId` | `.journeyId` |
+| `GapRecord.availableSkills` / `GapRecord.skillId` | `.availableJourneys` / `.journeyId` |
+| reason `'UNKNOWN_SKILL'` | `'UNKNOWN_JOURNEY'` |
+| `GapReason` `'no-skill-matched'` | `'no-journey-matched'` |
+
+**The serve layer — what a model is handed**
+
+| 0.11 | 1.0 |
+|---|---|
+| `skillsAsTools(session, opts?)` | `serveToAgent(session, opts?)` |
+| `SkillToolsOptions` / `SkillCallArgs` | `JourneyToolsOptions` / `JourneyCallArgs` |
+| `SkillToolsPort` / `SkillToolsPortWithSettlement` | `JourneyToolsPort` / `JourneyToolsPortWithSettlement` |
+| `leaveSkillTool(spec, id)` | `leaveJourneyTool(spec, id)` |
+| tool name `<graph>.skill.<id>` | `<graph>.journey.<id>` |
+| tool name `<graph>.leave-skill` | `<graph>.leave-journey` |
+| reserved affordance id `'leave-skill'` (the synthetic escape served while a frame is open) | `'leave-journey'` |
+| result field `skill:` (the journey a call is about) | `journey:` |
+| `whats_here` list `skills: [{ skill, does, feasible, … }]` | `journeys: [{ journey, does, feasible, … }]` |
+
+**React, and the testing subpath**
+
+| 0.11 | 1.0 |
+|---|---|
+| `useWorking({ tools })` | `useWorking({ actions })` |
+| `SkillHealth` / `GraphHealth.skills` | `JourneyHealth` / `GraphHealth.journeys` |
+| `LintFinding.skill` | `LintFinding.journey` |
+| lint codes `'uncompletable-skill'`, `'skill-step-order'`, `'skill-step-cycle'` | `'uncompletable-journey'`, `'journey-step-order'`, `'journey-step-cycle'` |
+| `testApp(...).agent.skill(id, args)` | `.agent.journey(id, args)` |
+| `expectSkillCompleted(id)` | `expectJourneyCompleted(id)` |
+
+**The `protected` seams on `Session`** — small, and named here because they are the one part of the
+rename a compiler will not catch for you. A subclass overriding one of these keeps compiling under
+the old name; it is simply never called again, which is worse than an error. If you extend `Session`
+(the flat door — `InteractionSession` extends it the same way), grep your subclass for these four.
+
+| 0.11 | 1.0 |
+|---|---|
+| `protected setToolEnabled(id, enabled)` | `setActionEnabled(id, enabled)` |
+| `protected setToolBusy(id, busy)` | `setActionBusy(id, busy)` |
+| `protected isToolDisabled(id)` | `isActionDisabled(id)` |
+| `protected makeToolGroup(...)` | `makeActionGroup(...)` |
+
+`hcifootprint/sensor` is untouched: it speaks about elements and controls, and never had either word in
+its surface.
+
+### Deleted
+
+- **The v1 fluent builder, whole**: `skillGraph()`, `SkillGraphBuilder`, the `SkillGraph` type and
+  `AffordanceDef` (its authoring shape) — `src/graph/builder.ts`, 239 lines, gone. It has been legacy
+  sugar since the navigation graph became the canonical door, and shipping two authoring surfaces past
+  1.0 would have frozen both.
+  `buildNavigationGraph(id, def)` is the one door: it is the same graph plus the container tree, typed
+  node paths, and mount-time declaration. `SkillGraphValidationError` was its export of a class that
+  lives in `graph/guards.ts`; that class is now `GraphValidationError`, exported from the module that
+  owns it, and it is what every authoring door — the compiler, every source factory, the renamed-key
+  refusal — throws.
+- **`SkillDef2`**, the deprecated alias of `JourneyDef`.
+
+### Migration, in one pass
+
+Six substitutions and a compile. There is no behaviour to re-test: every row above is the same
+mechanism under a different word, and the compiler finds the ones you miss.
+
+1. **The two authoring keys.** In every graph definition: `tools:` → `actions:`, `skills:` →
+   `journeys:`. Nothing inside either object changes. If you miss one, the compiler says so, and a
+   definition built at runtime is refused by name.
+2. **Mounting.** `registerToolGroup(` → `registerActions(`, `registerTool(` → `registerAction(`, and
+   the `tools:` option inside them → `actions:`. Handles keep their shape; only `toolId` → `actionId`.
+   On the flat `Session`, `registerTools(` → `registerHandlers(`.
+3. **Journeys.** `availableSkills` → `availableJourneys`, `commitSkill` → `commitJourney`, `leaveSkill`
+   → `leaveJourney`, `skillFrame` → `journeyFrame`, `skillPlan` → `journeyPlan`, `trySkillPlan` →
+   `tryJourneyPlan`; on any result you destructure, `skillId` → `journeyId`.
+4. **Serving.** `skillsAsTools(` → `serveToAgent(`. If your host pins tool names, `<graph>.skill.<id>`
+   → `<graph>.journey.<id>` — and a conversation carried across the upgrade sees a changed tool array,
+   so start a fresh one rather than pretending the cache is still warm.
+5. **Types.** Anywhere you wrote a type down: `Skill*` → `Journey*`, `Tool*` → `Action*`, per the tables
+   above. `SkillGraphSpec` → `NavigationGraphSpec`.
+6. **Exhaustive switches and string values.** Six literals changed spelling, and no union grew or
+   shrank: the refusal reason `'UNKNOWN_SKILL'` → `'UNKNOWN_JOURNEY'`; the gap reason
+   `'no-skill-matched'` → `'no-journey-matched'`; the lint codes `'uncompletable-skill'`,
+   `'skill-step-order'`, `'skill-step-cycle'` → their `journey-` spellings; and the reserved
+   affordance id `'leave-skill'` → `'leave-journey'` (if you happened to author an action by that
+   name, the name that is now refused is the new one).
+
+If you built the graph with `skillGraph()`, that is the one migration with real work in it: rewrite the
+definition as a single object literal for `buildNavigationGraph`. Each `.page(id, …)` becomes an entry
+under `pages:`, each `.affordance(id, { on, description, guard, effect })` becomes an entry in that
+page's `actions:` (`description` → `does`, `guard` → `when`, `effect.writes` → `writes`,
+`effect.navigatesTo` → `goTo`), each `.skill(...)` becomes an entry under `journeys:`, and the
+`.build()` call goes away — `buildNavigationGraph` validates and freezes in the one call.
+
+### The graph already knew
+
+Three questions answered by joining declarations that were always there. They ship in the release that
+freezes the names because each is a **derivation** and none of them enlarges the promise: nothing new
+to declare, nothing that can drift, nothing an app has to opt into.
+
+#### What would free this control
+
+A production integration's agent met a greyed **Continue**, was told only that it was greyed, fired it
+again to find out what would change, and then reported the app broken. An upload was running.
+
+`enabled: false` says a control is off; it never said what would turn it on, and a hole in an answer is
+where a guess goes. A switched-off row now carries **`unblockedBy`** — the actions whose declared
+`writes` touch a key this control is **actually** waiting on, each with the keys.
+
+**Nobody declares this.** Both halves already exist for their own reasons (`writes` powers
+verification, the conditions power availability), so the dependency is **derived, never authored**, and
+cannot drift from the graph. The rule is not new either — the step-dependency rule (`step-deps.ts`) has
+computed exactly it for a journey's steps since journeys existed; this widens the scope to any declared
+action, and the conditions it reads to `enabledWhen` as well as `guard`, because a *greyed* control is
+usually held by the second, and a version reading only the first would stay silent in exactly the case
+that matters.
+
+**"Actually waiting on" is the load-bearing half, and it means live state rather than the
+declaration.** A control is offered at all only once its `guard` HOLDS, so on every row a reader can
+see, the guard's keys name conditions that are currently TRUE — and the actions that write those keys
+are the ones that would *destroy* the condition the control is standing on. Worse, of all the writers
+in an app, those are `logout`, `discard the draft`, `delete the account`: a guard is how an app says
+"you may do this because you are signed in / a draft exists". So the keys are the conjuncts that did
+NOT hold, evaluated against state. A condition the library could not read is not among them either —
+unknowable is absence here as everywhere.
+
+Each entry says whether that action is **`inFlight`** — from two observed signals only: a fire awaiting
+its report, or the app's own `busy` label. Absent when neither holds; never `inFlight: false`, which
+would claim to know a control is idle. New read: **`session.whatUnblocks(actionId)`**, returning
+`DependencyEdge[]`; on the wire it is `unblockedBy` on the served row, and only on a row the app has
+actually switched off — a live control needs no answer to "what would free it".
+
+**It reaches the journey surface too**, which is the one `mcpServer` wraps. A step whose control the
+app has switched off is no longer listed among `readySteps`: it cannot be fired, and the instruction
+beside that list names it, so advertising it built a re-fire loop out of two true sentences — the exact
+loop this feature exists to end. It moves to `laterSteps` carrying **both** facts side by side, the
+plan's `status` and the live `enabled: false`, plus its own `unblockedBy` and `busy`. The plan's word
+is not overwritten: "the declared graph is satisfied and the app switched the control off" and "the
+graph does not allow it yet" are different diagnoses that demand different moves.
+
+#### How to reach a page
+
+**`session.howToReach(pageId)`** walks the fewest declared hops from the cursor, each naming the action
+whose claim makes it. `[]` means you are already there; `null` means **nobody declares a route** — not
+"it cannot be reached". Pages declare no edges to one another and should not: an action that declares
+where it goes *is* the edge, and a second copy would drift. New exported type: **`RouteStep`**.
+
+A page id **nobody declared** is refused by name, with the known pages listed — the one thing `null`
+must never mean. Answered as honest absence, a typo or a renamed page would report "this app declares
+no way there", turning the caller's mistake into a finding about the app; and an under-declared graph
+is precisely what a reader of this method is hunting for. Every sibling read (`explain`, `journeyPlan`)
+already refuses an unknown id this way.
+
+A route is **not a plan** — fewest hops is arithmetic, and a preferred order toward a goal is a journey,
+which you declare. A route is **not a permission** — a hop whose guard is closed is still reported as
+declared, because `goTo` is a claim about where an action goes. Whether a hop is open is answered where
+it is known: on the row for the action you are about to reach for. For pages this session has never
+visited it is **not guessed**, because the state on a screen nobody has looked at is not a thing this
+library can see.
+
+### Two more names, and one small addition
+
+- `GraphValidationError` is now the single type every authoring refusal arrives as, from every door —
+  the compiler's walk, each source factory, and the renamed-key refusal above. One name for one thing.
+- `CommitBundle` and `MCPToolDescription` are re-exported from the root. They are footprintjs types
+  that this package's own signatures RETURN (`commitLog()`, `toMCPTools()`), and writing down what you
+  were handed should never require importing from a dependency you did not choose.
+- **`WhereFilter` is re-exported** for the same reason on the input side: it is the shape of every
+  `when:` and `enabledWhen:` an app authors, half of the exported `VerifyContract`, and the type of
+  `Journey.precondition`. Factoring a guard into a helper required importing it from footprintjs.
+- **`registerHandlers(...)` returns `setBusy` as well as `setEnabled`.** A control is clickable,
+  switched off or WORKING; two of the three had a wire on that handle and the third did not. Scoped
+  and refused identically — a group governs only what it mounted — and it also unblocks the React
+  binding, which takes handles by their `setBusy`.
+- **`fromRoutes` refuses any key a route table does not declare**, by name, instead of dropping it. A
+  route contributes a PAGE, never a control; the type already says so, but this factory exists for the
+  table that is not an authored literal — a JSON blob, a generated module, a cast — and silently
+  discarding `actions:` (or the renamed `tools:`) there produced the exact silently-empty graph the
+  renamed-key refusal was written to make impossible.
+- The `TOOL_DISABLED` refusal's evidence sentence now names `unblockedBy` as something `whats_here` may
+  also carry. The sentence beside it still says nothing here knows what would change the control, and
+  that stays exactly true: `unblockedBy` is derived from conjuncts that failed, so it can only ever
+  appear on a control whose app DID declare a condition — the one case the evidence clause is served
+  for.
+- The `hcifootprint/testing` generics (`TestApp`, `TestAppOptions`, `Resolver`, `ResolverContext`,
+  `ResolverOutcome`) carry defaults, like every generic on the main entry. Writing `let app: TestApp`
+  was a compile error.
+
+### What 1.0 covers
+
+The promise is over the whole surface, not the new part of it. The mechanisms an integration leans on
+hardest were shipped before this release and are frozen by it, in the words the tables above give them:
+the four ways a control says it is switched off and the refusal that names the state without inventing
+a cause (0.10.0); `busy`, the third state, in the app's own words, with no `busyWhen` and no clock that
+expires it (0.10.0); the settled answer served through both a promise and a result, from one shared
+builder, so a fold and a later poll cannot teach two different things (0.10.0); the consent invariant —
+a `transitionId` is minted only by an executed fire, which is why an awaited call is structurally
+incapable of blocking on a person (0.10.0); and the approval gate in which a human's yes is a POINTER
+to a decision the app recorded, never a boolean the agent asserts (0.7.0).
+
+### What 1.0 does NOT include — and why that is safe
+
+Three things are designed on paper and deliberately not built. Each is **additive**: it adds a field an
+app may declare and a key a result may carry, and adds nothing to any published union. So 1.1 can ship
+any of them without touching a name this release just froze, and an app that declares none of them
+cannot tell the difference.
+
+- **`humanDecides`** — the word for a choice that is the *person's* to make, where the library holds
+  nothing: no card, no gate, no refusal, just a flow in someone's hands
+  ([`docs/design/human-decisions.md`](docs/design/human-decisions.md)). Every near word we have —
+  `awaiting-human`, blocked, disabled — describes something the SYSTEM holds, which is why none of them
+  was quietly reused for it.
+- **`blockedBecause`** — the app's own sentence for *why* a control is blocked and *who* clears it
+  ([`docs/design/context-engine-api.md`](docs/design/context-engine-api.md)). `unblockedBy` above
+  answers the derivable half honestly; the authored half is gated on the field evidence that would say
+  what it must carry.
+- **Conditional destinations** — `goTo` growing a second, condition-bearing form
+  ([`docs/design/conditional-destinations.md`](docs/design/conditional-destinations.md)). This one
+  changes what an app DECLARES and touches an existing law (arrival corroborates against one target),
+  which is exactly why it got a design round instead of a release.
+
+Shipping a name badly is the expensive mistake; shipping it late is not. Waiting costs a minor version.
+
+### Compatibility
+
+**This is the breaking release, and the renames are the whole of the break.** No mechanism changed
+behaviour, no union grew or shrank, and no result gained or lost a field except the two additive reads
+above. The six string literals that changed spelling are named in the migration; the authored
+sentences that carry them changed only where the word inside them did.
+
+One behaviour is genuinely new, and it exists to make the break loud: an old authoring key now THROWS
+where 0.11 would have read it. That is deliberate — silence there would have compiled an empty graph.
+
+The new reads are additive and presence-only: `unblockedBy` appears only on a row the app switched off
+and only where a declaration answers, `inFlight` only where a fire or a `busy` label proves it, and
+`howToReach` is a read nobody has to call. An app that declares nothing new sees nothing new.
+
+117 test files, 1902 tests, and 100% coverage on all four metrics (statements 3639/3639, branches
+2922/2922, functions 686/686, lines 3109/3109).
+
+### The route reaches the agent
+
+`whats_here` takes an optional `routeTo`: name a page and the reply carries the declared hops from
+here, each naming the action whose claim makes it. Of the three contexts this library serves — the
+map, the traversal, the actions — traversal was the thin one: a model was told where it *is* and had
+no way to ask how to get somewhere.
+
+It is **not** a sixth tool. The fixed tool array is a contract whose bytes are identical for every
+caller on every turn, so the answer rides a call the model already makes; a pinned test proves naming
+a destination changes none of those bytes. The route's laws travel onto the wire unchanged: fewest
+hops is arithmetic and not a recommendation, a declared hop is not a promise that it is open, and
+"nobody declares a way there" is said as exactly that rather than as "impossible".
+
+
 ## [0.11.0] - 2026-08-01
 
 **A refusal that names the wall must also name the door** — the sentence this release is measured by.
@@ -44,7 +374,7 @@ invented. **Not a promise** — meeting the condition may still leave the contro
 those wires, and the appended sentence says so rather than starting a retry loop against a door that
 never opens. The 0.10.0 sentence is **appended to, never replaced**: it stays true of every
 switched-off control, and it is the one that forbids inventing a cause.
-→ [Guards](https://footprintjs.github.io/hcifootprint/docs/build/guards#enabledwhen--the-other-question)
+→ [Guards](https://footprintjs.github.io/hcifootprint/docs/actions/guards#enabledwhen--the-other-question)
 
 ### A navigating STEP says where it goes
 
@@ -74,7 +404,7 @@ warning is where the library talks to them.
 byte-identical whatever the app calls its actions — while the half it joins names the action and the
 reason word on purpose. It is the same three calls in every app, so it is the same bytes in every app,
 and a hostile action description can never turn a console message into an instruction.
-→ [Confirms &amp; receipts](https://footprintjs.github.io/hcifootprint/docs/serve/receipts#requirehumanapproval--make-approve-enforceable)
+→ [Confirms &amp; receipts](https://footprintjs.github.io/hcifootprint/docs/actions/receipts#requirehumanapproval--make-approve-enforceable)
 
 ### The row has no `kind` — and now there is a page that says why
 
@@ -93,7 +423,7 @@ answer.
 The table was still owed. It shipped as a **reading guide**: every stamp, the declaration behind it,
 and what would prove it, in one page — with a test that walks a real served row and fails naming any
 stamp the guide does not carry.
-→ [What kind of edge am I holding?](https://footprintjs.github.io/hcifootprint/docs/serve/reading-an-action-row)
+→ [What kind of edge am I holding?](https://footprintjs.github.io/hcifootprint/docs/actions/reading-an-action-row)
 
 ### A destination the app mints
 
@@ -112,7 +442,7 @@ minted id travelling back as data (`producedFor`). Corroboration needs no specia
 `crossLink`: both refuse it by name rather than letting a half-address through as something that looks
 wired, because **a half-address is not an address**. Both refusals are quoted in the page and pinned by
 a test against what the library throws.
-→ [A destination the app mints](https://footprintjs.github.io/hcifootprint/docs/serve/minted-destinations)
+→ [A destination the app mints](https://footprintjs.github.io/hcifootprint/docs/traversal/minted-destinations)
 
 ### Going async — the recipe under the reference
 
@@ -126,7 +456,7 @@ the settlement), name the fire (`{ transitionId }` on the state rail), say you a
 (`setBusy` in a `try/finally`, `useWorking`, or a live store's `busy`), ask later (`did_it_work`) —
 with a *what not to build* table naming each reflex and the door it already has. The reasoning stays
 where it was; this is the page you read first.
-→ [Going async](https://footprintjs.github.io/hcifootprint/docs/serve/going-async)
+→ [Going async](https://footprintjs.github.io/hcifootprint/docs/actions/going-async)
 
 ### Waiting on a person is a different waiting
 
@@ -222,7 +552,7 @@ control is off, and this library does not know: `enabledWhen` can say which cond
 other wires can say nothing at all, and one sentence covering both would be a diagnosis on the days
 the app never declared one. So the sentence refuses to supply a reason and tells the reader not to
 invent one — and it is an authored constant, byte-identical across two apps, so no runtime text can
-ride it. → [Guards](https://footprintjs.github.io/hcifootprint/docs/build/guards)
+ride it. → [Guards](https://footprintjs.github.io/hcifootprint/docs/actions/guards)
 
 ### `busy` — the third state, in the app's own words
 
@@ -256,7 +586,7 @@ not motion, rewording it is.
   answered by the row still saying busy and `did_it_work` still saying `still-pending`, which is the
   truth. The ceiling belongs to the caller, and a caller who stops waiting reports **unfinished** —
   never done, never failed. →
-  [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/serve/when-a-control-is-busy)
+  [When a control is busy](https://footprintjs.github.io/hcifootprint/docs/actions/when-a-control-is-busy)
 
 ### The app says what it is **still** working on
 
@@ -295,7 +625,7 @@ bound rows (the action's own name, registry-derived) and one authored constant f
   (`beginWork` in the `try`, `done()` in the `finally`).
 - **It is not world motion.** Opening or closing work bumps no version and changes no served row: a
   plan made before the app started working is not stale, and bookkeeping must never refuse a fire. →
-  [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/serve/when-the-app-is-still-working)
+  [When the app is still working](https://footprintjs.github.io/hcifootprint/docs/actions/when-the-app-is-still-working)
 
 ### Waiting for the app — one settled answer, served through two doors
 
@@ -338,7 +668,7 @@ one place: **your handler's promise is the completion signal.** Hand `registerTo
 your app already calls and return its promise (`save: (payload) => saveDraft.mutateAsync(payload)`);
 throw or return `{ok: false}` to fail. The third is the work ledger above, for the work that outlives
 the fire. →
-[Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app)
+[Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/actions/waiting-for-the-app)
 
 ### `useWorking` — the busy flag a component already has, on the ledger
 
@@ -388,8 +718,8 @@ comes down — and `test/work-framework-interface.test.ts` drives exactly those 
 loaded at all. So an Angular or Vue port is those five lines in that framework's own three moments,
 and nothing in the core has to move for one to exist: `hcifootprint/react` imports **types** from the
 core and nothing else, pinned at 2,399 B with no session, no sensor and no engine in the bundle. →
-[Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/serve/waiting-for-the-app) ·
-[The React binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding)
+[Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/actions/waiting-for-the-app) ·
+[The React binding](https://footprintjs.github.io/hcifootprint/docs/actions/react-binding)
 
 ### Two laws written down, and a FIFO pin
 
@@ -523,7 +853,7 @@ naming both, rather than answered about either; the library also warns the app t
 since renaming the action is the cure.
 
 Over MCP a pause is **never `isError`**: that flag stays reserved for a tool that does not exist
-and for an unexpected throw. → [A pause is not a failure](https://footprintjs.github.io/hcifootprint/docs/serve/paused-not-failed)
+and for an unexpected throw. → [A pause is not a failure](https://footprintjs.github.io/hcifootprint/docs/actions/paused-not-failed)
 
 ### `goesTo` — the destination the human's receipt always showed
 
@@ -536,7 +866,7 @@ had the fact that would have said so: a confirm receipt has disclosed `willDo.na
 **Shipped.** `AvailableEdge.navigatesTo` on the served row, `goesTo` on the `whats_here` wire row —
 straight from the declared `goTo`, **absent** when the app declared no destination, never inferred
 from a binding or a route, and served whether or not anything is wired to make it true. A claim,
-said as one. → [Navigation claims](https://footprintjs.github.io/hcifootprint/docs/serve/navigation-claims)
+said as one. → [Navigation claims](https://footprintjs.github.io/hcifootprint/docs/traversal/navigation-claims)
 
 ### `arrival` — a claim, and whether anything corroborated it
 
@@ -613,7 +943,7 @@ and says why once.
 Without that, a field hidden from the log and from the approval card would simply ride out in the
 clear a turn sooner, on the row a model reads *before* it fires anything. The consent gate is
 untouched: it still compares a fire against the faithful detached copy, never a rendering.
-→ [What a control holds](https://footprintjs.github.io/hcifootprint/docs/serve/what-a-control-holds)
+→ [What a control holds](https://footprintjs.github.io/hcifootprint/docs/actions/what-a-control-holds)
 
 ### The live-source invalidation contract
 
@@ -646,7 +976,7 @@ authors: *the app could not re-read its own list of actions here*. Without that 
 reached a developer's console and the reader about to act on the list was served it as current fact
 with nothing said. It is the one `'reported'` row the facts block admits, and the only one that
 should ever ask for that channel.
-→ [The invalidation contract](https://footprintjs.github.io/hcifootprint/docs/build/live-bindings#when-it-re-reads--the-invalidation-contract)
+→ [The invalidation contract](https://footprintjs.github.io/hcifootprint/docs/actions/live-bindings#when-it-re-reads--the-invalidation-contract)
 
 ### Compatibility
 
@@ -890,7 +1220,7 @@ each behaviour with its own mutation proof.
 
 A recording surface that overstates itself is worse than none, so the limits are stated at the
 same volume as the feature. Restated from
-[the sensor guide](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor):
+[the sensor guide](https://footprintjs.github.io/hcifootprint/docs/actions/human-sensor):
 
 - **It does not perform anything, ever**, and it **does not read values**.
 - **It cannot refuse.** It listens in the capture phase — before your handler, but still after
@@ -918,12 +1248,12 @@ same volume as the feature. Restated from
 ### Docs, and the intake that produced them
 
 - **A worked example per capability**, not one tour: [the human
-  sensor](https://footprintjs.github.io/hcifootprint/docs/serve/human-sensor) and [the React
-  binding](https://footprintjs.github.io/hcifootprint/docs/serve/react-binding), plus the
-  redaction section on [receipts](https://footprintjs.github.io/hcifootprint/docs/serve/receipts).
+  sensor](https://footprintjs.github.io/hcifootprint/docs/actions/human-sensor) and [the React
+  binding](https://footprintjs.github.io/hcifootprint/docs/actions/react-binding), plus the
+  redaction section on [receipts](https://footprintjs.github.io/hcifootprint/docs/actions/receipts).
   Every snippet twoslash-compiles against the built types in CI, so a renamed API fails the
   build rather than the reader.
-- **[A read is an action](https://footprintjs.github.io/hcifootprint/docs/serve/reading-data)** —
+- **[A read is an action](https://footprintjs.github.io/hcifootprint/docs/actions/reading-data)** —
   the question every integration eventually asks (*how does the agent get my app's data?*) now
   has a page instead of a chat answer. There is no *declare your data* surface, on purpose:
   declare a tool whose handler **returns** it, and the read inherits the guard, the input

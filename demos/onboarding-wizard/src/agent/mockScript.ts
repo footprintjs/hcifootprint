@@ -27,7 +27,7 @@ import type { LLMRequest, LLMResponse } from 'agentfootprint';
  */
 
 /** What "sign me up" means. The only scripted thing in this file. */
-const GOAL_SKILL = 'signup';
+const GOAL_JOURNEY = 'signup';
 /** The leaf action that satisfies the goal journey's precondition. */
 const UNLOCK_LEAF = 'verify-email';
 /** Used only when a typed message names no person — and the reply says so. */
@@ -64,8 +64,8 @@ interface Transcript {
   last: Bag | null;
   /** The most recent whats_here result (it is the only one carrying `actions`). */
   lastLook: Bag | null;
-  /** The most recent skill-tool result (frame state, ready/later steps). */
-  lastSkill: Bag | null;
+  /** The most recent journey-tool result (frame state, ready/later steps). */
+  lastJourney: Bag | null;
   /** The person's most recent message, envelope stripped. */
   said: string;
   /**
@@ -106,9 +106,9 @@ function readTranscript(req: LLMRequest): Transcript {
     }
   }
   const lastLook = [...results].reverse().find((result) => 'actions' in result) ?? null;
-  const lastSkill =
+  const lastJourney =
     [...results].reverse().find((result) => 'readySteps' in result || 'frame' in result) ?? null;
-  return { results, last: results[results.length - 1] ?? null, lastLook, lastSkill, said, sentInputs };
+  return { results, last: results[results.length - 1] ?? null, lastLook, lastJourney, said, sentInputs };
 }
 
 function safeParse(content: string): Bag | null {
@@ -128,7 +128,7 @@ function safeParse(content: string): Bag | null {
 interface ToolNames {
   whatsHere: string;
   doAction: string;
-  goalSkill: string;
+  goalJourney: string;
 }
 
 function toolNames(req: LLMRequest): ToolNames | null {
@@ -137,11 +137,11 @@ function toolNames(req: LLMRequest): ToolNames | null {
   const found = {
     whatsHere: find('whats_here'),
     doAction: find('do_action'),
-    // Skill tools are named '<graph>.skill.<id>'; sanitising turns the dots into
+    // Journey tools are named '<graph>.journey.<id>'; sanitising turns the dots into
     // underscores, so the id is what survives on the end.
-    goalSkill: find(`skill_${GOAL_SKILL}`),
+    goalJourney: find(`journey_${GOAL_JOURNEY}`),
   };
-  return found.whatsHere && found.doAction && found.goalSkill ? found : null;
+  return found.whatsHere && found.doAction && found.goalJourney ? found : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ function pageOf(stepId: string): string {
 }
 
 function decide(transcript: Transcript, names: ToolNames): Move {
-  const { last, lastLook, lastSkill, said } = transcript;
+  const { last, lastLook, lastJourney, said } = transcript;
   const intent = readIntent(said);
   const approved = APPROVAL.test(said);
   const youAreOn = str(last?.youAreOn) || str(lastLook?.youAreOn);
@@ -227,7 +227,7 @@ function decide(transcript: Transcript, names: ToolNames): Move {
     kind: 'call',
     tool: names.whatsHere,
     // Every look after the first asks for the DELTA — who did what since the
-    // last result the model saw. The actions and skills come back in full
+    // last result the model saw. The actions and journeys come back in full
     // either way; only the narration narrows.
     args: since === undefined ? {} : { sinceVersion: since },
   });
@@ -252,7 +252,7 @@ function decide(transcript: Transcript, names: ToolNames): Move {
     if (!approved) return { kind: 'say', text: confirmRequestText(transcript, last) };
     return {
       kind: 'call',
-      tool: names.goalSkill,
+      tool: names.goalJourney,
       args: { step: str(last.step), confirm: true },
     };
   }
@@ -265,9 +265,9 @@ function decide(transcript: Transcript, names: ToolNames): Move {
   // 4. Nothing has been looked at yet in this run.
   if (!lastLook) return look();
 
-  const goal = list(lastLook.skills).find((skill) => str(skill.skill) === GOAL_SKILL);
+  const goal = list(lastLook.journeys).find((journey) => str(journey.journey) === GOAL_JOURNEY);
   if (!goal) {
-    return { kind: 'say', text: `This app does not offer a '${GOAL_SKILL}' journey, so I cannot start one.` };
+    return { kind: 'say', text: `This app does not offer a '${GOAL_JOURNEY}' journey, so I cannot start one.` };
   }
 
   // 5. The journey is not feasible yet. Feasibility is a fact only a LOOK
@@ -286,20 +286,20 @@ function decide(transcript: Transcript, names: ToolNames): Move {
   }
 
   // 6. A frame is open: walk it.
-  if (str(lastSkill?.frame) === 'open') {
-    const ready = list(lastSkill?.readySteps);
+  if (str(lastJourney?.frame) === 'open') {
+    const ready = list(lastJourney?.readySteps);
     const first = ready[0];
     if (first) {
       const step = str(first.step);
       const payload = payloadFromExpects(first.expects, intent);
       return {
         kind: 'call',
-        tool: names.goalSkill,
+        tool: names.goalJourney,
         args: payload === undefined ? { step } : { step, input: payload },
       };
     }
     // Nothing is ready here. The next unfinished step names its own page.
-    const later = list(lastSkill?.laterSteps).find((step) => str(step.status) !== 'done');
+    const later = list(lastJourney?.laterSteps).find((step) => str(step.status) !== 'done');
     const target = later ? pageOf(str(later.step)) : '';
     if (target && target !== youAreOn) return forward(names, lastLook, youAreOn, target, lookIsStale());
     // We are where the next step lives, and nothing came back ready TWICE in a
@@ -314,14 +314,14 @@ function decide(transcript: Transcript, names: ToolNames): Move {
       };
     }
     // Re-serve the frame so its ready list reflects THIS page.
-    return { kind: 'call', tool: names.goalSkill, args: {} };
+    return { kind: 'call', tool: names.goalJourney, args: {} };
   }
 
   // 7. No frame yet. Try to open the journey right here. If its first step
   //    cannot act from this page the gate refuses — and the honest recovery is
   //    to move one step forward and try again (rule 8).
   if (str(last.reason) !== 'ENTRY_NOT_MATERIALIZED') {
-    return { kind: 'call', tool: names.goalSkill, args: {} };
+    return { kind: 'call', tool: names.goalJourney, args: {} };
   }
 
   // 8. The gate refused: the journey cannot be entered from this page. Take the

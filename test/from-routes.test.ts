@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, fromRoutes, matchRoute } from '../src/index.js';
 
-describe('fromRoutes — the factory', () => {
+describe('the router table an app already has, read as pages', () => {
   it('reads both value shapes: a bare route string, and { route, does }', () => {
     const src = fromRoutes({
       home: '/',
@@ -58,7 +58,7 @@ describe('fromRoutes — the factory', () => {
   });
 });
 
-describe('fromRoutes — the spine, through buildNavigationGraph', () => {
+describe('those pages becoming the spine a hand-authored graph hangs on', () => {
   const graph = buildNavigationGraph('shop', {
     pages: {},
     sources: [
@@ -89,6 +89,55 @@ describe('fromRoutes — the spine, through buildNavigationGraph', () => {
   it('a source page is a live node at runtime — the session accepts it', () => {
     const session = graph.createSession();
     // #requireNode would throw 'unknown node' if the spine were not real.
-    expect(() => session.registerToolGroup('orders')).not.toThrow();
+    expect(() => session.registerActions('orders')).not.toThrow();
+  });
+});
+
+/**
+ * REFUSED, NEVER DROPPED — the same law `authoring-keys.ts` states one door down.
+ *
+ * `fromRoutes` exists for the table that is NOT an authored literal: a JSON
+ * blob, a generated module, a value cast on the way in. The type admits `route`
+ * and `does` only, so TypeScript already refuses the rest — but none of those
+ * three doors is typechecked, and reading two keys while discarding the others
+ * turns "my actions vanished" into a silent, typeless bug whose first symptom is
+ * an agent standing on a page with nothing on it.
+ */
+describe('a route table declares places and says so about anything else', () => {
+  const table = (page: Record<string, unknown>) =>
+    JSON.parse(JSON.stringify({ catalog: page })) as Record<string, { route: string }>;
+
+  it('refuses the RENAMED control key by name — the promise `tools:` is never silently empty', () => {
+    expect(() =>
+      buildNavigationGraph('shop', {
+        sources: [fromRoutes(table({ route: '/catalog', tools: { search: { does: 'Search' } } }))],
+      }),
+    ).toThrow(/'tools' is not a key a route table declares/);
+  });
+
+  it('refuses the CURRENT control key too — dropping it silently was the older half of the bug', () => {
+    expect(() =>
+      buildNavigationGraph('shop', {
+        sources: [fromRoutes(table({ route: '/catalog', actions: { search: { does: 'Search' } } }))],
+      }),
+    ).toThrow(/'actions' is not a key a route table declares/);
+  });
+
+  it('the refusal names where the controls DO belong, so it teaches a move', () => {
+    expect(() => fromRoutes(table({ route: '/catalog', journeys: {} }))).toThrow(
+      /Author actions and journeys on the page in your graph definition/,
+    );
+  });
+
+  it('the two keys a route table DOES declare still compile', () => {
+    const source = fromRoutes(table({ route: '/catalog', does: 'Browse the catalogue' }));
+    const graph = buildNavigationGraph('shop', { sources: [source] });
+    expect(graph.spec.pages.catalog.route).toBe('/catalog');
+    expect(graph.spec.pages.catalog.description).toBe('Browse the catalogue');
+  });
+
+  it('and the bare-string form is untouched', () => {
+    expect(buildNavigationGraph('shop', { sources: [fromRoutes({ catalog: '/catalog' })] })
+      .spec.pages.catalog.route).toBe('/catalog');
   });
 });

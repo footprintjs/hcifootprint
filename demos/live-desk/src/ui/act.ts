@@ -74,7 +74,7 @@ export function refusalText(result: Extract<FireResult, { ok: false }>): string 
   if ('gesture' in result && result.gesture) parts.push(`gesture: ${result.gesture.kind}`);
   if ('instances' in result) parts.push(`instances: ${result.instances.slice(0, 4).join(', ')}`);
   if ('issues' in result) parts.push(result.issues);
-  if ('evidence' in result) {
+  if ('evidence' in result && result.evidence !== undefined) {
     parts.push(
       result.evidence
         .map((condition) => `${condition.key} ${condition.op} ${JSON.stringify(condition.threshold)} (actual ${condition.actualSummary})`)

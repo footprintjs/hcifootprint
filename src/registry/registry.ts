@@ -1,5 +1,5 @@
 /**
- * ToolRegistry — the LIVE-BINDING layer (D13: declare statically, bind dynamically).
+ * ActionRegistry — the LIVE-BINDING layer (D13: declare statically, bind dynamically).
  *
  * The declared graph is the map; this registry is what's actually wired right
  * now: affordanceId → the app's real handler function, registered in GROUPS
@@ -18,12 +18,12 @@
  *   in the declared spec — the prompt-injection firewall).
  */
 
-export type ToolHandler = (payload?: unknown) => unknown | Promise<unknown>;
+export type ActionHandler = (payload?: unknown) => unknown | Promise<unknown>;
 
 export interface Registration {
   affordanceId: string;
   group: string;
-  handler: ToolHandler;
+  handler: ActionHandler;
   registeredAt: number;
   /**
    * False when the control is on screen but not currently clickable (a greyed
@@ -39,7 +39,7 @@ export interface Registration {
   busy?: string;
 }
 
-export class ToolRegistry {
+export class ActionRegistry {
   readonly #byAffordance = new Map<string, Registration>();
   readonly #warn: (message: string) => void;
 
@@ -50,7 +50,7 @@ export class ToolRegistry {
   register(
     group: string,
     affordanceId: string,
-    handler: ToolHandler,
+    handler: ActionHandler,
     enabled = true,
     busy?: string,
   ): void {
@@ -122,7 +122,7 @@ export class ToolRegistry {
     return removed;
   }
 
-  handlerFor(affordanceId: string): ToolHandler | undefined {
+  handlerFor(affordanceId: string): ActionHandler | undefined {
     return this.#byAffordance.get(affordanceId)?.handler;
   }
 

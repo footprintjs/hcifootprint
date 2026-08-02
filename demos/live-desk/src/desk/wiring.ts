@@ -9,7 +9,7 @@
  *   modal   → session.setVisible('desk.compose') mounts cannot see CSS
  *   state   → session.updateState(delta)         the tap that settles a fire
  *
- * Note what is NOT here: nothing calls `registerToolGroup`. Every binding
+ * Note what is NOT here: nothing calls `registerActions`. Every binding
  * arrives through `fromLiveStore(store)` declared in the graph's `sources`, so
  * `createSession()` attaches the store and `detachSources()` releases it.
  *

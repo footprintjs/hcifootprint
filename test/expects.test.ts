@@ -33,7 +33,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import { expectsOf } from '../src/traverse/expects.js';
 import type { AvailableEdge, InteractionSession, NavigationGraph } from '../src/index.js';
 
@@ -50,7 +50,7 @@ function catalogue(): NavigationGraph {
   return buildNavigationGraph('shop', {
     pages: {
       browse: {
-        tools: {
+        actions: {
           search: { does: 'Search the catalogue', input: JSON_SCHEMA },
           filter: { does: 'Filter by size', input: z.object({ size: z.string() }) },
           rename: { does: 'Rename the saved search', input: OPAQUE },
@@ -64,7 +64,7 @@ function catalogue(): NavigationGraph {
 
 function wired(): InteractionSession {
   const session = catalogue().createSession({ node: 'browse', state: {}, onWarn: () => undefined });
-  session.registerToolGroup('browse', {
+  session.registerActions('browse', {
     handlers: {
       search: () => undefined,
       filter: () => undefined,
@@ -83,10 +83,10 @@ const edgeFor = (session: InteractionSession, id: string): AvailableEdge =>
 // Parity
 // ---------------------------------------------------------------------------
 
-describe('expects — available() and the wire speak ONE contract', () => {
+describe('the input an action asks for reads the same on the row and on the wire', () => {
   it('serves the same value for every schema kind, on both surfaces', () => {
     const session = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const rows = new Map(
       (port.call('shop.whats_here', {})['actions'] as Array<Record<string, unknown>>).map((row) => [
         row['action'],
@@ -111,7 +111,7 @@ describe('expects — available() and the wire speak ONE contract', () => {
   it('an UNDECLARED input advertises nothing, on both surfaces', () => {
     const session = wired();
     expect(edgeFor(session, 'share')).not.toHaveProperty('expects');
-    const rows = skillsAsTools(session).call('shop.whats_here', {})['actions'] as Array<Record<string, unknown>>;
+    const rows = serveToAgent(session).call('shop.whats_here', {})['actions'] as Array<Record<string, unknown>>;
     expect(rows.find((row) => row['action'] === 'browse.share')).not.toHaveProperty('expects');
   });
 
@@ -120,7 +120,7 @@ describe('expects — available() and the wire speak ONE contract', () => {
     // The edge keeps it (that is the in-process convenience)…
     expect(typeof (edgeFor(session, 'filter').schema as { safeParse?: unknown })?.safeParse).toBe('function');
     // …and every result the wire builds survives being serialized.
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     for (const call of [
       () => port.call('shop.whats_here', {}),
       () => port.call('shop.do_action', { action: 'filter', input: { size: 'M' } }),
@@ -133,7 +133,7 @@ describe('expects — available() and the wire speak ONE contract', () => {
 
   it('rides the PAYLOAD_INVALID refusal too — the shape said twice, once as data', () => {
     const session = wired();
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const result = port.call('shop.do_action', { action: 'search', input: { wrong: 'key' } });
     expect(result).toMatchObject({ ok: false, reason: 'PAYLOAD_INVALID' });
     expect(result['expects']).toEqual(JSON_SCHEMA);
@@ -144,7 +144,7 @@ describe('expects — available() and the wire speak ONE contract', () => {
 // The derivation itself
 // ---------------------------------------------------------------------------
 
-describe('expects — the shared helper', () => {
+describe('ONE computation feeds both channels, so they cannot drift apart', () => {
   it('caches by schema identity, so the hot path never re-normalizes', () => {
     const schema = z.object({ size: z.string() });
     const first = expectsOf({ schema });
@@ -163,6 +163,22 @@ describe('expects — the shared helper', () => {
     expect(expectsOf({ noInput: true })).toBe('none');
     expect(expectsOf({})).toBeUndefined();
     expect(expectsOf(undefined)).toBeUndefined();
+  });
+
+  it('a schema that is not a thing at all still gets an ANSWER, not a crash', () => {
+    // The cache is a WeakMap, so only an object or a function can key it. A spec
+    // built by hand — or parsed out of JSON — can still carry a primitive where
+    // a schema belongs, and the honest move is to answer for it (the sentence
+    // that says a live validator cannot cross the wire) rather than to throw on
+    // the hot path every refused fire walks. It skips the CACHE, never the
+    // ANSWER.
+    const sentence = 'validated at fire time (non-serializable validator)';
+    expect(expectsOf({ schema: 'not-a-schema' })).toBe(sentence);
+    expect(expectsOf({ schema: 42 })).toBe(sentence);
+    expect(expectsOf({ schema: true })).toBe(sentence);
+    // …and asking twice is stable, which is the whole point of the answer being
+    // a constant rather than something the cache was holding.
+    expect(expectsOf({ schema: 'not-a-schema' })).toBe(expectsOf({ schema: 'not-a-schema' }));
   });
 
   it('walks a SELF-REFERENTIAL schema once — a tree is not a stack overflow', () => {
@@ -185,7 +201,7 @@ describe('expects — the shared helper', () => {
     const tree: Record<string, unknown> = { type: 'object', properties: {} };
     (tree['properties'] as Record<string, unknown>)['child'] = tree;
     const session = buildNavigationGraph('tree', {
-      pages: { editor: { tools: { move: { does: 'Move a node', input: tree } } } },
+      pages: { editor: { actions: { move: { does: 'Move a node', input: tree } } } },
     }).createSession({ node: 'editor', state: {}, onWarn: () => undefined });
 
     expect(() => session.available()).not.toThrow();

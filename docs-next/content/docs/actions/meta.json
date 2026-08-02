@@ -1,0 +1,26 @@
+{
+  "title": "Actions",
+  "description": "What is possible here?",
+  "icon": "MousePointerClick",
+  "pages": [
+    "---Declare it---",
+    "guards",
+    "actuation",
+    "reading-data",
+    "---Wire it---",
+    "live-bindings",
+    "human-sensor",
+    "react-binding",
+    "---What the agent gets---",
+    "reading-an-action-row",
+    "what-would-free-it",
+    "what-a-control-holds",
+    "when-a-control-is-busy",
+    "receipts",
+    "paused-not-failed",
+    "going-async",
+    "waiting-for-the-app",
+    "when-the-app-is-still-working",
+    "grounding"
+  ]
+}

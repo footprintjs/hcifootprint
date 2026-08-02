@@ -14,7 +14,7 @@ One mock handler for an action. Synchronous — runs inside the precise-attribut
 
 ### State
 
-`State`
+`State` = `Record`\<`string`, `unknown`\>
 
 ## Parameters
 

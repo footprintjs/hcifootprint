@@ -1,7 +1,7 @@
 /**
  * The PAGE-LEVEL never-trap: a 'dead-end' gap row.
  *
- * The commit gate (never-trap.test.ts) refuses a skill FRAME that opens onto an
+ * The commit gate (never-trap.test.ts) refuses a journey FRAME that opens onto an
  * entry nothing can perform. This is the same law one level up, about the room
  * itself: a page where NOTHING the graph puts there could act is a room with no
  * doors. The agent is told the truth, fires, is refused, re-reads the same true
@@ -27,8 +27,8 @@ const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0
 function twoPageDef(): NavigationGraphDef {
   return {
     pages: {
-      home: { route: '/', tools: { greet: { does: 'Say hello' }, wave: { does: 'Wave' } } },
-      settings: { route: '/settings', tools: { save: { does: 'Save the settings' } } },
+      home: { route: '/', actions: { greet: { does: 'Say hello' }, wave: { does: 'Wave' } } },
+      settings: { route: '/settings', actions: { save: { does: 'Save the settings' } } },
     },
   };
 }
@@ -45,7 +45,7 @@ async function sessionWithHomeWired(
     node: 'home',
     onWarn: opts.onWarn ?? (() => undefined),
   });
-  session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+  session.registerActions('home', { handlers: { greet: () => undefined } });
   await tick(); // let the coalesced structure flush land before the hop
   return session;
 }
@@ -71,7 +71,7 @@ describe('the trap is recorded when the cursor comes to rest in it', () => {
       node: 'settings',
       version: expect.any(Number),
       availableActions: ['settings.save'],
-      availableSkills: [],
+      availableJourneys: [],
     });
   });
 
@@ -80,11 +80,11 @@ describe('the trap is recorded when the cursor comes to rest in it', () => {
     // it can do nothing. The fire succeeds; the room is the unmet demand.
     const session = buildNavigationGraph('app', {
       pages: {
-        home: { tools: { 'open-settings': { does: 'Open settings', goTo: 'settings' } } },
-        settings: { tools: { save: { does: 'Save the settings' } } },
+        home: { actions: { 'open-settings': { does: 'Open settings', goTo: 'settings' } } },
+        settings: { actions: { save: { does: 'Save the settings' } } },
       },
     }).createSession({ node: 'home', onWarn: () => undefined });
-    session.registerToolGroup('home', { handlers: { 'open-settings': () => undefined } });
+    session.registerActions('home', { handlers: { 'open-settings': () => undefined } });
     await tick();
 
     expect(session.fire('home.open-settings', { source: 'agent' }).ok).toBe(true);
@@ -95,9 +95,9 @@ describe('the trap is recorded when the cursor comes to rest in it', () => {
 
   it('a page with ZERO actions counts — an empty room is the emptiest kind of dead end', async () => {
     const session = buildNavigationGraph('app', {
-      pages: { home: { tools: { greet: { does: 'Say hello' } } }, empty: {} },
+      pages: { home: { actions: { greet: { does: 'Say hello' } } }, empty: {} },
     }).createSession({ node: 'home', onWarn: () => undefined });
-    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    session.registerActions('home', { handlers: { greet: () => undefined } });
     await tick();
     session.sync('empty');
     expect(deadEnds(session)).toMatchObject([{ node: 'empty', availableActions: [] }]);
@@ -119,7 +119,7 @@ describe('one row per (page, served structure) — an observation, never a verdi
     expect(deadEnds(session)).toHaveLength(1);
 
     // A mount lands somewhere else. It MIGHT have fixed this page; it did not.
-    session.registerToolGroup('home', { handlers: { wave: () => undefined } });
+    session.registerActions('home', { handlers: { wave: () => undefined } });
     await tick();
 
     expect(deadEnds(session)).toHaveLength(2);
@@ -131,7 +131,7 @@ describe('one row per (page, served structure) — an observation, never a verdi
     session.sync('settings');
     expect(deadEnds(session)).toHaveLength(1);
 
-    session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    session.registerActions('settings', { handlers: { save: () => undefined } });
     await tick();
 
     expect(deadEnds(session)).toHaveLength(1); // no second row: the room has a door now
@@ -155,7 +155,7 @@ describe('armed only where materialisation is a live question', () => {
       allowUnmaterializedFires: true,
       onWarn: () => undefined,
     });
-    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    session.registerActions('home', { handlers: { greet: () => undefined } });
     await tick();
     session.sync('settings');
     expect(deadEnds(session)).toHaveLength(0);
@@ -177,7 +177,7 @@ describe('armed only where materialisation is a live question', () => {
 describe('what counts as a door', () => {
   it('a registered-but-DISABLED action is a door — TOOL_DISABLED is retriable, not missing wiring', async () => {
     const session = await sessionWithHomeWired();
-    const handle = session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    const handle = session.registerActions('settings', { handlers: { save: () => undefined } });
     handle.setEnabled('save', false);
     await tick();
     session.sync('settings');
@@ -187,20 +187,20 @@ describe('what counts as a door', () => {
   it('an INSTANCE-keyed handler is a door — the same widened question the commit gate asks', async () => {
     const def: NavigationGraphDef = {
       pages: {
-        home: { tools: { greet: { does: 'Say hello' } } },
+        home: { actions: { greet: { does: 'Say hello' } } },
         orders: {
           areas: {
             card: {
               repeats: true,
               instances: () => ['o-1'],
-              tools: { 'cancel-order': { does: 'Cancel this order' } },
+              actions: { 'cancel-order': { does: 'Cancel this order' } },
             },
           },
         },
       },
     };
     const wired = buildNavigationGraph('app', def).createSession({ node: 'home', onWarn: () => undefined });
-    wired.registerToolGroup('orders.card', { instance: 'o-1', handlers: { 'cancel-order': () => undefined } });
+    wired.registerActions('orders.card', { instance: 'o-1', handlers: { 'cancel-order': () => undefined } });
     await tick();
     wired.sync('orders');
     expect(deadEnds(wired)).toHaveLength(0);
@@ -218,14 +218,14 @@ describe('what counts as a door', () => {
 
   it('crossLinks + navigate is a cure: every page keeps a way out', async () => {
     const session = buildNavigationGraph('app', {
-      pages: { wizard: { tools: { 'pick-file': { does: 'Choose a file to upload' } } } },
+      pages: { wizard: { actions: { 'pick-file': { does: 'Choose a file to upload' } } } },
       sources: [fromRoutes({ home: '/', projects: '/projects', wizard: '/projects/new' }, { crossLinks: true })],
     }).createSession({ node: 'home', navigate: () => undefined, onWarn: () => undefined });
-    session.registerToolGroup('wizard', { handlers: { 'pick-file': () => undefined } });
+    session.registerActions('wizard', { handlers: { 'pick-file': () => undefined } });
     await tick();
 
     session.sync('wizard');
-    session.sync('projects'); // a page with no tools of its own at all
+    session.sync('projects'); // a page with no actions of its own at all
 
     expect(deadEnds(session)).toHaveLength(0);
   });
@@ -257,13 +257,13 @@ describe('the write-path rule and the one dev warning', () => {
     session.sync('settings');
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain("page 'settings' offers 1 action(s) and an agent could perform NONE of them");
-    expect(warnings[0]).toContain("registerToolGroup('settings', …)");
+    expect(warnings[0]).toContain("registerActions('settings', …)");
     expect(warnings[0]).toContain('navigate:');
     expect(warnings[0]).toContain('crossLinks: true');
 
     // A second row (new structure version) is a new FACT for the ledger — and
     // still the same sentence for the developer, who has heard it.
-    session.registerToolGroup('home', { handlers: { wave: () => undefined } });
+    session.registerActions('home', { handlers: { wave: () => undefined } });
     await tick();
     expect(deadEnds(session)).toHaveLength(2);
     expect(warnings).toHaveLength(1);
@@ -273,7 +273,7 @@ describe('the write-path rule and the one dev warning', () => {
 /**
  * A landing OFF the graph is a different trap from a room with no doors, and
  * the difference is load-bearing: sync() blesses it ("an unauthored page is NOT
- * an error"), yet the generic warning's first cure — registerToolGroup(node) —
+ * an error"), yet the generic warning's first cure — registerActions(node) —
  * THROWS for an unknown node, and no mount can ever change the answer.
  */
 describe('off-graph is the other trap — named, and asked only once', () => {
@@ -290,7 +290,7 @@ describe('off-graph is the other trap — named, and asked only once', () => {
         node: '/some/unknown/url',
         version: expect.any(Number),
         availableActions: [],
-        availableSkills: [],
+        availableJourneys: [],
         offGraph: true,
       },
     ]);
@@ -310,7 +310,7 @@ describe('off-graph is the other trap — named, and asked only once', () => {
     expect(warnings[0]).toContain('throws: the node is unknown');
     // The generic sentence prescribed registration as fix #1. Proof it is wrong
     // here — the library's own API refuses the node the warning would name:
-    expect(() => session.registerToolGroup('nowhere' as never, { handlers: {} })).toThrow(
+    expect(() => session.registerActions('nowhere' as never, { handlers: {} })).toThrow(
       /unknown node 'nowhere'/,
     );
     // ...and the NOT_MATERIALIZED claim is absent, because it is not the truth here.
@@ -323,10 +323,10 @@ describe('off-graph is the other trap — named, and asked only once', () => {
     expect(deadEnds(session)).toHaveLength(1);
 
     // Two unrelated mounts — real structure changes, on other pages.
-    const handle = session.registerToolGroup('home', { handlers: { wave: () => undefined } });
+    const handle = session.registerActions('home', { handlers: { wave: () => undefined } });
     await tick();
     handle.unregister();
-    session.registerToolGroup('settings', { handlers: { save: () => undefined } });
+    session.registerActions('settings', { handlers: { save: () => undefined } });
     await tick();
 
     // MUTATION PROOF that the churn was real: the same churn re-arms an
@@ -346,8 +346,8 @@ describe('off-graph is the other trap — named, and asked only once', () => {
 describe('a closed guard is not missing wiring', () => {
   const checkoutDef: NavigationGraphDef = {
     pages: {
-      home: { tools: { greet: { does: 'Say hello' } } },
-      checkout: { tools: { pay: { does: 'Pay now', when: { cartCount: { gt: 0 } } } } },
+      home: { actions: { greet: { does: 'Say hello' } } },
+      checkout: { actions: { pay: { does: 'Pay now', when: { cartCount: { gt: 0 } } } } },
     },
   };
 
@@ -357,8 +357,8 @@ describe('a closed guard is not missing wiring', () => {
       state: { cartCount: 0 },
       onWarn,
     });
-    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
-    if (wirePay) session.registerToolGroup('checkout', { handlers: { pay: () => undefined } });
+    session.registerActions('home', { handlers: { greet: () => undefined } });
+    if (wirePay) session.registerActions('checkout', { handlers: { pay: () => undefined } });
     await tick();
     return session;
   }
@@ -408,9 +408,9 @@ describe('the warning names only the refusal this room actually gives', () => {
   it('a page with nothing authored says UNKNOWN_AFFORDANCE / NOT_ON_NODE — and means it', async () => {
     const warnings: string[] = [];
     const session = buildNavigationGraph('app', {
-      pages: { home: { tools: { greet: { does: 'Say hello' } } }, empty: {} },
+      pages: { home: { actions: { greet: { does: 'Say hello' } } }, empty: {} },
     }).createSession({ node: 'home', onWarn: (message) => warnings.push(message) });
-    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    session.registerActions('home', { handlers: { greet: () => undefined } });
     await tick();
 
     session.sync('empty');
@@ -438,28 +438,28 @@ describe('the warning names only the refusal this room actually gives', () => {
 });
 
 /**
- * `structureVersion` also bumps for skill-frame open/close/demote — churn that
+ * `structureVersion` also bumps for journey-frame open/close/demote — churn that
  * cannot wire anything. Keying the dedup on it multiplied rows for a page whose
  * answer never moved, so the key is the served-structure FINGERPRINT instead.
  */
 describe('the re-arm axis is the wiring, not the version counter', () => {
-  it('skill-frame churn cannot wire anything, so it cannot write a second row', async () => {
+  it('journey-frame churn cannot wire anything, so it cannot write a second row', async () => {
     const session = buildNavigationGraph('app', {
       pages: {
-        home: { tools: { greet: { does: 'Say hello' }, wave: { does: 'Wave' } } },
-        settings: { tools: { save: { does: 'Save' } } },
+        home: { actions: { greet: { does: 'Say hello' }, wave: { does: 'Wave' } } },
+        settings: { actions: { save: { does: 'Save' } } },
       },
-      skills: { tour: { does: 'A guided tour', steps: ['home.greet'] } },
+      journeys: { tour: { does: 'A guided tour', steps: ['home.greet'] } },
     }).createSession({ node: 'home', onWarn: () => undefined });
-    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    session.registerActions('home', { handlers: { greet: () => undefined } });
     await tick();
     session.sync('settings');
     expect(deadEnds(session)).toHaveLength(1);
 
     const before = session.structureVersion;
     for (let i = 0; i < 3; i++) {
-      expect(session.commitSkill('tour', { source: 'agent' }).ok).toBe(true);
-      expect(session.leaveSkill()).not.toBeNull();
+      expect(session.commitJourney('tour', { source: 'agent' }).ok).toBe(true);
+      expect(session.leaveJourney()).not.toBeNull();
       session.sync('home');
       session.sync('settings');
     }

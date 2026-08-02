@@ -4,7 +4,7 @@
  * The left column is an ordinary support app. The right column is what the
  * session says about it, read live. Between them sits one store: the app
  * publishes its actions there, and `fromLiveStore` turns them into the graph's
- * bindings. Nothing in this app calls registerToolGroup, and nothing on the
+ * bindings. Nothing in this app calls registerActions, and nothing on the
  * right prints a fact the session did not return.
  *
  * A HUMAN'S CLICKS LAND ON THE LEDGER BY THEMSELVES. The watcher below is the

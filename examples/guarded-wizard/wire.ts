@@ -3,7 +3,7 @@
  *
  * - `navigate` — the session performs url gestures through the app's OWN
  *   router, so a pure navigation needs no handler at all;
- * - `registerToolGroup` — the app's existing functions, by reference;
+ * - `registerActions` — the app's existing functions, by reference;
  * - two taps — the store reports the lean projection, the router reports the
  *   page;
  * - nothing else. The app above this file is untouched.
@@ -49,13 +49,13 @@ export function wireWizard(opts?: { crossLinks?: boolean }): WiredWizard {
 
   // (2) the app's existing functions, by reference. `next-to-review` is
   // deliberately absent: it is a pure navigation and materialises through (1).
-  session.registerToolGroup('wizard', {
+  session.registerActions('wizard', {
     handlers: {
       'name-it': (input) => app.nameProject(input),
       'pick-recipe': (input) => app.pickRecipe(input),
     },
   });
-  session.registerToolGroup('review', {
+  session.registerActions('review', {
     handlers: { 'create-project': () => app.createProject() },
   });
 

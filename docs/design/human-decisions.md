@@ -1,7 +1,13 @@
 # Human decisions — whose the choice is, and the words for a flow a person is holding
 
 Status: DESIGN (Round A). Nothing here is built; Round B builds exactly this and nothing beyond
-it. Lineage: d21 (confirm receipts) → d24 (enforced approval) → answer-grammar (LAW — this note
+it.
+
+> **Written before the 1.0 rename, and its names are pre-1.0 names.** Read `ToolDef` as
+> `ActionDef`, `AffordanceDef` as the flat authoring type it replaced, `skillId` as `journeyId`,
+> and `skillStanding` / `skillPlan` as `journeyStanding` / `journeyPlan`. The shapes and the
+> reasoning are unaffected — only the words are — and re-spelling a design note after the fact
+> would edit a record of what was decided when. The CHANGELOG's 1.0 section carries the mapping. Lineage: d21 (confirm receipts) → d24 (enforced approval) → answer-grammar (LAW — this note
 extends it and contradicts nothing) → **this**. Code is cited by FILE NAME, never line number,
 per answer-grammar's own rule. Where a wave-5 audit ruling is restated below it is restated as
 LAW, not re-opened.

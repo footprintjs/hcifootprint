@@ -10,7 +10,7 @@ Defined in: [src/testing/harness.ts:47](https://github.com/footprintjs/hcifootpr
 
 ### State
 
-`State`
+`State` = `Record`\<`string`, `unknown`\>
 
 ## Properties
 

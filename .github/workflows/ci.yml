@@ -27,6 +27,12 @@ jobs:
       # attw below also need a built dist/ to inspect.
       - run: npm run build
       - run: npm test
+      # Coverage is enforced at 100% on all four metrics (vitest.config.ts
+      # thresholds). It runs HERE and not only on a contributor's machine for
+      # the same reason the test-count badge has a gate: a number nobody checks
+      # is not a fact. Without this step the thresholds are a local convention
+      # that a green pipeline silently stops enforcing.
+      - run: npm run test:coverage
       # Packaging-correctness gate: the published artifact resolves cleanly.
       - run: npx publint
       # esm-only profile: this package ships no CJS build (type: module,
@@ -63,6 +69,18 @@ jobs:
       - name: Install docs-next deps
         working-directory: docs-next
         run: npm ci
+
+      # Docs-truth gate — does the hand-written documentation describe what the
+      # package actually SHIPS? Reads package.json `exports`, resolves each of
+      # the six entry points to its built .d.ts, and enumerates real exported
+      # symbols (TypeDoc sees only the root barrel, so five subpaths would be
+      # invisible to a TypeDoc-shaped check). The generated API pages are
+      # deliberately EXCLUDED from "documented": they are produced from the
+      # source, so counting them marks everything documented and every gap
+      # vanishes. Improving is free; this fails only when a symbol STOPS being
+      # described in prose.
+      - name: Documentation still describes the shipped surface
+        run: npm run docs:truth:check
 
       - name: Generated API reference is fresh
         working-directory: docs-next

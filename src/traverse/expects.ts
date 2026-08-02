@@ -32,7 +32,7 @@ import { normalizeSchema } from 'footprintjs/advanced';
 
 /**
  * The author's sentinel for "this action takes NO input", accepted by
- * `ToolDef.input` and `AffordanceDef.schema` and served back verbatim.
+ * `ActionDef.input` and served back verbatim.
  * Deliberately the word an author would type, not a symbol: it has to survive
  * a JSON config file and a route table as easily as a source literal.
  */

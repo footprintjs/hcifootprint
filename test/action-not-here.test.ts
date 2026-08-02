@@ -23,31 +23,31 @@
  * inventing an explanation if the guards around them were dropped.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { InteractionSession } from '../src/index.js';
 
 /** A two-step wizard: Next is guarded, Finish lives on the other page. */
 function wizard(state: Record<string, unknown> = { name: '' }): {
   session: InteractionSession;
-  port: ReturnType<typeof skillsAsTools>;
+  port: ReturnType<typeof serveToAgent>;
 } {
   const session = buildNavigationGraph('wizard', {
     pages: {
       step1: {
-        tools: {
+        actions: {
           'set-name': { does: 'Set the name', writes: ['name'] },
           next: { does: 'Go to step 2', when: { name: { ne: '' } }, goTo: 'step2' },
           // TWO conditions, one of them about a key no state view here holds.
           upgrade: { does: 'Upgrade the plan', when: { name: { ne: '' }, plan: { eq: 'pro' } } },
         },
       },
-      step2: { tools: { finish: { does: 'Finish the wizard' } } },
+      step2: { actions: { finish: { does: 'Finish the wizard' } } },
     },
   }).createSession({ node: 'step1', state, onWarn: () => undefined });
-  session.registerToolGroup('step1', {
+  session.registerActions('step1', {
     handlers: { 'set-name': () => undefined, next: () => undefined, upgrade: () => undefined },
   });
-  return { session, port: skillsAsTools(session) };
+  return { session, port: serveToAgent(session) };
 }
 
 describe('the refusal names which true thing is the case', () => {
@@ -93,16 +93,16 @@ describe('the refusal names which true thing is the case', () => {
       pages: {
         checkout: {
           tabs: {
-            shipping: { tools: { 'save-address': { does: 'Save the shipping address' } } },
-            payment: { tools: { 'save-card': { does: 'Save the payment card' } } },
+            shipping: { actions: { 'save-address': { does: 'Save the shipping address' } } },
+            payment: { actions: { 'save-card': { does: 'Save the payment card' } } },
           },
         },
       },
     }).createSession({ node: 'checkout', onWarn: () => undefined });
-    session.registerToolGroup('checkout.shipping');
-    session.registerToolGroup('checkout.payment');
+    session.registerActions('checkout.shipping');
+    session.registerActions('checkout.payment');
     session.show('checkout.shipping'); // at-most-one-shown: payment flips hidden
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     const refused = port.call('shop.do_action', { action: 'checkout.payment.save-card' });
 
@@ -136,17 +136,17 @@ describe('what stays silent', () => {
     const session = buildNavigationGraph('shop', {
       pages: {
         catalog: {
-          tools: {
+          actions: {
             'save-dress': { does: 'Save the dress' },
             'save-hat': { does: 'Save the hat' },
           },
         },
       },
     }).createSession({ node: 'catalog', onWarn: () => undefined });
-    session.registerToolGroup('catalog', {
+    session.registerActions('catalog', {
       handlers: { 'save-dress': () => undefined, 'save-hat': () => undefined },
     });
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     // 'save-dress' and 'save-hat' both end in the asked suffix.
     const refused = port.call('shop.do_action', { action: 'dress' });
@@ -185,11 +185,11 @@ describe('the boundary this refusal does NOT cross', () => {
     // the port can resolve — and the whole ledger machinery runs as always.
     const session = buildNavigationGraph('wizard', {
       pages: {
-        step1: { tools: { next: { does: 'Go to step 2', goTo: 'step2' } } },
-        step2: { tools: { finish: { does: 'Finish the wizard' } } },
+        step1: { actions: { next: { does: 'Go to step 2', goTo: 'step2' } } },
+        step2: { actions: { finish: { does: 'Finish the wizard' } } },
       },
     }).createSession({ node: 'step1', onWarn: () => undefined });
-    const port = skillsAsTools(session); // nothing is bound to 'next'
+    const port = serveToAgent(session); // nothing is bound to 'next'
 
     const refused = port.call('wizard.do_action', { action: 'step1.next' });
 

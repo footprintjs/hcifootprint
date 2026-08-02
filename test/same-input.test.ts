@@ -129,3 +129,35 @@ describe('normalizeInput — the one helper both sides call', () => {
     expect(normalizeInput('', false)).toBe(''); // '' is a real value where input is declared
   });
 });
+
+describe('the values a card CAN show are compared, and the comparison is total', () => {
+  // The renderer must answer for every ordinary value an app puts in a payload,
+  // in both directions — a value it silently declined to render would come back
+  // 'cannot-judge' and refuse a legitimate approval for no reason a user could
+  // see. These are the ordinary arms; the refusals are pinned above.
+  it('both booleans are real values, and they are not each other', () => {
+    expect(sameInput(true, true)).toBe('same');
+    expect(sameInput(false, false)).toBe('same');
+    expect(sameInput(true, false)).toBe('different');
+    // …and not confused with the strings that spell them.
+    expect(sameInput(true, 'true')).toBe('different');
+  });
+
+  it('key order inside a nested object is not a difference either', () => {
+    // The sort runs at every level, not only the top: two cards showing the same
+    // nested object must compare 'same' whichever order the keys arrived in.
+    expect(sameInput({ b: 1, a: 2 }, { a: 2, b: 1 })).toBe('same');
+    expect(sameInput({ z: { b: 1, a: 2 } }, { z: { a: 2, b: 1 } })).toBe('same');
+    expect(sameInput({ z: { a: 1, b: 2 } }, { z: { a: 2, b: 1 } })).toBe('different');
+  });
+
+  it('CANNOT-JUDGE IS INFECTIOUS: one unshowable item makes the whole array unjudgeable', () => {
+    // The gate never guesses in the permissive direction. An array whose second
+    // item cannot be rendered faithfully cannot be compared at all — answering
+    // 'same' on the strength of the items that DID render is exactly the false
+    // match this module exists to prevent.
+    expect(sameInput([1, () => 1], [1, () => 1])).toBe('cannot-judge');
+    expect(sameInput([1, 2n], [1, 2n])).toBe('cannot-judge');
+    expect(sameInput({ items: [1, new Map()] }, { items: [1, new Map()] })).toBe('cannot-judge');
+  });
+});

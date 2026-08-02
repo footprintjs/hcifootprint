@@ -25,7 +25,7 @@ export default function Story() {
     programmingLanguage: 'TypeScript',
     runtimePlatform: 'Node.js',
     license: 'https://opensource.org/licenses/MIT',
-    keywords: 'LLM agent, MCP, skill graph, interaction graph, agentic app, footprintjs',
+    keywords: 'LLM agent, MCP, navigation graph, interaction graph, agentic app, footprintjs',
     author: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL },
     maintainer: { '@type': 'Person', name: AUTHOR, url: AUTHOR_URL },
     isPartOf: { '@type': 'SoftwareApplication', name: 'footprintjs', url: 'https://footprintjs.github.io/' },

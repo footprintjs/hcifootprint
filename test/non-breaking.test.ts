@@ -5,7 +5,7 @@
  * Two shapes an audit found this line's growth could have moved under someone,
  * and the promises that answer them:
  *
- * 1. `SkillToolsPort` is a PUBLISHED interface, so somebody's object literal
+ * 1. `JourneyToolsPort` is a PUBLISHED interface, so somebody's object literal
  *    implements it — a test double, a relay facade. A required member added
  *    under one is a compile error in code that never asked for the feature, so
  *    the settlement door is optional there and required on the type the factory
@@ -26,15 +26,15 @@
  * would change what a 0.5-era filter returns.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, skillsAsTools } from '../src/index.js';
-import type { ConfirmRecord, GapRecord, ServeResult, SkillToolsPort, SkillToolsPortWithSettlement } from '../src/index.js';
+import { buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { ConfirmRecord, GapRecord, ServeResult, JourneyToolsPort, JourneyToolsPortWithSettlement } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('a port hand-implemented against the previous release', () => {
   // EXACTLY the 0.5 shape: tools() + call(), nothing else. If this stops
   // compiling, every hand-rolled double and relay facade in the field has too.
-  const double: SkillToolsPort = {
+  const double: JourneyToolsPort = {
     tools: () => [],
     call: (name: string): ServeResult => ({ ok: false, reason: 'UNKNOWN_TOOL', asked: name }),
   };
@@ -50,12 +50,12 @@ describe('a port hand-implemented against the previous release', () => {
 
   it('the BUILT port always has it, so a caller holding one never checks', async () => {
     const session = buildNavigationGraph('shop', {
-      pages: { catalog: { tools: { save: { does: 'Save the dress' } } } },
+      pages: { catalog: { actions: { save: { does: 'Save the dress' } } } },
     }).createSession({ node: 'catalog', onWarn: () => undefined });
-    session.registerToolGroup('catalog', { handlers: { save: () => undefined } });
+    session.registerActions('catalog', { handlers: { save: () => undefined } });
 
     // Named on purpose: the annotation is the assertion.
-    const builtPort: SkillToolsPortWithSettlement = skillsAsTools(session);
+    const builtPort: JourneyToolsPortWithSettlement = serveToAgent(session);
     const fired = builtPort.call('shop.do_action', { action: 'save' });
 
     expect(typeof builtPort.whenSettled).toBe('function');
@@ -70,11 +70,11 @@ describe('a gap-ledger consumer that knows only the kinds of its own release', (
   async function bothKinds(): Promise<GapRecord[]> {
     const session = buildNavigationGraph('app', {
       pages: {
-        home: { tools: { greet: { does: 'Say hello' } } },
-        settings: { tools: { save: { does: 'Save the settings' } } },
+        home: { actions: { greet: { does: 'Say hello' } } },
+        settings: { actions: { save: { does: 'Save the settings' } } },
       },
     }).createSession({ node: 'home', onWarn: () => undefined });
-    session.registerToolGroup('home', { handlers: { greet: () => undefined } });
+    session.registerActions('home', { handlers: { greet: () => undefined } });
     await tick(); // the coalesced structure flush, before the hop
 
     session.fire('home.nonesuch', { source: 'agent' }); // → 'fire-rejected'
@@ -113,9 +113,9 @@ describe('a confirm-journal consumer that knows only the three kinds of its own 
   /** An enforcing session run to the end: ask, approval, spend, and a replay. */
   function everyKind(): ConfirmRecord[] {
     const session = buildNavigationGraph('shop', {
-      pages: { checkout: { tools: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
+      pages: { checkout: { actions: { 'place-order': { does: 'Place the order', confirm: true, writes: ['orders'] } } } },
     }).createSession({ node: 'checkout', state: {}, requireHumanApproval: true, onWarn: () => undefined });
-    session.registerToolGroup('checkout', { handlers: { 'place-order': () => undefined } });
+    session.registerActions('checkout', { handlers: { 'place-order': () => undefined } });
 
     const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 1 } });
     session.approveAsk(askId, { by: 'alice@ops' });

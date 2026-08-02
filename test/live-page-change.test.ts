@@ -11,7 +11,7 @@
  *
  * The two hard edges, both tested below:
  * - NEVER at report time. whats_here and the facts block read the served
- *   structure; a read that re-registered tools would mutate the answer it is in
+ *   structure; a read that re-registered actions would mutate the answer it is in
  *   the middle of giving (the check-and-warn precedent, nav-session.ts).
  * - NEVER silent when it fails. A failed read leaves bindings from BEFORE the
  *   failure on offer, and serving those with nothing said is the same confident
@@ -26,7 +26,7 @@
  *   red on the read counter.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, fromLiveStore, skillsAsTools } from '../src/index.js';
+import { buildNavigationGraph, fromLiveStore, serveToAgent } from '../src/index.js';
 import type {
   InteractionSession,
   LiveAction,
@@ -123,7 +123,7 @@ describe('navigation is covered by the page-change re-read', () => {
     });
     const session = buildNavigationGraph('desk', {
       pages: {
-        home: { tools: { open: { does: 'Open the desk', goTo: 'desk' } } },
+        home: { actions: { open: { does: 'Open the desk', goTo: 'desk' } } },
         desk: {},
       },
       sources: [fromLiveStore(live.store)],
@@ -189,7 +189,7 @@ describe('a read never mutates what it serves', () => {
   it('whats_here, the facts block and available() re-read NOTHING', () => {
     const live = app();
     const session = twoPageApp(live.store);
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
     const afterAttach = live.reads();
 
     live.goTo('archive'); // the store's answer WOULD change if anyone asked
@@ -243,7 +243,7 @@ describe('a failed read is disclosed, not swallowed', () => {
     // this reaches the reader who is about to act on the list.
     const live = app();
     const session = twoPageApp(live.store, []);
-    const port = skillsAsTools(session);
+    const port = serveToAgent(session);
 
     expect(session.groundTruth().text).not.toContain('could not re-read');
     live.break();
@@ -320,7 +320,7 @@ describe('the hook is severable, and detach releases it', () => {
     // drives; this one happens to drive a compiled graph.)
     const wide = session as unknown as LiveBindingPort;
     const port: LiveBindingPort = {
-      registerToolGroup: (path, opts) => wide.registerToolGroup(path, opts),
+      registerActions: (path, opts) => wide.registerActions(path, opts),
       show: (path) => wide.show(path),
       setVisible: (path, visible) => wide.setVisible(path, visible),
     };
@@ -352,7 +352,7 @@ describe('the hook is severable, and detach releases it', () => {
 });
 
 describe('re-entrancy — a reaction never corrupts the hop it is reacting to', () => {
-  it('a re-read that mounts a tool leaves the in-flight sync exactly as it was', async () => {
+  it('a re-read that mounts an action leaves the in-flight sync exactly as it was', async () => {
     const live = app();
     const session = twoPageApp(live.store);
     live.goTo('archive');

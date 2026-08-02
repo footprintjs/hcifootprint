@@ -40,6 +40,7 @@ import path from 'node:path';
 import { buildNavigationGraph } from '../src/index.js';
 import type { InteractionSession, NavigationGraph } from '../src/index.js';
 import { okUpdate } from './fixture.js';
+import { readDocPage } from './docs/doc-page.js';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -49,7 +50,7 @@ function editorMap(): NavigationGraph {
   return buildNavigationGraph('editor', {
     pages: {
       doc: {
-        tools: {
+        actions: {
           'save-draft': { does: 'Save the draft', writes: ['doc'] },
           publish: { does: 'Publish the document', writes: ['doc'] },
           ping: { does: 'Ping the server' }, // declares no writes: the handler rail alone
@@ -66,7 +67,7 @@ function editor(handlers?: Record<string, () => unknown>): InteractionSession {
     state: { doc: 'empty' },
     onWarn: () => undefined,
   });
-  session.registerToolGroup('doc', {
+  session.registerActions('doc', {
     handlers: {
       'save-draft': handlers?.['save-draft'] ?? (() => undefined),
       publish: handlers?.['publish'] ?? (() => undefined),
@@ -214,7 +215,7 @@ describe('the write-match arm runs only when EVERY handler is still in flight', 
     const session = buildNavigationGraph('outbox', {
       pages: {
         compose: {
-          tools: {
+          actions: {
             save: { does: 'Save the draft', writes: ['draft'] },
             upload: { does: 'Upload the attachment', writes: ['attachment'] },
           },
@@ -225,7 +226,7 @@ describe('the write-match arm runs only when EVERY handler is still in flight', 
       state: { draft: null, attachment: null },
       onWarn: () => undefined,
     });
-    session.registerToolGroup('compose', {
+    session.registerActions('compose', {
       handlers: {
         save: handlers?.['save'] ?? (() => undefined),
         upload: handlers?.['upload'] ?? (() => undefined),
@@ -290,10 +291,7 @@ describe('the write-match arm runs only when EVERY handler is still in flight', 
   });
 
   it('the page says so in the words the code holds', () => {
-    const page = readFileSync(
-      path.join(REPO, 'docs-next/content/docs/serve/waiting-for-the-app.mdx'),
-      'utf8',
-    );
+    const page = readDocPage('waiting-for-the-app');
     const flatten = (text: string): string => text.replace(/[*`]/g, ' ').replace(/\s+/g, ' ').trim();
     const flat = flatten(page);
     expect(flat).toContain(flatten("When **every** outstanding fire's handler is still in flight"));

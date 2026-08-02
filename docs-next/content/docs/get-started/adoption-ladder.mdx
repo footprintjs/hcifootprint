@@ -38,7 +38,7 @@ with `toNodeClaimed: true`.
 
 ## Phase 1 — register handlers
 
-As components mount, `registerToolGroup(path, { handlers })` binds your existing functions by
+As components mount, `registerActions(path, { handlers })` binds your existing functions by
 reference, so firing runs the app's own code. Edges now report `materialized` (false = still
 declared-only, true = wired), and you watch the surface light up.
 
@@ -59,6 +59,6 @@ Two shortcuts on this rung:
 
 ## Phase 2 — serve an agent (Mode B)
 
-`skillsAsTools(session)` hands your host a fixed MCP tool set; the agent plans over skills
+`serveToAgent(session)` hands your host a fixed MCP tool set; the agent plans over journeys
 and acts through your handlers. One authored graph carried you the whole way — no rung forced
-you to maintain a second, stripped-down copy. See [Skills as fixed tools](doc:modes).
+you to maintain a second, stripped-down copy. See [Journeys as fixed tools](doc:modes).

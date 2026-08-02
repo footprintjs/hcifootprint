@@ -109,3 +109,52 @@ describe('normalizeName — ONE reading for both sides of a match', () => {
     expect(normalizeName('Send')).not.toBe(normalizeName('send'));
   });
 });
+
+describe('a rung that is PRESENT but says nothing falls through to the next one', () => {
+  it('an aria-label of only whitespace is not a name', () => {
+    expect(computeAccessibleName(el('button', { attrs: { 'aria-label': '   ' }, text: 'Send' }))).toBe('Send');
+  });
+
+  it('an aria-labelledby of only whitespace resolves nothing rather than looking up ""', () => {
+    const button = el('button', { attrs: { 'aria-labelledby': '   ' }, text: 'Send' });
+    expect(computeAccessibleName(button, surfaceWith(button).asDocument())).toBe('Send');
+  });
+
+  it('a label whose text is empty leaves the field to the next rung', () => {
+    const blank = el('label', { text: '  ' });
+    const field = el('input', { labels: [blank], attrs: { title: 'Full name' } });
+    expect(computeAccessibleName(field)).toBe('Full name');
+  });
+
+  it('a WRAPPING label whose text is empty does the same', () => {
+    const field = el('input', { attrs: { title: 'Full name' } });
+    el('label', { text: '  ', children: [field] });
+    expect(computeAccessibleName(field)).toBe('Full name');
+  });
+
+  it("an input button whose value is blank is not named ''", () => {
+    expect(
+      computeAccessibleName(el('input', { attrs: { type: 'submit', title: 'Save' }, value: '   ' })),
+    ).toBe('Save');
+  });
+
+  it('a title of only whitespace is the end of the ladder — silence', () => {
+    expect(computeAccessibleName(el('button', { attrs: { title: '  ' } }))).toBe('');
+  });
+
+  it('a hole in the DOM’s own labels list is skipped, not read as a name', () => {
+    // `labels` is a live NodeList in a browser; the sensor reads it by index and
+    // must survive one that does not answer at that index.
+    const holey = [undefined] as unknown as readonly FakeElement[];
+    const field = el('input', { labels: holey, attrs: { title: 'Full name' } });
+    expect(computeAccessibleName(field)).toBe('Full name');
+  });
+});
+
+describe('finding the label a field is written INSIDE of', () => {
+  it('climbs past the markup between the field and its label', () => {
+    const field = el('input');
+    el('label', { text: 'Full name', children: [el('span', { children: [field] })] });
+    expect(computeAccessibleName(field)).toBe('Full name');
+  });
+});

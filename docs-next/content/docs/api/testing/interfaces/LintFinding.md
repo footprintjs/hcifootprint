@@ -26,6 +26,16 @@ Defined in: [src/testing/model/lint.ts:49](https://github.com/footprintjs/hcifoo
 
 ***
 
+### journey?
+
+> `optional` **journey?**: `string`
+
+Defined in: [src/testing/model/lint.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L58)
+
+The journey the finding is about, when journey-scoped.
+
+***
+
 ### keys?
 
 > `optional` **keys?**: `string`[]
@@ -71,13 +81,3 @@ The two consumer remedies — surfaced, never dictated.
 > **severity**: [`LintSeverity`](/api/testing/type-aliases/LintSeverity)
 
 Defined in: [src/testing/model/lint.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L50)
-
-***
-
-### skill?
-
-> `optional` **skill?**: `string`
-
-Defined in: [src/testing/model/lint.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L58)
-
-The skill the finding is about, when skill-scoped.
