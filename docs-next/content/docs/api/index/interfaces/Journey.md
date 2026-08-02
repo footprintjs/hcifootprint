@@ -4,7 +4,7 @@ title: Journey
 
 # Interface: Journey
 
-Defined in: [src/atom/types.ts:290](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L290)
+Defined in: [src/atom/types.ts:334](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L334)
 
 One compiled journey: [JourneySpec](/api/index/interfaces/JourneySpec) with the id it is filed under.
 
@@ -32,7 +32,7 @@ AUTHORED planner-facing text (same string class as affordance descriptions).
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:291](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L291)
+Defined in: [src/atom/types.ts:335](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L335)
 
 ***
 

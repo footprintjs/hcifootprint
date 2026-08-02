@@ -123,6 +123,7 @@ export type {
   AvailableSlice,
   BeginWorkOptions,
   Binding,
+  BlockedBecause,
   CanonicalRole,
   Cause,
   CommitJourneyResult,

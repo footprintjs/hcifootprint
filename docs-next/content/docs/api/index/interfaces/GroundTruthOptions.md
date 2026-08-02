@@ -4,7 +4,7 @@ title: GroundTruthOptions
 
 # Interface: GroundTruthOptions
 
-Defined in: [src/atom/types.ts:1837](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1837)
+Defined in: [src/atom/types.ts:1906](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1906)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1837](https://github.com/footprintjs/hcifootprint
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [src/atom/types.ts:1846](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1846)
+Defined in: [src/atom/types.ts:1915](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1915)
 
 Cap on rendered attempts (default 20); older ones collapse into an omitted
 count. The same number bounds the "awaiting the human" cards listed below
@@ -25,6 +25,6 @@ this block may get.
 
 > `optional` **sinceVersion?**: `number`
 
-Defined in: [src/atom/types.ts:1839](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1839)
+Defined in: [src/atom/types.ts:1908](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1908)
 
 Only include attempts made at or after this cursor version ("since your last turn").

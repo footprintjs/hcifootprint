@@ -24,6 +24,7 @@ title: index
 - [AvailableJourney](/api/index/interfaces/AvailableJourney)
 - [AvailableSlice](/api/index/interfaces/AvailableSlice)
 - [BeginWorkOptions](/api/index/interfaces/BeginWorkOptions)
+- [BlockedBecause](/api/index/interfaces/BlockedBecause)
 - [Cause](/api/index/interfaces/Cause)
 - [CommitBundle](/api/index/interfaces/CommitBundle)
 - [ConfirmReceipts](/api/index/interfaces/ConfirmReceipts)

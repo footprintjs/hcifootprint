@@ -4,7 +4,7 @@ title: JourneyPlan
 
 # Interface: JourneyPlan
 
-Defined in: [src/atom/types.ts:1753](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1753)
+Defined in: [src/atom/types.ts:1822](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1822)
 
 The derived intra-journey dependency DAG with live status.
 
@@ -14,7 +14,7 @@ The derived intra-journey dependency DAG with live status.
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:1756](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1756)
+Defined in: [src/atom/types.ts:1825](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1825)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:1756](https://github.com/footprintjs/hcifootprint
 
 > **journeyId**: `string`
 
-Defined in: [src/atom/types.ts:1755](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1755)
+Defined in: [src/atom/types.ts:1824](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1824)
 
 The journey this plan is for.
 
@@ -32,4 +32,4 @@ The journey this plan is for.
 
 > **steps**: [`JourneyPlanStep`](/api/index/interfaces/JourneyPlanStep)[]
 
-Defined in: [src/atom/types.ts:1757](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1757)
+Defined in: [src/atom/types.ts:1826](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1826)

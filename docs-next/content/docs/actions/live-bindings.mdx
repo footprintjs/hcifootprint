@@ -52,6 +52,42 @@ Each published action is `{ node, name, instance?, enabled?, ...RegisteredAction
 The direct door also works, without graph involvement:
 `const detach = fromLiveStore(store).attach(session)`.
 
+## A live row declares everything an authored action does
+
+The `...RegisteredActionDef` in that shape is the whole authoring vocabulary, and it is easy to read
+past. **A live row may declare `enabledWhen`**, and it works end to end — this is worth saying in
+plain words, because for a long time it was true and written down nowhere, and integrations wired
+`enabled: false` by hand because nothing said the declarative door was open to them:
+
+```ts
+store.actions();
+// [{
+//   node: 'categorise', name: 'next', does: 'Continue to review',
+//   handler: () => wizard.goNext(),
+//   enabledWhen: { 'receipt.uploaded': { eq: true } },   // ← a DECLARATION, from a live row
+//   blockedBecause: { says: 'Waiting for the receipt to upload', clearedBy: 'app' },
+// }]
+```
+
+An action a store introduces this way gets everything a hand-authored one gets: the row carries
+`enabled: false` while the condition fails, the refusal carries the failing conjuncts as
+[evidence](doc:guards#enabledwhen--the-other-question), and
+[`unblockedBy`](doc:what-would-free-it) names whatever action claims to write those same keys.
+`writes`, `goTo`, `confirm`, `input`, `verify` and
+[`blockedBecause`](doc:guards#blockedbecause--your-own-reason-and-who-clears-it) travel the same way.
+
+**The carve-out, and it follows from the merge order.** Live actions attach **last and only bind**, so
+a row whose id the graph **already declares** binds its handler and nothing else: the declaration in
+the graph keeps its own `enabledWhen` (and everything else it declared), because that one is the
+audited copy. Declaring from a store is how you describe an action the graph does **not** have —
+feature-flagged, server-driven, discovered at runtime. To change what a declared action says, change
+the declaration.
+
+One field is a live bit the reconcile tracks: a **changed** `blockedBecause` sentence is picked up on
+the next store read and re-declared, so a reason that moves with your store reaches the row. A reader
+form (`blockedBecause: () => …`) is never re-declared, because it is already read fresh at every row
+assembly — its answer changes without the store having to say anything.
+
 ## When it re-reads — the invalidation contract
 
 Two halves, and only one of them can be yours:

@@ -51,6 +51,7 @@ prove or disprove it.*
 | **`goesTo`** | `goTo: '<page id>'` | this action will move you to that page | [`arrival`](doc:navigation-claims) — `'claimed'` until a `sync()` lands on that page, then `'observed'`. No third value. |
 | **`highEffect`** | `confirm: true` | a person should decide before this runs | the [confirm card and its receipts](doc:receipts); under [enforcement](doc:receipts#requirehumanapproval--make-approve-enforceable), a recorded `askId` |
 | **`enabled: false`** | `enabledWhen`, `enabled:` at registration, `handle.setEnabled(…, false)`, or a [live store row](doc:live-bindings) | on screen and not clickable | `TOOL_DISABLED` on a fire — carrying the failing `enabledWhen` conjuncts as `evidence` **only** where a condition is what proved it ([Guards](doc:guards#enabledwhen--the-other-question)) |
+| **`blockedBecause`** | `blockedBecause: { says, clearedBy }` — or a reader returning one ([Guards](doc:guards#blockedbecause--your-own-reason-and-who-clears-it)) | **why** the app says it is off, and **who** clears it — `'app'` (wait), `'user'` (interrupt the person), `'invalid'` (report a validation problem) | none, and deliberately: it is the app's own sentence, carried as data beside the refusal's authored one. It rides **only** a row that also carries `enabled: false` |
 | **`busy`** | `busy:` at registration, `handle.setBusy(…)`, or a live store row | the app is working on this control right now | none, and deliberately: it is [the app's own label](doc:when-a-control-is-busy), never checked, never timed out |
 | **`materialized: false`** | *nothing* — the absence of a handler, a `navigate`-derivable href, or an instance wiring | firing this would execute nothing | `NOT_MATERIALIZED` on an agent fire, carrying the declared [`gesture`](doc:actuation) |
 | **`guardUnevaluated`** | a `when` key your projector never seeded | this edge is here **on faith** | the key names themselves — `graph.requiredStateKeys()` is the fix |
@@ -91,6 +92,7 @@ they agree by construction:
 | the id key | `action` | `step` |
 | `does`, `goesTo`, `highEffect`, `guardUnevaluated`, `materialized`, `expects` | ✔ | ✔ |
 | `holds`, `enabled`, `busy`, `instances`, `activation` | ✔ | — |
+| `blockedBecause` | ✔ | ✔ on a frame's **`laterSteps`** — a step the plan calls ready whose control is switched off carries the state, the app's reason, and what would free it side by side |
 
 The second group is about the control **as it sits on screen**, and a frame's ready list is a plan
 rather than a screen. When you need the screen state of a step, `whats_here` is the door — that is

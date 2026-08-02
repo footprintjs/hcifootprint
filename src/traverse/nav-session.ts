@@ -38,7 +38,7 @@ import type {
 } from '../atom/types.js';
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
-import { GraphValidationError, checkLiteralHref, composeGuards, validateGuardShape } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, composeGuards, validateBlockedBecause, validateGuardShape } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from './expects.js';
 import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
@@ -419,6 +419,12 @@ export class InteractionSession<Paths extends string = string> extends Session {
         actionDef.verify as Record<string, unknown>,
       );
     }
+    // Authoring is authoring, at either door: the object form is judged here in
+    // the compiler's own words (one shared sentence, one owner apiece), and the
+    // function form is a reader, refused at READ time instead.
+    if (actionDef.blockedBecause !== undefined && typeof actionDef.blockedBecause !== 'function') {
+      validateBlockedBecause(`mount-declared action '${qualifiedId}'`, actionDef.blockedBecause);
+    }
     // Never-trap BUILD gate at the mount door too: authoring is authoring
     // whether it happens in the def or at registration — same law, same words.
     if (actionDef.binding?.kind === 'url') {
@@ -451,6 +457,16 @@ export class InteractionSession<Paths extends string = string> extends Session {
       schema: schemaOf(actionDef.input),
       ...noInputFlag(actionDef.input),
       ...(actionDef.enabledWhen ? { enabledWhen: structuredClone(actionDef.enabledWhen) } : {}),
+      // Same split the compile door takes: a reader by reference, a written
+      // sentence cloned so the overlay owns its bytes.
+      ...(actionDef.blockedBecause !== undefined
+        ? {
+            blockedBecause:
+              typeof actionDef.blockedBecause === 'function'
+                ? actionDef.blockedBecause
+                : structuredClone(actionDef.blockedBecause),
+          }
+        : {}),
       // A predicate stays by reference (it is code, like a validator); a
       // declarative contract is cloned, so the overlay owns its bytes.
       ...(actionDef.verify

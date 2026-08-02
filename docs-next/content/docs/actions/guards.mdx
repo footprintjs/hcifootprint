@@ -133,6 +133,80 @@ author the sentence, which is the one thing the string-only shape exists to prev
 The two are independent, and both are true at once on a Save button mid-save: `enabledWhen` shuts
 the door, `busy` says what the app is doing. Neither is served as the other's cause.
 
+## `blockedBecause` — your own reason, and who clears it
+
+`enabledWhen` proves a control is greyed and hands the reader the conjuncts that failed. That is
+**evidence**, and it is derived. It is not the sentence your component already knows — *"waiting for
+the upload to finish"*, *"this order is already cancelled"*, *"the amount is above your limit"* — and
+it is not the one fact no evidence carries: **who can clear it.**
+
+```ts
+next: {
+  does: 'Continue to review',
+  blockedBecause: { says: 'Waiting for the receipt to finish uploading', clearedBy: 'app' },
+},
+```
+
+The declared type is `BlockedBecause`, and it is two fields on purpose. `says` is your own sentence,
+carried as data. `clearedBy` is the half that decides the reader's next **turn**, and it is three
+words because there are three moves:
+
+| `clearedBy` | What the agent does |
+|---|---|
+| `'app'` | **waits** — the app will clear it; there is nothing to relay |
+| `'user'` | **interrupts the person** — the one move worth a turn here, and the one it will not make from a sentence alone |
+| `'invalid'` | **reports a validation problem** — stop waiting for a state that is not coming |
+
+A fourth word is refused at both authoring doors, because there is no fourth move.
+
+**Presence-only, and only while the control is off.** A live control carries no blocked sentence,
+however you declared one — the question does not arise, and answering it would hand a reader a reason
+to wait for a door that is already open (the same law [`unblockedBy`](doc:what-would-free-it) keeps on
+the same row). An app that declares nothing serves **byte-identical** rows.
+
+**It rides beside the refusal, never inside it.** Reach for the control and `TOOL_DISABLED` carries
+`blockedBecause` as a **data** field next to the authored sentence above, which is unchanged to the
+byte — including *"nothing here knows what would change it"*, which is about what this library knows
+and stays true beside anything you say. Your words never enter a sentence we wrote.
+
+```jsonc
+{ "ok": false, "reason": "TOOL_DISABLED", "retriable": true,
+  "blockedBecause": { "says": "Waiting for the receipt to finish uploading", "clearedBy": "app" } }
+```
+
+### A reason that changes while the page is open
+
+Declare a **reader** instead of a sentence. It is called at the moment a row is assembled — never
+cached — so two reads a turn apart honestly say two different things. It is the same shape, and the
+same discipline, as [`holds`](doc:what-a-control-holds):
+
+```ts
+blockedBecause: () => (upload.pending
+  ? { says: `Uploading ${upload.name}…`, clearedBy: 'app' }
+  : undefined),
+```
+
+Returning `undefined` says **nothing** — absence, spelled the way it is everywhere else here. Keep it
+a read: it runs on a hot path (every refused fire assembles rows for its own context), and a reader
+that **throws**, or answers something this library cannot read as a reason, costs the row its sentence
+and nothing else — no key, one dev warning per action, and `whats_here` still answers. A plausible
+wrong reason is the worst thing this surface could ship, so absence wins.
+
+### Switching a control off with no cause declared warns once
+
+Grey a control imperatively — `handle.setEnabled(id, false)`, or a live store row — while it declares
+**neither** `enabledWhen` **nor** `blockedBecause`, and one dev warning names both doors:
+
+> `'checkout.next'` was switched off with nothing declared about why — no enabledWhen and no
+> blockedBecause — so a caller that reaches for it is refused with the state and no evidence at all:
+> told no, and taught nothing. Declare enabledWhen for derived evidence, or blockedBecause for your
+> own sentence.
+
+Once per action, for the session's life, and never for a control that declares either one. It is a
+developer warning and nothing else: the refusal is unchanged, and nothing is served differently. The
+reason it exists is that both cures already existed and neither was discoverable from the call that
+shuts the door — an integration hand-rolled its own version of this field for months.
+
 ## Seed every key — `requiredStateKeys()`
 
 ```ts

@@ -45,6 +45,7 @@ import type {
   AvailableSlice,
   BeginWorkOptions,
   Binding,
+  BlockedBecause,
   Cause,
   CommitJourneyResult,
   ConfirmReceipts,
@@ -96,6 +97,7 @@ import { redactFields } from './redact-fields.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { NO_INPUT, expectsOf } from './expects.js';
 import { checkVerify, filterVerdict } from './verify.js';
+import { blockedBecauseFault } from '../graph/guards.js';
 import { stepDependencies, unblockingDependencies } from '../graph/step-deps.js';
 import { routeBetween, type RouteStep } from '../graph/reach.js';
 import { ActionRegistry } from '../registry/registry.js';
@@ -136,6 +138,19 @@ const FACTS_HEADER =
 
 /** Said outright, because a silence here is exactly what a model fills with invention. */
 const NOTHING_ATTEMPTED = 'No actions have been performed in this app this session.';
+
+/**
+ * THE DEV WARNING FOR A SWITCH-OFF NOBODY EXPLAINED — authored, and it names
+ * BOTH doors, because they answer different halves and a reader picking one
+ * should know the other exists.
+ *
+ * Only the action id is interpolated. What the app is waiting for is exactly
+ * what this warning is complaining it was never told.
+ */
+const NO_DECLARED_CAUSE =
+  'was switched off with nothing declared about why — no enabledWhen and no blockedBecause — so a ' +
+  'caller that reaches for it is refused with the state and no evidence at all: told no, and taught ' +
+  'nothing. Declare enabledWhen for derived evidence, or blockedBecause for your own sentence.';
 
 /** An id the graph does not have — caller-supplied text, kept out of the authored channel. */
 const UNKNOWN_ACTION = '(an action this app does not have)';
@@ -498,6 +513,10 @@ export class Session {
   readonly #holdsWarned = new Set<string>();
   /** Busy-label complaints already made, keyed `busy:affordanceId` (same discipline). */
   readonly #busyWarned = new Set<string>();
+  /** Blocked-reason reader complaints already made, keyed by affordance id (same discipline). */
+  readonly #blockedWarned = new Set<string>();
+  /** Actions already told that they were switched off with no cause declared (same discipline). */
+  readonly #noCauseWarned = new Set<string>();
   readonly #warn: (message: string) => void;
   /** Unmet demand: rejected fires + explicitly reported unserved asks. */
   readonly #gaps: GapRecord[] = [];
@@ -843,7 +862,43 @@ export class Session {
    * axis so a stale plan is caught and the surface re-serves.
    */
   protected setActionEnabled(affordanceId: string, enabled: boolean): void {
-    if (this.#registry.setEnabled(affordanceId, enabled)) this.noteStructureChange();
+    if (!this.#registry.setEnabled(affordanceId, enabled)) return;
+    if (!enabled) this.#warnNoDeclaredCause(affordanceId);
+    this.noteStructureChange();
+  }
+
+  /**
+   * A CONTROL SWITCHED OFF WITH NOTHING DECLARED ABOUT WHY — said once, to the
+   * developer, at the moment it happens.
+   *
+   * A disable with no declared cause serves a refusal with no evidence: the
+   * agent is told no and taught nothing, and a hole in an answer is where a
+   * guess goes (the same failure `enabled: false` on the row and `unblockedBy`
+   * beside it were each built to close, one layer up). Both cures already
+   * exist and neither is discoverable from the imperative call, so the call is
+   * where they get named — a production integration carried a hand-rolled
+   * workaround for months because nothing pointed at either door.
+   *
+   * THE ONE CHOKE POINT, deliberately. Every imperative switch-off reaches this
+   * method — a group handle's `setEnabled`, and the live-store reconcile, which
+   * drives that same handle for both a first-sight disabled row and a later
+   * flip. The registry itself would be the wrong place: it knows nothing about
+   * sessions, guards or declarations by design, so it cannot ask the question.
+   *
+   * WARNS ONLY ON A REAL CHANGE (the caller has already asked the registry), and
+   * only for a control the app said nothing about. Declaring either door — the
+   * derived evidence of `enabledWhen`, or the app's own sentence in
+   * `blockedBecause` — silences it for good, because then the refusal carries
+   * something. Keyed by the BASE action id, so greying twenty cards of one
+   * repeats container is one action's mistake and one line.
+   */
+  #warnNoDeclaredCause(registryKey: string): void {
+    const affordanceId = baseActionId(registryKey);
+    const aff = this.spec.affordances[affordanceId];
+    if (aff?.enabledWhen !== undefined || aff?.blockedBecause !== undefined) return;
+    if (this.#noCauseWarned.has(affordanceId)) return;
+    this.#noCauseWarned.add(affordanceId);
+    this.#warn(`hcifootprint: '${affordanceId}' ${NO_DECLARED_CAUSE}`);
   }
 
   /**
@@ -1025,6 +1080,10 @@ export class Session {
       // so this hot path (every refused fire calls available() for its gap
       // row's context) never re-normalizes a zod schema.
       const expects = expectsOf(aff);
+      // Read ONCE, used twice: the marker below and the app's own reason beside
+      // it must answer the same question in the same breath, or a row could
+      // carry a reason for a control it also calls clickable.
+      const switchedOff = this.#registry.isEnabled(aff.id) === false || this.#disabledByDeclaration(aff);
       edges.push({
         affordanceId: aff.id,
         description: aff.description,
@@ -1037,9 +1096,13 @@ export class Session {
         // A disabled tool is served WITH the marker (a greyed button the agent
         // can see), never silently hidden — whether the registration site said
         // so or the authored `enabledWhen` proves it.
-        ...(this.#registry.isEnabled(aff.id) === false || this.#disabledByDeclaration(aff)
-          ? { enabled: false }
-          : {}),
+        ...(switchedOff ? { enabled: false } : {}),
+        // WHY THE APP SAYS IT IS OFF — read HERE, and only on a control that is
+        // actually off. A live control carries no blocked sentence however the
+        // app declared one (the presence law `unblockedBy` keeps, for the same
+        // reason: a reason for an open door is a reason to wait for nothing),
+        // so an app that declares nothing serves the same bytes it always did.
+        ...(switchedOff ? this.#blockedBecauseFor(aff) : {}),
         // THE THIRD STATE, if the app has said it: working right now, in the
         // app's own words. Read exactly where `enabled` is read (the base
         // registration for this action) and stamped exactly how it is stamped —
@@ -1082,6 +1145,78 @@ export class Session {
   #busyFor(affordanceId: string): { busy: string } | Record<string, never> {
     const busy = this.#registry.busyOf(affordanceId);
     return busy === undefined ? {} : { busy };
+  }
+
+  /**
+   * THE APP'S OWN REASON THIS CONTROL IS OFF, or NO KEY — the read side of
+   * {@link BlockedBecause}, and every arm but the last is absence.
+   *
+   * Called only from the switched-off arm of a row, which is the whole presence
+   * law: this never answers about a live control.
+   *
+   * - nothing declared → nothing. No fallback: not the failing conjuncts (those
+   *   are `evidence`, and they are ours, not the app's words), not a sentence
+   *   built here. The refusal's authored line already says nothing here knows
+   *   why, and it must stay true wherever the app did not say.
+   * - a written sentence → it, REBUILT field by field. The row owns its bytes,
+   *   and a reader answering a wider object cannot smuggle extra fields onto a
+   *   surface a model reads.
+   * - a READER → called fresh, at every row assembly, never cached: the whole
+   *   point of the form is a reason that changes while the page is open, and a
+   *   cached one would be this library reporting the sentence from last turn.
+   *   Returning `undefined` says NOTHING — the same spelling of absence every
+   *   other reader in this file uses.
+   * - a reader that THROWS, or answers a shape this library cannot read as a
+   *   reason → nothing, plus ONE dev warning per action (this runs on every
+   *   served row, and every refused fire assembles rows for its gap context, so
+   *   a per-call warning is the console flood `watch-page.ts` already refuses).
+   *   Keyed by ACTION rather than by action-and-reason — the narrower grain
+   *   `holds` uses — because both faults have one correction, "make the reader
+   *   answer a usable reason", and one action shouting twice for one mistake
+   *   teaches nothing the first line did not.
+   *
+   * READING THE ANSWER IS PART OF THE READ, exactly as it is for `holds`: a
+   * returned object whose own getter throws fails one level below the call, so
+   * the whole read — call, judge, copy — sits inside the one guard. Outside it,
+   * a single app closure would take down `available()` and, through the gap
+   * context, every refused fire.
+   */
+  #blockedBecauseFor(aff: Affordance): { blockedBecause: BlockedBecause } | Record<string, never> {
+    const declared = aff.blockedBecause;
+    if (declared === undefined) return {};
+    if (typeof declared !== 'function') return { blockedBecause: { says: declared.says, clearedBy: declared.clearedBy } };
+    try {
+      const answered = declared();
+      if (answered === undefined) return {};
+      // The SAME reading both authoring doors apply to a written sentence, one
+      // turn later — whatever the compiler would have refused, a reader is
+      // refused for, so the two can never teach different shapes.
+      if (blockedBecauseFault(answered) !== undefined) {
+        this.#warnBlockedOnce(
+          aff.id,
+          `hcifootprint: the blockedBecause reader for '${aff.id}' answered something this library cannot ` +
+            `read as a reason — the row says nothing about why this control is off rather than printing a ` +
+            `reason nobody wrote. Return { says, clearedBy } with a non-empty says and clearedBy one of ` +
+            `'app', 'user', 'invalid' — or undefined to say nothing.`,
+        );
+        return {};
+      }
+      return { blockedBecause: { says: answered.says, clearedBy: answered.clearedBy } };
+    } catch (error) {
+      this.#warnBlockedOnce(
+        aff.id,
+        `hcifootprint: the blockedBecause reader for '${aff.id}' threw: ${String(error)} — the row says ` +
+          `nothing about why this control is off rather than reporting a reason nobody read.`,
+      );
+      return {};
+    }
+  }
+
+  /** One blocked-reason warning per action — this path runs on every served row. */
+  #warnBlockedOnce(affordanceId: string, message: string): void {
+    if (this.#blockedWarned.has(affordanceId)) return;
+    this.#blockedWarned.add(affordanceId);
+    this.#warn(message);
   }
 
   // -------------------------------------------------------------------------
@@ -4984,6 +5119,19 @@ function gestureHref(aff: Affordance, pages: NavigationGraphSpec['pages']): stri
 /** No segment is a ':param' — the address exists as bytes, nothing to guess. */
 function fullyLiteral(routeOrHref: string): boolean {
   return !segmentsOf(routeOrHref).some(isParam);
+}
+
+/**
+ * The ACTION behind a registry key — `'orders.cancel[o-57]'` → `'orders.cancel'`.
+ *
+ * A registration is instance-keyed; a DECLARATION is not (one `enabledWhen`
+ * greys every card at once), so a question about what the app declared has to
+ * ask about the action. `[` is a reserved segment character, so the first one
+ * is always the instance suffix and never part of a name.
+ */
+function baseActionId(registryKey: string): string {
+  const at = registryKey.indexOf('[');
+  return at === -1 ? registryKey : registryKey.slice(0, at);
 }
 
 /**

@@ -15,6 +15,14 @@
  * meaningless there). Consequence, stated: the handler bound at first sight
  * stays bound — to replace an action's behaviour, remove it and add it back.
  *
+ * ONE FIELD IS NEITHER, and it is worth its own line: `blockedBecause` is a
+ * DECLARATION the store publishes, not a wire it flips, so a changed SENTENCE
+ * (compared by value — the objects are always fresh) releases the registration
+ * and declares the action again through the door first sight took. That is
+ * "remove it and add it back", performed here for the one field an app has no
+ * other way to move. A reader form never counts as changed: it is already
+ * called fresh at every row assembly.
+ *
  * WHEN IT RE-READS — the invalidation contract, stated so an app can hold up its
  * end: your store must emit whenever the action surface changes, and NAVIGATION
  * is covered for you by a re-read on every page change the app REPORTS through
@@ -49,6 +57,25 @@ interface Held {
   enabled: boolean;
   /** The label last pushed through setBusy — undefined means the store has said nothing. */
   busy: string | undefined;
+  /** The blocked sentence this registration was DECLARED with (see sentenceOf). */
+  sentence: string;
+}
+
+/**
+ * The app's own blocked reason, flattened to bytes so two snapshots can be
+ * compared by VALUE. Stores hand out fresh objects on every read, so identity
+ * says nothing; what the app SAYS is the only thing worth reacting to.
+ *
+ * A READER flattens to the same empty string as nothing at all, deliberately: a
+ * function form is called fresh at every row assembly, so a store publishing a
+ * new closure each emission has already changed nothing a reader can see, and
+ * re-declaring for it would churn the registration on every tick. The reader
+ * first published keeps answering — and when the app's reason changes, its
+ * ANSWER changes, which is the whole point of the form.
+ */
+function sentenceOf(blockedBecause: LiveAction['blockedBecause']): string {
+  if (blockedBecause === undefined || typeof blockedBecause === 'function') return '';
+  return `${String(blockedBecause.says)}\u0000${String(blockedBecause.clearedBy)}`;
 }
 
 /** The shape handed to registerActions — a LiveAction minus its addressing fields. */
@@ -134,12 +161,34 @@ export function fromLiveStore(store: LiveActionStore): LiveSource {
         }
 
         for (const [key, action] of desired) {
-          const existing = held.get(key);
+          let existing = held.get(key);
           const enabled = action.enabled ?? true;
           // No default, deliberately: an absent label is the store saying
           // nothing about this control, and `undefined` is exactly how that
           // travels the rest of the way (never a manufactured "not busy").
           const busy = action.busy;
+          const sentence = sentenceOf(action.blockedBecause);
+          // A DECLARATION IS NOT A WIRE. `enabled` and `busy` are live facts
+          // about a control and each has its own setter; `blockedBecause` is the
+          // app's own SENTENCE, authored at the same door `does` is — so it moves
+          // the only way a declaration can: this registration is released and the
+          // action is declared again, through the identical door first sight
+          // took. Compared by value, so the fresh objects a store hands out on
+          // every read cost nothing until what it SAYS changes.
+          //
+          // Two consequences, both stated rather than hidden. The re-declaration
+          // re-binds whatever handler the store now publishes for that identity
+          // (elsewhere the handler bound at first sight stays bound). And if the
+          // new sentence is one an authoring door refuses, the re-declaration
+          // throws: on a later read that is disclosed like any reconcile failure
+          // and the action is gone until the next good emission, which is the
+          // honest end — better than serving a row whose declaration the library
+          // refused.
+          if (existing !== undefined && sentence !== existing.sentence) {
+            existing.handle.unregister();
+            held.delete(key);
+            existing = undefined;
+          }
           if (existing) {
             // UNCHANGED identity: never re-registered (see module header).
             // The tracked mutable bits are `enabled` and `busy` — a real flip
@@ -166,7 +215,7 @@ export function fromLiveStore(store: LiveActionStore): LiveSource {
           // Same reasoning for a control that is ALREADY working when the store
           // first publishes it (a reload mid-save): one door, one path.
           if (busy !== undefined) handle.setBusy(name, busy);
-          held.set(key, { handle, name, enabled, busy });
+          held.set(key, { handle, name, enabled, busy, sentence });
         }
       };
 

@@ -136,6 +136,62 @@ export function guardStateKeys(guards: Iterable<Record<string, unknown> | undefi
   return [...keys].sort();
 }
 
+// ---------------------------------------------------------------------------
+// blockedBecause — the app's own reason a control is off (see BlockedBecause)
+// ---------------------------------------------------------------------------
+
+/** The three words `clearedBy` may be. A fourth is a next move nobody implements. */
+export const CLEARED_BY = new Set(['app', 'user', 'invalid']);
+
+/** Which of the three questions a `blockedBecause` failed — or nothing, if it is usable. */
+export type BlockedBecauseFault = 'shape' | 'says' | 'clearedBy';
+
+/**
+ * ONE reading of "is this a usable reason", asked at three places: both
+ * authoring doors (which THROW, each in its own vocabulary) and row assembly
+ * (which serves nothing and warns once). Written as a fault CODE rather than as
+ * three copies of the same conditions, because a reader answering at run time
+ * cannot be handed a build-time error and the two must not drift apart:
+ * whatever the compiler would have refused is what a reader is refused for.
+ */
+export function blockedBecauseFault(value: unknown): BlockedBecauseFault | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return 'shape';
+  const { says, clearedBy } = value as { says?: unknown; clearedBy?: unknown };
+  if (typeof says !== 'string' || says.trim() === '') return 'says';
+  if (typeof clearedBy !== 'string' || !CLEARED_BY.has(clearedBy)) return 'clearedBy';
+  return undefined;
+}
+
+/**
+ * What each fault COSTS, and the correction — the authored half of the refusal.
+ * The owner ('action X' / 'mount-declared action X') is the only thing that
+ * differs between the two doors, so the words a reader learns from are
+ * byte-identical wherever they authored it.
+ */
+const BLOCKED_BECAUSE_FAULT: Record<BlockedBecauseFault, string> = {
+  shape:
+    'blockedBecause must be an object { says, clearedBy } — or a function returning one (and undefined ' +
+    'to say nothing).',
+  says:
+    'blockedBecause.says is empty — it is your own sentence for why this control is off, and an empty ' +
+    'one prints a reason nobody wrote. Write the sentence, or omit blockedBecause entirely.',
+  clearedBy:
+    "blockedBecause.clearedBy must be one of 'app', 'user', 'invalid' — 'app' means the agent waits, " +
+    "'user' means interrupt the person, 'invalid' means report a validation problem. There is no fourth " +
+    'word, because there is no fourth move.',
+};
+
+/**
+ * The OBJECT form, refused at an authoring door. The FUNCTION form is never
+ * judged here — a reader has no value until a row is assembled, so it is
+ * validated at READ time instead (the same split `holds` makes for the same
+ * reason), which is why both doors ask `typeof !== 'function'` first.
+ */
+export function validateBlockedBecause(owner: string, value: unknown): void {
+  const fault = blockedBecauseFault(value);
+  if (fault !== undefined) throw new GraphValidationError(`${owner}: ${BLOCKED_BECAUSE_FAULT[fault]}`);
+}
+
 /** Catch shape mistakes at authoring time — the evaluator fails them silently at runtime. */
 export function validateGuardShape(owner: string, guard: Record<string, unknown>): void {
   for (const [key, ops] of Object.entries(guard)) {

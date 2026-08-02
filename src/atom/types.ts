@@ -233,6 +233,38 @@ export interface Page extends PageDef {
   id: string;
 }
 
+/**
+ * THE APP'S OWN REASON A CONTROL IS OFF — and WHO can clear it.
+ *
+ * `enabled: false` says a control is switched off, and the authored refusal
+ * beside it says out loud that nothing here knows why. That silence is correct
+ * — the library must never invent a cause — but it is silence the app itself
+ * could have filled: the component that greys the button usually knows exactly
+ * what it is waiting for. This is the wire for saying it, in the app's own
+ * words, as DATA.
+ *
+ * `clearedBy` is the half a reader cannot infer from any sentence, and it is
+ * the half that decides the next move. Three words, and each one is a different
+ * turn:
+ *
+ * - `'app'` — the app clears it. The agent WAITS; there is nothing to relay.
+ * - `'user'` — a person clears it. The agent INTERRUPTS the human, which is the
+ *   one move worth a turn here and the one it will not make from a sentence
+ *   alone.
+ * - `'invalid'` — something is wrong with what was supplied. The agent REPORTS
+ *   a validation problem rather than waiting for a state that is not coming.
+ *
+ * SAME TRUST TIER AS `does`: a registration-site source-code literal, carried
+ * as data and never spliced into an authored sentence. The refusal's own words
+ * are unchanged — this rides BESIDE them.
+ */
+export interface BlockedBecause {
+  /** Registration-site app text — the same string class, and the same trust tier, as `does`. */
+  says: string;
+  /** Who clears it: 'app' → the agent waits; 'user' → interrupt the person; 'invalid' → report a validation problem. */
+  clearedBy: 'app' | 'user' | 'invalid';
+}
+
 export interface Affordance {
   id: string;
   on: string[];
@@ -266,6 +298,18 @@ export interface Affordance {
    * the library does not guess a control greyed out.
    */
   enabledWhen?: WhereFilter;
+  /**
+   * The app's own reason this control is off, compiled from
+   * `ActionDef.blockedBecause` at either authoring door. The OBJECT form is
+   * owned by the graph (cloned, frozen); the FUNCTION form stays by reference,
+   * because it is code — like a validator, and like the value reader `holds`
+   * takes — and is called fresh at every row assembly.
+   *
+   * Served ONLY while the row is `enabled: false` (see
+   * {@link AvailableEdge.blockedBecause}). Declaring it changes nothing about a
+   * live control.
+   */
+  blockedBecause?: BlockedBecause | (() => BlockedBecause | undefined);
   highEffect: boolean;
   role: CanonicalRole;
   /**
@@ -730,6 +774,31 @@ export interface AvailableEdge {
    * `LiveAction.enabled`, and the declarative `ActionDef.enabledWhen`.
    */
   enabled?: boolean;
+  /**
+   * WHY THE APP SAYS IT IS OFF, and who clears it — the app's own sentence
+   * beside the state, present ONLY while this row carries `enabled: false`.
+   *
+   * PRESENCE-ONLY, AND ONLY WHILE BLOCKED. A live control carries no blocked
+   * sentence, however the app declared one: the question does not arise, and
+   * answering it anyway would leave a reader with a reason for a door that is
+   * open. The same presence law the served row's `unblockedBy` keeps, for the
+   * same reason — an app that declares nothing serves rows byte-identical to
+   * the ones it served before this field existed.
+   *
+   * DATA, NOT A SENTENCE OF OURS. `says` is the app's runtime-adjacent text and
+   * it never enters an authored `why` — the refusal's own words are unchanged
+   * and still forbid inventing a cause; this rides beside them. `clearedBy`
+   * reaches the reader verbatim, because it is the half that decides the next
+   * move: wait, interrupt a person, or report a validation problem.
+   *
+   * READ LATE where the app declared a reader. A function form is called at the
+   * moment this row is assembled — never cached — so two reads a turn apart can
+   * honestly say two different things. A reader that throws, or answers a shape
+   * this library cannot read as a reason, serves NO KEY plus one dev warning:
+   * absence, exactly as {@link AvailableEdge.holds} does, and for the same
+   * reason — a plausible wrong reason is worse than none.
+   */
+  blockedBecause?: BlockedBecause;
   /**
    * WHAT THIS CONTROL HOLDS RIGHT NOW — the draft in the box, the option
    * currently selected — read at the moment the row is assembled.

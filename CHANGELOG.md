@@ -1,5 +1,107 @@
 # Changelog
 
+## [1.2.0] - 2026-08-02
+
+**"It's off" is a state. "Why" is a sentence only the app can write — and "who clears it" is the one
+fact that decides the next turn.**
+
+A switched-off control has been served honestly for several releases: `enabled: false` on the row, a
+typed retriable `TOOL_DISABLED` at the reach, the failing `enabledWhen` conjuncts as evidence, and
+`unblockedBy` naming the actions the app claims would free it. Every one of those is **derived** — the
+library reading declarations the app made for other reasons.
+
+None of them is the sentence the component doing the greying already knows. *"Waiting for the upload
+to finish."* *"This order is already cancelled."* *"The amount is above your limit."* And none of them
+answers the question a reader actually has to answer before it can take a turn: **who clears this?**
+Because the moves are not interchangeable. If the app clears it, the agent waits. If a person clears
+it, the agent has to interrupt them — the one move it will not make from a sentence alone. If what was
+supplied is simply wrong, waiting is the worst possible choice.
+
+So there was a hole, and a hole in an answer is where a guess goes. A production integration carried a
+hand-rolled equivalent of this field for months because the library offered nowhere to put it; three
+live incidents are why `clearedBy` is three words rather than free text.
+
+### `blockedBecause` — the app's own reason, and who clears it
+
+```ts
+next: {
+  does: 'Continue to review',
+  blockedBecause: { says: 'Waiting for the receipt to finish uploading', clearedBy: 'app' },
+}
+```
+
+Declarable on `ActionDef` — in the graph, at the mount door, and therefore on a live store's rows —
+with a new exported type, `BlockedBecause`. `clearedBy` is `'app'` (wait), `'user'` (interrupt the
+person) or `'invalid'` (report a validation problem). There is no fourth word, because there is no
+fourth move, and a fourth is refused at both authoring doors in the same sentence.
+
+**Four laws hold it in place.**
+
+- **Presence-only, and only while blocked.** The row carries it only where it also carries
+  `enabled: false`. A live control has no blocked sentence however the app declared one — a reason for
+  an open door tells a reader to wait for something that already happened, which is the same law
+  `unblockedBy` keeps on the same row. **An app that declares nothing serves byte-identical rows.**
+- **Rides beside, never inside.** The authored refusal sentence is unchanged to the byte — including
+  *"nothing here knows what would change it"*, which is a claim about what THIS LIBRARY knows and
+  stays true beside anything the app says. The app's words arrive as a **data** field next to it.
+  App text entering an authored channel is the injection this library exists to refuse.
+- **Read late, never cached.** The function form (`blockedBecause: () => …`) is called at the moment a
+  row is assembled, so a reason that changes while the page is open is honestly two different
+  sentences two reads apart. It is declared and disciplined exactly like `holds`.
+- **Absence over a guess.** A reader that returns `undefined` says nothing. A reader that throws, or
+  answers a shape this library cannot read as a reason, serves **no key** plus one dev warning per
+  action — and `whats_here` still answers. A plausible wrong reason is the worst thing this surface
+  could ship.
+
+One reading is asked in three places — both authoring doors and row assembly — from one function, so a
+reader is refused for exactly what the compiler would have refused, and the two cannot drift.
+
+### The disable that explains nothing now says so, once
+
+The other half, and the half that makes the first one findable. Switch a control off imperatively —
+`handle.setEnabled(id, false)`, or a live store row — while it declares **neither** `enabledWhen` nor
+`blockedBecause`, and one dev warning names both doors:
+
+> `'checkout.next'` was switched off with nothing declared about why — no enabledWhen and no
+> blockedBecause — so a caller that reaches for it is refused with the state and no evidence at all:
+> told no, and taught nothing. Declare enabledWhen for derived evidence, or blockedBecause for your
+> own sentence.
+
+Once per action for the session's life, at the one choke point every imperative switch-off passes
+through, and never for a control that declares either field. Nothing is served differently: this is a
+developer warning about a declaration that is missing, which is precisely why the integration above
+never found the door — both cures already existed and neither was discoverable from the call that
+shuts the door.
+
+### A live store may DECLARE, not only bind — written down at last
+
+No code changed for this one, and that is the finding. A live store's rows have supported
+`enabledWhen` end to end for releases — declare it on a row that introduces a new action and the guard
+evidence, the typed refusal and `unblockedBy` all flow — and the word appeared **nowhere** in the
+live-store guide or the module's own README. Teams wired `enabled: false` by hand for months while the
+declarative door stood open. It is now stated plainly, with the carve-out that follows from the merge
+order: live actions attach last and only **bind**, so a row whose id the graph already declares keeps
+the declaration's own `enabledWhen`. Declaring from a store is how you describe an action the graph
+does not have.
+
+A months-old field gap that was pure findability. Worth saying out loud: documentation was the whole
+fix, and not writing it was the whole bug.
+
+### Compatibility
+
+- **Purely additive.** No published name is renamed or removed — the 1.0 freeze holds. `blockedBecause`
+  is optional at every door and absent from every row that does not declare it.
+- **No published union grew.** `FireResult['reason']` and `GapRecord['rejectionReason']` are
+  byte-identical — a control the app explains is still `TOOL_DISABLED`, because a new refusal word for
+  a control that was already refused would mint a class no app asked for. So are `EffectStatus`,
+  `Settlement`, `StepStatus`, `FrameStatus`, `GapReason` and `Binding['kind']`.
+- **The served tool array is untouched.** A row is a RESULT; `toMCPTools()` renders the same bytes
+  whether or not a single action declares a reason.
+- **The refusal's authored sentences are byte-identical to 1.1.0**, both of them, and pinned as such.
+- **One new behaviour with no declaration at all**: the dev warning above, on an imperative switch-off
+  where nothing is declared. It writes to the existing `onWarn` sink, changes nothing that is served,
+  and stops for good the moment either field is declared.
+
 ## [1.1.0] - 2026-08-02
 
 **A name is evidence captured at its moment.**

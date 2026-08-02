@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-1955%20passing-f5b301?style=flat" alt="1955 tests passing">
+  <img src="https://img.shields.io/badge/tests-2001%20passing-f5b301?style=flat" alt="2001 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -131,9 +131,9 @@ group.setBusy('place-order', 'Placing your order…');   // your words, never ou
 session.updateState({ 'cart.items': 3 });              // your store → conditions re-evaluate
 ```
 
-**The agent gets** one row per action that is offered here, carrying `enabled`, `busy`, `holds`,
-`goesTo`, `expects`, `highEffect` and `unblockedBy`. Every stamp is presence-only: a key means your
-app said so, and no key means the library does not know.
+**The agent gets** one row per action that is offered here, carrying `enabled`, `blockedBecause`,
+`busy`, `holds`, `goesTo`, `expects`, `highEffect` and `unblockedBy`. Every stamp is presence-only: a
+key means your app said so, and no key means the library does not know.
 
 ### Declared or wired? One question decides
 

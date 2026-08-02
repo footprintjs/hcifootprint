@@ -97,6 +97,17 @@ Authoring vocabulary (all optional except where noted):
     refuses a fire as `TOOL_DISABLED` (retriable). Declare it from the same expression that renders
     `<button disabled={…}>`. NOT composed with ancestor `when`s. Keys it cannot evaluate never
     disable anything — the library does not guess a control greyed out.
+  - `blockedBecause` — YOUR OWN reason this control is off, and WHO clears it:
+    `{ says, clearedBy: 'app' | 'user' | 'invalid' }` (type `BlockedBecause`). `enabledWhen` proves a
+    control is greyed and yields derived evidence; this is the sentence your component already knows,
+    plus the one fact no evidence carries — `'app'` means the agent WAITS, `'user'` means INTERRUPT the
+    person, `'invalid'` means REPORT a validation problem. A fourth word is refused at both authoring
+    doors. Served ONLY while the row is `enabled: false` (presence-only, like every other stamp), as
+    DATA beside the refusal's own authored sentence, which is unchanged. Declare a FUNCTION
+    (`() => BlockedBecause | undefined`) for a reason that changes while the page is open: it is read
+    fresh at every row assembly, never cached; `undefined` says nothing, and a reader that throws or
+    answers an unusable shape costs the row its sentence plus one dev warning. It never disables
+    anything. A live store says the same thing through `LiveAction.blockedBecause`.
   - `writes` — state keys this action claims to change (verified at settlement).
   - `verify` — the app's OWN check that firing really did something, evaluated at settlement. Either
     a WhereFilter over projected state (`{ 'wizard.recipe': { ne: '' } }`) or a SYNCHRONOUS predicate
@@ -285,7 +296,7 @@ PLACE OF the handler; keeping both runs it twice). `unregisterGroup(group)` rele
   validator, in-process only; `expects?` = the same contract WIRE-shaped — zod normalized, JSON
   Schema detached, a non-serializable validator named in one sentence, `'none'` for an input-less
   action), and honesty stamps: `guardUnevaluated?`, `activation?`, `presence?: 'unknown'`,
-  `materialized?`, `enabled?`, `busy?`, `holds?`, `instances?`/`enumeration?`. `expects` is
+  `materialized?`, `enabled?`, `blockedBecause?`, `busy?`, `holds?`, `instances?`/`enumeration?`. `expects` is
   byte-for-byte what Mode B serves, from one shared derivation — never re-derive it.
 - `availableJourneys()` → `{ version, node, journeys: AvailableJourney[] }`, `contextBrief(opts?)`
   (token-lean prompt context, authored strings only), `explain(id)`, `why(key)` (footprint backward
@@ -413,7 +424,13 @@ const result = port.call(name, args);           // route a tool_use; return `res
   `input` you pass. `enabled?` appears ONLY as `false` — the app has switched that control off, on
   screen and not clickable (a clickable control carries no key at all); firing it anyway is refused
   `TOOL_DISABLED` with `retriable: true` and a sentence that names the STATE and refuses to invent a
-  reason for it, because nothing in this library knows one. `unblockedBy?` rides ONLY that
+  reason for it, because nothing in this library knows one. `blockedBecause?` rides ONLY that
+  switched-off row and is THE APP'S OWN reason, not ours: `{ says, clearedBy }`, where `says` is the
+  app's sentence carried as DATA and `clearedBy` decides your next turn — `'app'` means WAIT (nothing
+  to relay), `'user'` means INTERRUPT the person, `'invalid'` means REPORT a validation problem rather
+  than waiting for a state that is not coming. It rides BESIDE the refusal's authored sentence, which
+  is unchanged and still forbids inventing a cause; absent means the app said nothing, never that
+  there is no reason. `unblockedBy?` rides ONLY that
   switched-off row and says WHAT WOULD FREE IT: `[{ action, writes, inFlight? }]` — the declared
   actions whose `writes` touch a key this control's conditions are waiting on, ids only (an id carries
   its node, so read that action's own row rather than trusting a description copied here). Absent when
@@ -628,7 +645,8 @@ table by `matchRoute`'s own segment rules. Never a resemblance.
 `handle.setEnabled`, a live store's `LiveAction.enabled`, and the declarative `ActionDef.enabledWhen`. Carries
 `retriable: true` and an authored `why` that names the STATE and refuses to invent a cause — the app switched
 it off, and nothing here knows what would change it. Do not guess one; the same fact is served ahead of time
-as `enabled: false` on the action row), `NOT_MATERIALIZED` (declared but
+as `enabled: false` on the action row. Where the app declared `blockedBecause`, the refusal ALSO carries it as
+a data field beside that sentence — the app's own reason and who clears it), `NOT_MATERIALIZED` (declared but
 unbound — an agent fire would execute nothing; NOT retriable: nothing is en route. Wire it with
 `registerActions`, or create the session with `allowUnmaterializedFires` for read-only touring). Every
 refused fire is also a gap-ledger row. **There is no `TOOL_BUSY`, and there will not be**: `busy` is
@@ -674,10 +692,11 @@ predicate that threw; never read as a refusal), `enumeration: 'mounted-window'` 
 partial). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.
 
-**Absence is a stance, not an oversight.** `enabled`, `busy`, `holds`, `goesTo`, `unblockedBy`,
-`inFlight` and `stillWorking` are PRESENCE-ONLY: a key means the app said so, and no key means this
-library DOES NOT KNOW — never "clickable", "not busy", "the box is empty", "nothing would free it" or
-"finished". A cheerful default on every row would be a claim about a session nobody was asked about.
+**Absence is a stance, not an oversight.** `enabled`, `blockedBecause`, `busy`, `holds`, `goesTo`,
+`unblockedBy`, `inFlight` and `stillWorking` are PRESENCE-ONLY: a key means the app said so, and no key
+means this library DOES NOT KNOW — never "clickable", "no reason", "not busy", "the box is empty",
+"nothing would free it" or "finished". A cheerful default on every row would be a claim about a
+session nobody was asked about.
 **And no clock is evidence:** nothing here expires a `busy` label or a work row, `settleWithinMs`
 decides how long to wait and never what the answer is, and a caller who stops waiting reports
 UNFINISHED — never done, never failed.

@@ -4,7 +4,7 @@ title: ActionHandle
 
 # Interface: ActionHandle
 
-Defined in: [src/atom/types.ts:542](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L542)
+Defined in: [src/atom/types.ts:586](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L586)
 
 The handle returned by registerAction — a single-action ActionGroup.
 
@@ -14,7 +14,7 @@ The handle returned by registerAction — a single-action ActionGroup.
 
 > `readonly` **actionId**: `string`
 
-Defined in: [src/atom/types.ts:545](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L545)
+Defined in: [src/atom/types.ts:589](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L589)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:545](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:543](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L543)
+Defined in: [src/atom/types.ts:587](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L587)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/atom/types.ts:543](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:544](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L544)
+Defined in: [src/atom/types.ts:588](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L588)
 
 ## Methods
 
@@ -38,7 +38,7 @@ Defined in: [src/atom/types.ts:544](https://github.com/footprintjs/hcifootprint/
 
 > **setBusy**(`busy`): `void`
 
-Defined in: [src/atom/types.ts:549](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L549)
+Defined in: [src/atom/types.ts:593](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L593)
 
 Say this action is working right now, in your own words — `undefined` stops saying it.
 
@@ -58,7 +58,7 @@ Say this action is working right now, in your own words — `undefined` stops sa
 
 > **setEnabled**(`enabled`): `void`
 
-Defined in: [src/atom/types.ts:547](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L547)
+Defined in: [src/atom/types.ts:591](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L591)
 
 Grey out / re-enable this action.
 
@@ -78,7 +78,7 @@ Grey out / re-enable this action.
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:550](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L550)
+Defined in: [src/atom/types.ts:594](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L594)
 
 #### Returns
 

@@ -4,7 +4,7 @@ title: GroundTruth
 
 # Interface: GroundTruth
 
-Defined in: [src/atom/types.ts:1869](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1869)
+Defined in: [src/atom/types.ts:1938](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1938)
 
 The authoritative record of what this session ACTUALLY did — position plus
 every attempt and how it came to rest, in words a model is told outrank the
@@ -31,7 +31,7 @@ lean), no runtime free text, and no interpretation — one line per occurrence.
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1870](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1870)
+Defined in: [src/atom/types.ts:1939](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1939)
 
 ***
 
@@ -39,7 +39,7 @@ Defined in: [src/atom/types.ts:1870](https://github.com/footprintjs/hcifootprint
 
 > **text**: `string`
 
-Defined in: [src/atom/types.ts:1872](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1872)
+Defined in: [src/atom/types.ts:1941](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1941)
 
 ***
 
@@ -47,4 +47,4 @@ Defined in: [src/atom/types.ts:1872](https://github.com/footprintjs/hcifootprint
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:1871](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1871)
+Defined in: [src/atom/types.ts:1940](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1940)

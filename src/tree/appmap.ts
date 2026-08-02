@@ -22,7 +22,7 @@ import type {
   Journey,
   NavigationGraphSpec,
 } from '../atom/types.js';
-import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateGuardShape } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateBlockedBecause, validateGuardShape } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from '../traverse/expects.js';
 import { mergeSources } from '../graph/sources/merge.js';
 import { actionsOf, journeysOf } from './authoring-keys.js';
@@ -218,6 +218,12 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       rejectEmptyFilter(`action '${qualifiedId}'`, 'verify', action.verify);
       validateGuardShape(`action '${qualifiedId}' verify`, action.verify as Record<string, unknown>);
     }
+    // The app's own reason, judged HERE for the object form only — a reader is
+    // code, and what it answers does not exist until a row is assembled (read
+    // time refuses it there, by the same rule, and warns once).
+    if (action.blockedBecause !== undefined && typeof action.blockedBecause !== 'function') {
+      validateBlockedBecause(`action '${qualifiedId}'`, action.blockedBecause);
+    }
     // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
     // so it dies here — which also makes "a journey whose entry step's gesture
     // is such a url" unconstructable, since every static action passes this door.
@@ -240,6 +246,17 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
         schema: schemaOf(action.input),
         ...noInputFlag(action.input),
         ...(action.enabledWhen ? { enabledWhen: structuredClone(action.enabledWhen) } : {}),
+        // The same by-reference/by-value split `verify` takes one line below,
+        // for the same reason: a READER is code, and cloning it would clone
+        // nothing that matters; a written sentence is bytes the graph owns.
+        ...(action.blockedBecause !== undefined
+          ? {
+              blockedBecause:
+                typeof action.blockedBecause === 'function'
+                  ? action.blockedBecause
+                  : structuredClone(action.blockedBecause),
+            }
+          : {}),
         // A predicate stays by reference (it is code, like a validator); a
         // declarative contract is cloned, so the compiled graph owns its bytes.
         ...(action.verify

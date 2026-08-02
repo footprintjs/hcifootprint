@@ -31,6 +31,24 @@ wins over a same-id journey silently (deterministic and documented); same-kind
 id collisions refuse (ambiguous authorship); unknown/unreadable source shapes
 fail closed in the library's own voice.
 
+## What a live row may DECLARE (not only bind)
+
+`LiveAction extends RegisteredActionDef`, so a published row carries the whole
+authoring vocabulary — `enabledWhen`, `blockedBecause`, `writes`, `goTo`,
+`confirm`, `input`, `verify` — and an action a store INTRODUCES gets all of it
+end to end (guard evidence, `unblockedBy`, the typed refusal). Written down
+here because it was true and stated nowhere: integrations wired `enabled: false`
+by hand for months while the declarative door stood open. The carve-out is the
+merge order itself — attach last and only BIND — so a row whose id the graph
+already declares binds its handler and keeps the DECLARATION's own
+`enabledWhen`; declaring from a store is how an app describes an action the
+graph does not have.
+
+One field is a live bit the reconcile tracks by VALUE: a changed
+`blockedBecause` SENTENCE releases the registration and declares it again (a
+declaration is not a wire — it moves by being declared), while a reader form is
+never re-declared, because it is already called fresh at every row assembly.
+
 ## When the live source re-reads (the invalidation contract)
 
 > Your store must emit whenever the action surface changes; NAVIGATION is

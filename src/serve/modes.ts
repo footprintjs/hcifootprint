@@ -1363,6 +1363,12 @@ export function serveToAgent(
             step: step.affordanceId,
             status: step.status,
             ...(edge?.enabled === false ? { enabled: false } : {}),
+            // AND THE APP'S OWN REASON, on the journey surface too — for the
+            // same reason `unblockedBy` is here: the two readers of one edge
+            // must not be told different things about it. A step listed as
+            // switched-off with the sentence stripped is the whats_here row
+            // minus the one fact that says whether to wait or fetch a person.
+            ...(edge?.blockedBecause !== undefined ? { blockedBecause: edge.blockedBecause } : {}),
             // WHAT WOULD FREE IT, on the journey surface too. This is the
             // default surface `mcpServer` wraps; serving the answer only on
             // `whats_here` left the two readers of one edge told different
@@ -1525,10 +1531,17 @@ export function serveToAgent(
       // condition, the conjuncts that failed rode in through the shared
       // `evidence` spread above and this arm adds the clause that says what they
       // are — appended, never replacing the sentence that is true either way.
+      // RIDES BESIDE, NEVER INSIDE. The app's own reason joins the refusal as a
+      // DATA field, and the authored sentences above it are unchanged to the
+      // byte — including "nothing here knows what would change it", which is
+      // about what THIS LIBRARY knows and stays true beside anything the app
+      // says. Splicing `says` into the `why` would put app text into the one
+      // channel that must only ever carry words we wrote.
       ...(fired.reason === 'TOOL_DISABLED'
         ? {
             retriable: true,
             why: fired.evidence === undefined ? DISABLED_WHY : `${DISABLED_WHY} ${DISABLED_EVIDENCE_WHY}`,
+            ...(edge?.blockedBecause !== undefined ? { blockedBecause: edge.blockedBecause } : {}),
           }
         : {}),
       // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
@@ -1687,6 +1700,16 @@ export function serveToAgent(
       // the rest read as "nobody knows", which is a claim about a session that
       // was never asked.
       ...(edge.enabled === false ? { enabled: false } : {}),
+      // THE APP'S OWN REASON IT IS OFF, beside the state — data, like `does` and
+      // `holds` above it, and never a sentence this layer builds. It arrives
+      // already presence-gated: `available()` reads it only on a switched-off
+      // row, so a clickable control cannot carry one, and an app that declares
+      // nothing serves the same bytes it always did.
+      //
+      // `clearedBy` is the half that decides the reader's next turn — wait,
+      // interrupt a person, report a validation problem — so it crosses
+      // verbatim. This library authors no reading of it.
+      ...(edge.blockedBecause !== undefined ? { blockedBecause: edge.blockedBecause } : {}),
       // WHAT WOULD FREE IT — served only on a control that is actually off, and
       // only where the app's OWN declarations answer: an action whose `writes`
       // touch a key this one waits on. Derived, never authored (session

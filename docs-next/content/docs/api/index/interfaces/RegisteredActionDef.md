@@ -32,11 +32,55 @@ How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
 ***
 
+### blockedBecause?
+
+> `optional` **blockedBecause?**: [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| (() => [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| `undefined`)
+
+Defined in: [src/tree/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L86)
+
+YOUR OWN REASON THIS CONTROL IS OFF, and who clears it — served only while
+the control is off, and only ever as data.
+
+`enabledWhen` proves a control is greyed and hands the reader the conjuncts
+that failed; that is EVIDENCE, and it is derived. This is the other half:
+the sentence your component already knows ("waiting for the upload to
+finish") and the one fact no evidence carries — WHO can clear it. See
+[BlockedBecause](/api/index/interfaces/BlockedBecause).
+
+```ts
+next: {
+  does: 'Continue to review',
+  blockedBecause: { says: 'Waiting for the receipt to finish uploading', clearedBy: 'app' },
+}
+```
+
+The FUNCTION form is for a reason that changes while the page is open. It
+is a READER, declared like `holds`: it runs at the moment a row is
+assembled, never cached, and returning `undefined` says nothing at all.
+Keep it a read — it runs on a hot path, and a reader that throws costs the
+row its sentence and nothing else.
+
+```ts
+blockedBecause: () => (upload.pending
+  ? { says: `Uploading ${upload.name}…`, clearedBy: 'app' }
+  : undefined),
+```
+
+It never disables anything: declaring it on a control nothing has switched
+off changes not one byte of what is served. Say WHY here; say WHETHER with
+`enabledWhen`, `enabled:`, `setEnabled`, or a live store row.
+
+#### Inherited from
+
+[`ActionDef`](/api/index/interfaces/ActionDef).[`blockedBecause`](/api/index/interfaces/ActionDef#blockedbecause)
+
+***
+
 ### confirm?
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/tree/types.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L58)
+Defined in: [src/tree/types.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L92)
 
 Requires explicit confirmation (the high-effect gate).
 
@@ -88,7 +132,7 @@ its position in the tree.
 
 > `optional` **goTo?**: `string`
 
-Defined in: [src/tree/types.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L56)
+Defined in: [src/tree/types.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L90)
 
 Page this action claims to navigate to (a top-level page id).
 
@@ -110,7 +154,7 @@ Defined in: [src/traverse/nav-session.ts:71](https://github.com/footprintjs/hcif
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/tree/types.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L69)
+Defined in: [src/tree/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L103)
 
 Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
 or the literal `'none'`, meaning "this control takes NO input". A caller
@@ -131,7 +175,7 @@ shape, so it advertises nothing rather than inventing an empty contract.
 
 > `optional` **role?**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/tree/types.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L78)
+Defined in: [src/tree/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L112)
 
 #### Inherited from
 
@@ -143,7 +187,7 @@ Defined in: [src/tree/types.ts:78](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **verify?**: [`VerifyContract`](/api/index/type-aliases/VerifyContract)
 
-Defined in: [src/tree/types.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L77)
+Defined in: [src/tree/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L111)
 
 The app's OWN check that firing this really did something — evaluated once,
 at settlement, and the only thing that can turn a handler that merely RAN
@@ -175,7 +219,7 @@ Availability guard over projected state (AND-composed with every ancestor `when`
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/tree/types.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L54)
+Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L88)
 
 State keys this action claims to change.
 

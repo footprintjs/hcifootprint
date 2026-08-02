@@ -18,7 +18,7 @@
  *               action for N cards, never N actions).
  */
 import type { WhereFilter } from 'footprintjs';
-import type { Binding, CanonicalRole, NavigationGraphSpec, VerifyContract } from '../atom/types.js';
+import type { Binding, BlockedBecause, CanonicalRole, NavigationGraphSpec, VerifyContract } from '../atom/types.js';
 // Type-only cycle with graph/sources/types.ts (it names PageNodeDef/JourneyDef,
 // we name GraphSource) — erased at build, so no runtime cycle exists.
 import type { GraphSource } from '../graph/sources/types.js';
@@ -50,6 +50,40 @@ export interface ActionDef {
    * its position in the tree.
    */
   enabledWhen?: WhereFilter;
+  /**
+   * YOUR OWN REASON THIS CONTROL IS OFF, and who clears it — served only while
+   * the control is off, and only ever as data.
+   *
+   * `enabledWhen` proves a control is greyed and hands the reader the conjuncts
+   * that failed; that is EVIDENCE, and it is derived. This is the other half:
+   * the sentence your component already knows ("waiting for the upload to
+   * finish") and the one fact no evidence carries — WHO can clear it. See
+   * {@link BlockedBecause}.
+   *
+   * ```ts
+   * next: {
+   *   does: 'Continue to review',
+   *   blockedBecause: { says: 'Waiting for the receipt to finish uploading', clearedBy: 'app' },
+   * }
+   * ```
+   *
+   * The FUNCTION form is for a reason that changes while the page is open. It
+   * is a READER, declared like `holds`: it runs at the moment a row is
+   * assembled, never cached, and returning `undefined` says nothing at all.
+   * Keep it a read — it runs on a hot path, and a reader that throws costs the
+   * row its sentence and nothing else.
+   *
+   * ```ts
+   * blockedBecause: () => (upload.pending
+   *   ? { says: `Uploading ${upload.name}…`, clearedBy: 'app' }
+   *   : undefined),
+   * ```
+   *
+   * It never disables anything: declaring it on a control nothing has switched
+   * off changes not one byte of what is served. Say WHY here; say WHETHER with
+   * `enabledWhen`, `enabled:`, `setEnabled`, or a live store row.
+   */
+  blockedBecause?: BlockedBecause | (() => BlockedBecause | undefined);
   /** State keys this action claims to change. */
   writes?: string[];
   /** Page this action claims to navigate to (a top-level page id). */

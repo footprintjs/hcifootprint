@@ -7,8 +7,10 @@
     "AskStatus",
     "AvailableEdge",
     "Binding",
+    "BlockedBecause",
     "buildNavigationGraph",
     "Cadence",
+    "Cause",
     "checkGraph",
     "ConfirmRecord",
     "ControlDeclaration",
@@ -24,7 +26,6 @@
     "GraphValidationError",
     "InteractionSession",
     "JourneyDef",
-    "serveToAgent",
     "JourneyToolsPort",
     "JourneyToolsPortWithSettlement",
     "lintGraph",
@@ -34,12 +35,14 @@
     "mcpServer",
     "NavigationGraph",
     "Page",
+    "PendingInfo",
     "PresenceIndex",
     "REDACTED",
     "RegisteredActionDef",
     "Registration",
     "RouteStep",
     "SensorElement",
+    "serveToAgent",
     "Settlement",
     "testApp",
     "TransitionRecord",
@@ -49,7 +52,8 @@
     "VerifyFailure",
     "WatchOptions",
     "watchPage",
-    "WhereFilter"
+    "WhereFilter",
+    "WorkRow"
   ],
   "surface": [
     "ActionDef",
@@ -68,6 +72,7 @@
     "AvailableSlice",
     "BeginWorkOptions",
     "Binding",
+    "BlockedBecause",
     "BlockedBy",
     "BusyControl",
     "Cadence",
@@ -208,11 +213,11 @@
     "fromJourneys",
     "fromLiveStore",
     "fromRoutes",
-    "serveToAgent",
     "leaveJourneyTool",
     "lintGraph",
     "matchRoute",
     "mcpServer",
+    "serveToAgent",
     "testApp",
     "useControl",
     "useControlSurface",
@@ -220,10 +225,10 @@
     "watchPage"
   ],
   "counts": {
-    "total": 166,
-    "site-prose": 50,
+    "total": 167,
+    "site-prose": 54,
     "site-code-only": 6,
-    "repo-only": 21,
-    "undocumented": 89
+    "repo-only": 19,
+    "undocumented": 88
   }
 }

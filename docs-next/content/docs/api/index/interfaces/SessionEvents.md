@@ -4,7 +4,7 @@ title: SessionEvents
 
 # Interface: SessionEvents
 
-Defined in: [src/atom/types.ts:493](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L493)
+Defined in: [src/atom/types.ts:537](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L537)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:493](https://github.com/footprintjs/hcifootprint/
 
 > **confirm**: [`ConfirmRecord`](/api/index/interfaces/ConfirmRecord)
 
-Defined in: [src/atom/types.ts:509](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L509)
+Defined in: [src/atom/types.ts:553](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L553)
 
 A confirm-journal row landed — an ask, an approval, or a decline (a deep copy).
 
@@ -22,7 +22,7 @@ A confirm-journal row landed — an ask, an approval, or a decline (a deep copy)
 
 > **gap**: [`GapRecord`](/api/index/interfaces/GapRecord)
 
-Defined in: [src/atom/types.ts:507](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L507)
+Defined in: [src/atom/types.ts:551](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L551)
 
 A new unmet-demand row was recorded (a deep copy).
 
@@ -32,7 +32,7 @@ A new unmet-demand row was recorded (a deep copy).
 
 > **state**: `object`
 
-Defined in: [src/atom/types.ts:503](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L503)
+Defined in: [src/atom/types.ts:547](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L547)
 
 A committed state delta landed (the `state` version moved).
 
@@ -50,7 +50,7 @@ A committed state delta landed (the `state` version moved).
 
 > **structure**: `object`
 
-Defined in: [src/atom/types.ts:505](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L505)
+Defined in: [src/atom/types.ts:549](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L549)
 
 The served tool-surface changed — frame open/close, or a mount/enable flip.
 
@@ -68,7 +68,7 @@ The served tool-surface changed — frame open/close, or a mount/enable flip.
 
 > **transition**: [`TransitionRecord`](/api/index/interfaces/TransitionRecord)
 
-Defined in: [src/atom/types.ts:501](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L501)
+Defined in: [src/atom/types.ts:545](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L545)
 
 A new, newly-settled, or newly-corroborated occurrence (a snapshot of the
 record). The third case is [TransitionRecord.arrival](/api/index/interfaces/TransitionRecord#arrival) turning
