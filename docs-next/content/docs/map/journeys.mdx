@@ -29,6 +29,67 @@ an unknown id, because every in-library caller passes an id the spec just yielde
 failure shape `commitJourney()` returns, so a caller holding a model-supplied id handles the
 question one way.
 
+## Where a journey stands
+
+`journeyPlan` answers *what may I fire next*. The question a reader actually has between turns is
+a different one: **whose turn is it, and is this thing moving.** `session.journeyStanding(id)`
+answers that with one word and the facts behind it.
+
+```ts twoslash
+import type { InteractionSession } from 'hcifootprint';
+declare const session: InteractionSession;
+// ---cut---
+const where = session.journeyStanding('buy');
+//    ^?
+```
+
+`JourneyStanding` is a **pure fold** over the plan, the ask book, the
+[decisions book](doc:whose-decision-it-is), retained settlements and frame history: no state of its
+own, no cache, no timer, and it never fires. It computes fresh on every call, so the word is true
+about *now*. It throws on an unknown id, exactly as `journeyPlan` does and through that method's
+own refusal — serving layers resolve names first.
+
+An open frame governs; otherwise a latest-closed `'completed'` frame answers `'done'`, and a
+cancelled or demoted one contributes history and never a verdict. Then the steps are walked in
+chain order, and the **first one not done** — the *governing* step — names the standing:
+
+| `standing` | what holds it | `evidence` carries |
+| --- | --- | --- |
+| `'awaiting-human'` | the governing step's card is open | `askId`, `step` |
+| `'declined'` | the human answered no through their own door | `askId`, `step` |
+| `'with-the-human'` | the decision belongs to a person | `step`, `made`, `about?`, `madeBy?` |
+| `'failed'` | its LAST attempt came to rest badly | `transitionId` — a pointer, never the receipt |
+| `'blocked'` | its guard was evaluated and failed | `blockedOn` |
+| `'in-progress'` | nothing holds it | `guardUnevaluated` when present |
+| `'done'` | every step is done | the counts |
+
+Every arm also carries `stepsDone` and `stepsTotal`, so a journey nobody has started reads
+`'in-progress'` with `stepsDone: 0` — the honest reading of *open, and nothing holds it*.
+
+**`'failed'` is never minted from a pause.** Not from `needs-confirm`, not from a relayed decline,
+not from any approval refusal, not from a guard, disabled or materialization refusal. A refusal is
+not an execution: nothing ran, so nothing failed. It requires a fire that actually came to rest
+badly.
+
+The strings live on this type alone — no existing union grew for them. Both Mode B doors serve the
+word from this **same call** (`whats_here`'s journey rows and the journey tool's result), never a
+second derivation, so two doors cannot disagree about one chain. It sits beside `judgment`, which
+answers the other question: `judgment` is *what is my move this turn*, `standing` is *where does
+this chain stand*.
+
+## The per-step carrier
+
+A step is a name — or the object element `{ step: 'place-order' }`, which compiles identically.
+
+```ts
+steps: ['enter-address', { step: 'choose-shipping-speed' }, 'place-order']
+```
+
+It carries nothing beyond `step` today. It exists because per-step conditional metadata has to have
+exactly **one** authoring carrier: deciding it once means the next such feature lands as a new
+optional field on a shape that already exists, rather than as a second shape competing with this
+one. `humanDecides` is deliberately not one of them — ownership is a fact about the control.
+
 ## The commit gates — five typed refusals
 
 `commitJourney()` refuses, in order, with a typed reason:

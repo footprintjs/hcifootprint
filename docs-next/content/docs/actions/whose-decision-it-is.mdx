@@ -1,0 +1,218 @@
+---
+title: Whose decision it is
+description: "Some choices are the person's to make, not the agent's to perform. `humanDecides` says so on the control they answer through — disclosed on every surface, and enforced nowhere."
+---
+
+## The hole this fills
+
+[`requireHumanApproval`](doc:receipts) answers one question: **may the agent act** — a human's
+recorded yes unlocks one fire. It says nothing about the other way a person is inside a flow.
+
+Some choices are the person's to **make**. Which plan. Which shipping speed. Whether to sell at
+all. The agent's correct move there is to present the options and stop; the human answers through
+the app's own control, and the flow moves because the world moved.
+
+The library had no word for that, so a model met a choice control like any other and fired it —
+or, told not to in prose, invented its own vocabulary for the pause. And every near word that did
+exist describes something the **system** holds: a card, a gate, a greyed button. Here the system
+holds nothing. There is no card, no `askId`, no refusal. The flow is simply in a person's hands.
+
+## Declare it on the control they answer through
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+// ---cut---
+const graph = buildNavigationGraph('shop', {
+  pages: {
+    checkout: {
+      actions: {
+        'enter-address': { does: 'Enter the delivery address', writes: ['checkout.address'] },
+        'choose-shipping-speed': {
+          does: 'Choose a shipping speed',
+          writes: ['checkout.shipping'],
+          humanDecides: {
+            about: 'which shipping speed',                   // app DATA — never spoken
+            doneWhen: { 'checkout.shipping': { ne: '' } },   // the app's own "it has been decided"
+          },
+        },
+        'place-order': {
+          does: 'Place the order',
+          when: { 'checkout.shipping': { ne: '' } },
+          writes: ['orderId'],
+        },
+      },
+    },
+  },
+  journeys: {
+    buy: { does: 'Buy what is in the cart', steps: ['enter-address', 'choose-shipping-speed', 'place-order'] },
+  },
+});
+```
+
+`HumanDecides` is the declaration type, and both its fields are optional.
+
+- **`about`** is the app's own words for *what* is being decided. It rides **data fields only** —
+  never an authored sentence, never `groundTruth()`, never the facts block — exactly as a
+  [`busy` label](doc:when-a-control-is-busy) does. Capped at 200 characters and refused loudly at
+  build when over: a build-time refusal is kinder than silent truncation for a string you fix once.
+- **`doneWhen`** is a plain serializable `WhereFilter`, evaluated by the same evaluator and under
+  the same honesty split as [every guard](doc:guards). It is deliberately **not** a predicate: a
+  condition can prove a state, and only a filter keeps the declaration exportable, explainable and
+  composable. Its keys join `requiredStateKeys()`.
+
+**Omitting `doneWhen` is legal and says something exact:** ownership is declared while the app gave
+the library no way to know when the decision lands. `doneWhen: {}` is a different thing and is
+refused at build — footprint's evaluator never matches an empty filter, so it could never hold.
+
+It is a fact about the **control**, declared once and inherited by every journey that names it. A
+per-journey split would let two lists disagree about one control's owner.
+
+**It is not approval, and the two never share a word.** `humanDecides` mints no ask, no `askId`, no
+card and no receipts. None of the approval vocabulary appears on a decision surface, and none of
+this vocabulary appears on an approval one. A control may carry **both** declarations — they are
+independent facts and both are served — and while a card is open the ask wins the standing word,
+because a card is the sharper referent.
+
+## Reading it: `decisions()`
+
+`session.decisions()` is the sibling of [`asks()`](doc:paused-not-failed). That one answers *is
+anything waiting on a person?*; this one answers *is anything a person's to decide?* — two
+questions with two different next moves. It is graph-wide, because a decision on another page still
+holds a journey, and it is read at the moment you ask.
+
+```ts twoslash
+import type { InteractionSession } from 'hcifootprint';
+declare const session: InteractionSession;
+// ---cut---
+const open = session.decisions().filter((row) => row.made !== true);
+//    ^?
+```
+
+Each `DecisionStatus` row is `{ affordanceId, about?, made, madeBy? }`.
+
+`made` is evaluated fresh against projected state on every call, and it has **three** answers:
+
+| `made` | what it means |
+| --- | --- |
+| `true` | the app's own `doneWhen` holds |
+| `false` | it was evaluated and does not hold |
+| `'unknown'` | it could not be evaluated — a key absent from the state view or holding `undefined` — or no `doneWhen` was declared |
+
+**`'unknown'` is never collapsed into "not yet".** They are answers to different questions, exactly
+as an unevaluable guard is [served with a marker rather than treated as failed](doc:guards). A
+filter half-read is a filter unread, so `false` is reserved for a condition the library actually
+evaluated end to end.
+
+## `madeBy` — the one guess this library must be incapable of
+
+`madeBy` is served beside `made: true` **only**, and it is minted from exactly the identity-bearing
+rungs of `updateState`'s attribution ladder:
+
+| the delta arrived through | the book records |
+| --- | --- |
+| `updateState(delta, { transitionId })` naming a fired transition | that fire's recorded principal |
+| the handler's own call window (the report **is** that fire's, by construction) | that fire's recorded principal |
+| `updateState(delta, { principal })` — the attributed door | the caller's stated principal, verbatim |
+| FIFO settlement, the single-cover arm, effect-signature inference, the unknown-stimulus floor | **nothing — the entry is cleared** |
+
+Correlation is by **call path, never by recency**. The matching rungs compute a join: FIFO can
+mis-attribute predictably, the single-cover arm is a signature match, and inference is a guess the
+record itself flags. A computed join never attributes a human decision.
+
+What follows from that, and each of these is a test:
+
+- **An unattributed delta that flips `doneWhen` serves `made: true` with `madeBy` absent.** The
+  decision is visibly made and nobody is named. Silence cuts both ways: the library does not say
+  the human did it, and does not say they didn't.
+- **A chat-typed "done" cannot launder into attribution.** A sentence in conversation reaches no
+  session door — the Mode B port exposes no tool that writes state, and every fire through it
+  carries the port's own construction-time principal. `'user'` enters the book only through the
+  app's own doors: the [sensor's observed click](doc:human-sensor), an app handler's attributed
+  report, or a fire the app itself stamps.
+- **An agent that fills the decision is disclosed as the agent.** The fire is not refused; it
+  records principal `'agent'`, and the book then says `madeBy: 'agent'`.
+- **A stale stamp never survives an unattributed touch.** A person picks `standard`, an
+  unattributed delta later rewrites the key to `express` while the condition still holds — the
+  entry clears. The alternative attributes a value to somebody who never chose it.
+- **The world arriving decided** serves `made: true` with nobody named. It was decided; nobody in
+  this session decided it.
+
+## Nothing fires by itself
+
+`made: true` is a **state reading, not a command**. Nothing in the library fires, resumes, advances
+a frame or invokes anything when a decision becomes made — a library that acts on it has turned a
+disclosure into a trigger, and a mis-attributed delta would then perform actions rather than just
+mislabel them.
+
+In a wired app the natural resumption needs no machinery at all: the human's answer **is** a click
+on the app's own control, the sensor records the fire, the step commits, and the held lists empty
+because the step is done. No timer exists here either — nothing expires a decision and nothing
+flips `made` by clock.
+
+## What the agent sees
+
+**On the action row** ([`whats_here`](doc:modes) and `available()`): `humanDecides: true`,
+presence-only like every other stamp. A key means the app declared ownership; no key means none was
+declared — never *the agent's to make*, which the library cannot know. The row does not re-serve
+`doneWhen` (a served row carries verdicts and stamps, not filters) and does not carry `about`.
+
+**In a journey result**, the ready bucket splits three ways, because a step listed under
+`readySteps` **is an instruction to fire it**:
+
+```jsonc
+{ "frame": "open", "standing": "with-the-human", "judgment": "navigate-or-wait",
+  "withTheHuman": [
+    { "step": "checkout.choose-shipping-speed", "made": false, "about": "which shipping speed" }
+  ],
+  "withTheHumanMeans": "These steps are the human’s to decide, not yours to perform. …",
+  "readySteps": [],
+  "laterSteps": [{ "step": "checkout.place-order", "status": "blocked" }] }
+```
+
+- a step whose card is open → **`awaitingHuman`**, carrying `{ askId, step }` and nothing else;
+- a step whose decision is the person's → **`withTheHuman`**, carrying `{ step, made, about? }`.
+  A `made: true` row **stays listed** — the step is still theirs, and the row itself is the
+  resumption cue. It leaves when the step is done;
+- everything else → `readySteps`, unchanged.
+
+`withTheHumanMeans` rides exactly when the list is non-empty — one authored sentence, the
+[`stillWorkingMeans`](doc:when-the-app-is-still-working) pattern. A decision that is **blocked or
+off-page is not the person's turn yet**: it stays in `laterSteps`, carrying the same
+`humanDecides: true` stamp, so every rendering of the step tells one story.
+
+**In the facts block** ([`groundTruth()`](doc:grounding)), one authored line per such control
+offered here and not known made:
+
+```text
+A decision is with the human: checkout.choose-shipping-speed — the agent presents options and does not make it.
+```
+
+The line asserts **ownership only**. It claims nothing about `made`, so `false` and `'unknown'`
+print the same true sentence and nothing collapses; the made-state rides the data channel where the
+asymmetry survives. `about` never enters it, and it is capped by the same `maxAttempts` dial that
+bounds the awaiting-ask lines.
+
+## Disclosure, not enforcement
+
+**Nothing here refuses a fire, and no refusal word was minted.** An agent fire of a `humanDecides`
+control succeeds for every principal, and the violation is visible three ways instead: `madeBy:
+'agent'` in the decisions book, the fire in the transitions log, and the stamp on the row the model
+read before it fired.
+
+That is a deliberate v1 posture rather than an omission. Enforcement mints refusal words, and
+`FireResult['reason']` and `GapRecord['rejectionReason']` grow only in lockstep — both are
+byte-identical in this release, and so are `EffectStatus`, `Settlement`, `StepStatus`,
+`FrameStatus`, `GapReason` and the `Binding` kinds.
+
+## Honest limits
+
+- **Ownership is not a lock.** The library discloses whose decision it is; whether your app lets an
+  agent take it anyway is your app's business, and server-side enforcement is where a real one
+  belongs.
+- **No per-instance decisions.** The declaration is action-level and `doneWhen` reads flat
+  projected-state keys, so one row never speaks for one card of a repeats container. An app
+  modelling per-row decisions models them in its own keys.
+- **An unseeded key means `'unknown'` forever.** That is honest and degraded — seed the keys
+  `requiredStateKeys()` names.
+- **Absence of `madeBy` is common, and it is the honest answer.** It says nobody who carries
+  identity reported the delta, not that nobody decided.

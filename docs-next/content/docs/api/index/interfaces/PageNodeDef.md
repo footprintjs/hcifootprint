@@ -4,7 +4,7 @@ title: PageNodeDef
 
 # Interface: PageNodeDef
 
-Defined in: [src/tree/types.ts:142](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L142)
+Defined in: [src/tree/types.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L174)
 
 A container node: areas coexist (AND), tabs exclude (at most one shown), modals overlay.
 
@@ -18,7 +18,7 @@ A container node: areas coexist (AND), tabs exclude (at most one shown), modals 
 
 > `optional` **actions?**: `Record`\<`string`, [`ActionDef`](/api/index/interfaces/ActionDef)\>
 
-Defined in: [src/tree/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L134)
+Defined in: [src/tree/types.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L166)
 
 The controls on this node.
 
@@ -32,7 +32,7 @@ The controls on this node.
 
 > `optional` **areas?**: `Record`\<`string`, [`NodeDef`](/api/index/interfaces/NodeDef)\>
 
-Defined in: [src/tree/types.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L121)
+Defined in: [src/tree/types.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L153)
 
 #### Inherited from
 
@@ -44,7 +44,7 @@ Defined in: [src/tree/types.ts:121](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **does?**: `string`
 
-Defined in: [src/tree/types.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L118)
+Defined in: [src/tree/types.ts:150](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L150)
 
 Optional authored description of the container itself.
 
@@ -58,7 +58,7 @@ Optional authored description of the container itself.
 
 > `optional` **instances?**: (`state`) => `string`[]
 
-Defined in: [src/tree/types.ts:132](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L132)
+Defined in: [src/tree/types.ts:164](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L164)
 
 L2 existence source for a repeats container: the COMPLETE instance set,
 from projected state (order #57 exists while scrolled out of view).
@@ -85,7 +85,7 @@ honestly marked enumeration:'mounted-window'.
 
 > `optional` **modals?**: `Record`\<`string`, [`ModalDef`](/api/index/interfaces/ModalDef)\>
 
-Defined in: [src/tree/types.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L123)
+Defined in: [src/tree/types.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L155)
 
 #### Inherited from
 
@@ -97,7 +97,7 @@ Defined in: [src/tree/types.ts:123](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **repeats?**: `boolean`
 
-Defined in: [src/tree/types.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L125)
+Defined in: [src/tree/types.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L157)
 
 Template container: instances carry runtime keys (order cards, product tiles).
 
@@ -111,7 +111,7 @@ Template container: instances carry runtime keys (order cards, product tiles).
 
 > `optional` **route?**: `string`
 
-Defined in: [src/tree/types.ts:143](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L143)
+Defined in: [src/tree/types.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L175)
 
 ***
 
@@ -119,7 +119,7 @@ Defined in: [src/tree/types.ts:143](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **tabs?**: `Record`\<`string`, [`NodeDef`](/api/index/interfaces/NodeDef)\>
 
-Defined in: [src/tree/types.ts:122](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L122)
+Defined in: [src/tree/types.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L154)
 
 #### Inherited from
 
@@ -131,7 +131,7 @@ Defined in: [src/tree/types.ts:122](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L120)
+Defined in: [src/tree/types.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L152)
 
 Container guard: every descendant action's guard is AND-narrowed by this.
 

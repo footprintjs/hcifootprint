@@ -36,7 +36,14 @@ export function fromJourneys(journeys: Record<string, JourneyDef>): JourneysSour
     // editing their journeys after the fact must not change what was read.
     snapshot[journeyId] = Object.freeze({
       does: journey.does,
-      steps: Object.freeze([...journey.steps]) as string[],
+      // A step is a name or the object element `{ step }` — and an OBJECT is a
+      // reference, so copying the array alone would leave the author holding a
+      // handle into the snapshot. Copied element by element for the reason the
+      // fresh object above exists: a snapshot is a value. What the element MEANS
+      // is still the compiler's to judge, in its own voice.
+      steps: Object.freeze(
+        journey.steps.map((step) => (typeof step === 'string' ? step : { ...step })),
+      ) as JourneyDef['steps'],
       ...(journey.when !== undefined ? { when: structuredClone(journey.when) } : {}),
     });
   }

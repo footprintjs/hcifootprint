@@ -406,6 +406,29 @@ const STILL_WORKING_MEANS =
   'anything else on this result, and nothing here will time it out. Do not perform the action again ' +
   'to find out: ask this tool again, or call whats_here to see where things stand.';
 
+// WHOSE THE CHOICE IS — the companion sentence for the `withTheHuman` list, in
+// the `stillWorkingMeans` / `arrivalMeans` shape: a fact rides as data, and one
+// authored constant says what the fact MEANS.
+//
+// The list itself is the disclosure — those steps have left `readySteps`,
+// because a step listed there IS an instruction to fire it. This says the rest:
+// what to do instead, where the answer comes from, and what `made: true` is and
+// is not. It is deliberately not a refusal: nothing here stops a fire, and a
+// sentence promising a gate the library does not have would be the same class of
+// lie this library spends its refusals avoiding.
+//
+// NO CLOCK, and no "they should answer soon". Nothing expires a decision and
+// nothing flips it by time — a clock is never evidence
+// (docs/design/answer-grammar.md, rule 2). And nothing fires by itself: `made`
+// turning true is a state reading, not a trigger, so the move after it is still
+// the caller's to make.
+const WITH_THE_HUMAN_MEANS =
+  'These steps are the human’s to decide, not yours to perform. Present the options if they ask, and ' +
+  'wait: they answer through the app’s own control, and the flow moves because the world moved. Nothing ' +
+  'is being held here — there is no card to approve and no question of yours outstanding. A row with ' +
+  'made: true means they have answered; act on it as a normal step, and know that nothing fires by ' +
+  'itself. Nothing here will time any of this out.';
+
 // The five requireHumanApproval refusals, in the NOT_MATERIALIZED_WHY shape: name
 // what happened, name the next move, name the option. Every one is a fixed
 // authored sentence (the two-string-class invariant above) — a refusal that
@@ -807,6 +830,13 @@ export function serveToAgent(
         journey: journey.id,
         does: journey.description,
         feasible: journey.preconditionPassed,
+        // WHERE THIS CHAIN STANDS, from the SAME call the journey tool serves —
+        // never a second derivation here. Two doors that computed this
+        // separately could disagree about one journey, and a disagreement of
+        // that shape reads to a model as "the human already answered". The ids
+        // come from the session's own list, so nothing unresolved reaches the
+        // throwing door.
+        standing: session.journeyStanding(journey.id).standing,
         ...(journey.preconditionUnevaluable ? { feasibilityUnknownFor: journey.preconditionUnevaluable } : {}),
       })),
       ...positionData(),
@@ -1298,7 +1328,10 @@ export function serveToAgent(
     const plan = session.journeyPlan(journeyId);
     if (plan.steps.every((step) => step.status === 'done' || step.status === 'inferred-done')) {
       session.leaveJourney({ reason: 'completed' });
-      return { frame: 'completed', judgment: 'done' };
+      // ONE derivation, on this arm too: the frame it just closed is what the
+      // standing reads, so this door and `whats_here` cannot say two things
+      // about one chain in one state.
+      return { frame: 'completed', judgment: 'done', standing: session.journeyStanding(journeyId).standing };
     }
     const rows = session.available().edges;
     const running = runningNow(rows);
@@ -1320,11 +1353,61 @@ export function serveToAgent(
       step.status === 'ready' &&
       !awaiting.has(step.affordanceId) &&
       edges.get(step.affordanceId)?.enabled !== false;
-    const ready = plan.steps.filter(fireable);
+    // THE READY BUCKET SPLITS THREE WAYS, and a held step is never advertised as
+    // fireable. The precedent is `awaitingState` in this same function —
+    // "advertising it would instruct the model to double-fire" — and it applies
+    // twice over here, because a step listed under `readySteps` IS an
+    // instruction to fire it and both of these steps are somebody else's.
+    //
+    // THE ASK WINS while its card is open: a card is the sharper referent, and
+    // the same ordering governs the standing word. Once no card is open,
+    // ownership governs again.
+    //
+    // DISCLOSURE, NOT ENFORCEMENT. `fire()` still accepts every one of these
+    // steps, no refusal word exists for either hold, and the model is told what
+    // is true rather than stopped at a door the app never declared.
+    const openCards = new Map(
+      session
+        .asks()
+        .filter((ask) => ask.answer === undefined)
+        .map((ask) => [ask.affordanceId, ask.askId]),
+    );
+    const decisions = new Map(session.decisions().map((row) => [row.affordanceId, row]));
+    const awaitingHuman: ServeResult[] = [];
+    const withTheHuman: ServeResult[] = [];
+    const ready: JourneyPlanStep[] = [];
+    for (const step of plan.steps.filter(fireable)) {
+      const askId = openCards.get(step.affordanceId);
+      if (askId !== undefined) {
+        awaitingHuman.push({ askId, step: step.affordanceId });
+        continue;
+      }
+      const decision = decisions.get(step.affordanceId);
+      if (decision !== undefined) {
+        withTheHuman.push({
+          step: step.affordanceId,
+          // The made-state rides as DATA, all three of its answers intact — a
+          // `made: true` row stays LISTED, because the step is still the
+          // person's and the row itself is the resumption cue. It leaves the
+          // list when the step is done, and not before.
+          made: decision.made,
+          ...(decision.about !== undefined ? { about: decision.about } : {}),
+        });
+        continue;
+      }
+      ready.push(step);
+    }
     return {
       frame: 'open',
+      // ONE derivation for both doors — never re-computed here, so `whats_here`
+      // and this tool cannot disagree about one chain. It sits BESIDE `judgment`
+      // because the two answer different questions: `judgment` is "what is my
+      // move this turn", `standing` is "where does this chain stand".
+      standing: session.journeyStanding(journeyId).standing,
       judgment: ready.length === 0 ? 'navigate-or-wait' : ready.length === 1 ? 'one-ready-step' : 'needs-choice',
       ...(awaiting.size > 0 ? { awaitingState: [...awaiting] } : {}),
+      ...(awaitingHuman.length > 0 ? { awaitingHuman } : {}),
+      ...(withTheHuman.length > 0 ? { withTheHuman, withTheHumanMeans: WITH_THE_HUMAN_MEANS } : {}),
       readySteps: ready.map((step) => {
         const edge = edges.get(step.affordanceId);
         return {
@@ -1362,6 +1445,13 @@ export function serveToAgent(
           return {
             step: step.affordanceId,
             status: step.status,
+            // OWNERSHIP TRAVELS WITH THE STEP, on every rendering of it. A
+            // humanDecides step that is blocked or off-page is not "with the
+            // human" YET — it is not the person's turn until the step could
+            // actually be taken — so it stays here, carrying the stamp, and one
+            // story is told about it wherever it is read. Off the PLAN row, not
+            // re-derived per rendering.
+            ...(step.humanDecides ? { humanDecides: true } : {}),
             ...(edge?.enabled === false ? { enabled: false } : {}),
             // AND THE APP'S OWN REASON, on the journey surface too — for the
             // same reason `unblockedBy` is here: the two readers of one edge
@@ -1687,6 +1777,11 @@ export function serveToAgent(
       // caller's own input.
       ...(edge.holds !== undefined ? { holds: edge.holds } : {}),
       ...(edge.highEffect ? { highEffect: true } : {}),
+      // THE DECISION HERE IS A PERSON'S — on the action row, so a model meets
+      // ownership before it reaches rather than after. Presence-only like every
+      // other stamp on this row, and it refuses nothing: `do_action` still
+      // performs it, and the fire is recorded as the agent's.
+      ...(edge.humanDecides ? { humanDecides: true } : {}),
       ...(edge.guardUnevaluated ? { guardUnevaluated: edge.guardUnevaluated } : {}),
       // THE GREYED BUTTON, on the agent's row. `available()` has stamped this
       // from all four wires that can say it (registration, the group handle, a

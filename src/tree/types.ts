@@ -18,7 +18,14 @@
  *               action for N cards, never N actions).
  */
 import type { WhereFilter } from 'footprintjs';
-import type { Binding, BlockedBecause, CanonicalRole, NavigationGraphSpec, VerifyContract } from '../atom/types.js';
+import type {
+  Binding,
+  BlockedBecause,
+  CanonicalRole,
+  HumanDecides,
+  NavigationGraphSpec,
+  VerifyContract,
+} from '../atom/types.js';
 // Type-only cycle with graph/sources/types.ts (it names PageNodeDef/JourneyDef,
 // we name GraphSource) — erased at build, so no runtime cycle exists.
 import type { GraphSource } from '../graph/sources/types.js';
@@ -109,6 +116,31 @@ export interface ActionDef {
    * may read whatever the app can see, the DOM included.
    */
   verify?: VerifyContract;
+  /**
+   * THIS CHOICE IS THE PERSON'S TO MAKE — not a gate on the agent acting, but a
+   * statement that the decision itself belongs to a human.
+   *
+   * `confirm` asks whether the agent may ACT after a human's yes. This says the
+   * agent's correct move is to PRESENT options and stop: the human answers
+   * through this control in the app, and the flow moves because the world moved.
+   *
+   * ```ts
+   * 'choose-shipping-speed': {
+   *   does: 'Choose a shipping speed',
+   *   writes: ['checkout.shipping'],
+   *   humanDecides: {
+   *     about: 'which shipping speed',
+   *     doneWhen: { 'checkout.shipping': { ne: '' } },
+   *   },
+   * }
+   * ```
+   *
+   * It is a fact about the CONTROL, declared once and inherited by every journey
+   * that names it — a per-journey split would let two lists disagree about one
+   * control's owner. It is DISCLOSURE: nothing is refused, and no refusal word
+   * exists for it. See {@link HumanDecides}.
+   */
+  humanDecides?: HumanDecides;
   role?: CanonicalRole;
 }
 
@@ -157,8 +189,23 @@ export interface PageNodeDef extends NodeDef {
  */
 export interface JourneyDef {
   does: string;
-  /** Steps by qualified path ('checkout.confirm-order.place-order') or unambiguous suffix ('place-order'). */
-  steps: string[];
+  /**
+   * Steps by qualified path ('checkout.confirm-order.place-order') or
+   * unambiguous suffix ('place-order').
+   *
+   * THE OBJECT ELEMENT FORM — `{ step: 'place-order' }` — compiles identically
+   * to the bare string and carries NOTHING beyond `step` in this release. It
+   * exists because per-step conditional metadata has to have exactly ONE
+   * authoring carrier: two features orbit it (a per-edge guard is designed and
+   * parked), and deciding the carrier once means the next one lands as a new
+   * optional field on a shape that already exists rather than as a second shape
+   * competing with this one.
+   *
+   * `humanDecides` is deliberately NOT one of them: ownership is a fact about
+   * the CONTROL, declared on `ActionDef` and inherited by every journey that
+   * names it.
+   */
+  steps: Array<string | { step: string }>;
   when?: WhereFilter;
 }
 

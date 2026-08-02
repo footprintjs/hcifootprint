@@ -6,4 +6,4 @@ title: GapReason
 
 > **GapReason** = `"no-journey-matched"` \| `"guard-blocked"` \| `"needs-backend-data"` \| `"sensor-drift"` \| `"other"`
 
-Defined in: [src/atom/types.ts:1316](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1316)
+Defined in: [src/atom/types.ts:1427](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1427)

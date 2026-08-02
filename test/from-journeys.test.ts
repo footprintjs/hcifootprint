@@ -93,6 +93,18 @@ describe('those journeys landing on a graph that was authored elsewhere', () => 
     expect(graph).toThrow(/journey 'keep' step 'save' is ambiguous — qualify it/);
   });
 
+  it('the object step form survives the snapshot, and the author cannot reach it after', () => {
+    // A snapshot is a VALUE. The array was already copied; an object element is
+    // a reference, so it is copied too — edit yours afterwards and the graph is
+    // unmoved.
+    const authored: Array<string | { step: string }> = [{ step: 'add-to-cart' }];
+    const source = fromJourneys({ purchase: { does: 'Buy', steps: authored } });
+    (authored[0] as { step: string }).step = 'something-else';
+
+    const graph = buildNavigationGraph('shop', { pages: PAGES, sources: [source] });
+    expect(graph.spec.journeys.purchase.steps).toEqual(['catalog.add-to-cart']);
+  });
+
   it('a journey may only ADD — the page spine is untouched by the overlay', () => {
     const withJourney = buildNavigationGraph('shop', {
       pages: PAGES,

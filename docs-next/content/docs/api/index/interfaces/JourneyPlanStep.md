@@ -4,7 +4,7 @@ title: JourneyPlanStep
 
 # Interface: JourneyPlanStep
 
-Defined in: [src/atom/types.ts:1805](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1805)
+Defined in: [src/atom/types.ts:2028](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2028)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1805](https://github.com/footprintjs/hcifootprint
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1806](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1806)
+Defined in: [src/atom/types.ts:2029](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2029)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:1806](https://github.com/footprintjs/hcifootprint
 
 > `optional` **blockedOn?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:1816](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1816)
+Defined in: [src/atom/types.ts:2039](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2039)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:1816](https://github.com/footprintjs/hcifootprint
 
 > **dependsOn**: [`DependencyEdge`](/api/index/interfaces/DependencyEdge)[]
 
-Defined in: [src/atom/types.ts:1814](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1814)
+Defined in: [src/atom/types.ts:2037](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2037)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/atom/types.ts:1814](https://github.com/footprintjs/hcifootprint
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:1807](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1807)
+Defined in: [src/atom/types.ts:2030](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2030)
 
 ***
 
@@ -44,9 +44,26 @@ Defined in: [src/atom/types.ts:1807](https://github.com/footprintjs/hcifootprint
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:1818](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1818)
+Defined in: [src/atom/types.ts:2041](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2041)
 
 Guard keys absent from the state view — the step shows 'ready', taken on faith.
+
+***
+
+### humanDecides?
+
+> `optional` **humanDecides?**: `true`
+
+Defined in: [src/atom/types.ts:2052](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2052)
+
+THE DECISION AT THIS STEP IS A PERSON'S — the presence stamp
+[AvailableEdge.humanDecides](/api/index/interfaces/AvailableEdge#humandecides) carries, on the plan row, so a serving
+layer reads it off the plan instead of re-deriving it per row. Per-step
+conditional facts already live here, beside `blockedOn` and
+`guardUnevaluated`.
+
+Presence-only, and [StepStatus](/api/index/type-aliases/StepStatus) does NOT grow for it: the hold is a
+list membership in a frame result, not a status word.
 
 ***
 
@@ -54,7 +71,7 @@ Guard keys absent from the state view — the step shows 'ready', taken on faith
 
 > **onNodes**: `string`[]
 
-Defined in: [src/atom/types.ts:1815](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1815)
+Defined in: [src/atom/types.ts:2038](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2038)
 
 ***
 
@@ -62,7 +79,7 @@ Defined in: [src/atom/types.ts:1815](https://github.com/footprintjs/hcifootprint
 
 > **status**: [`StepStatus`](/api/index/type-aliases/StepStatus)
 
-Defined in: [src/atom/types.ts:1813](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1813)
+Defined in: [src/atom/types.ts:2036](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2036)
 
 'done' = committed while the current frame was open; 'blocked' = guard
 fails (see blockedOn); 'ready' = fireable here and now; 'off-node' =

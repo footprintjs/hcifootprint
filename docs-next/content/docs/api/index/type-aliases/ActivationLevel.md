@@ -6,7 +6,7 @@ title: ActivationLevel
 
 > **ActivationLevel** = `"synced"` \| `"assumed"` \| `"registered"` \| `"shown"` \| `"hidden"`
 
-Defined in: [src/atom/types.ts:331](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L331)
+Defined in: [src/atom/types.ts:422](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L422)
 
 How much evidence backs "this node is active" for a served edge (D18).
 'synced'     — the router confirmed this page (page-level tools).

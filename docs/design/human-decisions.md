@@ -3,6 +3,12 @@
 Status: DESIGN (Round A). Nothing here is built; Round B builds exactly this and nothing beyond
 it.
 
+> **BUILT in 1.3.0**, as papered. The body below is left exactly as Round A wrote it — it is the
+> record of what was decided and why, including the alternatives that were rejected, and editing it
+> after the fact would destroy that. What shipped, in this note's own vocabulary mapped through the
+> header above: D1–D16 whole, the 30-item test list, and T-A1..T-A12. The open items in D16 stayed
+> open. See the CHANGELOG's 1.3.0 section for the shipped surface.
+
 > **Written before the 1.0 rename, and its names are pre-1.0 names.** Read `ToolDef` as
 > `ActionDef`, `AffordanceDef` as the flat authoring type it replaced, `skillId` as `journeyId`,
 > and `skillStanding` / `skillPlan` as `journeyStanding` / `journeyPlan`. The shapes and the

@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-2001%20passing-f5b301?style=flat" alt="2001 tests passing">
+  <img src="https://img.shields.io/badge/tests-2113%20passing-f5b301?style=flat" alt="2113 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -118,7 +118,7 @@ value meaning *did not arrive* — and the declared hops to any destination.
 ### 3 · Actions — *what is possible here?*
 
 **Declare** what an action is, once, where it lives: `does`, `writes`, `enabledWhen`, `goTo`,
-`confirm`, `verify`, `input`.
+`confirm`, `verify`, `input`, `humanDecides`.
 
 **Wire** your own functions, by reference, when the component that renders them mounts.
 
@@ -132,8 +132,8 @@ session.updateState({ 'cart.items': 3 });              // your store → conditi
 ```
 
 **The agent gets** one row per action that is offered here, carrying `enabled`, `blockedBecause`,
-`busy`, `holds`, `goesTo`, `expects`, `highEffect` and `unblockedBy`. Every stamp is presence-only: a
-key means your app said so, and no key means the library does not know.
+`busy`, `holds`, `goesTo`, `expects`, `highEffect`, `humanDecides` and `unblockedBy`. Every stamp is
+presence-only: a key means your app said so, and no key means the library does not know.
 
 ### Declared or wired? One question decides
 
@@ -275,7 +275,24 @@ empty list as truth. Silence is never a verdict, and a clock is never evidence.
 approved"* proves nothing. The library requires a pointer to a decision a person actually recorded,
 bound to the receipts they were shown.
 
+**And some choices are not the agent's to make at all.** `humanDecides` says a decision belongs to a
+person — the agent presents the options and stops, and the human answers through your own control.
+It is disclosed on every surface and enforced on none: the flow is simply in someone's hands, and
+the library can say so without inventing a gate you never declared.
+
+```ts
+'choose-shipping-speed': {
+  does: 'Choose a shipping speed',
+  writes: ['checkout.shipping'],
+  humanDecides: {
+    about: 'which shipping speed',                   // your words, carried as data
+    doneWhen: { 'checkout.shipping': { ne: '' } },   // your own "it has been decided"
+  },
+}
+```
+
 → [Human-in-the-loop](https://footprintjs.github.io/hcifootprint/docs/actions/receipts) ·
+[Whose decision it is](https://footprintjs.github.io/hcifootprint/docs/actions/whose-decision-it-is) ·
 [Paused is not failed](https://footprintjs.github.io/hcifootprint/docs/actions/paused-not-failed) ·
 [The human sensor](https://footprintjs.github.io/hcifootprint/docs/actions/human-sensor)
 

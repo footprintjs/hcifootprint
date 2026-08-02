@@ -192,6 +192,71 @@ export function validateBlockedBecause(owner: string, value: unknown): void {
   if (fault !== undefined) throw new GraphValidationError(`${owner}: ${BLOCKED_BECAUSE_FAULT[fault]}`);
 }
 
+// ---------------------------------------------------------------------------
+// humanDecides — a decision that belongs to a person (see HumanDecides)
+// ---------------------------------------------------------------------------
+
+/**
+ * The cap on `about`, and it is the cap every app string that crosses already
+ * crosses under (an error text's, a `busy` label's, a work row's).
+ */
+export const ABOUT_MAX = 200;
+
+/**
+ * The whole declaration, judged at an authoring door — BOTH of them, in the same
+ * words, because whatever the compiler refuses is what the mount door refuses
+ * and a reader learning from one has learned the other.
+ *
+ * `owner` is the only thing that differs between them ('action X' /
+ * 'mount-declared action X'), exactly as {@link validateBlockedBecause} does it.
+ *
+ * There is no read-time arm here and no fault code, because there is nothing to
+ * read late: a declaration is bytes, not a reader — `doneWhen` is a plain filter
+ * on purpose, and `about` is a literal the author can fix once.
+ */
+export function validateHumanDecides(owner: string, value: unknown): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new GraphValidationError(
+      `${owner}: humanDecides must be an object { about?, doneWhen? } — 'about' is your own words for ` +
+        `what is being decided, 'doneWhen' is your own condition for it having been decided.`,
+    );
+  }
+  const { about, doneWhen } = value as { about?: unknown; doneWhen?: unknown };
+  if (about !== undefined) {
+    if (typeof about !== 'string' || about.trim() === '') {
+      throw new GraphValidationError(
+        `${owner}: humanDecides.about is empty — it is your own words for WHAT is being decided ` +
+          `('which shipping speed'), and an empty one puts a blank where a reader expects a subject. ` +
+          `Write it, or omit 'about' entirely.`,
+      );
+    }
+    if (about.length > ABOUT_MAX) {
+      throw new GraphValidationError(
+        `${owner}: humanDecides.about is ${about.length} characters — the cap is ${ABOUT_MAX}, the same one ` +
+          `every app string that crosses to a reader crosses under. It rides DATA fields only and never ` +
+          `enters an authored sentence, so shorten it here rather than have it truncated where it is read.`,
+      );
+    }
+  }
+  if (doneWhen !== undefined) {
+    if (typeof doneWhen !== 'object' || doneWhen === null || Array.isArray(doneWhen)) {
+      throw new GraphValidationError(
+        `${owner}: humanDecides.doneWhen must be a filter over projected state like ` +
+          `{ 'checkout.shipping': { ne: '' } } — a condition can prove a state, and only a filter keeps the ` +
+          `declaration exportable and explainable. It is deliberately not a predicate.`,
+      );
+    }
+    if (Object.keys(doneWhen).length === 0) {
+      throw new GraphValidationError(
+        `${owner}: humanDecides.doneWhen is empty {} — footprint's evaluator deliberately NEVER matches an ` +
+          `empty filter (anti-vacuous-truth), so the decision could never be known made. Omit 'doneWhen' ` +
+          `entirely instead: humanDecides without it declares ownership and leaves 'made' at 'unknown'.`,
+      );
+    }
+    validateGuardShape(`${owner} humanDecides.doneWhen`, doneWhen as Record<string, unknown>);
+  }
+}
+
 /** Catch shape mistakes at authoring time — the evaluator fails them silently at runtime. */
 export function validateGuardShape(owner: string, guard: Record<string, unknown>): void {
   for (const [key, ops] of Object.entries(guard)) {

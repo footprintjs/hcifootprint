@@ -265,6 +265,90 @@ export interface BlockedBecause {
   clearedBy: 'app' | 'user' | 'invalid';
 }
 
+/**
+ * A DECISION THAT BELONGS TO A PERSON — declared once, on the control they
+ * answer through.
+ *
+ * {@link SessionOptions.requireHumanApproval} answers one question: may the
+ * agent ACT — a human's recorded yes unlocks one fire. This answers a different
+ * one. Some choices are the person's to MAKE: which plan, which shipping speed,
+ * whether to sell at all. The agent's correct move there is to present options
+ * and stop; the human answers through the app's OWN control, and the flow moves
+ * because the world moved.
+ *
+ * The library had no word for that, so a model met a choice control like any
+ * other and fired it — or, told not to in prose, invented its own vocabulary for
+ * the pause. Every near word this library already had describes something the
+ * SYSTEM holds: a card, a gate, a greyed button. Here the system holds nothing.
+ * There is no card, no `askId`, no refusal; the flow is simply in a person's
+ * hands, and the standing word for that is `'with-the-human'`.
+ *
+ * ```ts
+ * 'choose-shipping-speed': {
+ *   does: 'Choose a shipping speed',
+ *   writes: ['checkout.shipping'],
+ *   humanDecides: {
+ *     about: 'which shipping speed',                 // app data — rides data fields only
+ *     doneWhen: { 'checkout.shipping': { ne: '' } }, // the app's own "it has been decided"
+ *   },
+ * }
+ * ```
+ *
+ * DISCLOSURE, NOT ENFORCEMENT. Declaring it refuses nothing: an agent fire of
+ * such a control still succeeds, records principal `'agent'`, and the decisions
+ * book then says `madeBy: 'agent'` — the app and the person can SEE that the
+ * agent made a decision it was told to leave alone. No refusal word is minted
+ * for it, here or anywhere, because enforcement would grow
+ * {@link FireResult}'s reasons and {@link GapRecord}'s, which grow only in
+ * lockstep.
+ *
+ * IT NEVER SHARES A WORD WITH APPROVAL. None of the approval vocabulary
+ * (`askId`, `approved`, `declined`, `spent`, `stale`, `APPROVAL_*`) appears on a
+ * decision surface, and none of this feature's vocabulary (`made`, `madeBy`,
+ * `'with-the-human'`) appears on an approval one. One control may carry BOTH
+ * declarations — `confirm: true` and `humanDecides` are independent facts and
+ * both are served — and while a card is open the ask wins the standing word,
+ * because a card is the sharper referent.
+ */
+export interface HumanDecides {
+  /**
+   * The app's own words for WHAT is being decided ('which shipping speed').
+   *
+   * DATA, AND ONLY DATA. It rides structured fields — {@link DecisionStatus}
+   * rows, the `withTheHuman` list in a frame result — and never enters an
+   * authored sentence, `groundTruth()`, or the facts block, exactly as a `busy`
+   * label and a {@link WorkRow.label} do not. The authored `does` already names
+   * the control in the planner-facing string class; this exists for the app's
+   * own domain phrasing.
+   *
+   * Capped at 200 characters and refused LOUDLY at build when over — the same
+   * cap every app string that crosses under, and a build-time refusal is kinder
+   * than silent truncation for a string the author can fix once.
+   */
+  about?: string;
+  /**
+   * The app's own "it has been decided", as a plain serializable `WhereFilter`
+   * over projected state — evaluated by the same evaluator, and under the same
+   * honesty split, as every guard.
+   *
+   * DELIBERATELY NOT A PREDICATE: a condition can prove a state, and only the
+   * app's own filter grammar keeps the declaration exportable, explainable and
+   * composable.
+   *
+   * OMITTING IT IS LEGAL and says something exact — ownership is declared while
+   * the app gave the library no way to know when the decision lands, so
+   * {@link DecisionStatus.made} is `'unknown'` forever. Absence of a condition
+   * is absence of knowledge, never a verdict. `doneWhen: {}` is a different
+   * thing and is refused at build: footprint's evaluator never matches an empty
+   * filter, so it could never hold.
+   *
+   * Its keys join `NavigationGraph.requiredStateKeys()` — a projector that never
+   * seeds them leaves `made` at `'unknown'` forever, which is honest and
+   * degraded.
+   */
+  doneWhen?: WhereFilter;
+}
+
 export interface Affordance {
   id: string;
   on: string[];
@@ -310,6 +394,13 @@ export interface Affordance {
    * live control.
    */
   blockedBecause?: BlockedBecause | (() => BlockedBecause | undefined);
+  /**
+   * The app's declaration that this control's DECISION belongs to a person,
+   * compiled verbatim from `ActionDef.humanDecides` at either authoring door.
+   * See {@link HumanDecides}. Absent means no ownership was declared — never
+   * "the agent's to make", which the library cannot know.
+   */
+  humanDecides?: HumanDecides;
   highEffect: boolean;
   role: CanonicalRole;
   /**
@@ -884,6 +975,26 @@ export interface AvailableEdge {
    * a secret, a customer's name, or the payload into one.
    */
   busy?: string;
+  /**
+   * THE DECISION HERE IS A PERSON'S — the app declared {@link HumanDecides} on
+   * this control, and the row says so before anything is reached for.
+   *
+   * PRESENCE IS THE WHOLE CLAIM, like every other stamp on this row. A key means
+   * the app declared ownership; NO KEY means no ownership was declared — never
+   * "the agent's to make", which the library cannot know. There is deliberately
+   * no `humanDecides: false`.
+   *
+   * The row does NOT re-serve `doneWhen` (a served row carries verdicts and
+   * stamps, not filters — the same reason `enabledWhen` itself never rides here)
+   * and does not carry `about`: the decision surfaces do
+   * ({@link Session.decisions}, the `withTheHuman` list), and an action row stays
+   * lean.
+   *
+   * IT GATES NOTHING. A fire of this control is not refused and never will be in
+   * v1 — the stamp is disclosure, and the honest place for enforcement is a
+   * session option nobody has asked for yet.
+   */
+  humanDecides?: true;
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
   instances?: string[];
   /**
@@ -1764,6 +1875,118 @@ export interface AskStatus {
 }
 
 /**
+ * ONE DECISION THAT BELONGS TO A PERSON, and whether it has been made — the rows
+ * {@link Session.decisions} serves, read at the moment you ask.
+ *
+ * The sibling of {@link AskStatus}: that one answers "is anything waiting on a
+ * person?", this one answers "is anything a person's to decide?". They are
+ * different questions with different next moves, so they keep separate rows and
+ * share no vocabulary — no `askId` appears here, because a decision mints no
+ * card and there is nothing for `did_it_work` to be asked about.
+ *
+ * Graph-wide, like the ask book: a decision on another page still holds a
+ * journey, so a row exists for every declaring control wherever it lives.
+ */
+export interface DecisionStatus {
+  affordanceId: string;
+  /** The app's own words for what is being decided — DATA (see {@link HumanDecides.about}). */
+  about?: string;
+  /**
+   * Whether the app's own `doneWhen` holds RIGHT NOW, evaluated fresh on every
+   * call:
+   *
+   * - `true` — it holds.
+   * - `false` — it was evaluated and does not hold. Only an evaluable, failing
+   *   condition may say this.
+   * - `'unknown'` — it could not be evaluated (a key absent from the state view,
+   *   or holding `undefined` — the same rule `guardUnevaluated` applies to
+   *   guards), or no `doneWhen` was declared at all.
+   *
+   * `'unknown'` IS NEVER COLLAPSED INTO "not yet". They are different answers to
+   * different questions, exactly as an unevaluable guard is served with a marker
+   * rather than treated as failed.
+   */
+  made: boolean | 'unknown';
+  /**
+   * WHO MADE IT — served beside `made: true` only, and minted from exactly the
+   * identity-bearing rungs of `updateState`'s attribution ladder: a delta naming
+   * a fired transition, a handler's own call window, or an attributed
+   * `updateState(delta, { principal })`.
+   *
+   * ABSENT IS THE HONEST ANSWER and the common one. The matching rungs — FIFO
+   * settlement, the single-cover arm, effect-signature inference, the
+   * unknown-stimulus floor — compute a JOIN, and a computed join never
+   * attributes a human decision, so each of them CLEARS whatever the book held.
+   * The decision is then visibly made and nobody is named: the library does not
+   * say the human did it, and does not say they didn't.
+   *
+   * Never inferred, never defaulted, and **never `'user'`** unless a door that
+   * carries identity said `'user'`. A sentence typed in conversation reaches no
+   * such door.
+   */
+  madeBy?: Principal;
+}
+
+/**
+ * WHERE ONE JOURNEY STANDS — {@link Session.journeyStanding}'s answer, folded
+ * fresh from the plan, the ask book, the decisions book, retained settlements
+ * and frame history every time you ask.
+ *
+ * A NEW PUBLISHED TYPE, and its `standing` strings are data on THIS type alone:
+ * no existing union grows for it. `EffectStatus`, `Settlement`, `StepStatus`,
+ * `FrameStatus`, `FireResult['reason']`, `GapRecord['rejectionReason']`,
+ * `GapReason` and the {@link Binding} kinds are byte-identical to what they were.
+ */
+export interface JourneyStanding {
+  journeyId: string;
+  /**
+   * - `'done'` — every step is done, or a completed frame closed it.
+   * - `'in-progress'` — open, and nothing is holding it (including a journey
+   *   nobody has started: `stepsDone: 0` says plainly that nothing has fired).
+   * - `'awaiting-human'` — the governing step's card is open. The referent is a
+   *   CARD, and `evidence.askId` names it.
+   * - `'with-the-human'` — the governing step's decision belongs to a person and
+   *   nothing was fired. There is no card and no id: the human answers through
+   *   the app's own control.
+   * - `'blocked'` — the governing step's guard was evaluated and failed.
+   * - `'failed'` — the governing step's LAST attempt came to rest badly. NEVER
+   *   minted from any pause: a refusal is not an execution, so nothing ran and
+   *   nothing failed.
+   * - `'declined'` — the human answered no to the governing step's latest card,
+   *   through their own door.
+   */
+  standing:
+    | 'done'
+    | 'in-progress'
+    | 'awaiting-human'
+    | 'with-the-human'
+    | 'blocked'
+    | 'failed'
+    | 'declined';
+  /** Why that word, in facts — POINTERS and structural evidence, never a receipts pack. */
+  evidence: {
+    /** The governing step (the first not-done step in chain order), where one exists. */
+    step?: string;
+    /** `'awaiting-human'` / `'declined'` — the card. A POINTER, never the receipts. */
+    askId?: string;
+    /** `'with-the-human'` — the app's own words for what is being decided (DATA). */
+    about?: string;
+    /** `'with-the-human'` — whether the app's own `doneWhen` holds (see {@link DecisionStatus.made}). */
+    made?: boolean | 'unknown';
+    /** `'with-the-human'` — who made it, from the decisions book. Absent unless identity carried it. */
+    madeBy?: Principal;
+    /** `'blocked'` — the conditions that did not hold. */
+    blockedOn?: FilterCondition[];
+    /** Guard keys taken on faith — carried, never resolved. Taken-on-faith is not blocked. */
+    guardUnevaluated?: string[];
+    /** `'failed'` — a POINTER to the settled fire. The receipt itself is `did_it_work`'s to serve. */
+    transitionId?: string;
+    stepsDone: number;
+    stepsTotal: number;
+  };
+}
+
+/**
  * What one of the human-side approval doors did — {@link Session.approveAsk},
  * {@link Session.declineAsk}, {@link Session.alwaysApprove},
  * {@link Session.revokeAlwaysApprove}.
@@ -1816,6 +2039,17 @@ export interface JourneyPlanStep {
   blockedOn?: FilterCondition[];
   /** Guard keys absent from the state view — the step shows 'ready', taken on faith. */
   guardUnevaluated?: string[];
+  /**
+   * THE DECISION AT THIS STEP IS A PERSON'S — the presence stamp
+   * {@link AvailableEdge.humanDecides} carries, on the plan row, so a serving
+   * layer reads it off the plan instead of re-deriving it per row. Per-step
+   * conditional facts already live here, beside `blockedOn` and
+   * `guardUnevaluated`.
+   *
+   * Presence-only, and {@link StepStatus} does NOT grow for it: the hold is a
+   * list membership in a frame result, not a status word.
+   */
+  humanDecides?: true;
 }
 
 /** The derived intra-journey dependency DAG with live status. */

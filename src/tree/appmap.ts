@@ -22,7 +22,7 @@ import type {
   Journey,
   NavigationGraphSpec,
 } from '../atom/types.js';
-import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateBlockedBecause, validateGuardShape } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateBlockedBecause, validateGuardShape, validateHumanDecides } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from '../traverse/expects.js';
 import { mergeSources } from '../graph/sources/merge.js';
 import { actionsOf, journeysOf } from './authoring-keys.js';
@@ -224,6 +224,11 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
     if (action.blockedBecause !== undefined && typeof action.blockedBecause !== 'function') {
       validateBlockedBecause(`action '${qualifiedId}'`, action.blockedBecause);
     }
+    // A decision that belongs to a person, judged in the shared words both
+    // authoring doors throw — same law, same sentence, one owner apiece.
+    if (action.humanDecides !== undefined) {
+      validateHumanDecides(`action '${qualifiedId}'`, action.humanDecides);
+    }
     // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
     // so it dies here — which also makes "a journey whose entry step's gesture
     // is such a url" unconstructable, since every static action passes this door.
@@ -262,6 +267,12 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
         ...(action.verify
           ? { verify: typeof action.verify === 'function' ? action.verify : structuredClone(action.verify) }
           : {}),
+        // Compiled VERBATIM and cloned, `enabledWhen`'s exact path: authored on
+        // the tree action, carried on the compiled affordance, owned by the
+        // graph. A second path would be a second thing to keep true.
+        ...(action.humanDecides !== undefined
+          ? { humanDecides: structuredClone(action.humanDecides) }
+          : {}),
         highEffect: action.confirm ?? false,
         role: deriveRole(action),
         descriptionSource: 'declared',
@@ -286,13 +297,33 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       rejectEmptyFilter(`journey '${journeyId}'`, 'when', journeyDef.when);
       validateGuardShape(`journey '${journeyId}' when`, journeyDef.when as Record<string, unknown>);
     }
-    const steps = journeyDef.steps.map((step) => resolveStep(journeyId, step));
+    const steps = journeyDef.steps.map((step) => resolveStep(journeyId, stepNameOf(journeyId, step)));
     journeys[journeyId] = deepFreeze({
       id: journeyId,
       description: journeyDef.does,
       steps,
       precondition: journeyDef.when ? structuredClone(journeyDef.when) : undefined,
     }) as Journey;
+  }
+
+  /**
+   * THE ONE PER-STEP CARRIER, read. A step is a bare name or the object element
+   * `{ step }`, and the two compile identically — the object form exists so the
+   * per-step conditional metadata already designed (and parked) lands as a field
+   * on a shape that exists rather than as a second shape. It carries nothing
+   * else in this release, and a shape that is neither dies here rather than
+   * reaching the resolver as `[object Object]`.
+   */
+  function stepNameOf(journeyId: string, step: string | { step: string }): string {
+    if (typeof step === 'string') return step;
+    const name = (step as { step?: unknown })?.step;
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new GraphValidationError(
+        `journey '${journeyId}' has a step that is neither an action name nor { step: '<name>' } — ` +
+          `the object form carries a step name and nothing else.`,
+      );
+    }
+    return name;
   }
 
   function resolveStep(journeyId: string, step: string): string {
@@ -335,6 +366,11 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
         ...Object.values(spec.affordances).map((aff) => aff.guard),
         ...Object.values(spec.journeys).map((journey) => journey.precondition),
         ...Object.values(nodes).map((node) => node.guard),
+        // A decision's own "it has been decided" reads projected state like any
+        // guard, and this list exists precisely to tell the app which keys make
+        // its declarations decidable: unseeded, `made` is 'unknown' forever —
+        // honest, and degraded.
+        ...Object.values(spec.affordances).map((aff) => aff.humanDecides?.doneWhen),
       ]),
   };
   // The runtime object is path-untyped; the `const Def` signature re-attaches

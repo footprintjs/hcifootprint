@@ -161,3 +161,93 @@ describe('a confirm-journal consumer that knows only the three kinds of its own 
     expect(rows.find((row) => row.kind === 'always-approved')!.askId).toMatch(/^grant#/);
   });
 });
+
+/**
+ * AN APP THAT DECLARES NOTHING SEES WHAT IT SAW BEFORE.
+ *
+ * The boundary law: declarations are additive and severable, and this is the pin
+ * for it. Everything the human-decisions release added is driven by an authored
+ * `humanDecides` — absent it, every new key is absent, the reader answers with an
+ * empty list, no new lists appear in a frame result, and the facts block prints
+ * no new lines.
+ *
+ * ONE FIELD IS UNCONDITIONALLY NEW and it is named here rather than hidden:
+ * `standing`, on the two doors that serve a journey. That is a deliberate
+ * disclosure — one word for where a chain stands, from one derivation, so two
+ * doors cannot disagree about it — and it is a WORD about the chain, never a
+ * claim about a declaration nobody made.
+ *
+ * MUTATION PROOFS:
+ * - Stamp `humanDecides: false` on undeclared rows → 2 red.
+ * - Emit an empty `withTheHuman: []` rather than omitting it → 1 red.
+ * - Print a decisions line for a graph with none → 1 red.
+ */
+describe('a graph that declares no human decisions', () => {
+  /** The pre-feature graph, wired: one journey, two ordinary steps. */
+  function plain(): ReturnType<typeof buildNavigationGraph> {
+    return buildNavigationGraph('shop', {
+      pages: {
+        checkout: {
+          actions: {
+            'enter-address': { does: 'Enter the delivery address', writes: ['address'] },
+            'place-order': { does: 'Place the order', when: { address: { ne: '' } }, writes: ['orderId'] },
+          },
+        },
+      },
+      journeys: { buy: { does: 'Buy what is in the cart', steps: ['enter-address', 'place-order'] } },
+    });
+  }
+
+  function session(): ReturnType<ReturnType<typeof plain>['createSession']> {
+    const live = plain().createSession({
+      node: 'checkout',
+      state: { address: '', orderId: '' },
+      onWarn: () => undefined,
+    });
+    live.registerActions('checkout', {
+      handlers: { 'enter-address': () => undefined, 'place-order': () => undefined },
+    });
+    return live;
+  }
+
+  it('the reader answers with an empty list, and nothing is stamped anywhere', () => {
+    const live = session();
+    expect(live.decisions()).toEqual([]);
+    for (const edge of live.available().edges) {
+      expect(Object.hasOwn(edge, 'humanDecides')).toBe(false);
+    }
+    for (const step of live.journeyPlan('buy').steps) {
+      expect(Object.hasOwn(step, 'humanDecides')).toBe(false);
+    }
+  });
+
+  it('a frame result grows no new list, and the facts block no new line', () => {
+    const live = session();
+    const port = serveToAgent(live);
+    const result = port.call('shop.journey.buy');
+    for (const key of ['withTheHuman', 'withTheHumanMeans', 'awaitingHuman']) {
+      expect(Object.hasOwn(result, key)).toBe(false);
+    }
+    expect(live.groundTruth().text).not.toContain('A decision is with the human');
+    expect(JSON.stringify(port.call('shop.whats_here'))).not.toContain('humanDecides');
+  });
+
+  it('the only new key on either journey door is the standing word', () => {
+    const port = serveToAgent(session());
+    // The 1.2-era key set, written down, so a NEW one has to be argued for here.
+    expect(Object.keys(port.call('shop.journey.buy')).sort()).toEqual([
+      'frame',
+      'howToAct',
+      'journey',
+      'judgment',
+      'laterSteps',
+      'ok',
+      'readySteps',
+      'standing',
+      'version',
+      'youAreOn',
+    ]);
+    const rows = port.call('shop.whats_here')['journeys'] as Array<Record<string, unknown>>;
+    expect(Object.keys(rows[0]).sort()).toEqual(['does', 'feasible', 'journey', 'standing']);
+  });
+});

@@ -1,5 +1,184 @@
 # Changelog
 
+## [1.3.0] - 2026-08-02
+
+**Some choices are the person's to make. The library had a word for "may the agent act" and no word
+at all for that.**
+
+`requireHumanApproval` answers one question: a human's recorded yes unlocks one fire. It says
+nothing about the other way a person is inside a flow. Which plan. Which shipping speed. Whether to
+sell at all. The agent's correct move there is to present the options and stop; the human answers
+through the app's own control, and the flow moves because the world moved.
+
+With no word for it, a model met a choice control like any other and fired it — or, told not to in
+prose, invented its own vocabulary for the pause. And every near word this library already had
+describes something the **system** holds: a card, a gate, a greyed button. Here the system holds
+nothing. There is no card, no `askId`, no refusal. So borrowing one of those words would have taught
+a model to go looking for a card that does not exist.
+
+Designed in Round A and written down before a line was built —
+[`docs/design/human-decisions.md`](docs/design/human-decisions.md), sixteen decisions with their
+rejected alternatives recorded so the next build does not re-litigate them — and built here exactly
+as papered. The shape of the hole came from field use across the wave.
+
+### `humanDecides` — declared on the control the person answers through
+
+```ts
+'choose-shipping-speed': {
+  does: 'Choose a shipping speed',
+  writes: ['checkout.shipping'],
+  humanDecides: {
+    about: 'which shipping speed',                   // app DATA — never spoken
+    doneWhen: { 'checkout.shipping': { ne: '' } },   // the app's own "it has been decided"
+  },
+}
+```
+
+Authored on `ActionDef` at both its doors and compiled verbatim onto the affordance — `enabledWhen`'s
+exact path, because a second path would be a second thing to keep true. New exported type
+`HumanDecides`. Both fields are optional, and **omitting `doneWhen` is legal and exact**: ownership
+is declared while the app gave the library no way to know when the decision lands, so `made` stays
+`'unknown'` forever. `doneWhen: {}` is a different thing and dies at build — footprint's evaluator
+never matches an empty filter, so it could never hold. `about` is capped at 200 characters and
+refused loudly when over, in the same sentence at both doors.
+
+It is a fact about the **control**, inherited by every journey that names it. A per-journey split
+would let two lists disagree about one control's owner.
+
+### `decisions()` — and the one guess this library must be structurally incapable of
+
+`session.decisions()` is the sibling of `asks()`: that one answers *is anything waiting on a
+person?*, this one answers *is anything a person's to decide?*. Graph-wide, read at the moment you
+ask, one `DecisionStatus` row per declaring control.
+
+`made` has **three** answers and they are three different things — `true`, `false`, and `'unknown'`
+for a condition nobody could evaluate or one that was never declared. **`'unknown'` is never
+collapsed into "not yet".** That is the `guardUnevaluated` asymmetry at the decision grain: a filter
+half-read is a filter unread, so `false` is reserved for a condition the library actually evaluated.
+
+`madeBy` is the part worth reading twice. It rides beside `made: true` only, and it is minted from
+exactly the identity-bearing rungs of `updateState`'s ladder — a delta naming a fired transition,
+the handler's own call window, an attributed `updateState(delta, { principal })`. **Every matching
+rung CLEARS it**: FIFO settlement can mis-attribute predictably, the single-cover arm is a signature
+match, inference is a guess the record already flags. A computed join never attributes a human
+decision.
+
+What that buys, each of it pinned by an attack test:
+
+- **An unattributed flip serves `made: true` with `madeBy` absent.** The decision is visibly made
+  and nobody is named. Silence cuts both ways — the library does not say the human did it, and does
+  not say they didn't.
+- **A chat-typed "done" cannot launder into attribution.** No Mode B tool reaches `updateState`, and
+  every fire through the port carries the port's own principal. `'user'` enters the book only
+  through the app's own doors.
+- **A stale stamp never survives an unattributed touch.** A person picks `standard`; an unattributed
+  delta later rewrites the key to `express` while the condition still holds; the entry clears. The
+  alternative attributes a value to somebody who never chose it.
+- **Nothing fires on `made: true`.** It is a state reading, not a command. A library that acted on
+  it would have turned a disclosure into a trigger — and a mis-attributed delta would then perform
+  actions rather than merely mislabel them.
+
+### `journeyStanding()` — where one chain stands, as a pure fold
+
+`journeyPlan` answers *what may I fire next*. The question a reader actually has between turns is
+*whose turn is it, and is this thing moving*. `session.journeyStanding(id)` answers it with one word
+and the facts behind it (new exported type `JourneyStanding`): `'done'`, `'in-progress'`,
+`'awaiting-human'`, `'with-the-human'`, `'blocked'`, `'failed'`, `'declined'`.
+
+No state, no cache, no timer, never fires — a fold over the plan, the ask book, the decisions book,
+retained settlements and frame history, computed fresh on every call. It throws on an unknown id
+through `journeyPlan`'s own refusal, so the two cannot answer differently.
+
+**`'failed'` is never minted from a pause.** Not from `needs-confirm`, not from a relayed decline,
+not from any `APPROVAL_*` refusal, not from `GUARD_FAILED`, `TOOL_DISABLED` or `NOT_MATERIALIZED`. A
+refusal is not an execution: nothing ran, so nothing failed. It requires a fire that actually came
+to rest badly, and the evidence carries a **pointer** to it — the receipt stays `did_it_work`'s to
+serve, once.
+
+### The ready bucket splits three ways
+
+A step listed under `readySteps` **is an instruction to fire it**. That is the whole argument. Two
+kinds of step are not the model's to perform, so a journey result now separates them:
+
+```jsonc
+{ "standing": "with-the-human", "judgment": "navigate-or-wait",
+  "withTheHuman": [{ "step": "checkout.choose-shipping-speed", "made": false, "about": "which shipping speed" }],
+  "withTheHumanMeans": "These steps are the human’s to decide, not yours to perform. …",
+  "readySteps": [] }
+```
+
+`awaitingHuman` carries `{ askId, step }`; `withTheHuman` carries `{ step, made, about? }`. An open
+card WINS while it is open — a card is the sharper referent — and ownership governs again once none
+is. A `made: true` row **stays listed**: the step is still theirs, and the row itself is the
+resumption cue. A decision that is blocked or off-page is not the person's turn yet and stays in
+`laterSteps` carrying the same `humanDecides: true` stamp, so every rendering of a step tells one
+story. `withTheHumanMeans` — one authored constant, the `stillWorkingMeans` pattern — rides exactly
+when the list is non-empty.
+
+The same word reaches both Mode B doors from the **same call**: `whats_here`'s journey rows and the
+journey tool's result both carry `standing`, never a second derivation, so they cannot disagree
+about one chain. It sits beside `judgment` because the two answer different questions — *what is my
+move this turn* and *where does this chain stand*.
+
+And the facts block prints one authored line per such control offered here and not known made:
+
+> `A decision is with the human: checkout.choose-shipping-speed — the agent presents options and does not make it.`
+
+The line asserts **ownership only**, which is why `false` and `'unknown'` print the same true
+sentence and nothing collapses. `about` never enters it — it is the app's runtime text, and this is
+the one block a model is told to weigh above its own account.
+
+### The word, and why it is not `awaiting-human`
+
+`'with-the-human'` is plain possession in ordinary speech ("it's with legal now"), and it says
+exactly what is true: the flow is in a person's hands. `'awaiting-human'` stays what it has always
+been — the word whose referent is an ask CARD. `docs/design/answer-grammar.md` gains the row.
+
+Rejected, recorded so the next build does not re-open them: `human-deciding` (describes an activity
+nobody can observe), `needs-human` (reads as approval), `human-owned` (describes the declaration,
+not the standing).
+
+### Enforcement is FORBIDDEN in v1 — and that is the design, not the backlog
+
+**Nothing here refuses a fire.** An agent fire of a `humanDecides` control succeeds for every
+principal, and the violation is disclosed three ways instead: `madeBy: 'agent'` in the book, the
+fire in the transitions log, and the stamp on the row the model read before it fired.
+
+The reason is arithmetic. Enforcement mints refusal words, and `FireResult['reason']` and
+`GapRecord['rejectionReason']` grow only in lockstep — which this wave forbade itself. Whether a
+session option in the `requireHumanApproval` family should refuse such fires, with its own typed
+reason added to BOTH unions, a gap-ledger triage note and an answer-grammar entry, is written down
+as an open item in the design note rather than half-built here.
+
+### Also in this release
+
+- **`JourneyDef.steps` takes the object element `{ step: '<name>' }`**, compiling identically to the
+  bare name and carrying nothing else. Per-step conditional metadata has to have exactly ONE
+  authoring carrier; deciding it once means the next such feature is a field on a shape that exists
+  rather than a second shape competing with this one.
+- **`humanDecides.doneWhen` keys join `requiredStateKeys()`** — that list exists precisely to tell an
+  app which keys make its own declarations decidable, and an unseeded one leaves `made` at
+  `'unknown'` forever.
+- **`JourneyPlanStep` gains the presence stamp**, so the serving layer reads ownership off the plan
+  instead of re-deriving it per rendering.
+
+### Compatibility
+
+- **Purely additive.** No published name is renamed or removed — the 1.0 freeze holds. An app that
+  declares nothing gets `decisions() === []`, no new key on any row or plan step, no new list in a
+  frame result, and no new line in the facts block. Pinned by its own suite.
+- **No published union grew.** `FireResult['reason']` and `GapRecord['rejectionReason']` are
+  byte-identical, and so are `EffectStatus`, `Settlement`, `StepStatus`, `FrameStatus`, `GapReason`
+  and `Binding['kind']`. The standing strings live on the new `JourneyStanding` type alone. All of
+  it is pinned at COMPILE time, so a union that grows stops the build.
+- **The served tool array is untouched.** No new tool, no schema property; disclosure rides the
+  result channel. The Mode B cache law holds, and is pinned by comparing a declaring graph's tools
+  against an identical graph without the declaration.
+- **One unconditionally-new field**, named rather than hidden: `standing`, on the two doors that
+  serve a journey. It is a word about a chain, never a claim about a declaration nobody made.
+- **No clock touches any of it.** Nothing expires a decision, nothing flips `made` by time, and an
+  injected clock advanced a year changes no reading, no list and no standing.
+
 ## [1.2.0] - 2026-08-02
 
 **"It's off" is a state. "Why" is a sentence only the app can write — and "who clears it" is the one

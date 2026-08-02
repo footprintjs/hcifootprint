@@ -4,7 +4,7 @@ title: RedactedFields
 
 # Interface: RedactedFields
 
-Defined in: [src/atom/types.ts:387](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L387)
+Defined in: [src/atom/types.ts:478](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L478)
 
 WHICH FIELDS TO HIDE INSIDE THE DATA A TRANSITION CARRIES — the redaction
 `redactedKeys` never did.
@@ -47,7 +47,7 @@ for a hidden one the marker tells them exactly which field they cannot judge.
 
 > `optional` **payload?**: `string`[]
 
-Defined in: [src/atom/types.ts:395](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L395)
+Defined in: [src/atom/types.ts:486](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L486)
 
 Paths inside the value a fire CARRIES. Governs every rendering of it at once
 — `TransitionRecord.payload`, `ConfirmWillUse.input`, and
@@ -61,7 +61,7 @@ the action row the model reads before it fires) is not hidden.
 
 > `optional` **produced?**: `string`[]
 
-Defined in: [src/atom/types.ts:402](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L402)
+Defined in: [src/atom/types.ts:493](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L493)
 
 Paths inside the value a handler RETURNS
 ([TransitionRecord.produced](/api/index/interfaces/TransitionRecord#produced)): the act → get-data-back channel, which

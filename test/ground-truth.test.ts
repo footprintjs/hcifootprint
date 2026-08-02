@@ -36,6 +36,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { InteractionSession, NavigationGraph } from '../src/index.js';
+import { CHOOSE, SHIPPING_ABOUT, checkoutSession } from './human-decisions-fixture.js';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -423,5 +424,104 @@ describe('groundTruth — Mode B carries it on the call the model already makes'
     const result = port.call('lab.whats_here', { sinceVersion: mark });
     expect(String(result['facts'])).toContain(`No actions have been performed since version ${mark}`);
     expect(String(result['facts'])).toContain('2 earlier attempt(s) this session are not listed');
+  });
+});
+
+/**
+ * THE FACTS LINE FOR A DECISION THAT BELONGS TO A PERSON.
+ *
+ * The line asserts OWNERSHIP and nothing more, which is why an unmade decision
+ * and an unknowable one print the same true sentence: whether it has been made
+ * is a state reading, and state readings ride the data channel where the
+ * difference between "not yet" and "nobody could tell" survives.
+ *
+ * MUTATION PROOFS:
+ * - Print it for a made decision → 1 red (a block that says a question is open
+ *   when it has been answered).
+ * - Print it for a decision on another page → 1 red (facts describes THIS room).
+ * - Interpolate `about` → 1 red (app runtime text in the one authored channel).
+ * - Drop the cap → 1 red (the block a model trusts most, unbounded).
+ */
+describe('groundTruth() — a decision that is with the human', () => {
+  it('prints for an offered decision that is not known made — unmade AND unknown alike', () => {
+    const unmade = checkoutSession().groundTruth().text;
+    expect(unmade).toContain(
+      `A decision is with the human: ${CHOOSE} — the agent presents options and does not make it.`,
+    );
+
+    // Nobody seeded the key, so nothing can be evaluated. The OWNERSHIP claim is
+    // still exactly true, and it prints identically.
+    const unknown = checkoutSession({ state: { 'checkout.address': '' } }).groundTruth().text;
+    expect(unknown).toContain(`A decision is with the human: ${CHOOSE}`);
+  });
+
+  it('says nothing once it HAS been made — the question is not open any more', () => {
+    const session = checkoutSession();
+    session.updateState({ 'checkout.shipping': 'express' }, { principal: 'user' });
+    expect(session.groundTruth().text).not.toContain('A decision is with the human');
+  });
+
+  it('says nothing about a decision somewhere else — facts describes THIS room', () => {
+    const graph = buildNavigationGraph('shop', {
+      pages: {
+        cart: { actions: { review: { does: 'Review the cart' } } },
+        checkout: {
+          actions: {
+            pick: { does: 'Pick a speed', humanDecides: { doneWhen: { speed: { ne: '' } } } },
+          },
+        },
+      },
+    });
+    const session = graph.createSession({ node: 'cart', state: { speed: '' }, onWarn: () => undefined });
+    expect(session.decisions()).toHaveLength(1); // the reader still knows about it
+    expect(session.groundTruth().text).not.toContain('A decision is with the human');
+  });
+
+  it('says nothing about a guard-hidden one either', () => {
+    const graph = buildNavigationGraph('shop', {
+      pages: {
+        checkout: {
+          actions: {
+            pick: {
+              does: 'Pick a speed',
+              when: { signedIn: { eq: true } },
+              humanDecides: { doneWhen: { speed: { ne: '' } } },
+            },
+          },
+        },
+      },
+    });
+    const session = graph.createSession({
+      node: 'checkout',
+      state: { signedIn: false, speed: '' },
+      onWarn: () => undefined,
+    });
+    expect(session.groundTruth().text).not.toContain('A decision is with the human');
+  });
+
+  it('carries the app’s runtime words nowhere — the two-string-class firewall', () => {
+    const text = checkoutSession().groundTruth().text;
+    expect(text).not.toContain(SHIPPING_ABOUT);
+  });
+
+  it('is capped by the same maxAttempts dial that bounds the awaiting lines', () => {
+    const actions: Record<string, unknown> = {};
+    for (let i = 0; i < 5; i++) {
+      actions[`pick-${i}`] = {
+        does: `Pick option ${i}`,
+        humanDecides: { doneWhen: { [`opt${i}`]: { ne: '' } } },
+      };
+    }
+    const graph = buildNavigationGraph('shop', {
+      pages: { checkout: { actions: actions as never } },
+    });
+    const session = graph.createSession({
+      node: 'checkout',
+      state: { opt0: '', opt1: '', opt2: '', opt3: '', opt4: '' },
+      onWarn: () => undefined,
+    });
+    const text = session.groundTruth({ maxAttempts: 2 }).text;
+    expect(text.split('A decision is with the human').length - 1).toBe(2);
+    expect(text).toContain("… 3 more decisions here are the human's, not listed.");
   });
 });

@@ -4,7 +4,7 @@ title: WorkHandle
 
 # Interface: WorkHandle
 
-Defined in: [src/atom/types.ts:1215](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1215)
+Defined in: [src/atom/types.ts:1326](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1326)
 
 A handle on one piece of work the app said it started — what
 [Session.beginWork](/api/index/classes/Session#beginwork) hands back, and the only way to close the row it
@@ -36,7 +36,7 @@ ending it was never given.
 
 > `readonly` **workId**: `string`
 
-Defined in: [src/atom/types.ts:1217](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1217)
+Defined in: [src/atom/types.ts:1328](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1328)
 
 This row's id — the same string [WorkRow.workId](/api/index/interfaces/WorkRow#workid) carries.
 
@@ -46,7 +46,7 @@ This row's id — the same string [WorkRow.workId](/api/index/interfaces/WorkRow
 
 > **done**(`error?`): `void`
 
-Defined in: [src/atom/types.ts:1230](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1230)
+Defined in: [src/atom/types.ts:1341](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1341)
 
 Close the row. FIRST CLOSE WINS; a second call does nothing.
 

@@ -19,6 +19,7 @@ how a model learns that two payloads mean two things when they mean the same thi
 | `outcomeNow` | The RECORD moved after the receipt was written (a server took the order back). | rides *beside* `outcome`, never over it |
 | `arrival` | A navigation CLAIM, and whether an observation has corroborated it. Two values, ever: `'claimed'` and `'observed'`. | rides *beside* the receipt, never over it |
 | `materialized: false` | Nothing in the app executed this fire, so every effect on it is a declaration. | rides *beside* the receipt, with the fire-time result's own word |
+| `with-the-human` | A decision belongs to a person and is not known to be made. Nothing was fired, no card exists — the human answers through the app's own control. | `journeyStanding`'s standing; the `withTheHuman` list in frame results. Never a `judgment` of `did_it_work` — there is no id to ask it about. |
 
 Three siblings of `awaiting-human` complete the ask book, because silence about the other fates
 would be the same hole: `approved-not-yet-done` (the human said yes and nothing has fired),
@@ -29,6 +30,14 @@ the results say that in words (`src/serve/modes.ts`, the `PAUSED_*` constants).
 `approval-no-longer-valid` earns its own word rather than sharing `approved-not-yet-done`'s under a
 different sentence, and the reason is rule 5 below: the two demand OPPOSITE moves, and one word for
 both would have to pick one of them to be wrong about.
+
+`with-the-human` is deliberately NOT `awaiting-human`, and the distinction is the referent. That
+word's referent is an ask CARD — there is an `askId`, a thing the system is holding, and a door the
+human answers through that this library rendered. Here the system holds nothing: no card, no id, no
+refusal. Borrowing the word would teach a model to go looking for a card that does not exist, and
+`did_it_work` is untouched for the same reason — a `humanDecides` suspension mints no transitionId
+and no askId, so there is nothing to pass it. *Where does the flow stand?* is `journeyStanding`'s
+question and `whats_here`'s, not that tool's.
 
 One refusal belongs to the same grammar: `AMBIGUOUS_ID`, when a single id names both a transition
 and a card (possible when an app names an action `ask`). It is not a fate — it is the tool

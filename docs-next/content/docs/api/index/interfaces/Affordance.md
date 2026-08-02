@@ -4,7 +4,7 @@ title: Affordance
 
 # Interface: Affordance
 
-Defined in: [src/atom/types.ts:268](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L268)
+Defined in: [src/atom/types.ts:352](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L352)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:268](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **binding?**: [`Binding`](/api/index/type-aliases/Binding)
 
-Defined in: [src/atom/types.ts:277](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L277)
+Defined in: [src/atom/types.ts:361](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L361)
 
 Optional since D18: a spine tool may exist with only its description
 (plannable/tour-able) and gain a binding or handler at mount time.
@@ -24,7 +24,7 @@ The v1 fluent builder still requires it at authoring.
 
 > `optional` **blockedBecause?**: [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| (() => [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| `undefined`)
 
-Defined in: [src/atom/types.ts:312](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L312)
+Defined in: [src/atom/types.ts:396](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L396)
 
 The app's own reason this control is off, compiled from
 `ActionDef.blockedBecause` at either authoring door. The OBJECT form is
@@ -42,7 +42,7 @@ live control.
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:271](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L271)
+Defined in: [src/atom/types.ts:355](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L355)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [src/atom/types.ts:271](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **descriptionSource?**: `"declared"` \| `"registration"`
 
-Defined in: [src/atom/types.ts:320](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L320)
+Defined in: [src/atom/types.ts:411](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L411)
 
 Where the planner-facing description came from. Both classes are
 developer-AUTHORED source-code literals (the firewall holds either way);
@@ -62,7 +62,7 @@ the marker keeps the origin auditable. Default 'declared'.
 
 > `optional` **effect?**: [`Effect`](/api/index/interfaces/Effect)
 
-Defined in: [src/atom/types.ts:279](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L279)
+Defined in: [src/atom/types.ts:363](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L363)
 
 ***
 
@@ -70,7 +70,7 @@ Defined in: [src/atom/types.ts:279](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **enabledWhen?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:300](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L300)
+Defined in: [src/atom/types.ts:384](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L384)
 
 Declarative DISABLEDNESS — distinct from `guard`, which decides whether the
 edge exists here at all. A failed guard HIDES the edge; a false
@@ -86,7 +86,7 @@ the library does not guess a control greyed out.
 
 > `optional` **guard?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:278](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L278)
+Defined in: [src/atom/types.ts:362](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L362)
 
 ***
 
@@ -94,7 +94,20 @@ Defined in: [src/atom/types.ts:278](https://github.com/footprintjs/hcifootprint/
 
 > **highEffect**: `boolean`
 
-Defined in: [src/atom/types.ts:313](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L313)
+Defined in: [src/atom/types.ts:404](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L404)
+
+***
+
+### humanDecides?
+
+> `optional` **humanDecides?**: [`HumanDecides`](/api/index/interfaces/HumanDecides)
+
+Defined in: [src/atom/types.ts:403](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L403)
+
+The app's declaration that this control's DECISION belongs to a person,
+compiled verbatim from `ActionDef.humanDecides` at either authoring door.
+See [HumanDecides](/api/index/interfaces/HumanDecides). Absent means no ownership was declared — never
+"the agent's to make", which the library cannot know.
 
 ***
 
@@ -102,7 +115,7 @@ Defined in: [src/atom/types.ts:313](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:269](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L269)
+Defined in: [src/atom/types.ts:353](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L353)
 
 ***
 
@@ -110,7 +123,7 @@ Defined in: [src/atom/types.ts:269](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **noInput?**: `true`
 
-Defined in: [src/atom/types.ts:288](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L288)
+Defined in: [src/atom/types.ts:372](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L372)
 
 True when the author declared `'none'`: this action takes NO input, and a
 caller sending one is refused. Compiled as a FLAG with `schema` left
@@ -124,7 +137,7 @@ shape gate) stays byte-identical to what it was.
 
 > **on**: `string`[]
 
-Defined in: [src/atom/types.ts:270](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L270)
+Defined in: [src/atom/types.ts:354](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L354)
 
 ***
 
@@ -132,7 +145,7 @@ Defined in: [src/atom/types.ts:270](https://github.com/footprintjs/hcifootprint/
 
 > **role**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/atom/types.ts:314](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L314)
+Defined in: [src/atom/types.ts:405](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L405)
 
 ***
 
@@ -140,7 +153,7 @@ Defined in: [src/atom/types.ts:314](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **schema?**: `unknown`
 
-Defined in: [src/atom/types.ts:280](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L280)
+Defined in: [src/atom/types.ts:364](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L364)
 
 ***
 
@@ -148,6 +161,6 @@ Defined in: [src/atom/types.ts:280](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **verify?**: [`VerifyContract`](/api/index/type-aliases/VerifyContract)
 
-Defined in: [src/atom/types.ts:290](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L290)
+Defined in: [src/atom/types.ts:374](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L374)
 
 The app's own post-settlement check that this action really happened.

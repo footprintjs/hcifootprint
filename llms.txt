@@ -109,6 +109,18 @@ Authoring vocabulary (all optional except where noted):
     answers an unusable shape costs the row its sentence plus one dev warning. It never disables
     anything. A live store says the same thing through `LiveAction.blockedBecause`.
   - `writes` — state keys this action claims to change (verified at settlement).
+  - `humanDecides` — THIS CHOICE IS THE PERSON'S TO MAKE (type `HumanDecides`):
+    `{ about?, doneWhen? }`. `confirm` asks whether the agent may ACT after a human's yes; this says
+    the decision itself belongs to a person, so the agent PRESENTS options and stops — the human
+    answers through this control in the app and the flow moves because the world moved. `about` is
+    your own words for what is being decided ('which shipping speed'), DATA only (never an authored
+    sentence, never the facts block), capped at 200 characters and refused loudly at build when over.
+    `doneWhen` is a plain WhereFilter — your own "it has been decided" — evaluated under the same
+    honesty split as every guard; its keys join `requiredStateKeys()`. OMITTING `doneWhen` is legal
+    and means `made` is `'unknown'` forever; `doneWhen: {}` is refused (it could never hold). It is a
+    fact about the CONTROL, inherited by every journey that names it. DISCLOSURE, NOT ENFORCEMENT:
+    nothing is refused, no refusal word exists, and an agent that fires it anyway is disclosed as the
+    agent (`madeBy: 'agent'`). Refused in the same words at both authoring doors.
   - `verify` — the app's OWN check that firing really did something, evaluated at settlement. Either
     a WhereFilter over projected state (`{ 'wizard.recipe': { ne: '' } }`) or a SYNCHRONOUS predicate
     `(state) => boolean` handed a DETACHED snapshot (its closure may read the app's own DOM). If it
@@ -127,7 +139,10 @@ Authoring vocabulary (all optional except where noted):
 - Root-level `actions` (multi-attach): one action offered on several pages, each entry needs
   `on: string | string[]`.
 - `journeys` — named multi-step flows. Fields (source: `JourneyDef`): `does` (REQUIRED planner text),
-  `steps` (REQUIRED, action ids by qualified path or unambiguous suffix), `when` (precondition guard).
+  `steps` (REQUIRED, action ids by qualified path or unambiguous suffix — or the object element
+  `{ step: '<name>' }`, which compiles identically and carries nothing else today; it is the ONE
+  per-step carrier, decided once so the next per-step feature is a field rather than a second
+  shape), `when` (precondition guard).
   A journey is the ONE relational thing you declare: a preferred order toward a goal is meaning, and
   meaning is yours. Everything else relational (step dependencies, what unblocks a control, routes
   between pages) is DERIVED from declarations you already made.
@@ -296,7 +311,8 @@ PLACE OF the handler; keeping both runs it twice). `unregisterGroup(group)` rele
   validator, in-process only; `expects?` = the same contract WIRE-shaped — zod normalized, JSON
   Schema detached, a non-serializable validator named in one sentence, `'none'` for an input-less
   action), and honesty stamps: `guardUnevaluated?`, `activation?`, `presence?: 'unknown'`,
-  `materialized?`, `enabled?`, `blockedBecause?`, `busy?`, `holds?`, `instances?`/`enumeration?`. `expects` is
+  `materialized?`, `enabled?`, `blockedBecause?`, `busy?`, `holds?`, `humanDecides?: true`,
+  `instances?`/`enumeration?`. `expects` is
   byte-for-byte what Mode B serves, from one shared derivation — never re-derive it.
 - `availableJourneys()` → `{ version, node, journeys: AvailableJourney[] }`, `contextBrief(opts?)`
   (token-lean prompt context, authored strings only), `explain(id)`, `why(key)` (footprint backward
@@ -339,6 +355,31 @@ PLACE OF the handler; keeping both runs it twice). `unregisterGroup(group)` rele
   `tryJourneyPlan(id)` is the same plan for an id you did not author (a model's, a URL's):
   `{ ok: true, plan }` or `{ ok: false, reason: 'UNKNOWN_JOURNEY', known }` — the identical failure
   shape `commitJourney()` returns.
+- **`decisions()` → `DecisionStatus[]`** — WHOSE DECISION IS OUTSTANDING: one row per action that
+  declares `humanDecides`, graph-wide (a decision on another page still holds a journey), read at the
+  moment you ask. `{ affordanceId, about?, made, madeBy? }`. `made` is evaluated fresh against
+  projected state and has THREE answers: `true` (`doneWhen` holds), `false` (evaluated, does not
+  hold), `'unknown'` (a key absent or holding undefined, or no `doneWhen` declared). `'unknown'` is
+  NEVER collapsed into "not yet" — that is the `guardUnevaluated` asymmetry at the decision grain.
+  `madeBy` rides beside `made: true` ONLY, and only from the three identity-bearing rungs of
+  `updateState`'s ladder: a delta naming a fired transition, a handler's own call window, or
+  `updateState(delta, { principal })`. FIFO settlement, the single-cover arm, effect-signature
+  inference and the unknown-stimulus floor all CLEAR the entry — a computed join never attributes a
+  human decision, so an unattributed flip serves `made: true` with no maker, and a stale stamp never
+  survives an unattributed rewrite. The sibling of `asks()`, sharing no vocabulary with it: no askId,
+  no card, no receipts, and nothing here ever fires (`made: true` is a state reading, not a command).
+- **`journeyStanding(id)` → `JourneyStanding`** — WHERE ONE CHAIN STANDS, as a PURE FOLD over the
+  plan, the ask book, the decisions book, retained settlements and frame history. No state, no cache,
+  no timer, never fires; computed fresh, THROWS on an unknown id exactly as `journeyPlan` does.
+  `{ journeyId, standing, evidence }`, where `standing` is `'done' | 'in-progress' |
+  'awaiting-human' | 'with-the-human' | 'blocked' | 'failed' | 'declined'` — strings that live on THIS
+  type only; no existing union grew. An open frame governs, else a latest-closed `'completed'` frame
+  answers `'done'` (cancelled/demoted contribute history, never a verdict); then the FIRST not-done
+  step governs and its hold names the word. `evidence` carries `step?`, `askId?`, `about?`, `made?`,
+  `madeBy?`, `blockedOn?`, `guardUnevaluated?`, `transitionId?` plus `stepsDone`/`stepsTotal` —
+  POINTERS and structural facts, never a receipts pack. **`'failed'` is NEVER minted from a pause**
+  (not needs-confirm, not a relayed decline, not any `APPROVAL_*`/`GUARD_FAILED`/`TOOL_DISABLED`/
+  `NOT_MATERIALIZED` refusal): a refusal is not an execution, so nothing ran and nothing failed.
 - Passive observers: `on('transition' | 'state' | 'structure' | 'gap' | 'confirm', listener)` →
   unsubscribe fn. A throwing listener is isolated, never aborts the session.
 - Gap ledger: `gaps()` / `onGap(row => ...)` — every refused fire (`kind: 'fire-rejected'`), every
@@ -471,10 +512,24 @@ produced data) are structured DATA fields. Fields you will encounter (source: `s
   On an open frame `judgment` is `'navigate-or-wait' | 'one-ready-step' | 'needs-choice'`; on
   completion `'done'`.
 - Position (always): `youAreOn` (current node), `version` (the total-order cursor).
-- Frame: `frame` (`'open' | 'completed' | 'cancelled' | 'demoted'`), `readySteps`
+- `whats_here`: each action row carries `humanDecides?: true` (presence-only, like every other
+  stamp), and each journey row carries `standing` — the same word the journey tool serves.
+- Frame: `frame` (`'open' | 'completed' | 'cancelled' | 'demoted'`), `standing` (the
+  `journeyStanding` word, from the SAME call `whats_here`'s journey rows serve — one derivation, so
+  two doors cannot disagree; it sits BESIDE `judgment`, which answers "what is my move this turn"
+  while `standing` answers "where does this chain stand"), `readySteps`
   (`[{ step, does, highEffect?, guardUnevaluated?, materialized?, expects? }]` — `materialized: false`
-  means nothing is bound to execute that step), `laterSteps` (`[{ step, status }]`),
+  means nothing is bound to execute that step), `laterSteps` (`[{ step, status, humanDecides?: true }]`),
   `awaitingState?` (steps whose fire has not yet been reported back), `howToAct`.
+- THE READY BUCKET SPLITS THREE WAYS, because a step in `readySteps` IS an instruction to fire it:
+  `awaitingHuman?` (`[{ askId, step }]` — a card is open) and `withTheHuman?`
+  (`[{ step, made, about? }]` — the decision is a person's), with everything else staying in
+  `readySteps`. An open card WINS while it is open (a card is the sharper referent). A `made: true`
+  row STAYS listed — the step is still theirs and the row is the resumption cue — and leaves only
+  when the step is done. `withTheHumanMeans` (one authored constant) rides exactly when
+  `withTheHuman` is non-empty. A humanDecides step that is blocked or off-page is not the person's
+  turn yet: it stays in `laterSteps` carrying the stamp. DISCLOSURE, NOT ENFORCEMENT — `fire()` still
+  accepts every one of these steps.
 - Fire success: `did` (the step id fired), `settlement` (`'settled' | 'awaiting-state'`),
   `effectStatus` (the INVOCATION axis at return time — `'pending'` means nobody has done it YET),
   `howToSettle?` (present only on `'pending'`: the authored pointer at `shop.did_it_work`),
@@ -672,8 +727,10 @@ graph.requiredStateKeys();   // → sorted, deduped string[] of every guard key 
 ```
 
 It is the sorted, deduped set of state keys every guard reads — across all action `when`s,
-container-node `when`s (they AND-compose into every descendant action's guard), and journey
-preconditions — whether or not the node is currently mounted. Seed each of these keys in your state
+container-node `when`s (they AND-compose into every descendant action's guard), journey
+preconditions, and every `humanDecides.doneWhen` — whether or not the node is currently mounted.
+(A `doneWhen` key nobody seeds leaves that decision's `made` at `'unknown'` forever: honest, and
+degraded.) Seed each of these keys in your state
 projector so guards decide instead of deferring (see §4). This is the one call that closes the
 guard-honesty loop.
 
@@ -689,13 +746,15 @@ nothing registered), `presence: 'unknown'` (ambiguous mounted tabs), `materializ
 declared `goTo` claim, unconfirmed), `effectVerified: 'unobservable'` (no report to check against),
 `verifyHeld: 'unevaluable'` (a declared `verify` contract could not be run — an unknown state key, or a
 predicate that threw; never read as a refusal), `enumeration: 'mounted-window'` (instance list is
-partial). App text and produced data ride a strict
+partial), `made: 'unknown'` (a decision's `doneWhen` could not be evaluated — never "not yet") and an
+ABSENT `madeBy` (the delta that made it carried no identity — the library says neither that the human
+did it nor that they didn't). App text and produced data ride a strict
 DATA channel; only authored strings reach the planner's instruction channel.
 
 **Absence is a stance, not an oversight.** `enabled`, `blockedBecause`, `busy`, `holds`, `goesTo`,
-`unblockedBy`, `inFlight` and `stillWorking` are PRESENCE-ONLY: a key means the app said so, and no key
-means this library DOES NOT KNOW — never "clickable", "no reason", "not busy", "the box is empty",
-"nothing would free it" or "finished". A cheerful default on every row would be a claim about a
+`unblockedBy`, `inFlight`, `humanDecides` and `stillWorking` are PRESENCE-ONLY: a key means the app said
+so, and no key means this library DOES NOT KNOW — never "clickable", "no reason", "not busy", "the box
+is empty", "nothing would free it", "the agent's to decide" or "finished". A cheerful default on every row would be a claim about a
 session nobody was asked about.
 **And no clock is evidence:** nothing here expires a `busy` label or a work row, `settleWithinMs`
 decides how long to wait and never what the answer is, and a caller who stops waiting reports

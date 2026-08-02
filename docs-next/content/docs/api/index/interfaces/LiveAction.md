@@ -22,7 +22,7 @@ snapshots — same key means same action.
 
 > `optional` **binding?**: [`Binding`](/api/index/type-aliases/Binding)
 
-Defined in: [src/tree/types.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L36)
+Defined in: [src/tree/types.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L43)
 
 How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
@@ -36,7 +36,7 @@ How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
 > `optional` **blockedBecause?**: [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| (() => [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| `undefined`)
 
-Defined in: [src/tree/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L86)
+Defined in: [src/tree/types.ts:93](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L93)
 
 YOUR OWN REASON THIS CONTROL IS OFF, and who clears it — served only while
 the control is off, and only ever as data.
@@ -92,7 +92,7 @@ about the control, never "idle", and there is no boolean form.
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/tree/types.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L92)
+Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
 
 Requires explicit confirmation (the high-effect gate).
 
@@ -106,7 +106,7 @@ Requires explicit confirmation (the high-effect gate).
 
 > **does**: `string`
 
-Defined in: [src/tree/types.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L34)
+Defined in: [src/tree/types.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L41)
 
 AUTHORED intent, one string two readers (consumer label = agent tool description).
 
@@ -130,7 +130,7 @@ False = on screen but greyed out (flows to TOOL_DISABLED). Default true.
 
 > `optional` **enabledWhen?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L52)
+Defined in: [src/tree/types.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L59)
 
 Is this control currently CLICKABLE? Declarative disabledness — a different
 question from `when`, which decides whether the control is here at all. A
@@ -154,7 +154,7 @@ its position in the tree.
 
 > `optional` **goTo?**: `string`
 
-Defined in: [src/tree/types.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L90)
+Defined in: [src/tree/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L97)
 
 Page this action claims to navigate to (a top-level page id).
 
@@ -176,11 +176,46 @@ Defined in: [src/traverse/nav-session.ts:71](https://github.com/footprintjs/hcif
 
 ***
 
+### humanDecides?
+
+> `optional` **humanDecides?**: [`HumanDecides`](/api/index/interfaces/HumanDecides)
+
+Defined in: [src/tree/types.ts:143](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L143)
+
+THIS CHOICE IS THE PERSON'S TO MAKE — not a gate on the agent acting, but a
+statement that the decision itself belongs to a human.
+
+`confirm` asks whether the agent may ACT after a human's yes. This says the
+agent's correct move is to PRESENT options and stop: the human answers
+through this control in the app, and the flow moves because the world moved.
+
+```ts
+'choose-shipping-speed': {
+  does: 'Choose a shipping speed',
+  writes: ['checkout.shipping'],
+  humanDecides: {
+    about: 'which shipping speed',
+    doneWhen: { 'checkout.shipping': { ne: '' } },
+  },
+}
+```
+
+It is a fact about the CONTROL, declared once and inherited by every journey
+that names it — a per-journey split would let two lists disagree about one
+control's owner. It is DISCLOSURE: nothing is refused, and no refusal word
+exists for it. See [HumanDecides](/api/index/interfaces/HumanDecides).
+
+#### Inherited from
+
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`humanDecides`](/api/index/interfaces/RegisteredActionDef#humandecides)
+
+***
+
 ### input?
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/tree/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L103)
+Defined in: [src/tree/types.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L110)
 
 Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
 or the literal `'none'`, meaning "this control takes NO input". A caller
@@ -231,7 +266,7 @@ Node path the action lives on (a page or declared container).
 
 > `optional` **role?**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/tree/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L112)
+Defined in: [src/tree/types.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L144)
 
 #### Inherited from
 
@@ -243,7 +278,7 @@ Defined in: [src/tree/types.ts:112](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **verify?**: [`VerifyContract`](/api/index/type-aliases/VerifyContract)
 
-Defined in: [src/tree/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L111)
+Defined in: [src/tree/types.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L118)
 
 The app's OWN check that firing this really did something — evaluated once,
 at settlement, and the only thing that can turn a handler that merely RAN
@@ -261,7 +296,7 @@ may read whatever the app can see, the DOM included.
 
 > `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L38)
+Defined in: [src/tree/types.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L45)
 
 Availability guard over projected state (AND-composed with every ancestor `when`).
 
@@ -275,7 +310,7 @@ Availability guard over projected state (AND-composed with every ancestor `when`
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/tree/types.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L88)
+Defined in: [src/tree/types.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L95)
 
 State keys this action claims to change.
 

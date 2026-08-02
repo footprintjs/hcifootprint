@@ -55,6 +55,7 @@ import type {
   ConfirmWillUse,
   ContextBrief,
   ContextBriefOptions,
+  DecisionStatus,
   Explanation,
   FireOptions,
   FireResult,
@@ -75,6 +76,7 @@ import type {
   DependencyEdge,
   JourneyPlan,
   JourneyPlanStep,
+  JourneyStanding,
   StimulusKind,
   SyncResult,
   ActionGroup,
@@ -166,6 +168,25 @@ const UNKNOWN_ACTION = '(an action this app does not have)';
  */
 const WORK_NOT_TIED_TO_AN_ACTION =
   'The app is still working on something it did not tie to an action here.';
+
+/**
+ * THE FACTS-BLOCK LINE FOR A DECISION THAT BELONGS TO A PERSON.
+ *
+ * It asserts OWNERSHIP and nothing else. That is why `false` and `'unknown'`
+ * print the same true sentence and nothing collapses: whether the decision has
+ * been made is a state reading, and state readings ride the data channel
+ * ({@link Session.decisions}, the `withTheHuman` rows) where the asymmetry
+ * between "not yet" and "nobody could tell" survives intact. A line that claimed
+ * a made-state would have to pick one of them.
+ *
+ * The action id is the only interpolation, through `#actionLabel` like every
+ * other line here. `about` never enters it — that is the app's own runtime text,
+ * and this is the one block a model is told to weigh above its own account.
+ * There is no id suffix either, because a decision mints no card and there is no
+ * id to name.
+ */
+const DECISION_WITH_THE_HUMAN = (what: string): string =>
+  `A decision is with the human: ${what} — the agent presents options and does not make it.`;
 
 /**
  * The facts-block line for a row that reported the served action list could not
@@ -564,6 +585,26 @@ export class Session {
   readonly #standingGrants: ConfirmRecord[] = [];
   /** Refusals already warned about, keyed `affordanceId@reason` (the #warnedOnce discipline). */
   readonly #approvalWarned = new Set<string>();
+  /**
+   * THE DECISIONS BOOK — per `humanDecides` action, who the LATEST committed
+   * delta touching any of its `doneWhen` keys was attributed to.
+   *
+   * SET OR CLEARED at commit time, which is the only moment attribution is
+   * knowable (collect during traversal, never post-process). Set by the three
+   * identity-bearing rungs of the ladder in {@link Session.updateState} — a
+   * delta naming a fired transition, a handler's own call window, an attributed
+   * report — and CLEARED by every matching rung, because a computed join never
+   * attributes a human decision: FIFO can mis-attribute predictably, the
+   * single-cover arm is a signature match, inference is a guess the record
+   * itself flags, and the unknown-stimulus floor names nobody.
+   *
+   * An absent entry is the honest answer, and it is the common one. A stale
+   * stamp never survives an unattributed touch: a person picks `standard`, an
+   * unattributed delta later rewrites the key to `express` while the condition
+   * still holds, and the book CLEARS rather than attributing a value to somebody
+   * who never chose it.
+   */
+  readonly #decisionsBook = new Map<string, Principal>();
   /** Monotonic counter behind every generated confirm id (never caller-supplied). */
   #askSeq = 0;
   /** Passive observer listeners, by event name (the recorder category, session grain). */
@@ -1123,6 +1164,11 @@ export class Session {
         // The declared destination, served BEFORE the fire — the same claim the
         // human's confirm receipt has always carried (ConfirmWillDo.navigatesTo).
         ...(aff.effect?.navigatesTo !== undefined ? { navigatesTo: aff.effect.navigatesTo } : {}),
+        // THE DECISION HERE IS A PERSON'S, said on the row a model reads BEFORE
+        // it reaches for anything. Presence is the whole claim, and the filter
+        // behind it never rides: a served row carries verdicts and stamps, not
+        // conditions — the same reason `enabledWhen` itself is not here.
+        ...(aff.humanDecides !== undefined ? { humanDecides: true as const } : {}),
         binding: aff.binding,
         ...(aff.descriptionSource === 'registration' ? { descriptionSource: 'registration' as const } : {}),
       });
@@ -1781,6 +1827,11 @@ export class Session {
         onNodes: [...aff.on],
         ...(status === 'blocked' ? { blockedOn: conditions.filter((c) => !c.result) } : {}),
         ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
+        // The per-step conditional facts already ride this row; ownership is
+        // one more, so the serving layer reads it off the plan instead of
+        // re-deriving it per rendering and risking two lists that disagree
+        // about one control's owner.
+        ...(aff.humanDecides !== undefined ? { humanDecides: true as const } : {}),
       } as JourneyPlanStep;
     });
     return { journeyId, description: journey.description, steps };
@@ -1808,6 +1859,170 @@ export class Session {
       return { ok: false, reason: 'UNKNOWN_JOURNEY', known: Object.keys(this.spec.journeys) };
     }
     return { ok: true, plan: this.journeyPlan(journeyId) };
+  }
+
+  /**
+   * WHERE ONE JOURNEY STANDS — one settled word for the whole chain, and the
+   * facts behind it.
+   *
+   * The question a reader actually has between turns is not "what may I fire
+   * next" (that is the plan's, and `whats_here`'s) but "whose turn is it, and is
+   * this thing moving". Answering it from the plan alone means re-implementing
+   * library law outside the library — which rows close which card, what a
+   * relayed decline does NOT close, when a refusal is a failure and when it is
+   * nothing of the kind — and two surfaces that re-derive it can disagree about
+   * one chain, which reads to a model as "the human already answered".
+   *
+   * A PURE FOLD over the plan, the ask book, the decisions book, retained
+   * settlements and frame history. No state of its own, no cache, no timer, and
+   * it never fires: computed fresh on every call, so the word is true about NOW
+   * rather than about the last time somebody asked. Two calls in a row change
+   * nothing and agree with each other.
+   *
+   * The walk, stated as the walk it is:
+   *
+   * 1. An OPEN frame for this journey governs. Otherwise a latest-closed
+   *    `'completed'` frame answers `'done'`; a cancelled or demoted one
+   *    contributes history and never a verdict — abandonment is not completion
+   *    and not failure — so the live plan is walked instead.
+   * 2. Walk the steps in chain order. The FIRST step that is not done is the
+   *    GOVERNING step, and its hold names the standing: an open card
+   *    (`'awaiting-human'`), the human's own no (`'declined'`), a decision that
+   *    belongs to a person (`'with-the-human'`), a last attempt that came to
+   *    rest badly (`'failed'`), an evaluated failing guard (`'blocked'`), else
+   *    `'in-progress'`.
+   * 3. Every step done → `'done'`. A journey nobody has started walks arm 2 like
+   *    any other, and `'in-progress'` with `stepsDone: 0` is the honest reading
+   *    of "open, and nothing holds it" — the counts say plainly that nothing has
+   *    fired.
+   *
+   * `'failed'` IS NEVER MINTED FROM A PAUSE. Not from needs-confirm, not from a
+   * relayed decline, not from any approval refusal, not from a guard, disabled
+   * or materialization refusal. A refusal is not an execution: nothing ran, so
+   * nothing failed. `'failed'` requires a fire that actually came to rest badly,
+   * and the evidence carries a POINTER to it — the receipt itself stays
+   * `did_it_work`'s to serve, once.
+   *
+   * Throws on an id this graph does not have, exactly as
+   * {@link Session.journeyPlan} does and through that method's own refusal —
+   * serving layers resolve names first.
+   */
+  journeyStanding(journeyId: string): JourneyStanding {
+    // journeyPlan's throw IS this method's throw: one refusal, so an unknown id
+    // can never be answered one way here and another way there.
+    const plan = this.journeyPlan(journeyId);
+    const stepsTotal = plan.steps.length;
+    const isDone = (step: JourneyPlanStep): boolean =>
+      step.status === 'done' || step.status === 'inferred-done';
+
+    if (this.#frame?.journeyId !== journeyId) {
+      const closed = this.#frames.filter((frame) => frame.journeyId === journeyId).pop();
+      if (closed?.status === 'completed') {
+        const journeySteps = this.spec.journeys[journeyId].steps;
+        const stepsDone = journeySteps.filter(
+          (step) => closed.firedSteps.includes(step) || closed.inferredSteps.includes(step),
+        ).length;
+        return { journeyId, standing: 'done', evidence: { stepsDone, stepsTotal } };
+      }
+    }
+
+    const stepsDone = plan.steps.filter(isDone).length;
+    const governing = plan.steps.find((step) => !isDone(step));
+    if (governing === undefined) {
+      return { journeyId, standing: 'done', evidence: { stepsDone, stepsTotal } };
+    }
+    const step = governing.affordanceId;
+    const counts = { step, stepsDone, stepsTotal };
+
+    // A CARD IS THE SHARPER REFERENT, so an open one outranks everything below
+    // it: while a person is looking at a question, that is where the chain is.
+    const card = this.#latestAskFor(step);
+    if (card !== undefined && card.answer === undefined) {
+      return { journeyId, standing: 'awaiting-human', evidence: { ...counts, askId: card.askId } };
+    }
+    // …and their NO closes it. Only the human's own door writes this answer: a
+    // relayed decline records a report and closes nothing, so the card above is
+    // still open and the standing is still 'awaiting-human'.
+    if (card?.answer === 'declined') {
+      return { journeyId, standing: 'declined', evidence: { ...counts, askId: card.askId } };
+    }
+
+    // THE DECISION IS THEIRS. `made: true` stays here rather than moving the
+    // chain on by itself — that is the resumption cue, said in data, and acting
+    // on it is the caller's move.
+    const decision = this.#decisionFor(step);
+    if (decision !== undefined && governing.status === 'ready') {
+      return {
+        journeyId,
+        standing: 'with-the-human',
+        evidence: {
+          ...counts,
+          ...(decision.about !== undefined ? { about: decision.about } : {}),
+          made: decision.made,
+          ...(decision.madeBy !== undefined ? { madeBy: decision.madeBy } : {}),
+        },
+      };
+    }
+
+    const failedAt = this.#lastAttemptCameToRestBadly(step);
+    if (failedAt !== undefined) {
+      return { journeyId, standing: 'failed', evidence: { ...counts, transitionId: failedAt } };
+    }
+    // EVALUATED failing conditions, and the plan already answers exactly that:
+    // it carries `blockedOn` on a step whose guard was evaluated and failed, and
+    // on no other. A step held only by keys nobody could read is not blocked,
+    // carries none, and falls through to the honest word below.
+    if (governing.blockedOn !== undefined) {
+      return {
+        journeyId,
+        standing: 'blocked',
+        evidence: { ...counts, blockedOn: governing.blockedOn },
+      };
+    }
+    // Taken-on-faith is not blocked — the same asymmetry as everywhere else —
+    // so the marker is carried rather than resolved into a verdict.
+    return {
+      journeyId,
+      standing: 'in-progress',
+      evidence: {
+        ...counts,
+        ...(governing.guardUnevaluated ? { guardUnevaluated: governing.guardUnevaluated } : {}),
+      },
+    };
+  }
+
+  /** The NEWEST card this session minted for one action, whatever became of it. */
+  #latestAskFor(affordanceId: string): OpenAsk | undefined {
+    let latest: OpenAsk | undefined;
+    for (const ask of this.#openAsks.values()) if (ask.affordanceId === affordanceId) latest = ask;
+    return latest;
+  }
+
+  /** The decision row for one action, or nothing where the app declared none. */
+  #decisionFor(affordanceId: string): DecisionStatus | undefined {
+    return this.decisions().find((row) => row.affordanceId === affordanceId);
+  }
+
+  /**
+   * The id of this action's LAST fire, when that fire came to rest badly and
+   * nothing has succeeded since — a refused settlement, or a record the app
+   * rejected or rolled back.
+   *
+   * The LAST attempt only, which is what makes "with no later success" true
+   * without a second pass: a fire that went well after a failed one is simply
+   * the row this walk stops on.
+   */
+  #lastAttemptCameToRestBadly(affordanceId: string): string | undefined {
+    for (let i = this.#transitions.length - 1; i >= 0; i--) {
+      const row = this.#transitions[i];
+      if (row.cause.kind !== 'fired' || row.cause.affordanceId !== affordanceId) continue;
+      const badly =
+        this.#settlements.get(row.id)?.effectStatus === 'refused' ||
+        row.outcome === 'rejected' ||
+        row.outcome === 'rolled-back';
+      return badly ? row.id : undefined;
+    }
+    return undefined;
   }
 
   // -------------------------------------------------------------------------
@@ -2624,6 +2839,9 @@ export class Session {
         };
       }
       const [pending] = this.#pending.splice(index, 1);
+      // RUNG 1 — the report NAMES the fire, so the book takes that fire's own
+      // recorded principal.
+      this.#noteDecisionDelta(delta, this.#decisionPrincipalOf(pending.record));
       this.#settleAttributed(pending, delta);
       return { ok: true, attributed: true, transition: pending.record, version: this.#version };
     }
@@ -2636,6 +2854,9 @@ export class Session {
       const index = this.#pending.findIndex((p) => p.record.id === this.#invokingRecordId);
       if (index >= 0) {
         const [pending] = this.#pending.splice(index, 1);
+        // RUNG 2 — the report IS that fire's, by construction: nothing is
+        // matched, so nothing can be mismatched.
+        this.#noteDecisionDelta(delta, this.#decisionPrincipalOf(pending.record));
         this.#settleAttributed(pending, delta);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
@@ -2654,6 +2875,9 @@ export class Session {
       const index = this.#pending.findIndex((p) => !p.handlerInFlight);
       if (index >= 0) {
         const [pending] = this.#pending.splice(index, 1);
+        // A MATCHING RUNG — FIFO computes a join and can mis-attribute
+        // predictably, so any decision this delta touches loses its maker.
+        this.#noteDecisionDelta(delta, null);
         this.#settleAttributed(pending, delta);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
@@ -2670,6 +2894,8 @@ export class Session {
       if (own.length === 1) {
         const pending = own[0];
         this.#pending.splice(this.#pending.indexOf(pending), 1);
+        // A MATCHING RUNG — a signature match, not an identity. Cleared.
+        this.#noteDecisionDelta(delta, null);
         this.#settleAttributed(pending, delta);
         return { ok: true, attributed: true, transition: pending.record, version: this.#version };
       }
@@ -2686,6 +2912,9 @@ export class Session {
     if (!explicitStimulus && this.#pending.length === 0) {
       const inferred = this.#inferAffordanceForDelta(Object.keys(delta));
       if (inferred) {
+        // A MATCHING RUNG, and the one the record itself flags as a guess
+        // (`Cause.inferred`). A guess never names who decided something.
+        this.#noteDecisionDelta(delta, null);
         const guardEval = this.#evalGuard(inferred.guard);
         const record: TransitionRecord = {
           id: buildRuntimeStageId(inferred.id, this.#counter.value++),
@@ -2739,6 +2968,12 @@ export class Session {
     }
 
     const stimulus = opts?.stimulus ?? 'unknown';
+    // RUNG 3 AND THE FLOOR, in one arm because the code has one. A caller that
+    // STATED a principal is naming it outright, and it rides the book verbatim.
+    // A report that stated none names nobody — the floor's `'system'` is this
+    // library's honest default for a record, never somebody's claim to a
+    // decision — so the book clears.
+    this.#noteDecisionDelta(delta, opts?.principal ?? null);
     const record: TransitionRecord = {
       id: buildRuntimeStageId(`stimulus:${stimulus}`, this.#counter.value++),
       cause: { kind: 'stimulus', stimulus, principal: opts?.principal ?? 'system' },
@@ -2757,6 +2992,105 @@ export class Session {
     if (Object.keys(delta).length > 0) this.#bumpState();
     this.#checkFrameAfterWorldChange();
     return { ok: true, attributed: false, transition: record, version: this.#version };
+  }
+
+  /**
+   * One committed delta, written into the decisions book — set where identity
+   * travelled with the report, CLEARED where it did not.
+   *
+   * Called from every arm of {@link Session.updateState} and nowhere else,
+   * because those arms are the only place a state delta and its attribution are
+   * both known. `principal: null` means "no door that carries identity said
+   * anything", and the entry is removed rather than left standing: a stamp that
+   * outlives the report that earned it is a person's name on somebody else's
+   * value.
+   *
+   * Untouched decisions keep whatever they held. The book is keyed by ACTION,
+   * and a delta that misses every one of an action's `doneWhen` keys is not news
+   * about that action.
+   */
+  #noteDecisionDelta(delta: Record<string, unknown>, principal: Principal | null): void {
+    const deltaKeys = Object.keys(delta);
+    if (deltaKeys.length === 0) return; // an empty commit is a cursor stop, not a touch
+    for (const aff of Object.values(this.spec.affordances)) {
+      const doneWhen = aff.humanDecides?.doneWhen;
+      if (doneWhen === undefined) continue;
+      if (!Object.keys(doneWhen).some((key) => deltaKeys.includes(key))) continue;
+      if (principal === null) this.#decisionsBook.delete(aff.id);
+      else this.#decisionsBook.set(aff.id, principal);
+    }
+  }
+
+  /**
+   * The principal a FIRE carries, for the book — or nothing, when the row itself
+   * says its attribution was guessed.
+   *
+   * Belt and braces, and said out loud as such: a row flagged `inferred` is the
+   * library's own admission that nobody observed who acted, and such a row must
+   * never mint an entry on ANY path, not only on the arm that creates it.
+   */
+  #decisionPrincipalOf(record: TransitionRecord): Principal | null {
+    /* v8 ignore next -- unreachable today: an inferred row is minted by the inference arm alone, which never joins #pending, so no pending record can carry the flag. The line is the invariant written where it is relied on, so a future path that DID pend an inferred row could not launder a guess into a maker. */
+    if (record.cause.inferred === true) return null;
+    return record.cause.principal;
+  }
+
+  /**
+   * EVERY DECISION IN THIS GRAPH THAT BELONGS TO A PERSON, and whether it has
+   * been made — read at the moment you ask.
+   *
+   * The sibling of {@link Session.asks}: that one answers "is anything waiting
+   * on a person?", this one answers "is anything a person's to DECIDE?". Two
+   * different questions with two different next moves — wait for a card to be
+   * answered, or present options and stop — so they are two lists and they share
+   * no vocabulary. Nothing here mints an ask, an askId, a card or a receipt, and
+   * nothing here ever will.
+   *
+   * GRAPH-WIDE, like the ask book. A decision on another page still holds a
+   * journey, so every declaring control has a row wherever it lives — the row is
+   * about a declaration, not about where the cursor happens to be.
+   *
+   * A LIVE READ. `made` is evaluated fresh against projected state on every
+   * call, and `madeBy` is served only beside `made: true` and only from the
+   * decisions book. Nothing is cached, nothing is timed, and nothing here fires:
+   * `made: true` is a state reading, not a command.
+   *
+   * No per-instance rows: the declaration is action-level and `doneWhen` reads
+   * flat projected-state keys. An app modelling per-row decisions models them in
+   * its own keys — a stated limit, not a roadmap promise.
+   */
+  decisions(): DecisionStatus[] {
+    const rows: DecisionStatus[] = [];
+    for (const aff of Object.values(this.spec.affordances)) {
+      const declared = aff.humanDecides;
+      if (declared === undefined) continue;
+      const made = this.#decisionMade(declared.doneWhen);
+      const madeBy = made === true ? this.#decisionsBook.get(aff.id) : undefined;
+      rows.push({
+        affordanceId: aff.id,
+        ...(declared.about !== undefined ? { about: declared.about } : {}),
+        made,
+        ...(madeBy !== undefined ? { madeBy } : {}),
+      });
+    }
+    return rows;
+  }
+
+  /**
+   * Whether the app's own "it has been decided" holds — `true`, `false`, or the
+   * third answer that is not a softer `false`.
+   *
+   * `'unknown'` WHENEVER ANY KEY IS UNEVALUABLE, and that is the `guardUnevaluated`
+   * asymmetry applied to decisions. `made` is a claim about the WHOLE
+   * declaration, so a filter half-read is a filter unread: `false` is reserved
+   * for a condition this library actually evaluated, because "it was evaluated
+   * and does not hold" and "nobody could tell" are answers to different
+   * questions and only one of them says a person has not answered yet.
+   */
+  #decisionMade(doneWhen: WhereFilter | undefined): boolean | 'unknown' {
+    if (doneWhen === undefined) return 'unknown';
+    const { matched, unevaluable } = this.#evalGuard(doneWhen);
+    return unevaluable.length > 0 ? 'unknown' : matched;
   }
 
   /** Exactly-one match rule: ambiguity refuses to guess (falls through to stimulus). */
@@ -4531,6 +4865,35 @@ export class Session {
     }
     if (awaitingOmitted > 0) {
       lines.push(`  … ${awaitingOmitted} more await the human's decision, not listed.`);
+    }
+    // A DECISION THAT IS A PERSON'S, for every such control OFFERED HERE and not
+    // known made — one authored line apiece, beside the cards above because both
+    // are about whose turn it is.
+    //
+    // OFFERED-HERE is the scope, and it is the same `available()` view every
+    // serving surface reads: this block describes the room the person is
+    // standing in, and a decision elsewhere is `decisions()`'s to carry and the
+    // journey tool's to speak for.
+    //
+    // The whole walk is skipped where nothing declares one, so an app that
+    // declares nothing pays nothing and prints nothing.
+    //
+    // CAPPED BY THE SAME DIAL as the awaiting lines. These are
+    // declaration-bounded — a model cannot mint them — but the block a model
+    // trusts above its own account stays bounded by one number regardless.
+    const declared = this.decisions();
+    if (declared.length > 0) {
+      const unmade = new Set(
+        declared.filter((row) => row.made !== true).map((row) => row.affordanceId),
+      );
+      const here = this.available().edges.filter((edge) => unmade.has(edge.affordanceId));
+      for (const edge of here.slice(0, max)) {
+        lines.push(DECISION_WITH_THE_HUMAN(this.#actionLabel(edge.affordanceId)));
+      }
+      const decisionsOmitted = here.length - max;
+      if (decisionsOmitted > 0) {
+        lines.push(`  … ${decisionsOmitted} more decisions here are the human's, not listed.`);
+      }
     }
     const pend = this.pending();
     if (pend.length > 0) {

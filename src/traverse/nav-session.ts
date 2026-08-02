@@ -38,7 +38,7 @@ import type {
 } from '../atom/types.js';
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
-import { GraphValidationError, checkLiteralHref, composeGuards, validateBlockedBecause, validateGuardShape } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, composeGuards, validateBlockedBecause, validateGuardShape, validateHumanDecides } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from './expects.js';
 import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
@@ -425,6 +425,12 @@ export class InteractionSession<Paths extends string = string> extends Session {
     if (actionDef.blockedBecause !== undefined && typeof actionDef.blockedBecause !== 'function') {
       validateBlockedBecause(`mount-declared action '${qualifiedId}'`, actionDef.blockedBecause);
     }
+    // The same law in the same words at this door too — a decision that belongs
+    // to a person is a declaration, and authoring is authoring wherever it
+    // happens.
+    if (actionDef.humanDecides !== undefined) {
+      validateHumanDecides(`mount-declared action '${qualifiedId}'`, actionDef.humanDecides);
+    }
     // Never-trap BUILD gate at the mount door too: authoring is authoring
     // whether it happens in the def or at registration — same law, same words.
     if (actionDef.binding?.kind === 'url') {
@@ -471,6 +477,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // declarative contract is cloned, so the overlay owns its bytes.
       ...(actionDef.verify
         ? { verify: typeof actionDef.verify === 'function' ? actionDef.verify : structuredClone(actionDef.verify) }
+        : {}),
+      // Carried verbatim onto the overlay affordance, cloned so it owns its
+      // bytes — the compile door's own line, one door over.
+      ...(actionDef.humanDecides !== undefined
+        ? { humanDecides: structuredClone(actionDef.humanDecides) }
         : {}),
       highEffect: actionDef.confirm ?? false,
       role: actionDef.role ?? (actionDef.goTo ? 'next' : 'action'),

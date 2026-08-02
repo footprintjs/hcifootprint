@@ -4,7 +4,7 @@ title: JourneyDef
 
 # Interface: JourneyDef
 
-Defined in: [src/tree/types.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L158)
+Defined in: [src/tree/types.ts:190](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L190)
 
 A named multi-step flow, in the navigation graph's authoring vocabulary.
 
@@ -23,17 +23,30 @@ An app that already keeps a journey list feeds it in with `fromJourneys()`.
 
 > **does**: `string`
 
-Defined in: [src/tree/types.ts:159](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L159)
+Defined in: [src/tree/types.ts:191](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L191)
 
 ***
 
 ### steps
 
-> **steps**: `string`[]
+> **steps**: (`string` \| \{ `step`: `string`; \})[]
 
-Defined in: [src/tree/types.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L161)
+Defined in: [src/tree/types.ts:208](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L208)
 
-Steps by qualified path ('checkout.confirm-order.place-order') or unambiguous suffix ('place-order').
+Steps by qualified path ('checkout.confirm-order.place-order') or
+unambiguous suffix ('place-order').
+
+THE OBJECT ELEMENT FORM — `{ step: 'place-order' }` — compiles identically
+to the bare string and carries NOTHING beyond `step` in this release. It
+exists because per-step conditional metadata has to have exactly ONE
+authoring carrier: two features orbit it (a per-edge guard is designed and
+parked), and deciding the carrier once means the next one lands as a new
+optional field on a shape that already exists rather than as a second shape
+competing with this one.
+
+`humanDecides` is deliberately NOT one of them: ownership is a fact about
+the CONTROL, declared on `ActionDef` and inherited by every journey that
+names it.
 
 ***
 
@@ -41,4 +54,4 @@ Steps by qualified path ('checkout.confirm-order.place-order') or unambiguous su
 
 > `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L162)
+Defined in: [src/tree/types.ts:209](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L209)
