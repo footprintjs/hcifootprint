@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.1] - 2026-08-02
+
+**A claim of ours, measured instead of asserted.**
+
+The README told every reader — and every visitor to the npm page — that dumping a DOM into a prompt
+costs "~100k tokens". Nobody here had measured that. It was industry folklore sitting in our own front
+door, which is precisely the class of claim this library exists to stop an app from making.
+
+So it is measured now. A real browser against the built onboarding-wizard demo, `document.body
+.innerHTML` captured as a versioned fixture, both sides tokenized with a real tokenizer: **the DOM is
+2,027 tokens and what this library sends for the same page is 332** — 6.1× less per turn, at 41.5
+tokens per available action. The folklore was off by roughly fifty times for an app that size.
+
+The benchmark ships in the repo (`npm run bench:tokens`) and refuses two things on purpose: it does
+not call the difference *compression* (the two sides do not carry the same information — a DOM is what
+a browser needs to paint, a row is what an agent needs to act), and it does not extrapolate. It states
+plainly that this is one page of one small app whose DOM is dominated by its shell, that this repo
+therefore cannot show the ratio climbing with page size, and that the claim worth testing — served
+cost tracks *action count* while DOM tracks *visual complexity* — is for a reader to run against their
+own app.
+
+No library code changed: `dist` is byte-identical to 1.0.0.
+
 ## [1.0.0] - 2026-08-02
 
 **The names are frozen.** That is what 1.0 means here, and it is very nearly the whole of what it
