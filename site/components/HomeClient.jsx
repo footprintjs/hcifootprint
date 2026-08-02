@@ -286,8 +286,18 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
           <div className="hp-hero-copy">
             <div className="hp-eyebrow"><i />MIT · ONE DEPENDENCY · TREE-SHAKEABLE</div>
             <h1 className="hp-h1">hcifootprint</h1>
-            <p className="hp-lede">Put a map between your app and the agent.</p>
-            <p className="hp-sub">It stands between your app and an AI agent. The agent operates your real screens. Your rules stay in charge. Everything that happens is recorded — and what cannot happen is recorded too.</p>
+            {/* THE HERO READS TWICE TOO. It was the seven scenes alone at first,
+                which left the switch changing the argument but not the opening
+                line — the one sentence every reader actually reads.
+
+                The developer lede names the category: "context engineering" is
+                what this is, in the words a practitioner already searches for.
+                A business reader does not know that phrase, so theirs names the
+                consequence instead. Same product, same page, different door. */}
+            <p className="hp-lede v-tech">A context engine for your frontend.</p>
+            <p className="hp-lede v-prod">Let an AI agent use your app — safely.</p>
+            <p className="hp-sub v-tech">It gives an LLM your app&rsquo;s own account of where it is, what it can do and what happened — and says so when it does not know. The agent operates your real screens; your rules stay in charge.</p>
+            <p className="hp-sub v-prod">The agent works your real screens as the signed-in user, inside the permissions they already have. Nothing new to open up, nothing rewritten. What it does is recorded — and what it could not do is recorded too.</p>
             <div className="hp-cta">
               <button type="button" className="hp-copy-btn" onClick={copy}>
                 <span className="sig">$</span>npm i hcifootprint<span className="mark">{copied ? '✓' : '⧉'}</span>
