@@ -10,3 +10,6 @@ dist/
 # every source file). A build artifact of one machine at one moment: committed,
 # it starts rotting immediately and every later run shows up as a diff.
 coverage/
+
+# Agent worktrees are scratch space, not source.
+.claude/worktrees/
