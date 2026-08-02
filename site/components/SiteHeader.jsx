@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { BASE } from '../site.config';
 
 const HOME = `${BASE}/`;
@@ -45,15 +45,35 @@ export default function SiteHeader({ version, here }) {
     try { localStorage.setItem('theme', next); } catch { /* private mode */ }
   }, []);
 
-  /* The audience switch, written the same way and for the same reason: the
-     class on <html> is the state, so the label can never disagree with the
-     copy underneath it. Technical is the unclassed default — the reader who
-     decides whether to adopt a library is a developer. */
-  const toggleView = useCallback(() => {
+  /* The audience switch. Same discipline as the theme — the class on <html> is
+     the state, so the pill can never disagree with the copy underneath it —
+     but shown as a two-part control rather than one toggling label.
+     A single button that said "for the business" hid the fact that a CHOICE
+     exists at all: you cannot discover an option you are never shown. Both
+     halves are always on screen, the current one lit, so a visitor knows the
+     page reads two ways before they have clicked anything.
+     `aria-pressed` is written here rather than rendered, because the DOM holds
+     the state — leaving it to React would let the announced state and the
+     visible state drift apart. */
+  /* The class is restored before paint; the buttons do not exist yet at that
+     point, so their announced state is caught up here. Without this a returning
+     product-view reader is SHOWN the product copy while being TOLD the
+     technical half is pressed — the exact drift this whole design avoids by
+     keeping one source of truth. */
+  useEffect(() => {
+    const product = document.documentElement.classList.contains('view-product');
+    for (const btn of document.querySelectorAll('.audience [data-view]')) {
+      btn.setAttribute('aria-pressed', String((btn.dataset.view === 'view-product') === product));
+    }
+  }, []);
+
+  const setView = useCallback((next) => {
     const el = document.documentElement;
-    const next = el.classList.contains('view-product') ? 'view-technical' : 'view-product';
     el.classList.remove('view-product', 'view-technical');
     el.classList.add(next);
+    for (const btn of document.querySelectorAll('.audience [data-view]')) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.view === next));
+    }
     try { localStorage.setItem('view', next); } catch { /* private mode */ }
   }, []);
 
@@ -74,15 +94,28 @@ export default function SiteHeader({ version, here }) {
             {link.label}
           </a>
         ))}
-        <button
-          type="button"
-          className="audience"
-          onClick={toggleView}
-          aria-label="Read this for a developer or for the business"
-        >
-          <span className="v-tech">for the business →</span>
-          <span className="v-prod">← for a developer</span>
-        </button>
+        <div className="audience" role="group" aria-label="Who this page is written for">
+          {/* Defaults match the un-classed default view (technical), and the
+              effect below corrects them on mount for a reader whose stored
+              choice was product — so the announced state is never absent, and
+              never stale for longer than a paint. */}
+          <button
+            type="button"
+            data-view="view-technical"
+            aria-pressed="true"
+            onClick={() => setView('view-technical')}
+          >
+            technical
+          </button>
+          <button
+            type="button"
+            data-view="view-product"
+            aria-pressed="false"
+            onClick={() => setView('view-product')}
+          >
+            product
+          </button>
+        </div>
         <button type="button" className="theme" onClick={toggleTheme} aria-label="Switch colour theme">
           <svg className="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />

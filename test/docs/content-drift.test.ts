@@ -539,3 +539,36 @@ describe('the homepage says the same true things to both readers', () => {
     expect(prodLen).toBeLessThan(techLen * 1.4);
   });
 });
+
+/**
+ * SEARCH-ENGINE FACTS — the three things a crawler is told about this project.
+ *
+ * These are asserted because they are invisible: nothing on screen changes if
+ * the author link, the npm link, or half the description disappears from the
+ * structured data. A human reviewing the page would never notice.
+ *
+ * The first assertion is the load-bearing one and is easy to break by accident:
+ * the audience toggle works by shipping BOTH readings and letting CSS reveal
+ * one. Anyone who "optimises" that into rendering only the active reading would
+ * keep the page looking identical while halving what search engines can index.
+ */
+describe('search-engine facts', () => {
+  const page = readFileSync(new URL('../../site/app/page.jsx', import.meta.url), 'utf8');
+
+  it('describes the project in BOTH readings, not just the technical one', () => {
+    expect(page).toContain('navigation graph an LLM can plan over');
+    expect(page).toContain('without rebuilding it');
+  });
+
+  it('names the author with their public profiles', () => {
+    expect(page).toContain('sameAs: AUTHOR_SAMEAS');
+    const config = readFileSync(new URL('../../site/site.config.js', import.meta.url), 'utf8');
+    expect(config).toContain('github.com/sanjay1909');
+    expect(config).toContain('linkedin.com/in/sanjay-krishna-anbalagan');
+  });
+
+  it('names npm as where the package is actually obtained', () => {
+    expect(page).toContain('downloadUrl: NPM_URL');
+    expect(page).toContain('installUrl: NPM_URL');
+  });
+});

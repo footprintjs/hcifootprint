@@ -227,21 +227,44 @@ html.dark .site-hd .i-moon { display: none; }
 .wrap { max-width: 58rem; margin: 0 auto; padding: 2.75rem var(--gutter) 0; }
 .wrap.wide { max-width: 66rem; }
 
-/* The audience switch in the bar. Deliberately quieter than the nav links: it
-   changes how the page reads, not where you are. */
+/* THE AUDIENCE PILL — one control cut in half, both halves always visible.
+   A single toggling label hid the choice: a reader cannot discover an option
+   they are never shown. Showing both, with the current one lit, says "this
+   page reads two ways" before anyone clicks.
+
+   The lit half is chosen by the class on <html>, the same switch the copy
+   reads, so the control and the page cannot disagree — there is no second
+   source of truth to keep in step. */
 .site-hd .audience {
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 999px;
+  display: inline-flex;
+  overflow: hidden;
+  padding: 2px;
+}
+.site-hd .audience button {
   background: none;
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border: 0;
   border-radius: 999px;
   color: inherit;
   cursor: pointer;
   font: inherit;
-  font-size: 0.78rem;
-  opacity: 0.72;
-  padding: 0.18rem 0.6rem;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  opacity: 0.55;
+  padding: 0.2rem 0.62rem;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
   white-space: nowrap;
 }
-.site-hd .audience:hover { opacity: 1; }
+.site-hd .audience button:hover { opacity: 0.85; }
+/* The lit half. Both selectors are two classes deep so neither can be beaten
+   by the plain button rule above it. */
+html:not(.view-product) .site-hd .audience [data-view="view-technical"],
+html.view-product .site-hd .audience [data-view="view-product"] {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  opacity: 1;
+}
+.site-hd .audience button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* The switch's own label is one of the two readings too. */
 html:not(.view-product) .site-hd .audience .v-prod { display: none; }
