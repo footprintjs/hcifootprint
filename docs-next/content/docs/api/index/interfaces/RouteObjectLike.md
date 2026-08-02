@@ -4,7 +4,7 @@ title: RouteObjectLike
 
 # Interface: RouteObjectLike
 
-Defined in: src/graph/sources/from-react-router.ts:61
+Defined in: [src/graph/sources/from-react-router.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L61)
 
 A route as every React-Router-shaped config writes one — structural, so the
 real `RouteObject` of v6 and of v7 both satisfy it and neither is imported.
@@ -21,7 +21,7 @@ reads is legible from the type alone.
 
 > `optional` **children?**: readonly `RouteObjectLike`[]
 
-Defined in: src/graph/sources/from-react-router.ts:67
+Defined in: [src/graph/sources/from-react-router.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L67)
 
 Nested routes. Their addresses compose through this one's.
 
@@ -31,7 +31,7 @@ Nested routes. Their addresses compose through this one's.
 
 > `optional` **handle?**: `unknown`
 
-Defined in: src/graph/sources/from-react-router.ts:74
+Defined in: [src/graph/sources/from-react-router.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L74)
 
 The router's own free-form slot. This library reads exactly one key inside
 it — `hcifootprint` — and inside THAT, exactly `name` and `does`. Typed
@@ -44,7 +44,7 @@ there, and a narrower type would refuse a route table that is perfectly fine.
 
 > `optional` **index?**: `boolean`
 
-Defined in: src/graph/sources/from-react-router.ts:65
+Defined in: [src/graph/sources/from-react-router.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L65)
 
 True for the route that renders at its parent's address. Folds into the parent's page.
 
@@ -54,6 +54,6 @@ True for the route that renders at its parent's address. Folds into the parent's
 
 > `optional` **path?**: `string`
 
-Defined in: src/graph/sources/from-react-router.ts:63
+Defined in: [src/graph/sources/from-react-router.ts:63](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L63)
 
 The route's own path — relative to its parent, or absolute if it starts with '/'.

@@ -6,7 +6,7 @@ title: fromReactRouter
 
 > **fromReactRouter**(`routes`, `opts?`): [`RoutesSource`](/api/index/interfaces/RoutesSource)
 
-Defined in: src/graph/sources/from-react-router.ts:193
+Defined in: [src/graph/sources/from-react-router.ts:193](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L193)
 
 Read a router's own route tree into a RoutesSource — a frozen snapshot of the
 app's truth, pages only.

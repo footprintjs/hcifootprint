@@ -4,7 +4,7 @@ title: ReactRouterOptions
 
 # Interface: ReactRouterOptions
 
-Defined in: src/graph/sources/from-react-router.ts:133
+Defined in: [src/graph/sources/from-react-router.ts:133](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L133)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/graph/sources/from-react-router.ts:133
 
 > `optional` **crossLinks?**: `true` \| readonly `string`[]
 
-Defined in: src/graph/sources/from-react-router.ts:154
+Defined in: [src/graph/sources/from-react-router.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L154)
 
 Turn these pages into navigation actions offered everywhere else — the same
 option, the same two stances and the same refusals as
@@ -30,7 +30,7 @@ declared — not paths, because the graph's own vocabulary is page ids.
 
 > `optional` **nameOf?**: (`route`, `absolutePath`) => `string` \| `undefined`
 
-Defined in: src/graph/sources/from-react-router.ts:142
+Defined in: [src/graph/sources/from-react-router.ts:142](https://github.com/footprintjs/hcifootprint/blob/main/src/graph/sources/from-react-router.ts#L142)
 
 Name a route the transcription cannot — or override one it can.
 
