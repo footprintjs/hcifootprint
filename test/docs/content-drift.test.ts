@@ -487,3 +487,55 @@ describe('the async recipe and the page under it teach the same sentences', () =
     expect(readDocPage('waiting-for-the-app')).toContain('doc:going-async');
   });
 });
+
+describe('the homepage says the same true things to both readers', () => {
+  /**
+   * The site offers a developer reading and a business reading of the same
+   * seven scenes. That is only safe while the two are the SAME CLAIM in
+   * different language — the moment the business reading says something the
+   * technical one cannot back, the front page is doing exactly what this
+   * library refuses to let an app do.
+   *
+   * A machine cannot judge whether two sentences mean the same thing. What it
+   * CAN do is refuse the ways that guarantee drift: a scene with only one
+   * reading, and a business reading that has quietly become the longer,
+   * bolder pitch. Both are caught here; the meaning is a human's job, and the
+   * rule is written at the top of the SCENES array where the copy is edited.
+   */
+  const home = readFileSync(path.join(REPO, 'site/components/HomeClient.jsx'), 'utf8');
+  const scenes = home.slice(home.indexOf('const SCENES = ['), home.indexOf('/* The code panel'));
+
+  it('every scene carries both readings — one without the other cannot ship', () => {
+    // Both quote styles: scene 03's title contains an apostrophe, so it is
+    // double-quoted — a single-quote-only matcher silently counts six scenes
+    // out of seven, which is how this assertion first failed.
+    const numbered = [...scenes.matchAll(/n: ['"](\d\d) — /g)].map((m) => m[1]);
+    const tech = [...scenes.matchAll(/\n    tech: \{/g)].length;
+    const product = [...scenes.matchAll(/\n    product: \{/g)].length;
+
+    expect(numbered.length).toBeGreaterThan(0);
+    expect(tech).toBe(numbered.length);
+    expect(product).toBe(numbered.length);
+  });
+
+  it('the structure is shared, so the two readings cannot become two stories', () => {
+    // The scene number, the additive caption and the tone live OUTSIDE both
+    // readings. If a `n:` or `add:` ever appears inside one, the readings have
+    // started telling different stories rather than one story twice.
+    for (const block of scenes.split(/\n  \{\n/).slice(1)) {
+      const techBlock = block.slice(block.indexOf('tech: {'), block.indexOf('product: {'));
+      expect(techBlock).not.toMatch(/\n\s+(n|add|tone|id):/);
+    }
+  });
+
+  it('the business reading is not allowed to become the louder one', () => {
+    // Not a style rule — a drift alarm. A product line that grows far past its
+    // technical counterpart is usually one that stopped describing the same
+    // mechanism and started selling.
+    const techLen = [...scenes.matchAll(/tech: \{([\s\S]*?)\n    \},/g)]
+      .reduce((n, m) => n + m[1].length, 0);
+    const prodLen = [...scenes.matchAll(/product: \{([\s\S]*?)\n    \},/g)]
+      .reduce((n, m) => n + m[1].length, 0);
+    expect(prodLen).toBeLessThan(techLen * 1.4);
+  });
+});

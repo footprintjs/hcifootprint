@@ -226,3 +226,23 @@ html.dark .site-hd .i-moon { display: none; }
 /* content column (PostView renders inside .wrap.wide) */
 .wrap { max-width: 58rem; margin: 0 auto; padding: 2.75rem var(--gutter) 0; }
 .wrap.wide { max-width: 66rem; }
+
+/* The audience switch in the bar. Deliberately quieter than the nav links: it
+   changes how the page reads, not where you are. */
+.site-hd .audience {
+  background: none;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  opacity: 0.72;
+  padding: 0.18rem 0.6rem;
+  white-space: nowrap;
+}
+.site-hd .audience:hover { opacity: 1; }
+
+/* The switch's own label is one of the two readings too. */
+html:not(.view-product) .site-hd .audience .v-prod { display: none; }
+html.view-product .site-hd .audience .v-tech { display: none; }

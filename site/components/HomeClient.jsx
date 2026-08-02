@@ -11,52 +11,112 @@ const CHANGELOG = `${GITHUB}/blob/main/CHANGELOG.md`;
 const DOCS = `${BASE}/docs/`;
 const STORY = `${BASE}/story/`;
 
+/* THE SEVEN SCENES, in two languages.
+ *
+ * A developer decides whether to adopt this; the person they must convince
+ * decides whether they may. Both arrive at the same page, so the page says the
+ * same things twice — once in mechanisms, once in consequences.
+ *
+ * THE RULE, and it is the whole reason this is safe to do: every `product`
+ * line must be the SAME TRUE THING as the `tech` line beside it, said for a
+ * different reader. Not a bigger claim, not a softer one. If a product line
+ * cannot point at the mechanism in the technical line directly above it in
+ * this file, it does not belong here — that is how a marketing page starts
+ * saying what the library cannot back, which is the exact failure this whole
+ * library exists to refuse.
+ *
+ * Only `h` and `p` vary. The number, the additive caption and the tone are the
+ * structure of the story and are shared, so the two readings cannot drift into
+ * being different stories.
+ */
 const SCENES = [
   {
     n: '01 — THE MAP',
-    h: 'Your app is already a map.',
-    p: <>Pages are places. Routes are roads. hcifootprint reads the map your app already has — its route table — and draws nothing you did not declare.</>,
     add: '+ places, + roads',
+    tech: {
+      h: 'Your app is already a map.',
+      p: <>Pages are places. Routes are roads. hcifootprint reads the map your app already has — its route table — and draws nothing you did not declare.</>,
+    },
+    product: {
+      h: 'Nothing to rewrite.',
+      p: <>The map comes from the route table you already ship. No new backend, no re-architecture, no second source of truth to keep in step with the first.</>,
+    },
   },
   {
     n: '02 — THE JOURNEY',
-    h: 'A session is a path, not a log line.',
-    p: <>A traveller walks. Each step is written as it happens: where it started, where it went, what it touched. The trail <em>is</em> the transcript — there is no second version of events.</>,
     add: '+ a trail, + a ledger',
+    tech: {
+      h: 'A session is a path, not a log line.',
+      p: <>A traveller walks. Each step is written as it happens: where it started, where it went, what it touched. The trail <em>is</em> the transcript — there is no second version of events.</>,
+    },
+    product: {
+      h: 'One record of what happened.',
+      p: <>Every step is written as it happens, by the app itself. When someone asks what the agent did on a customer&rsquo;s account, the answer is a record — not a reconstruction from logs after the fact.</>,
+    },
   },
   {
     n: "03 — WHAT'S POSSIBLE HERE",
-    h: "Arrive somewhere, and only that place's actions exist.",
-    p: <>The model is handed the four things it can do here. Not the four hundred it could do somewhere else. Nobody hands a tourist every restaurant in the country.</>,
     add: '+ stops at this place',
+    tech: {
+      h: "Arrive somewhere, and only that place's actions exist.",
+      p: <>The model is handed the four things it can do here. Not the four hundred it could do somewhere else. Nobody hands a tourist every restaurant in the country.</>,
+    },
+    product: {
+      h: 'You pay for the page, not the app.',
+      p: <>Only what is possible here is sent. On our own demo that is <strong>6.1× fewer tokens per turn</strong> than handing over the page&rsquo;s markup — measured, with the script in the repo so you can run it against your own app rather than take our word for it.</>,
+    },
   },
   {
     n: '04 — THE BOUNDARY',
-    h: 'Your app owns meaning. The library owns mechanism.',
-    p: <>Rules, validation and routing stay exactly where they are. hcifootprint sits outside them: it observes, it reports, it refuses. Nothing is injected. Remove it and the app is untouched.</>,
     add: '+ a membrane, not a wrapper',
     tone: 'is-agent',
+    tech: {
+      h: 'Your app owns meaning. The library owns mechanism.',
+      p: <>Rules, validation and routing stay exactly where they are. hcifootprint sits outside them: it observes, it reports, it refuses. Nothing is injected. Remove it and the app is untouched.</>,
+    },
+    product: {
+      h: 'No new attack surface.',
+      p: <>The agent acts as the signed-in user, through the buttons and permissions they already have. No new endpoints, no new grants. Remove the library and your app is exactly as it was.</>,
+    },
   },
   {
     n: '05 — GAPS',
-    h: 'It cannot do this, so it says so.',
-    p: <>The agent reaches for something that was never declared. There is no fallback, no improvised click, no cheerful summary. A row appears: what it wanted, why it couldn&rsquo;t. Honest absence is the feature.</>,
     add: '+ a second traveller, + a refusal',
     tone: 'is-refuse',
     id: 'gaps',
+    tech: {
+      h: 'It cannot do this, so it says so.',
+      p: <>The agent reaches for something that was never declared. There is no fallback, no improvised click, no cheerful summary. A row appears: what it wanted, why it couldn&rsquo;t. Honest absence is the feature.</>,
+    },
+    product: {
+      h: 'You hear it from the app, not the customer.',
+      p: <>When the agent cannot do something, that is recorded as a gap the moment it happens — with what it wanted and why it failed. The alternative is a confident summary of work nobody did.</>,
+    },
   },
   {
     n: '06 — THE CONFIRM GATE',
-    h: 'Consequential steps stop and ask.',
-    p: <>Allow, always allow, or prevent — with the receipts attached. What it read. What it intends to write. Observed on screen, never inferred. Answer the card on the map; the journey waits for you.</>,
     add: '+ a gate, + a decision',
+    tech: {
+      h: 'Consequential steps stop and ask.',
+      p: <>Allow, always allow, or prevent — with the receipts attached. What it read. What it intends to write. Observed on screen, never inferred. Answer the card on the map; the journey waits for you.</>,
+    },
+    product: {
+      h: 'An approval you can prove.',
+      p: <>Before anything consequential, a person sees exactly what will happen and answers. The library will not take the agent&rsquo;s word that someone approved: the yes has to point at a decision a human actually recorded.</>,
+    },
   },
   {
     n: '07 — BRING YOUR OWN',
-    h: 'The map was never hand-drawn.',
-    p: <>It grew from three things your app already has: the router, the journeys you name, the controls you expose. Three plugs snap in. Everything above was drawn from them.</>,
     add: '+ three declared sources',
     tone: 'is-agent',
+    tech: {
+      h: 'The map was never hand-drawn.',
+      p: <>It grew from three things your app already has: the router, the journeys you name, the controls you expose. Three plugs snap in. Everything above was drawn from them.</>,
+    },
+    product: {
+      h: 'Adopt it in layers, stop anywhere.',
+      p: <>Start with the routes you already have and get a map in an afternoon. Add actions when you want the agent to act, and the trust layer when it touches something that matters. Each layer stands on its own.</>,
+    },
   },
 ];
 
@@ -291,8 +351,14 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
               data-active={scene === i + 1 ? 'true' : 'false'}
             >
               <div className="hp-scene-n">{sc.n}</div>
-              <h2>{sc.h}</h2>
-              <p>{sc.p}</p>
+              {/* BOTH readings are in the DOM and CSS shows one, for the same
+                  reason the colour theme works that way: the markup is the
+                  state, so there is nothing to hydrate and the toggle can never
+                  disagree with what is on screen. */}
+              <h2 className="v-tech">{sc.tech.h}</h2>
+              <h2 className="v-prod">{sc.product.h}</h2>
+              <p className="v-tech">{sc.tech.p}</p>
+              <p className="v-prod">{sc.product.p}</p>
               <div className={`hp-scene-add ${sc.tone || ''}`}>{sc.add}</div>
             </div>
           ))}

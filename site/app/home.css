@@ -310,3 +310,19 @@
 /* the agent's step markers are diamonds: the 45° turn has to live in the
    keyframe, because an animated transform replaces the element's own */
 @keyframes dcPopRot { from { opacity: 0; transform: rotate(45deg) scale(.2) } to { opacity: 1; transform: rotate(45deg) scale(1) } }
+
+/* ── The audience toggle ────────────────────────────────────────────────────
+   Two readings of the same seven scenes ship in the markup and CSS reveals
+   one, exactly as the colour theme does. The markup IS the state: nothing to
+   hydrate, so the switch can never disagree with the page, and a reader with
+   JavaScript disabled still gets the technical reading rather than a blank.
+
+   Technical is the default and the un-classed state on purpose — the person
+   who decides whether to adopt this is a developer, and a page that greets
+   them with business copy has misread the room. */
+/* Two classes deep on purpose: the scene rules that style these elements are
+   `.hp-scene h2` and `.hp-scene p`, and a bare `.v-prod` loses that
+   specificity fight silently — the page then shows BOTH readings at once,
+   which is how this was first written and how the browser caught it. */
+html:not(.view-product) .v-prod { display: none; }
+html.view-product .v-tech { display: none; }

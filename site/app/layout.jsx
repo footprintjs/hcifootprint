@@ -40,11 +40,18 @@ export const metadata = {
 // every stylesheet on the site keys off.
 const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.classList.add(t);}catch(e){document.documentElement.classList.add('dark');}})();`;
 
+/* The audience choice, restored before paint for the same reason the theme is:
+   a reader who chose the business reading last time must not watch the
+   developer copy render and then swap. Technical is the default, and also the
+   fallback if storage is unreadable — the un-classed state is a real state. */
+const viewScript = `(function(){try{var v=localStorage.getItem('view');document.documentElement.classList.add(v==='view-product'?'view-product':'view-technical');}catch(e){document.documentElement.classList.add('view-technical');}})();`;
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: viewScript }} />
         <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)" />
       </head>

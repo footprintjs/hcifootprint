@@ -45,6 +45,18 @@ export default function SiteHeader({ version, here }) {
     try { localStorage.setItem('theme', next); } catch { /* private mode */ }
   }, []);
 
+  /* The audience switch, written the same way and for the same reason: the
+     class on <html> is the state, so the label can never disagree with the
+     copy underneath it. Technical is the unclassed default — the reader who
+     decides whether to adopt a library is a developer. */
+  const toggleView = useCallback(() => {
+    const el = document.documentElement;
+    const next = el.classList.contains('view-product') ? 'view-technical' : 'view-product';
+    el.classList.remove('view-product', 'view-technical');
+    el.classList.add(next);
+    try { localStorage.setItem('view', next); } catch { /* private mode */ }
+  }, []);
+
   return (
     <header className="site-hd">
       <div className="brand">
@@ -62,6 +74,15 @@ export default function SiteHeader({ version, here }) {
             {link.label}
           </a>
         ))}
+        <button
+          type="button"
+          className="audience"
+          onClick={toggleView}
+          aria-label="Read this for a developer or for the business"
+        >
+          <span className="v-tech">for the business →</span>
+          <span className="v-prod">← for a developer</span>
+        </button>
         <button type="button" className="theme" onClick={toggleTheme} aria-label="Switch colour theme">
           <svg className="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
