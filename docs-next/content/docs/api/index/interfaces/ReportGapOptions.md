@@ -4,7 +4,7 @@ title: ReportGapOptions
 
 # Interface: ReportGapOptions
 
-Defined in: [src/atom/types.ts:1349](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1349)
+Defined in: [src/atom/types.ts:1398](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1398)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1349](https://github.com/footprintjs/hcifootprint
 
 > `optional` **actionsMayBeStale?**: `boolean`
 
-Defined in: [src/atom/types.ts:1371](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1371)
+Defined in: [src/atom/types.ts:1420](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1420)
 
 This row also says the ACTIONS ON OFFER may be out of date — the source they
 come from could not be re-read, so what is being served is from before that.
@@ -35,7 +35,7 @@ library keeps for saying the room may have moved.
 
 > `optional` **note?**: `string`
 
-Defined in: [src/atom/types.ts:1353](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1353)
+Defined in: [src/atom/types.ts:1402](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1402)
 
 ***
 
@@ -43,7 +43,7 @@ Defined in: [src/atom/types.ts:1353](https://github.com/footprintjs/hcifootprint
 
 > `optional` **principal?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1354](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1354)
+Defined in: [src/atom/types.ts:1403](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1403)
 
 ***
 
@@ -51,7 +51,7 @@ Defined in: [src/atom/types.ts:1354](https://github.com/footprintjs/hcifootprint
 
 > `optional` **reason?**: [`GapReason`](/api/index/type-aliases/GapReason)
 
-Defined in: [src/atom/types.ts:1352](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1352)
+Defined in: [src/atom/types.ts:1401](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1401)
 
 ***
 
@@ -59,6 +59,6 @@ Defined in: [src/atom/types.ts:1352](https://github.com/footprintjs/hcifootprint
 
 > **request**: `string`
 
-Defined in: [src/atom/types.ts:1351](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1351)
+Defined in: [src/atom/types.ts:1400](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1400)
 
 The ask that could not be served (length-capped to stay token-lean).

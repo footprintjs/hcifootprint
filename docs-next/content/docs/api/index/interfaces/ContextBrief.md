@@ -4,7 +4,7 @@ title: ContextBrief
 
 # Interface: ContextBrief
 
-Defined in: [src/atom/types.ts:1769](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1769)
+Defined in: [src/atom/types.ts:1826](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1826)
 
 Token-lean, prompt-ready session context. `text` is built from AUTHORED
 strings and structural facts only — state values and payloads never enter
@@ -16,7 +16,7 @@ it (the two-string-class invariant extends to history).
 
 > **frame**: [`JourneyFrame`](/api/index/interfaces/JourneyFrame) \| `null`
 
-Defined in: [src/atom/types.ts:1772](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1772)
+Defined in: [src/atom/types.ts:1829](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1829)
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: [src/atom/types.ts:1772](https://github.com/footprintjs/hcifootprint
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1770](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1770)
+Defined in: [src/atom/types.ts:1827](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1827)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [src/atom/types.ts:1770](https://github.com/footprintjs/hcifootprint
 
 > **text**: `string`
 
-Defined in: [src/atom/types.ts:1773](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1773)
+Defined in: [src/atom/types.ts:1830](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1830)
 
 ***
 
@@ -40,4 +40,4 @@ Defined in: [src/atom/types.ts:1773](https://github.com/footprintjs/hcifootprint
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:1771](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1771)
+Defined in: [src/atom/types.ts:1828](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1828)

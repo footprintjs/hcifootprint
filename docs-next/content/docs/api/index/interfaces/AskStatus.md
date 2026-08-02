@@ -4,7 +4,7 @@ title: AskStatus
 
 # Interface: AskStatus
 
-Defined in: [src/atom/types.ts:1613](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1613)
+Defined in: [src/atom/types.ts:1662](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1662)
 
 One high-effect ask and what became of it — the rows [Session.asks](/api/index/classes/Session#asks)
 serves, read at the moment you ask.
@@ -25,7 +25,7 @@ Structural facts only: no receipts, no input, no `by`. This is the answer to
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1616](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1616)
+Defined in: [src/atom/types.ts:1665](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1665)
 
 The action the card is about.
 
@@ -35,7 +35,7 @@ The action the card is about.
 
 > `optional` **answer?**: `"approved"` \| `"declined"`
 
-Defined in: [src/atom/types.ts:1624](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1624)
+Defined in: [src/atom/types.ts:1681](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1681)
 
 Absent means STILL OPEN — nobody has answered. An agent's relayed decline
 under [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) leaves it absent, because
@@ -47,7 +47,21 @@ that report closes nothing.
 
 > **askId**: `string`
 
-Defined in: [src/atom/types.ts:1614](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1614)
+Defined in: [src/atom/types.ts:1663](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1663)
+
+***
+
+### does?
+
+> `optional` **does?**: `string`
+
+Defined in: [src/atom/types.ts:1673](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1673)
+
+What the app said that action does, frozen when the card was assembled —
+see [Cause.does](/api/index/interfaces/Cause#does). A card outlives the render that raised it (a person
+is slower than a re-render), so the ask carries its own name rather than
+asking a spec that may have moved. Absent when the card was raised about an
+id the graph did not have.
 
 ***
 
@@ -55,7 +69,7 @@ Defined in: [src/atom/types.ts:1614](https://github.com/footprintjs/hcifootprint
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:1618](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1618)
+Defined in: [src/atom/types.ts:1675](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1675)
 
 Which row/instance the card is about, when the action takes one.
 
@@ -65,7 +79,7 @@ Which row/instance the card is about, when the action takes one.
 
 > `optional` **spent?**: `boolean`
 
-Defined in: [src/atom/types.ts:1626](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1626)
+Defined in: [src/atom/types.ts:1683](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1683)
 
 True once a fire has spent this approval. One yes authorizes one fire.
 
@@ -75,7 +89,7 @@ True once a fire has spent this approval. One yes authorizes one fire.
 
 > `optional` **stale?**: `true`
 
-Defined in: [src/atom/types.ts:1637](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1637)
+Defined in: [src/atom/types.ts:1694](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1694)
 
 The human's yes is recorded and unspent, and the app's own
 [HumanApprovalPolicy](/api/index/interfaces/HumanApprovalPolicy) will no longer let a fire cross on it — it ran

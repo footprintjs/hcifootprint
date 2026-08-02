@@ -4,7 +4,7 @@ title: Journey
 
 # Interface: Journey
 
-Defined in: [src/atom/types.ts:265](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L265)
+Defined in: [src/atom/types.ts:290](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L290)
 
 One compiled journey: [JourneySpec](/api/index/interfaces/JourneySpec) with the id it is filed under.
 
@@ -18,7 +18,7 @@ One compiled journey: [JourneySpec](/api/index/interfaces/JourneySpec) with the 
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:197](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L197)
+Defined in: [src/atom/types.ts:222](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L222)
 
 AUTHORED planner-facing text (same string class as affordance descriptions).
 
@@ -32,7 +32,7 @@ AUTHORED planner-facing text (same string class as affordance descriptions).
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:266](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L266)
+Defined in: [src/atom/types.ts:291](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L291)
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [src/atom/types.ts:266](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **precondition?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:200](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L200)
+Defined in: [src/atom/types.ts:225](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L225)
 
 #### Inherited from
 
@@ -52,7 +52,7 @@ Defined in: [src/atom/types.ts:200](https://github.com/footprintjs/hcifootprint/
 
 > **steps**: `string`[]
 
-Defined in: [src/atom/types.ts:199](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L199)
+Defined in: [src/atom/types.ts:224](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L224)
 
 Affordance ids, in canonical order. v0: linear; step-DAG is roadmap.
 

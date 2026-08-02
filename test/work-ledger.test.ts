@@ -151,6 +151,10 @@ describe('home 1 — an explicit transitionId binds exactly', () => {
         label: 'Uploading the photo',
         transitionId: id,
         affordanceId: 'catalog.add-to-cart',
+        // Carried off the bound FIRE's own row, never re-looked-up: the work row
+        // and the fire it belongs to can never end up naming the action
+        // differently, however long the work runs.
+        does: 'Add the dress to the cart',
         startedAt: expect.any(Number),
         principal: 'agent',
       },

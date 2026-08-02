@@ -521,10 +521,14 @@ describe('Session.asks — the ask book, read-only', () => {
     const { session, port } = shop(true);
     const { askId } = ask(port, { input: { card: 'pan-4242' } });
 
-    expect(session.asks()).toEqual([{ askId, affordanceId: 'checkout.place-order' }]);
+    // `does` is the action's AUTHORED sentence, captured when the card was
+    // assembled — spec text, never anything the card was carrying.
+    expect(session.asks()).toEqual([
+      { askId, affordanceId: 'checkout.place-order', does: 'Place the order' },
+    ]);
     session.approveAsk(askId, { by: 'ops@example.com' });
     expect(session.asks()).toEqual([
-      { askId, affordanceId: 'checkout.place-order', answer: 'approved' },
+      { askId, affordanceId: 'checkout.place-order', does: 'Place the order', answer: 'approved' },
     ]);
     expect(JSON.stringify(session.asks())).not.toContain('pan-4242');
   });
@@ -537,7 +541,13 @@ describe('Session.asks — the ask book, read-only', () => {
     await tick();
 
     expect(session.asks()).toEqual([
-      { askId, affordanceId: 'checkout.place-order', answer: 'approved', spent: true },
+      {
+        askId,
+        affordanceId: 'checkout.place-order',
+        does: 'Place the order',
+        answer: 'approved',
+        spent: true,
+      },
     ]);
   });
 
@@ -546,7 +556,11 @@ describe('Session.asks — the ask book, read-only', () => {
     const { askId } = ask(port);
     const rows = session.asks();
     rows[0]!.answer = 'approved';
-    expect(session.asks()[0]).toEqual({ askId, affordanceId: 'checkout.place-order' });
+    expect(session.asks()[0]).toEqual({
+      askId,
+      affordanceId: 'checkout.place-order',
+      does: 'Place the order',
+    });
     // …and the gate still refuses the fire the edited copy claimed was approved.
     expect(session.fire('checkout.place-order', { source: 'agent', askId })).toMatchObject({
       ok: false,

@@ -198,6 +198,10 @@ describe('tier-2 effect-signature inference — a guess, marked as one', () => {
     expect(u.transition.cause).toEqual({
       kind: 'fired',
       affordanceId: 'add-to-cart',
+      // A guessed ATTRIBUTION still names a real action, so the row captures
+      // its authored sentence exactly as a fired one does. What stays a guess
+      // is `inferred`.
+      does: 'Add a product to the cart',
       principal: 'unknown',
       inferred: true,
     });

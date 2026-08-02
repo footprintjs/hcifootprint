@@ -6,7 +6,7 @@ title: EffectStatus
 
 > **EffectStatus** = `"pending"` \| `"performed"` \| `"refused"` \| `"unobservable"`
 
-Defined in: [src/atom/types.ts:897](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L897)
+Defined in: [src/atom/types.ts:922](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L922)
 
 What became of a fire's effect — the INVOCATION axis, deliberately separate
 from `TransitionRecord.effectVerified` (the STATE axis: were the declared

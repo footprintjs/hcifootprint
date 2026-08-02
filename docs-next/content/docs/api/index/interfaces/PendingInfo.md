@@ -4,7 +4,7 @@ title: PendingInfo
 
 # Interface: PendingInfo
 
-Defined in: [src/atom/types.ts:1079](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1079)
+Defined in: [src/atom/types.ts:1104](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1104)
 
 A fired transition still awaiting its state report.
 
@@ -14,7 +14,20 @@ A fired transition still awaiting its state report.
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1081](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1081)
+Defined in: [src/atom/types.ts:1106](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1106)
+
+***
+
+### does?
+
+> `optional` **does?**: `string`
+
+Defined in: [src/atom/types.ts:1113](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1113)
+
+What the app said this action does, frozen when the fire was recorded —
+see [Cause.does](/api/index/interfaces/Cause#does). Carried here so a fire still awaiting its report can
+be NAMED after the component that declared it has gone: the row a reader
+sees is the one the session minted, not a fresh look at a spec that moved.
 
 ***
 
@@ -22,7 +35,7 @@ Defined in: [src/atom/types.ts:1081](https://github.com/footprintjs/hcifootprint
 
 > **firedAt**: `number`
 
-Defined in: [src/atom/types.ts:1082](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1082)
+Defined in: [src/atom/types.ts:1114](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1114)
 
 ***
 
@@ -30,4 +43,4 @@ Defined in: [src/atom/types.ts:1082](https://github.com/footprintjs/hcifootprint
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:1080](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1080)
+Defined in: [src/atom/types.ts:1105](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1105)

@@ -21,7 +21,7 @@
  * permissive direction, because the mistake it would be making is the one that
  * cannot be taken back.
  */
-import type { ConfirmRecord, Principal } from '../atom/types.js';
+import type { Cause, ConfirmRecord, Principal } from '../atom/types.js';
 import { sameInput } from './same-input.js';
 
 /**
@@ -32,6 +32,16 @@ import { sameInput } from './same-input.js';
 export interface OpenAsk {
   askId: string;
   affordanceId: string;
+  /**
+   * The action's authored `does`, frozen when the card was assembled — the
+   * capture law from {@link Cause.does}, applied to the one row that is
+   * DESIGNED to outlive the moment it was made. Nothing in this file reads it:
+   * the gate judges pointers, principals and inputs, never words. It rides here
+   * so the session's own renders can name the card after the control that
+   * raised it has unmounted. Absent when the ask names an id the graph did not
+   * have — the same presence-only fact everywhere else.
+   */
+  does?: string;
   /** What the card said this fire would send — already normalized. */
   input: unknown;
   /** Which row/instance the card was about, when the action takes one. */

@@ -1,5 +1,82 @@
 # Changelog
 
+## [1.1.0] - 2026-08-02
+
+**A name is evidence captured at its moment.**
+
+Every history render in this library answered "is this a real action?" the same way: it looked the id
+up in the graph **as it stands when you read**. That is a different question from the one history
+asks, and it gets a different answer the instant a component unmounts.
+
+So a compose pane mount-declares `send`, an agent fires it, the pane unmounts — and `groundTruth()`
+then called a genuinely-fired action **"(an action this app does not have)"**. The one block a model
+is told to trust above its own account was calling the app a liar about the app's own record, which
+is the precise inverse of what that block is for. `contextBrief()` had it worse: its narrative line
+never went through the label guard at all. It printed the raw id and read the description out of the
+current graph, so after the same unmount the app's own sentence rendered as an empty string, and its
+pending line printed raw ids too. Two lines that had quietly opted out of the discipline every other
+line here keeps.
+
+**How it was found.** By running the code — a cross-review with a production integration's reviewing
+agent, which executed the mount → fire → unmount sequence against this source rather than reasoning
+about it. Worth saying plainly: **an earlier diagnosis of ours was wrong.** We had it filed as a
+visibility problem in the label check — that the guard was refusing to name things it should have
+named. It was not. The guard was doing exactly what it said; what was missing was the *evidence* it
+was asking for, and the second defect was a line that skipped the guard entirely and had never been
+looked at. A diagnosis that survives only because nobody ran it is not a diagnosis.
+
+### The fix: capture, never look up
+
+When the session mints a row for an action the graph has **at that moment**, it freezes that
+affordance's authored `does` onto the row right then. Renders prefer the row's own evidence: a row
+carrying a captured `does` was declared when it happened, and that is proof enough to print the name
+— no later lookup can take it back. A row that captured nothing falls through to the graph lookup and
+then to the constant, byte-identical to before, which is exactly an id nobody ever authored.
+
+The new optional field is called `does` — the same word an app declares it with — and it sits beside
+the `affordanceId` it belongs to on `TransitionRecord.cause`, `PendingInfo`, `WorkRow`, `AskStatus`
+and the `fire-rejected` rows of `GapRecord`.
+
+**Three laws hold it in place.**
+
+- **Presence-only.** Absent means *this row's action was not declared at that moment* — which is the
+  honest answer for a fire of a name a model invented, and the reason that name can never reach an
+  authored sentence: with nothing captured, every render still falls to the constant. A
+  `TOOL_DISABLED` refusal of a real control captures its name; an `UNKNOWN_AFFORDANCE` refusal
+  captures nothing.
+- **From the graph and nowhere else.** Never from a fire's arguments, never from a payload, never
+  from a caller's string. This is the authored channel, and caller text entering it is the injection
+  the constant exists to refuse.
+- **Never retroactive.** A row is not rewritten when the action mounts later, and a row keeps the
+  sentence the app was showing **then** — re-mount the same id with new wording and history still
+  quotes the words that were on screen when it happened.
+
+### Also in this release
+
+- **The brief line stops bypassing the guard.** Its id now goes through the same door every other
+  name here uses, and its description comes off the row. Post-unmount it carries both the real id and
+  the app's own sentence.
+- **Two coverage exemptions deleted.** They asserted that a fired row's description is always in the
+  graph "because the spec always has its description" — the falsehood this release is about. The one
+  that replaces them makes a claim about the ROW rather than about the graph, which is the whole
+  change in one comment.
+- **A stale 0.11.0 note corrected in place.** Its *Compatibility* list still described `HumanDecides`,
+  `DecisionStatus` and `SkillStanding` as shipped-but-unexported declarations, three paragraphs after
+  the same section correctly said they were removed before release. The bullet now says what is true;
+  the history stays.
+
+### Compatibility
+
+- **Purely additive.** No published name is renamed or removed — the 1.0 freeze holds. Every new
+  field is optional, and absent wherever nothing was captured.
+- **No published union grew.** `FireResult['reason']`, `GapRecord['rejectionReason']`, `EffectStatus`,
+  `Settlement`, `StepStatus`, `FrameStatus`, `GapReason` and `Binding['kind']` are byte-identical.
+- **The served tool array is untouched.** A history row is a RESULT; `toMCPTools()` renders the same
+  bytes whether or not the session holds captured rows, and an unmounted action still leaves the tool
+  list the moment it unmounts — history simply keeps being able to name it.
+- **What a reader sees changes only where it was wrong.** A mounted action's lines read exactly as
+  before; the change is visible only after the thing that declared it is gone.
+
 ## [1.0.1] - 2026-08-02
 
 **A claim of ours, measured instead of asserted.**
@@ -522,10 +599,12 @@ which is a posture that survives.
   the key is absent wherever the app declared no condition.
 - **`readySteps` rows gained an optional `goesTo`.** Absent when the app declared no destination.
 - **One dev warning got longer.** Text on the `onWarn` channel, appended to what it already said.
-- **New types are declarations only.** `HumanDecides`, `DecisionStatus` and `SkillStanding` describe a
-  runtime that does not exist yet; nothing reads them, and no behavior changes for an app that declares
-  nothing. They are **not exported from the package root** — a type nothing reads should not look
-  importable either — and each one's TSDoc says so where a hover will find it.
+- **No new types at all.** `HumanDecides`, `DecisionStatus` and `SkillStanding` are **not in this
+  release** — not exported, not declared, not present. An earlier cut of these notes described them as
+  unexported declarations that ship without a runtime; that cut was written before they were removed
+  (see *Decision ownership — designed, not built* above), and the sentence outlived the code it
+  described. Corrected here rather than quietly dropped, because a changelog that edits away what it
+  once said is no more checkable than the API it is documenting.
 
 ## [0.10.0] - 2026-07-31
 

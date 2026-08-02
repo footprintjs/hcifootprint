@@ -46,6 +46,31 @@ export interface Cause {
   principal: Principal;
   /** Set when kind === 'fired'. */
   affordanceId?: string;
+  /**
+   * THE AUTHORED SENTENCE FOR THAT ACTION, FROZEN AT THIS MOMENT — the
+   * affordance's own `does`, copied off the spec as this row was minted.
+   *
+   * A NAME IS EVIDENCE CAPTURED AT ITS MOMENT, and this field is that law
+   * written down. Every history render used to answer "is this a real action?"
+   * by looking the id up in the spec AS IT STANDS WHEN YOU READ — which is a
+   * different question, and it has a different answer the instant a component
+   * unmounts. THE FIELD FAILURE: a compose pane mount-declares `send`, an agent
+   * fires it, the pane unmounts; the merged spec drops the id, and
+   * `groundTruth()` then called a genuinely-fired action *(an action this app
+   * does not have)* while `contextBrief()` printed its description as ''. The
+   * app authored it and the library forgot it.
+   *
+   * PRESENCE-ONLY, and absence is a fact rather than a gap: this row's action
+   * was NOT declared at the moment the row was made — which is exactly what a
+   * refused fire of an id the graph never had should say.
+   *
+   * IT COMES FROM THE SPEC AND NOWHERE ELSE. Never from a fire's arguments,
+   * never from a payload, never from a caller's string: this is the authored
+   * channel, and caller text entering it is the injection this library spends
+   * its {@link RedactedFields} and its `(an action this app does not have)`
+   * constant refusing.
+   */
+  does?: string;
   /** Set when kind === 'stimulus'. */
   stimulus?: StimulusKind;
   /**
@@ -1079,6 +1104,13 @@ export type SyncResult =
 export interface PendingInfo {
   id: string;
   affordanceId: string;
+  /**
+   * What the app said this action does, frozen when the fire was recorded —
+   * see {@link Cause.does}. Carried here so a fire still awaiting its report can
+   * be NAMED after the component that declared it has gone: the row a reader
+   * sees is the one the session minted, not a fresh look at a spec that moved.
+   */
+  does?: string;
   firedAt: number;
 }
 
@@ -1188,6 +1220,12 @@ export interface WorkRow {
   /** The action that fire was about, when the row is bound. */
   affordanceId?: string;
   /**
+   * What the app said that action does — carried off the bound fire's own row
+   * ({@link Cause.does}), never looked up afresh. An UNBOUND row has none,
+   * because it names no action to have captured one for.
+   */
+  does?: string;
+  /**
    * When the app opened the row, on the session's clock — DATA, for a caller
    * that wants to sort or render it. NOTHING IN THIS LIBRARY RENDERS A DURATION
    * FROM IT, and nothing expires a row because of it: a clock is never evidence,
@@ -1292,6 +1330,17 @@ export interface GapRecord {
   // fire-rejected rows:
   /** The id the caller ASKED for — kept even when unknown (that is the signal). */
   affordanceId?: string;
+  /**
+   * What the app said that action does, frozen when the refusal was recorded —
+   * see {@link Cause.does}. PRESENT ONLY FOR AN ACTION THE GRAPH REALLY HAD at
+   * that moment, which makes it the row's own answer to the question its
+   * `affordanceId` cannot answer later: a `TOOL_DISABLED` refusal of a real
+   * control carries it, an `UNKNOWN_AFFORDANCE` refusal of a name a model
+   * invented carries nothing — and absence is the honest answer there, not a
+   * hole. It is also why that invented name can never reach an authored
+   * sentence: with no capture, every render falls back to the constant.
+   */
+  does?: string;
   /**
    * WHY the fire was refused — the same word {@link FireResult} returned.
    *
@@ -1614,6 +1663,14 @@ export interface AskStatus {
   askId: string;
   /** The action the card is about. */
   affordanceId: string;
+  /**
+   * What the app said that action does, frozen when the card was assembled —
+   * see {@link Cause.does}. A card outlives the render that raised it (a person
+   * is slower than a re-render), so the ask carries its own name rather than
+   * asking a spec that may have moved. Absent when the card was raised about an
+   * id the graph did not have.
+   */
+  does?: string;
   /** Which row/instance the card is about, when the action takes one. */
   instance?: string;
   /**

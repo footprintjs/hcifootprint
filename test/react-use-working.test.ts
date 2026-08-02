@@ -247,6 +247,9 @@ describe('the flag going up says the app is working', () => {
         label: 'Saving…',
         transitionId: id,
         affordanceId: 'compose.save',
+        // The bound fire's captured name rides along — authored spec text, not
+        // anything the binding passed.
+        does: 'Save the draft',
         startedAt: expect.any(Number),
         principal: 'user',
       },

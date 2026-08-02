@@ -4,7 +4,7 @@ title: BeginWorkOptions
 
 # Interface: BeginWorkOptions
 
-Defined in: [src/atom/types.ts:1142](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1142)
+Defined in: [src/atom/types.ts:1174](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1174)
 
 Where a [Session.beginWork](/api/index/classes/Session#beginwork) call made OUTSIDE a handler belongs.
 
@@ -21,7 +21,7 @@ with nothing to bind to lands UNBOUND rather than guessing.
 
 > `optional` **transitionId?**: `string`
 
-Defined in: [src/atom/types.ts:1153](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1153)
+Defined in: [src/atom/types.ts:1185](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1185)
 
 The fire this work belongs to — a `transitionId` from a [FireResult](/api/index/type-aliases/FireResult).
 

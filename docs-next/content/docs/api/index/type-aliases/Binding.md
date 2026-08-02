@@ -6,7 +6,7 @@ title: Binding
 
 > **Binding** = \{ `actuation?`: [`Actuation`](/api/index/type-aliases/Actuation); `kind`: `"element"`; `locator`: [`ElementLocator`](/api/index/interfaces/ElementLocator); \} \| \{ `chord`: `string`; `kind`: `"keychord"`; \} \| \{ `kind`: `"programmatic"`; `provider`: `string`; \} \| \{ `href`: `string`; `kind`: `"url"`; \} \| \{ `kind`: `"tab"`; `target`: `string`; \}
 
-Defined in: [src/atom/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L86)
+Defined in: [src/atom/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L111)
 
 Activation descriptor. Generalized past "element selector" because keyboard
 shortcuts have no element and canvas surfaces have no ARIA — those bind via

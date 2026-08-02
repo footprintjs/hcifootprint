@@ -119,6 +119,60 @@ As deliberate as what it holds:
 An id the graph does not have renders as a constant — *(an action this app does not have)* —
 rather than echoing a model's own invention back at it in the one block it is told to trust.
 
+## A name is evidence captured at its moment
+
+That constant guards a real attack, and for a while it also caught the wrong thing.
+
+Every render here used to answer *is this a real action?* by looking the id up in the graph **as it
+stands when you read**. In an app whose controls are all declared up front that is the same question
+as *was it real when it happened*. In an app where a component
+[declares its own actions as it mounts](doc:live-bindings), it is not. A compose pane declares
+`send`, an agent fires it, the pane unmounts — and the facts block called a genuinely-fired action
+*(an action this app does not have)*. The app authored it; the library forgot.
+
+So the library stops asking later. **When a row is minted for an action the graph has at that
+moment, the affordance's authored `does` is frozen onto the row right then**, and every render
+prefers what the row carries:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+const graph = buildNavigationGraph('mail', { pages: { inbox: { areas: { compose: {} } } } });
+const session = graph.createSession({ node: 'inbox' });
+const pane = session.registerActions('inbox.compose', {
+  actions: { send: { does: 'Send the message', handler: () => undefined } },
+});
+session.fire('inbox.compose.send', { source: 'agent' });
+// ---cut---
+pane.unregister(); // the compose pane closes
+
+session.transitions()[0].cause.does; // → 'Send the message', still
+session.groundTruth().text; // → "… agent fired inbox.compose.send …"
+```
+
+The field is called `does`, the same word the app declares it with, and it sits beside the
+`affordanceId` it belongs to on `TransitionRecord`'s [`Cause`](doc:sessions), on `PendingInfo` (a
+fire still awaiting the app's report), on `WorkRow` ([work the app says it is still
+doing](doc:when-the-app-is-still-working)), on `AskStatus` ([a card waiting on a
+person](doc:paused-not-failed)), and on the `fire-rejected` rows of `GapRecord`.
+
+Three rules make it worth trusting:
+
+- **Presence-only.** Absent means *this row's action was not declared at that moment* — the honest
+  answer for a fire of a name a model invented, and the reason that name still cannot reach an
+  authored sentence: with nothing captured, the render falls through to the constant exactly as
+  before. A `TOOL_DISABLED` refusal of a real control keeps its name; an `UNKNOWN_AFFORDANCE`
+  refusal keeps nothing.
+- **From the graph and nowhere else.** Never from a fire's arguments, never from a payload, never
+  from a caller's string — this is the authored channel, and caller text entering it is the
+  injection the constant exists to refuse.
+- **Never retroactive, and never re-read.** A row is not backfilled when the action mounts later,
+  and it keeps the sentence the app was showing **then**: re-mount the same id with new wording and
+  history still quotes what was on screen when it happened.
+
+None of this changes what is on OFFER. The unmounted action is gone from `available()` and gone from
+the tool array the moment it unmounts — a record is a **result**, never a tool. What changed is that
+history can still say its name.
+
 ### An attempt is a fire the session was asked to make
 
 Every line here comes from one of the two ledgers, and `fire()` writes both — the transition

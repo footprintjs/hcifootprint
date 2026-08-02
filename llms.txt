@@ -314,6 +314,16 @@ PLACE OF the handler; keeping both runs it twice). `unregisterGroup(group)` rele
   for a model that would otherwise fill the silence with its own prose. Options:
   `{ sinceVersion?, maxAttempts? }` (default 20). Excludes state values, payloads, produced data,
   available actions (that is `whats_here`'s job) and all interpretation.
+- **A NAME IS EVIDENCE CAPTURED AT ITS MOMENT (1.1).** When a row is minted for an action the graph
+  has AT THAT MOMENT, the affordance's authored `does` is frozen onto it — optional `does`, beside
+  the `affordanceId`, on `TransitionRecord.cause`, `PendingInfo`, `WorkRow`, `AskStatus` and
+  `fire-rejected` `GapRecord` rows. `groundTruth()` and `contextBrief()` read the ROW, so a fired
+  action a component mount-declared and then unmounted is still NAMED (before 1.1 it rendered as
+  `(an action this app does not have)`, and the brief printed its description as ''). Presence-only:
+  absent = not declared at that moment, so an id nobody authored still renders the constant. Captured
+  from the graph ONLY — never from fire arguments — and never retroactively or re-read, so a row
+  quotes the wording the app was showing when it happened. Records are RESULTS: the served tool
+  array is unchanged by any of it.
 - `journeyPlan(id)` → the derived dependency DAG with live per-step status; THROWS on an unknown id.
   `tryJourneyPlan(id)` is the same plan for an id you did not author (a model's, a URL's):
   `{ ok: true, plan }` or `{ ok: false, reason: 'UNKNOWN_JOURNEY', known }` — the identical failure

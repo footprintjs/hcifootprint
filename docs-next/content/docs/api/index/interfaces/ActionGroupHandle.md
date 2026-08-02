@@ -20,7 +20,7 @@ greys one action out.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:497](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L497)
+Defined in: [src/atom/types.ts:522](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L522)
 
 Generated identity of this registration (for telemetry/debug — not caller-supplied).
 
@@ -44,7 +44,7 @@ Instance key, when this group registered one card of a repeats container.
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:499](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L499)
+Defined in: [src/atom/types.ts:524](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L524)
 
 The node path this group is registered on (tree API); undefined for the flat API.
 
@@ -58,7 +58,7 @@ The node path this group is registered on (tree API); undefined for the flat API
 
 > **setBusy**(`actionId`, `busy`): `void`
 
-Defined in: [src/atom/types.ts:511](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L511)
+Defined in: [src/atom/types.ts:536](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L536)
 
 Say that one action in this group is WORKING RIGHT NOW, in your own words —
 or hand `undefined` to stop saying it. See [AvailableEdge.busy](/api/index/interfaces/AvailableEdge#busy): the
@@ -92,7 +92,7 @@ can say the third state rather than some of them.
 
 > **setEnabled**(`actionId`, `enabled`): `void`
 
-Defined in: [src/atom/types.ts:501](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L501)
+Defined in: [src/atom/types.ts:526](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L526)
 
 Grey out / re-enable one action in this group (a disabled button).
 
@@ -120,7 +120,7 @@ Grey out / re-enable one action in this group (a disabled button).
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:513](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L513)
+Defined in: [src/atom/types.ts:538](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L538)
 
 Remove this group's registrations (call on unmount). Idempotent.
 

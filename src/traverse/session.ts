@@ -45,6 +45,7 @@ import type {
   AvailableSlice,
   BeginWorkOptions,
   Binding,
+  Cause,
   CommitJourneyResult,
   ConfirmReceipts,
   ConfirmRecord,
@@ -190,6 +191,24 @@ const HOW_TO_OPEN_A_CARD =
  */
 const MAX_PAGE_CHANGE_ROUNDS = 5;
 
+/**
+ * CARRY A CAPTURED NAME ONTO A DERIVED ROW — the one door for copying an
+ * already-frozen `does` ({@link Cause.does}) from the row that captured it onto
+ * a row built out of it (a pending entry, a work row, an ask's public status).
+ *
+ * It is a copy and never a fresh lookup, which is the whole law: the moment a
+ * derived row re-asks the CURRENT spec what an id means, it can get a different
+ * answer than the row it was derived from — and two rows of one history
+ * disagreeing about the same action is worse than either being silent.
+ *
+ * Absence stays absence. A row derived from something that captured nothing
+ * (work bound to nothing, a card about an id the graph never had) gets NO KEY,
+ * because "was not declared at that moment" is a fact worth being able to read.
+ */
+function carriedDoes(does: string | undefined): { does?: string } {
+  return does === undefined ? {} : { does };
+}
+
 /** The principal of a fire, tolerating a caller who omitted `source` entirely. */
 export function principalOf(opts: FireOptions): Principal {
   // The cast is the honest part: JS callers are not held to FireOptions, so
@@ -255,6 +274,8 @@ interface WorkEntry {
   label?: string;
   transitionId?: string;
   affordanceId?: string;
+  /** The bound fire's captured name ({@link Cause.does}) — copied, never re-read. */
+  does?: string;
   startedAt: number;
   principal: Principal;
   closedAt?: number;
@@ -1878,7 +1899,10 @@ export class Session {
 
     const record: TransitionRecord = {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
-      cause: { kind: 'fired', affordanceId, principal: source },
+      // THE NAME IS CAPTURED HERE, at the only moment it is certainly true: the
+      // spec has this action right now — the gate above proved it — and nothing
+      // guarantees it still will when someone reads this row back.
+      cause: { kind: 'fired', affordanceId, principal: source, ...this.#captureDoes(affordanceId) },
       timestamp: Date.now(),
       // REDACTION POINT 1 of 4 (SessionOptions.redactedFields.payload). The
       // RECORD's copy only: the handler is still handed `opts.payload` below, and
@@ -2530,7 +2554,16 @@ export class Session {
         const guardEval = this.#evalGuard(inferred.guard);
         const record: TransitionRecord = {
           id: buildRuntimeStageId(inferred.id, this.#counter.value++),
-          cause: { kind: 'fired', affordanceId: inferred.id, principal: 'unknown', inferred: true },
+          cause: {
+            kind: 'fired',
+            affordanceId: inferred.id,
+            principal: 'unknown',
+            inferred: true,
+            // A guessed ATTRIBUTION is still a real action: the match came out
+            // of the spec, so the row captures its name like any other. What
+            // stays a guess is `inferred`, and nothing here softens that.
+            ...this.#captureDoes(inferred.id),
+          },
           timestamp: Date.now(),
           outcome: 'pending',
           evidence: guardEval.conditions,
@@ -2609,6 +2642,10 @@ export class Session {
     return this.#pending.map((p) => ({
       id: p.record.id,
       affordanceId: p.affordance.id,
+      // Off the fire's own row, not off the spec: a fire can still be waiting
+      // for its report long after the component that declared it unmounted, and
+      // that is precisely the row a reader most needs named.
+      ...carriedDoes(p.record.cause.does),
       firedAt: p.record.timestamp,
     }));
   }
@@ -2709,6 +2746,7 @@ export class Session {
         ...(entry.label !== undefined ? { label: entry.label } : {}),
         ...(entry.transitionId !== undefined ? { transitionId: entry.transitionId } : {}),
         ...(entry.affordanceId !== undefined ? { affordanceId: entry.affordanceId } : {}),
+        ...carriedDoes(entry.does),
         startedAt: entry.startedAt,
         principal: entry.principal,
       });
@@ -2773,7 +2811,7 @@ export class Session {
   #bindWork(
     label: string | undefined,
     transitionId: string | undefined,
-  ): { transitionId?: string; affordanceId?: string; principal: Principal } {
+  ): { transitionId?: string; affordanceId?: string; does?: string; principal: Principal } {
     if (transitionId !== undefined) {
       const record = this.#transitions.find((t) => t.id === transitionId);
       // A FIRE, specifically. A stimulus row is the world moving with nobody
@@ -2786,6 +2824,10 @@ export class Session {
           ...(record.cause.affordanceId !== undefined
             ? { affordanceId: record.cause.affordanceId }
             : {}),
+          // The id and the name travel together, off the SAME row — a work row
+          // that re-looked-up its action could outlive the mount and start
+          // disagreeing with the fire it belongs to.
+          ...carriedDoes(record.cause.does),
           principal: record.cause.principal,
         };
       }
@@ -2809,13 +2851,14 @@ export class Session {
     }
     if (this.#invokingRecordId !== null) {
       const record = this.#transitions.find((t) => t.id === this.#invokingRecordId);
-      /* v8 ignore next 9 -- the else arm is unreachable: #invokingRecordId is set only while a FIRE's handler is running, and that fire's record is in the log under the action that made it. The `{}` inside is unreachable for the same reason the one above is — a fired record always names its action. */
+      /* v8 ignore next 10 -- the else arm is unreachable: #invokingRecordId is set only while a FIRE's handler is running, and that fire's record is in the log under the action that made it. The `{}` inside is unreachable for the same reason the one above is — a fired record always names its action. */
       if (record !== undefined && record.cause.kind === 'fired') {
         return {
           transitionId: record.id,
           ...(record.cause.affordanceId !== undefined
             ? { affordanceId: record.cause.affordanceId }
             : {}),
+          ...carriedDoes(record.cause.does),
           principal: record.cause.principal,
         };
       }
@@ -3049,6 +3092,12 @@ export class Session {
       availableActions: precomputedActions ?? this.available().edges.map((e) => e.affordanceId),
       availableJourneys: Object.keys(this.spec.journeys),
       affordanceId,
+      // A refusal is history too, and it splits exactly where the truth does: a
+      // real control refused (greyed out, guard closed, approval missing) was
+      // DECLARED at this moment and keeps its name for ever after; a name
+      // nobody ever authored captures nothing, and goes on rendering as the
+      // constant no matter what mounts later.
+      ...this.#captureDoes(affordanceId),
       rejectionReason,
       principal,
       // Copy the CONDITION OBJECTS too — the same objects ride FireResult.evidence,
@@ -3413,6 +3462,9 @@ export class Session {
     this.#openAsks.set(askId, {
       askId,
       affordanceId,
+      // A card waits on a PERSON, so it outlives renders by design — the one row
+      // here most likely to be read after the control that raised it is gone.
+      ...this.#captureDoes(affordanceId),
       input: bound,
       ...(opts?.instance !== undefined ? { instance: opts.instance } : {}),
       askedAtVersion: this.#version,
@@ -3866,6 +3918,7 @@ export class Session {
     return [...this.#openAsks.values()].map((ask) => ({
       askId: ask.askId,
       affordanceId: ask.affordanceId,
+      ...carriedDoes(ask.does),
       ...(ask.instance !== undefined ? { instance: ask.instance } : {}),
       ...(ask.answer !== undefined ? { answer: ask.answer } : {}),
       ...(ask.spent !== undefined ? { spent: ask.spent } : {}),
@@ -4236,7 +4289,11 @@ export class Session {
     const pend = this.pending();
     lines.push(
       pend.length
-        ? `Pending (awaiting app state): ${pend.map((p) => p.affordanceId).join(', ')}.`
+        ? // THROUGH THE GUARD, like every other name in this text. It printed the
+          // raw id before, which made it the one line here that could not tell a
+          // real action from a string — and the row's captured name is what lets
+          // it keep saying the real one after the mount that declared it is gone.
+          `Pending (awaiting app state): ${pend.map((p) => this.#actionLabel(p.affordanceId, p.does)).join(', ')}.`
         : 'Pending: none.',
     );
     const served = this.#servedEdges();
@@ -4325,7 +4382,7 @@ export class Session {
     let awaitingShown = 0;
     let awaitingOmitted = 0;
     for (const ask of this.#openAsks.values()) {
-      const what = this.#actionLabel(ask.affordanceId);
+      const what = this.#actionLabel(ask.affordanceId, ask.does);
       if (ask.answer === undefined) {
         if (awaitingShown < max) {
           lines.push(`Awaiting the human's decision: ${what} (${ask.askId}).`);
@@ -4342,7 +4399,9 @@ export class Session {
     }
     const pend = this.pending();
     if (pend.length > 0) {
-      lines.push(`Awaiting the app's report: ${pend.map((p) => this.#actionLabel(p.affordanceId)).join(', ')}.`);
+      lines.push(
+        `Awaiting the app's report: ${pend.map((p) => this.#actionLabel(p.affordanceId, p.does)).join(', ')}.`,
+      );
     }
     // WORK THE APP SAYS IT IS STILL DOING — the same shape as the line above,
     // and for a reason the line above cannot cover: a fire settles when the app
@@ -4363,7 +4422,7 @@ export class Session {
       ...new Set(
         work
           .filter((row) => row.transitionId !== undefined)
-          .map((row) => this.#actionLabel(row.affordanceId)),
+          .map((row) => this.#actionLabel(row.affordanceId, row.does)),
       ),
     ];
     if (workNames.length > 0) {
@@ -4431,7 +4490,7 @@ export class Session {
   #refusedLine(gap: GapRecord): string {
     /* v8 ignore next -- the `?? 'someone'` arm is unreachable: every refusal row is written by recordRejection, which stamps the principal that reached for the action. It exists so a row from an older release still reads as a sentence. */
     const who = gap.principal ?? 'someone';
-    const what = this.#actionLabel(gap.affordanceId);
+    const what = this.#actionLabel(gap.affordanceId, gap.does);
     // A commit gate's refusal, not a fire's — the ONE row that carries a journey.
     // Saying "fired" about it would report an attempt that never happened,
     // inside the block whose whole job is not doing that.
@@ -4450,7 +4509,7 @@ export class Session {
   #firedLine(t: TransitionRecord): string {
     const { lead, note } = this.#attemptVerdict(t);
     const notes = [note, ...(t.cause.inferred ? ['attributed by inference, not observed'] : [])];
-    return `${lead} — ${t.cause.principal} fired ${this.#actionLabel(t.cause.affordanceId)} (${notes.join('; ')})`;
+    return `${lead} — ${t.cause.principal} fired ${this.#actionLabel(t.cause.affordanceId, t.cause.does)} (${notes.join('; ')})`;
   }
 
   #attemptVerdict(t: TransitionRecord): { lead: string; note: string } {
@@ -4768,21 +4827,63 @@ export class Session {
   }
 
   /**
+   * FREEZE WHAT THE APP SAYS THIS ACTION DOES, NOW — the one door every history
+   * row goes through to capture its {@link Cause.does}, and the only place the
+   * authored sentence is ever read for a record.
+   *
+   * Read from the spec THIS SESSION SERVES (the merged one, on the tree API), so
+   * a mount-declared action is captured exactly as a built-in one is: at the
+   * moment the row is minted, both are simply actions this app has.
+   *
+   * NO KEY when the graph does not have the id, which is how a name a model
+   * invented stays out of the authored channel forever — with nothing captured,
+   * every render below falls through to the UNKNOWN_ACTION constant.
+   *
+   * `hasOwn`, because 'constructor' is truthy on any plain object and would sail
+   * straight through a lookup — the same reason `#actionLabel` below uses it.
+   */
+  #captureDoes(id: string): { does?: string } {
+    return Object.hasOwn(this.spec.affordances, id) ? { does: this.spec.affordances[id].description } : {};
+  }
+
+  /**
    * The same discipline for an ACTION id. A refused fire's id is whatever the
    * caller sent — a model's guess, a relay's string — so an id this graph does
    * not have renders as a constant instead of entering the authored channel.
    * `hasOwn`, because 'constructor' is truthy on any plain object and would sail
    * straight through a lookup.
+   *
+   * THE ROW'S OWN EVIDENCE OUTRANKS THE SPEC, and that ordering is the fix this
+   * guard needed: `hasOwn` asks whether the app has the action WHEN YOU READ,
+   * and history is a question about when it HAPPENED. A component that
+   * mount-declared an action and unmounted took the id out of the merged spec,
+   * and a genuinely-fired action then rendered as *(an action this app does not
+   * have)* — the library calling the app a liar about the app's own record. A
+   * row carrying a captured `does` was declared at its moment; that is proof
+   * enough to print the name, and no fresh lookup can take it back.
+   *
+   * The spec lookup stays for a row that captured nothing, so an id that was
+   * never authored reads exactly as it always has.
    */
-  #actionLabel(id: string | undefined): string {
-    return id !== undefined && Object.hasOwn(this.spec.affordances, id) ? id : UNKNOWN_ACTION;
+  #actionLabel(id: string | undefined, captured?: string): string {
+    return id !== undefined && (captured !== undefined || Object.hasOwn(this.spec.affordances, id))
+      ? id
+      : UNKNOWN_ACTION;
   }
 
   /** One authored-strings-only line per transition for contextBrief(). */
   #briefLine(t: TransitionRecord, changedKeysById: Map<string, string[]>): string {
     if (t.cause.kind === 'fired') {
-      /* v8 ignore next -- the `?? ''` arm is unreachable: this branch has already read `cause.kind === 'fired'`, and a fired row always names its action. */
-      const aff = this.spec.affordances[t.cause.affordanceId ?? ''];
+      // THIS LINE USED TO BYPASS THE GUARD ENTIRELY — it printed the raw id and
+      // looked the description up in the spec as it stands right now, so after
+      // an unmount it rendered a real action's sentence as ''. Both halves come
+      // off the ROW now: the name through #actionLabel, the sentence from the
+      // capture beside it.
+      const what = this.#actionLabel(t.cause.affordanceId, t.cause.does);
+      // Still a live read, and deliberately: the flags below are facts about the
+      // action AS IT STANDS, not about the moment. An action nothing declares
+      // any more contributes none of them, which is the honest floor.
+      const aff = Object.hasOwn(this.spec.affordances, what) ? this.spec.affordances[what] : undefined;
       const moved =
         t.toNode && t.toNode !== t.fromNode
           ? ` (${this.#nodeLabel(t.fromNode)} → ${this.#nodeLabel(t.toNode)})`
@@ -4798,8 +4899,9 @@ export class Session {
       }
       if (t.effectVerified === false) flags.push('declared effect not observed');
       const suffix = flags.length > 0 ? ` [${flags.join('; ')}]` : '';
-      /* v8 ignore next -- the `?? ''` arm is unreachable for the same reason the lookup above is: the id came off a fired row, so the spec always has its description. */
-      return `${t.cause.principal} fired ${t.cause.affordanceId} — ${aff?.description ?? ''}${moved}${suffix}`;
+      /* v8 ignore next -- both fallbacks are unreachable: every fired row captures its `does` at fire time, and there is no door that mints one for an id the spec did not have (an unknown id is refused into the gap ledger instead). They keep this line printable, in today's bytes, if a future mint path forgets to capture. */
+      const does = t.cause.does ?? aff?.description ?? '';
+      return `${t.cause.principal} fired ${what} — ${does}${moved}${suffix}`;
     }
     if (t.toNode && t.toNode !== t.fromNode) {
       return `${t.cause.principal} ${t.cause.stimulus}: cursor moved ${this.#nodeLabel(t.fromNode)} → ${this.#nodeLabel(t.toNode)} (unverified edge)`;

@@ -6,7 +6,7 @@ title: VerifyContract
 
 > **VerifyContract** = [`WhereFilter`](/api/index/type-aliases/WhereFilter) \| ((`state`) => `boolean`)
 
-Defined in: [src/atom/types.ts:146](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L146)
+Defined in: [src/atom/types.ts:171](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L171)
 
 The app's OWN check that an action actually happened — declared once, next to
 the action, and evaluated at settlement.
