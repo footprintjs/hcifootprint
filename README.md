@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-2113%20passing-f5b301?style=flat" alt="2113 tests passing">
+  <img src="https://img.shields.io/badge/tests-2135%20passing-f5b301?style=flat" alt="2135 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -303,7 +303,7 @@ the library can say so without inventing a gate you never declared.
 | | |
 |---|---|
 | **Async & progress** — the promise is the completion signal; `busy` in the app's own words | [Going async](https://footprintjs.github.io/hcifootprint/docs/actions/going-async) · [Waiting for the app](https://footprintjs.github.io/hcifootprint/docs/actions/waiting-for-the-app) |
-| **Keep the graph true** — a drift harness that fails in CI, not in front of a user | [Testing](https://footprintjs.github.io/hcifootprint/docs/reference/testing) |
+| **Keep the graph true** — a drift harness that fails in CI, not in front of a user, and a conformance check no source adapter can silently drop a declared field past | [Testing](https://footprintjs.github.io/hcifootprint/docs/reference/testing) |
 | **Adopt what you have** — routes, journeys or a live store as graph sources | [Graph sources](https://footprintjs.github.io/hcifootprint/docs/map/graph-sources) |
 | **React** — one hook per control, and a five-line port for any other framework | [React binding](https://footprintjs.github.io/hcifootprint/docs/actions/react-binding) |
 | **Tree-shakeable, ESM-first** — the sensor is 11.9 KB; the React hook 610 B | [Tree-shaking](https://footprintjs.github.io/hcifootprint/docs/reference/tree-shaking) |

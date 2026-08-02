@@ -1,5 +1,98 @@
 # Changelog
 
+## [1.4.0] - 2026-08-02
+
+**A dropped field does not error. The app declares it, the agent never sees it, and nothing anywhere
+says so.**
+
+A graph source threads somebody else's declaration through copy points. `fromRoutes` reads a route
+table, `fromJourneys` a journey list, `fromLiveStore` an action store — and every one of them copies
+a declared field from the app's shape into the library's, by hand, one field at a time. So does every
+source an app writes for its own store, which is the door this release is really for.
+
+Reported from the field: one integration's seam was found dropping **four** declared fields
+silently. Not one of them raised anything. The graph compiled, the rows served, the app looked
+integrated — and the model was planning against a control whose `verify` contract, whose reason for
+being off, and whose input shape had all quietly not made the trip. Worse, one of the four had
+already been fixed at one copy point and was **still** being dropped at the next, because a fix at
+one seam proves nothing about the seam after it.
+
+That is a bug class, not a bug. This release makes it structurally impossible for any source that
+runs one line.
+
+### `conformSource()` — feed a full declaration through, name what did not come out
+
+```ts
+import { expectConformance } from 'hcifootprint/testing';
+
+expectConformance((fixture) => fromLiveStore(fixture.store));
+// throws: dropped 2 declared field(s) — 'verify' (compile), 'blockedBecause' (serve).
+```
+
+`conformSource(factory, opts?)` returns a `ConformanceReport`; `expectConformance` is the same run as
+a gate and throws naming **every** dropped field, never the first one. A report that named one of
+four would teach exactly the lesson the original bug already taught.
+
+**You hand it a one-line factory, not a finished source, and the asymmetry is the whole method.** A
+source is a snapshot: it read the app's truth once and closed over it, and it has no input door
+afterwards. So "did you carry every field?" is a question a finished source cannot be asked — the
+helper has to be the one holding the declaration. Taking a value instead would have answered a
+narrower question while looking like it answered this one: a source that publishes no `verify` and a
+source that dropped one are the same bytes, so a report over a value would have called the bug a
+pass. The door is not offered. The factory receives a `ConformanceFixture` — a fully-populated action
+plus a ready-made input per kind (`fixture.store`, `fixture.routes`, `fixture.journeys`).
+
+### `DECLARABLE_ACTION_FIELDS` — the manifest, compile-locked
+
+The canonical list of everything an action declaration may carry: `ActionDef` **plus its two
+extension points**, the root-level multi-attach `on` and the mount-time `handler` (together, the new
+exported type `FullActionDef`). Both extensions are in the manifest deliberately — a checker that
+knew only about bare `ActionDef` would have been blind to two of the three doors a declaration
+arrives through.
+
+It cannot fall behind. Add a field at either door without listing it and the **build stops**, with
+the new field's own name in the error text. A manifest that can drift is a manifest that will, and a
+conformance checker reading a stale manifest is the same silence one level up.
+
+### Two seams, and one row per dropped field
+
+- `'compile'` — did the declaration reach the compiled record the graph holds for this action?
+- `'serve'` — does an agent-visible surface carry it: the row `whats_here` answers with, and the
+  `available()` edge behind it?
+
+Two, because the field evidence had a field surviving one and dying at the next. Each dropped field
+is reported **once**, at the seam that lost it: a declaration that never compiled cannot reach a row
+either, and saying so twice would send a reader to two places for one fix.
+
+### The pass is never vacuous, and says which part of it is
+
+`report.excluded` names every field/seam pair there was **nothing to read at**, each with its reason
+in words. Five today: an action's `writes` and its `verify` never ride a served row, `on` is the
+root-attach extension no first-party source contributes, and a `handler` never crosses the wire (the
+row discloses only that one is mounted). `report.checked` is the pass's denominator. A checker whose
+pass is partly empty and does not say which part is the exact failure it was built to end.
+
+Conformance tests the **adapter's threading**, not the library's presence laws. `blockedBecause` is
+served only while a control is off; `enabledWhen` reaches a reader as one `enabled: false` stamp. The
+fixture puts every field in the state the library PROMISES to serve it in and then asks one question.
+Where a law couples two fields — a blocked sentence needs a switched-off row — the coupling is stated
+at the field, and a source that drops one honestly loses both.
+
+### All three first-party sources are pinned by it
+
+`fromJourneys` and `fromLiveStore` round-trip their declarable subsets losslessly, as law-tests.
+`fromRoutes` carries no action declaration at all, and **that refusal is its conformance**: an
+action-shaped key is refused BY NAME rather than read-and-discarded, which is the same silence one
+door down. Its own vocabulary (a page's `route` and `does`) round-trips under `page.*`, as
+`fromJourneys`'s does under `journey.*`.
+
+New exports on `hcifootprint/testing`: `conformSource`, `expectConformance`,
+`DECLARABLE_ACTION_FIELDS`, and the types `ConformanceReport`, `ConformanceFixture`,
+`ConformanceOptions`, `ConformanceSeam`, `DeclarableActionField`, `FullActionDef`,
+`SourceUnderTest`. Additive: nothing that compiled at 1.3.0 compiles differently. The engine-free
+`hcifootprint/testing/lint` entry is untouched — conformance drives the real compiler and the real
+serving port, so it lives in the full entry where the harness already does.
+
 ## [1.3.0] - 2026-08-02
 
 **Some choices are the person's to make. The library had a word for "may the agent act" and no word

@@ -17,6 +17,12 @@
  *                        markers (effectVerified) surface behavioral drift — a
  *                        handler no longer doing what the graph declares.
  *
+ *   conformSource(src) — the drift a graph SOURCE can introduce, which neither
+ *                        layer above can see: an adapter that silently drops a
+ *                        declared field on the way in. Feeds a fully-populated
+ *                        declaration through the source and names every field
+ *                        that did not come out, at the seam that lost it.
+ *
  * Zero new dependencies; tree-shakeable; imports the real Session (never a
  * parallel simulation) and never the MCP SDK. Honest boundary: this tests
  * interaction LOGIC above the binding — not pixels, not the DOM. It complements
@@ -40,3 +46,13 @@ export type {
   ResolverContext,
   ResolverOutcome,
 } from './harness.js';
+export { conformSource, expectConformance, DECLARABLE_ACTION_FIELDS } from './conform.js';
+export type {
+  ConformanceFixture,
+  ConformanceOptions,
+  ConformanceReport,
+  ConformanceSeam,
+  DeclarableActionField,
+  FullActionDef,
+  SourceUnderTest,
+} from './conform.js';

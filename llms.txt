@@ -40,8 +40,16 @@ not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships
   because the library itself never names `document`.
 - `hcifootprint/testing` — `testApp(graph, opts?)` (drive the app like the planning LLM, through the
   real serve port: `agent.tools()`, `agent.whatsHere()`, `agent.journey(id, args?)`, `agent.do(action,
-  args?)`, plus `expectAvailable`, `expectRejected`, `expectJourneyCompleted`, `expectClean`), and the
-  static gates re-exported from lint below.
+  args?)`, plus `expectAvailable`, `expectRejected`, `expectJourneyCompleted`, `expectClean`);
+  `conformSource(factory, opts?)` → `ConformanceReport` (`{ dropped, checked, excluded }`, each row
+  `{ field, seam: 'compile' | 'serve' }`) and `expectConformance(factory, opts?)` — feed a
+  fully-populated declaration through a GRAPH SOURCE and name every field it dropped, at the seam
+  that lost it. You pass a one-line FACTORY, `(fixture: ConformanceFixture) => GraphSource` (type
+  `SourceUnderTest`), because a source is a snapshot with no input door. `DECLARABLE_ACTION_FIELDS`
+  is the compile-locked manifest (`ActionDef` + root-level `on` + mount-time `handler` =
+  `FullActionDef`; one entry is a `DeclarableActionField`); `ConformanceOptions` carries `page`.
+  Excluded-with-a-reason today: `writes`/`verify` at serve, `on` at both, `handler` at serve. Plus
+  the static gates re-exported from lint below.
 - `hcifootprint/testing/lint` — engine-free static gate: `lintGraph(graph, opts?)` → `LintFinding[]`
   (`LintCode`, `LintSeverity`, `LintOptions`), `formatFindings(findings)`,
   `expectNoStaleLogic(graph, { failOn? })`,

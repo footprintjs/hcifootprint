@@ -7,7 +7,7 @@ The navigation graph is a **second artifact** you keep alongside the real app, s
 **drifts** as the app changes: a button's disable rule moves, a page is removed, a handler
 starts writing different state. `hcifootprint/testing` catches that drift in dev and CI,
 before production. It adds zero dependencies, is tree-shakeable, and drives the **real
-session** (never a copy), in two layers.
+session** (never a copy), in three layers.
 
 ## 1. `lintGraph` / `checkGraph` — static, no test code
 
@@ -52,6 +52,82 @@ await app.agent.journey('purchase', { step: 'go-to-cart' }); // drive like the L
 app.expectOn('cart');
 app.report();                                              // { ok, effectDrift, unevaluatedGuards, gaps }
 ```
+
+## 3. `conformSource` — a source adapter cannot silently drop a declared field
+
+The two layers above watch the graph and the handlers. Neither can see the drift a **graph
+source** introduces, because that one happens on the way *in*.
+
+A source threads somebody else's declaration through copy points: `fromRoutes` reads a route
+table, `fromJourneys` a journey list, `fromLiveStore` an action store, and every one of them
+copies a declared field from your shape into the library's, by hand, one field at a time. So
+does the source you write for your own store. **A dropped field does not error.** It
+compiles, it serves, and it looks like a working integration — you declared `verify`, the
+agent never sees it, and nothing anywhere says so. From the field: one integration's seam was
+dropping four declared fields silently, and one of those had already been fixed at one copy
+point and was *still* being dropped at the next.
+
+`conformSource` ends that. It feeds a fully-populated declaration through your source, runs
+it through the real compiler and the real serving port, and names every field that did not
+come out the other side. `expectConformance` is the same thing as a gate — it throws naming
+**every** dropped field, not the first one.
+
+```ts
+import { expectConformance, conformSource } from 'hcifootprint/testing';
+import { fromLiveStore } from 'hcifootprint';
+
+// The whole test, for any source:
+expectConformance((fixture) => fromLiveStore(fixture.store));
+
+// …or read the report yourself.
+const report = conformSource((fixture) => myAdapter(fixture.store));
+report.dropped; // [{ field: 'verify', seam: 'compile' }, { field: 'blockedBecause', seam: 'serve' }]
+```
+
+You hand it a **one-line factory**, not a finished source, and the asymmetry is the method. A
+source is a *snapshot* — it read your truth once and closed over it, and it has no input door
+afterwards — so the helper has to be the one holding the declaration. That is what the
+`ConformanceFixture` handed to your factory is: a fully-populated action, plus a ready-made
+input per source kind (`fixture.store`, `fixture.routes`, `fixture.journeys`). The type of
+what you pass is `SourceUnderTest`; `ConformanceOptions` carries the one setting, `page`, for
+a source that only speaks about one page.
+
+### The manifest, and why it cannot drift
+
+`DECLARABLE_ACTION_FIELDS` is the canonical list of everything an action declaration may
+carry — `ActionDef` plus its two extension points, the root-level multi-attach `on` and the
+mount-time `handler` (the pair is the exported type `FullActionDef`, and one entry of the list
+is a `DeclarableActionField`). It is **compile-locked**: add a field at either door without
+listing it, and the build stops with the new field's own name in the error. A manifest that
+can fall behind is the same silence one level up.
+
+### Two seams, and one row per dropped field
+
+A `ConformanceSeam` is either `'compile'` — did the declaration reach the compiled record the
+graph holds for this action? — or `'serve'` — does an agent-visible surface carry it, the row
+`whats_here` answers with and the `available()` edge behind it? A field can survive the first
+and die at the second, which is exactly the bug that had already been "fixed" once. Each
+dropped field is reported **once**, at the seam that lost it: a declaration that never
+compiled cannot reach a row either, and saying so twice would send you to two places for one
+fix.
+
+The `ConformanceReport` has three lists, and the third is the honest one. `dropped` is the
+verdict. `checked` is the pass's denominator. `excluded` names every field/seam pair there was
+**nothing to read at**, each with its reason in words — because a checker whose pass is partly
+vacuous and does not say which part is the failure it was built to end. Five pairs are excluded
+today: an action's `writes` and `verify` never ride a served row, `on` is the root-attach
+extension no first-party source contributes, and a `handler` never crosses the wire (the row
+discloses only that one is mounted).
+
+All three first-party sources are pinned by this in the suite. `fromJourneys` and
+`fromLiveStore` round-trip their declarable subsets losslessly. `fromRoutes` carries no action
+declaration at all, and that is its conformance: it refuses an action-shaped key **by name**
+rather than reading two keys and discarding the rest — which is the same silence one door down.
+
+What conformance does **not** test is the library's own presence laws. `blockedBecause` is
+served only while a control is off, `enabledWhen` reaches a reader as one `enabled: false`
+stamp; the fixture puts each field in the state the library promises to serve it in, and then
+asks one question — did your adapter's threading survive.
 
 ## The honest boundary
 
