@@ -237,8 +237,12 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
       | WhereFilter
       | undefined;
     const effect =
-      action.writes || action.goTo
-        ? { ...(action.writes ? { writes: [...action.writes] } : {}), ...(action.goTo ? { navigatesTo: action.goTo } : {}) }
+      action.writes || action.reads || action.goTo
+        ? {
+            ...(action.writes ? { writes: [...action.writes] } : {}),
+            ...(action.reads ? { reads: [...action.reads] } : {}),
+            ...(action.goTo ? { navigatesTo: action.goTo } : {}),
+          }
         : undefined;
     affordances[qualifiedId] = deepFreeze(
       {

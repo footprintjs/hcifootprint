@@ -93,6 +93,20 @@ export interface ActionDef {
   blockedBecause?: BlockedBecause | (() => BlockedBecause | undefined);
   /** State keys this action claims to change. */
   writes?: string[];
+  /**
+   * State keys this action's OUTCOME DEPENDS ON — the read side of `writes`,
+   * and the one an app is asked for so a reader can be told that something it
+   * depends on moved.
+   *
+   * ```ts
+   * settle: { does: 'Settle the claim', writes: ['purse.left'], reads: ['claim.total'] },
+   * ```
+   *
+   * Not `when`: that decides whether the control is HERE. This says what the
+   * outcome is computed FROM. Declared, never inferred — see {@link Effect.reads}
+   * for the law and for what the serving layer does with it.
+   */
+  reads?: string[];
   /** Page this action claims to navigate to (a top-level page id). */
   goTo?: string;
   /** Requires explicit confirmation (the high-effect gate). */

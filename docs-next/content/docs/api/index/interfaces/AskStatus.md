@@ -4,7 +4,7 @@ title: AskStatus
 
 # Interface: AskStatus
 
-Defined in: [src/atom/types.ts:1842](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1842)
+Defined in: [src/atom/types.ts:1921](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1921)
 
 One high-effect ask and what became of it — the rows [Session.asks](/api/index/classes/Session#asks)
 serves, read at the moment you ask.
@@ -25,7 +25,7 @@ Structural facts only: no receipts, no input, no `by`. This is the answer to
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1845](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1845)
+Defined in: [src/atom/types.ts:1924](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1924)
 
 The action the card is about.
 
@@ -35,7 +35,7 @@ The action the card is about.
 
 > `optional` **answer?**: `"approved"` \| `"declined"`
 
-Defined in: [src/atom/types.ts:1861](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1861)
+Defined in: [src/atom/types.ts:1940](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1940)
 
 Absent means STILL OPEN — nobody has answered. An agent's relayed decline
 under [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) leaves it absent, because
@@ -47,7 +47,7 @@ that report closes nothing.
 
 > **askId**: `string`
 
-Defined in: [src/atom/types.ts:1843](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1843)
+Defined in: [src/atom/types.ts:1922](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1922)
 
 ***
 
@@ -55,7 +55,7 @@ Defined in: [src/atom/types.ts:1843](https://github.com/footprintjs/hcifootprint
 
 > `optional` **does?**: `string`
 
-Defined in: [src/atom/types.ts:1853](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1853)
+Defined in: [src/atom/types.ts:1932](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1932)
 
 What the app said that action does, frozen when the card was assembled —
 see [Cause.does](/api/index/interfaces/Cause#does). A card outlives the render that raised it (a person
@@ -69,9 +69,25 @@ id the graph did not have.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:1855](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1855)
+Defined in: [src/atom/types.ts:1934](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1934)
 
 Which row/instance the card is about, when the action takes one.
+
+***
+
+### revoked?
+
+> `optional` **revoked?**: `true`
+
+Defined in: [src/atom/types.ts:1963](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1963)
+
+THE ASK BOOK'S THIRD WORD: the human gave this yes and took it back before
+anything spent it ([Session.revokeAsk](/api/index/classes/Session#revokeask)). `answer` stays `'approved'`
+— the receipt taken at rest is never rewritten — and this marker beside it
+is the withdrawal, as data. A fire presenting the card refuses
+`APPROVAL_REVOKED`; the cure is a fresh ask. Never present beside
+`spent: true`: revoking a spent yes is refused, because it cannot un-fire
+the past.
 
 ***
 
@@ -79,7 +95,7 @@ Which row/instance the card is about, when the action takes one.
 
 > `optional` **spent?**: `boolean`
 
-Defined in: [src/atom/types.ts:1863](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1863)
+Defined in: [src/atom/types.ts:1942](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1942)
 
 True once a fire has spent this approval. One yes authorizes one fire.
 
@@ -89,7 +105,7 @@ True once a fire has spent this approval. One yes authorizes one fire.
 
 > `optional` **stale?**: `true`
 
-Defined in: [src/atom/types.ts:1874](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1874)
+Defined in: [src/atom/types.ts:1953](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1953)
 
 The human's yes is recorded and unspent, and the app's own
 [HumanApprovalPolicy](/api/index/interfaces/HumanApprovalPolicy) will no longer let a fire cross on it — it ran

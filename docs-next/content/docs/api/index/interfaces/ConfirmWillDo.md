@@ -4,7 +4,7 @@ title: ConfirmWillDo
 
 # Interface: ConfirmWillDo
 
-Defined in: [src/atom/types.ts:1614](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1614)
+Defined in: [src/atom/types.ts:1680](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1680)
 
 The plain-words "what firing will do" claim that leads a receipt: the
 authored edge description plus its declared, honesty-tagged effect. `writes`
@@ -18,7 +18,7 @@ atom takes everywhere.
 
 > **does**: `string`
 
-Defined in: [src/atom/types.ts:1616](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1616)
+Defined in: [src/atom/types.ts:1682](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1682)
 
 The authored affordance description (planner-facing string class).
 
@@ -28,7 +28,7 @@ The authored affordance description (planner-facing string class).
 
 > `optional` **effectUnverifiable?**: `boolean`
 
-Defined in: [src/atom/types.ts:1627](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1627)
+Defined in: [src/atom/types.ts:1703](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1703)
 
 True when the edge declares writes but the session has no state tap, so the
 effect can never be verified (settlement would be effectVerified:
@@ -41,9 +41,25 @@ library itself cannot check.
 
 > `optional` **navigatesTo?**: `string`
 
-Defined in: [src/atom/types.ts:1620](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1620)
+Defined in: [src/atom/types.ts:1696](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1696)
 
 Page this edge CLAIMS to navigate to (from effect.navigatesTo). Omitted when none.
+
+***
+
+### reads?
+
+> `optional` **reads?**: `string`[]
+
+Defined in: [src/atom/types.ts:1694](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1694)
+
+State keys this edge CLAIMS its outcome depends on (from effect.reads).
+Omitted when none — the same presence law `writes` keeps.
+
+On the card a HUMAN reads, because the person approving a "settle for the
+amount on the claim" is entitled to know which claim number the amount will
+be read from. A CLAIM about the app's handler like everything else in this
+block, never an observation.
 
 ***
 
@@ -51,6 +67,6 @@ Page this edge CLAIMS to navigate to (from effect.navigatesTo). Omitted when non
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/atom/types.ts:1618](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1618)
+Defined in: [src/atom/types.ts:1684](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1684)
 
 State keys this edge CLAIMS to write (from effect.writes). Omitted when none.

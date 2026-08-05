@@ -4,7 +4,7 @@ title: VerifyFailure
 
 # Interface: VerifyFailure
 
-Defined in: [src/atom/types.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L179)
+Defined in: [src/atom/types.ts:211](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L211)
 
 Why a settlement said 'refused' when the app's own verify contract found
 nothing had happened. Rides [FireSettlement.error](/api/index/interfaces/FireSettlement#error) — the same field a
@@ -17,7 +17,7 @@ do the thing", and one branch should read both.
 
 > `optional` **evidence?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L188)
+Defined in: [src/atom/types.ts:220](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L220)
 
 The conditions that did NOT hold (declarative form only). Absent for a
 predicate: it answers yes or no and hands over no conditions, so naming one
@@ -29,7 +29,7 @@ would be a guess about code the library cannot see.
 
 > **explanation**: `string`
 
-Defined in: [src/atom/types.ts:182](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L182)
+Defined in: [src/atom/types.ts:214](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L214)
 
 An authored constant naming the contract — safe to show a model verbatim.
 
@@ -39,4 +39,4 @@ An authored constant naming the contract — safe to show a model verbatim.
 
 > **reason**: `"VERIFY_FAILED"`
 
-Defined in: [src/atom/types.ts:180](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L180)
+Defined in: [src/atom/types.ts:212](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L212)

@@ -110,6 +110,7 @@ export const DECLARABLE_ACTION_FIELDS = [
   'enabledWhen',
   'blockedBecause',
   'writes',
+  'reads',
   'goTo',
   'confirm',
   'input',
@@ -249,6 +250,7 @@ function makeFixture(page: string): ConformanceFixture {
       clearedBy: 'app',
     },
     writes: ['conformance.written'],
+    reads: ['conformance.read'],
     goTo: destination,
     confirm: true,
     input: { type: 'object', properties: { note: { type: 'string' } } },
@@ -477,6 +479,17 @@ function actionChecks(fixture: ConformanceFixture): Record<DeclarableActionField
           "an action's declared writes are not stamped on a served row — they surface after the fact, at " +
           'settlement and in what-would-free-it. There is nothing to read at this seam.',
       },
+    },
+    reads: {
+      compile: (p) => same(effectOf(p.affordance).reads, action.reads),
+      // The AGENT's row carries only the DERIVED half of this declaration
+      // (`staleReads`), and only once one of the named keys has actually been
+      // written since the caller's last look — a fixture with no transitions in
+      // it can never produce one, and asking for it here would test the
+      // intersection rather than the thread. So the seam read is `available()`'s
+      // own edge, which carries the declaration itself, exactly as `binding`
+      // above is read there.
+      serve: (p) => same(p.edge.reads, action.reads),
     },
     goTo: {
       compile: (p) => effectOf(p.affordance).navigatesTo === action.goTo,

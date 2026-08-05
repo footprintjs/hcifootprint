@@ -6,7 +6,7 @@ title: SourceUnderTest
 
 > **SourceUnderTest** = (`fixture`) => [`GraphSource`](/api/index/type-aliases/GraphSource)
 
-Defined in: [src/testing/conform.ts:598](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L598)
+Defined in: [src/testing/conform.ts:611](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L611)
 
 The source to put under test — a ONE-LINE FACTORY, not a source value, and the
 asymmetry is the whole method.

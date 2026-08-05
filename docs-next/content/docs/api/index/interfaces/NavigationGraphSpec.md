@@ -4,7 +4,7 @@ title: NavigationGraphSpec
 
 # Interface: NavigationGraphSpec
 
-Defined in: [src/atom/types.ts:429](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L429)
+Defined in: [src/atom/types.ts:461](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L461)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:429](https://github.com/footprintjs/hcifootprint/
 
 > **affordances**: `Record`\<`string`, [`Affordance`](/api/index/interfaces/Affordance)\>
 
-Defined in: [src/atom/types.ts:433](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L433)
+Defined in: [src/atom/types.ts:465](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L465)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:433](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **description?**: `string`
 
-Defined in: [src/atom/types.ts:431](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L431)
+Defined in: [src/atom/types.ts:463](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L463)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:431](https://github.com/footprintjs/hcifootprint/
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:430](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L430)
+Defined in: [src/atom/types.ts:462](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L462)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/atom/types.ts:430](https://github.com/footprintjs/hcifootprint/
 
 > **journeys**: `Record`\<`string`, [`Journey`](/api/index/interfaces/Journey)\>
 
-Defined in: [src/atom/types.ts:435](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L435)
+Defined in: [src/atom/types.ts:467](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L467)
 
 The compiled journeys, by id — the same word the definition declares them under.
 
@@ -46,4 +46,4 @@ The compiled journeys, by id — the same word the definition declares them unde
 
 > **pages**: `Record`\<`string`, [`Page`](/api/index/interfaces/Page)\>
 
-Defined in: [src/atom/types.ts:432](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L432)
+Defined in: [src/atom/types.ts:464](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L464)

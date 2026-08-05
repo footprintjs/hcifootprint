@@ -4,7 +4,7 @@ title: WorkRow
 
 # Interface: WorkRow
 
-Defined in: [src/atom/types.ts:1385](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1385)
+Defined in: [src/atom/types.ts:1450](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1450)
 
 One piece of work the app has open RIGHT NOW ([Session.openWork](/api/index/classes/Session#openwork)) — the
 sibling of [PendingInfo](/api/index/interfaces/PendingInfo) (fires awaiting the app's state report) and
@@ -28,7 +28,7 @@ open until the app closes it.
 
 > `optional` **affordanceId?**: `string`
 
-Defined in: [src/atom/types.ts:1401](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1401)
+Defined in: [src/atom/types.ts:1466](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1466)
 
 The action that fire was about, when the row is bound.
 
@@ -38,7 +38,7 @@ The action that fire was about, when the row is bound.
 
 > `optional` **does?**: `string`
 
-Defined in: [src/atom/types.ts:1407](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1407)
+Defined in: [src/atom/types.ts:1472](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1472)
 
 What the app said that action does — carried off the bound fire's own row
 ([Cause.does](/api/index/interfaces/Cause#does)), never looked up afresh. An UNBOUND row has none,
@@ -50,7 +50,7 @@ because it names no action to have captured one for.
 
 > `optional` **label?**: `string`
 
-Defined in: [src/atom/types.ts:1394](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1394)
+Defined in: [src/atom/types.ts:1459](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1459)
 
 The app's own words for this work, when it gave any — DATA, and only data.
 It is never rendered into an authored sentence, into `groundTruth()`, or
@@ -64,7 +64,7 @@ Capped like every other app string that crosses (200 characters).
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1420](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1420)
+Defined in: [src/atom/types.ts:1485](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1485)
 
 Who the bound fire was charged to. `'system'` on an UNBOUND row — not a
 guess about who is working, but the honest floor: nobody said, and work
@@ -76,7 +76,7 @@ never runs silently.
 
 > **startedAt**: `number`
 
-Defined in: [src/atom/types.ts:1414](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1414)
+Defined in: [src/atom/types.ts:1479](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1479)
 
 When the app opened the row, on the session's clock — DATA, for a caller
 that wants to sort or render it. NOTHING IN THIS LIBRARY RENDERS A DURATION
@@ -89,7 +89,7 @@ and how long something has taken is neither done nor failed.
 
 > `optional` **transitionId?**: `string`
 
-Defined in: [src/atom/types.ts:1399](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1399)
+Defined in: [src/atom/types.ts:1464](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1464)
 
 The fire this work is bound to. ABSENT MEANS UNBOUND — nothing said which
 fire it belongs to, and nothing guessed one.
@@ -100,4 +100,4 @@ fire it belongs to, and nothing guessed one.
 
 > **workId**: `string`
 
-Defined in: [src/atom/types.ts:1386](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1386)
+Defined in: [src/atom/types.ts:1451](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1451)

@@ -4,7 +4,7 @@ title: AvailableEdge
 
 # Interface: AvailableEdge
 
-Defined in: [src/atom/types.ts:788](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L788)
+Defined in: [src/atom/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L838)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:788](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **activation?**: [`ActivationLevel`](/api/index/type-aliases/ActivationLevel)
 
-Defined in: [src/atom/types.ts:852](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L852)
+Defined in: [src/atom/types.ts:914](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L914)
 
 Evidence level behind "this node is active" (see ActivationLevel).
 
@@ -22,7 +22,7 @@ Evidence level behind "this node is active" (see ActivationLevel).
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:789](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L789)
+Defined in: [src/atom/types.ts:839](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L839)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/atom/types.ts:789](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **binding?**: [`Binding`](/api/index/type-aliases/Binding)
 
-Defined in: [src/atom/types.ts:845](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L845)
+Defined in: [src/atom/types.ts:907](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L907)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/atom/types.ts:845](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **blockedBecause?**: [`BlockedBecause`](/api/index/interfaces/BlockedBecause)
 
-Defined in: [src/atom/types.ts:892](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L892)
+Defined in: [src/atom/types.ts:954](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L954)
 
 WHY THE APP SAYS IT IS OFF, and who clears it — the app's own sentence
 beside the state, present ONLY while this row carries `enabled: false`.
@@ -69,7 +69,7 @@ reason — a plausible wrong reason is worse than none.
 
 > `optional` **busy?**: `string`
 
-Defined in: [src/atom/types.ts:977](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L977)
+Defined in: [src/atom/types.ts:1039](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1039)
 
 THE THIRD STATE — the app says this control is WORKING RIGHT NOW, and the
 value is the app's own label for it ('Saving…', 'Placing your order').
@@ -129,7 +129,7 @@ a secret, a customer's name, or the payload into one.
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:790](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L790)
+Defined in: [src/atom/types.ts:840](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L840)
 
 ***
 
@@ -137,7 +137,7 @@ Defined in: [src/atom/types.ts:790](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **descriptionSource?**: `"declared"` \| `"registration"`
 
-Defined in: [src/atom/types.ts:847](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L847)
+Defined in: [src/atom/types.ts:909](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L909)
 
 See Affordance.descriptionSource.
 
@@ -147,7 +147,7 @@ See Affordance.descriptionSource.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [src/atom/types.ts:867](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L867)
+Defined in: [src/atom/types.ts:929](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L929)
 
 False when the app says the control is currently DISABLED (a grey button:
 on screen, not clickable). Served honestly with the marker — like a human
@@ -163,7 +163,7 @@ FOUR wires land here, so an app can say it wherever it already knows it:
 
 > `optional` **enumeration?**: `"selector"` \| `"mounted-window"`
 
-Defined in: [src/atom/types.ts:1005](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1005)
+Defined in: [src/atom/types.ts:1067](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1067)
 
 Where `instances` came from: 'selector' = the declared existence source
 (complete), 'mounted-window' = only what is mounted right now (partial —
@@ -175,7 +175,7 @@ stated, not silently presented as complete).
 
 > **evidence**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:800](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L800)
+Defined in: [src/atom/types.ts:850](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L850)
 
 Per-condition guard evidence (key/op/threshold/actual) — why it is passable.
 
@@ -185,7 +185,7 @@ Per-condition guard evidence (key/op/threshold/actual) — why it is passable.
 
 > `optional` **expects?**: `unknown`
 
-Defined in: [src/atom/types.ts:830](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L830)
+Defined in: [src/atom/types.ts:880](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L880)
 
 What a caller must SEND, wire-shaped: zod normalized, a plain JSON Schema
 detached, a non-serializable validator named in one authored sentence, and
@@ -209,7 +209,7 @@ same stance `binding` takes above.
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:807](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L807)
+Defined in: [src/atom/types.ts:857](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L857)
 
 Guard keys absent from the session's state view (or holding undefined —
 a value guard like `ne ''` would match undefined, so an unset value is
@@ -222,7 +222,7 @@ marker, instead of being silently hidden (D18 fix).
 
 > **highEffect**: `boolean`
 
-Defined in: [src/atom/types.ts:831](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L831)
+Defined in: [src/atom/types.ts:881](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L881)
 
 ***
 
@@ -230,7 +230,7 @@ Defined in: [src/atom/types.ts:831](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **holds?**: `unknown`
 
-Defined in: [src/atom/types.ts:923](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L923)
+Defined in: [src/atom/types.ts:985](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L985)
 
 WHAT THIS CONTROL HOLDS RIGHT NOW — the draft in the box, the option
 currently selected — read at the moment the row is assembled.
@@ -267,7 +267,7 @@ is on the record, which is to say it cannot be.
 
 > `optional` **humanDecides?**: `true`
 
-Defined in: [src/atom/types.ts:997](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L997)
+Defined in: [src/atom/types.ts:1059](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1059)
 
 THE DECISION HERE IS A PERSON'S — the app declared [HumanDecides](/api/index/interfaces/HumanDecides) on
 this control, and the row says so before anything is reached for.
@@ -293,7 +293,7 @@ session option nobody has asked for yet.
 
 > `optional` **instances?**: `string`[]
 
-Defined in: [src/atom/types.ts:999](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L999)
+Defined in: [src/atom/types.ts:1061](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1061)
 
 Live instance keys for a repeats-container tool (runtime DATA, never schema).
 
@@ -303,7 +303,7 @@ Live instance keys for a repeats-container tool (runtime DATA, never schema).
 
 > `optional` **materialized?**: `boolean`
 
-Defined in: [src/atom/types.ts:798](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L798)
+Defined in: [src/atom/types.ts:848](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L848)
 
 Present only when the session has live registrations: true = a handler is
 mounted right now (fireable-with-execution), false = declared here but
@@ -316,7 +316,7 @@ on the current page this doubles as live binding-drift telemetry).
 
 > `optional` **navigatesTo?**: `string`
 
-Defined in: [src/atom/types.ts:844](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L844)
+Defined in: [src/atom/types.ts:894](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L894)
 
 The page this edge CLAIMS it will move you to (from `effect.navigatesTo`),
 BEFORE anything is fired. Absent when the app declared none — never a
@@ -335,7 +335,7 @@ looks like from the element's side.
 
 > `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:850](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L850)
+Defined in: [src/atom/types.ts:912](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L912)
 
 Owning node path in the navigation tree (e.g. 'catalog.filter-rail').
 
@@ -345,10 +345,28 @@ Owning node path in the navigation tree (e.g. 'catalog.filter-rail').
 
 > `optional` **presence?**: `"unknown"`
 
-Defined in: [src/atom/types.ts:857](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L857)
+Defined in: [src/atom/types.ts:919](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L919)
 
 'unknown' when several exclusive-tab siblings are mounted and no
 visibility wire exists — a flagged union, never a guessed winner.
+
+***
+
+### reads?
+
+> `optional` **reads?**: `string`[]
+
+Defined in: [src/atom/types.ts:906](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L906)
+
+The state keys this edge CLAIMS its outcome depends on (from
+`effect.reads`), BEFORE anything is fired — the read side of the same
+declaration `navigatesTo` and `writes` are the other two thirds of.
+
+Here because it is the only place the serving layer can read it: the row is
+the whole of what `available()` tells a projection about an edge, and the
+`staleReads` stamp a served row carries is this list intersected with the
+keys committed since the caller last looked. Absent when the app declared
+none, and never inferred from a guard, a handler or a write.
 
 ***
 
@@ -356,7 +374,7 @@ visibility wire exists — a flagged union, never a guessed winner.
 
 > **role**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/atom/types.ts:791](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L791)
+Defined in: [src/atom/types.ts:841](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L841)
 
 ***
 
@@ -364,7 +382,7 @@ Defined in: [src/atom/types.ts:791](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **schema?**: `unknown`
 
-Defined in: [src/atom/types.ts:812](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L812)
+Defined in: [src/atom/types.ts:862](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L862)
 
 The LIVE validator, exactly as authored — an in-process convenience, and
 the reason `expects` exists beside it. Absent when nothing was declared.

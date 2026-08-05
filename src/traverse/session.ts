@@ -1279,6 +1279,12 @@ export class Session {
         // The declared destination, served BEFORE the fire — the same claim the
         // human's confirm receipt has always carried (ConfirmWillDo.navigatesTo).
         ...(aff.effect?.navigatesTo !== undefined ? { navigatesTo: aff.effect.navigatesTo } : {}),
+        // WHAT THIS CONTROL'S OUTCOME DEPENDS ON, as the app declared it. Copied,
+        // not shared: the affordance is frozen, but an edge is a fresh row per
+        // call and a consumer that sorts this list in place must not reach the
+        // spec. Presence-only — an app that declares no reads serves the row it
+        // always served.
+        ...(aff.effect?.reads !== undefined ? { reads: [...aff.effect.reads] } : {}),
         // THE DECISION HERE IS A PERSON'S, said on the row a model reads BEFORE
         // it reaches for anything. Presence is the whole claim, and the filter
         // behind it never rides: a served row carries verdicts and stamps, not
@@ -5332,9 +5338,14 @@ export class Session {
       : { conditions: [] as FilterCondition[], unevaluable: [] as string[] };
     const writes = aff?.effect?.writes;
     const declaresWrites = (writes?.length ?? 0) > 0;
+    const reads = aff?.effect?.reads;
     const willDo: ConfirmWillDo = {
       does: aff?.description ?? affordanceId,
       ...(declaresWrites ? { writes: [...writes!] } : {}),
+      // The read side, on the card the PERSON reads. Approving "settle for the
+      // amount on the claim" is approving a number that will be looked up, and
+      // the receipt that names only what will change tells half of that.
+      ...((reads?.length ?? 0) > 0 ? { reads: [...reads!] } : {}),
       ...(aff?.effect?.navigatesTo ? { navigatesTo: aff.effect.navigatesTo } : {}),
       // A declared write with no state tap can never be verified (settlement is
       // effectVerified:'unobservable') — say so up front, don't show a claim we
@@ -5439,6 +5450,54 @@ export class Session {
   }
 
   /**
+   * WHICH STATE KEYS EACH COMMITTED TRANSITION CHANGED — the one derivation,
+   * read from the commit log, keyed by the transition's own id.
+   *
+   * Lifted out of `contextBrief` when a second reader appeared (`staleReads` on
+   * the served row). Two doors deriving this separately could disagree about one
+   * key, and the serving layer's own standing rule forbids exactly that: a
+   * reader would be told in prose that `claim.total` moved and shown a row that
+   * did not think so, on the same screen, from the same session.
+   */
+  #changedKeysById(): Map<string, string[]> {
+    /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: footprintjs declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
+    return new Map(
+      this.#log
+        .list()
+        .map((b) => [b.runtimeStageId, Object.keys({ ...(b.overwrite ?? {}), ...(b.updates ?? {}) })]),
+    );
+  }
+
+  /**
+   * THE STATE KEYS THIS SESSION HAS COMMITTED SINCE `sinceVersion` — names, in
+   * first-changed order, each named once.
+   *
+   * The same fact `contextBrief` narrates per transition ("user push changed:
+   * claim.total"), answered as data so a caller can JOIN it to something. The
+   * serving layer does exactly one thing with it: intersect it with an edge's
+   * declared {@link Effect.reads} and stamp the overlap as `staleReads`. Before
+   * that join existed a reader was handed a changed key and a list of controls
+   * and left to connect them by eye.
+   *
+   * `sinceVersion` omitted means the whole session. The version filter is the
+   * transition's own `cursorVersion`, the same comparison the brief makes, so
+   * the two can never disagree about what "since" means.
+   *
+   * NAMES ONLY, and no claim beyond presence: a key here was written, which is
+   * not a statement that its value is different from the one you saw, that any
+   * control is now wrong, or that anything should be re-read.
+   */
+  keysChangedSince(sinceVersion?: number): string[] {
+    const byId = this.#changedKeysById();
+    const keys = new Set<string>();
+    for (const t of this.#transitions) {
+      if (sinceVersion !== undefined && t.cursorVersion < sinceVersion) continue;
+      for (const key of byId.get(t.id) ?? []) keys.add(key);
+    }
+    return [...keys];
+  }
+
+  /**
    * Token-lean, prompt-ready session context for the next chat turn: current
    * position, the open frame, and who did what since `sinceVersion` (the
    * agent's last look). Built from AUTHORED strings and structural facts only
@@ -5452,12 +5511,7 @@ export class Session {
     );
     const omitted = Math.max(0, relevant.length - max);
     const shown = relevant.slice(-max);
-    /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: footprintjs declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
-    const changedKeysById = new Map(
-      this.#log
-        .list()
-        .map((b) => [b.runtimeStageId, Object.keys({ ...(b.overwrite ?? {}), ...(b.updates ?? {}) })]),
-    );
+    const changedKeysById = this.#changedKeysById();
 
     const lines: string[] = [`You are on: ${this.#nodeLabel(this.#node)}.`];
     if (this.#frame) {

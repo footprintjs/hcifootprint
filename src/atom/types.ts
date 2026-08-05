@@ -147,6 +147,33 @@ export type Binding =
 export interface Effect {
   /** State keys this affordance claims to change. Verified at settlement. */
   writes?: string[];
+  /**
+   * State keys this affordance's OUTCOME DEPENDS ON — the read side of the same
+   * declaration, and the half that was missing.
+   *
+   * An app could always say what a control CHANGES and never what it is ABOUT.
+   * So a session that knew a key had just moved (`contextBrief` names the
+   * changed keys, by name, in the turn before the fire) could not say which of
+   * the offered controls that change was about, and a reader was left to join
+   * two lists by eye. Declare it and the serving layer stamps `staleReads` on
+   * the row — this key changed since you last looked, and this control reads it.
+   *
+   * NOT the guard. `guard` keys are the PRECONDITION read set — whether the
+   * control is on offer at all — and they are already served as `evidence`.
+   * These are the keys whose values the outcome is computed FROM: a "settle the
+   * claim" button guarded on `claim.stage` may compute its amount from
+   * `claim.total`, and it is the second one a stale-world reader needs named.
+   *
+   * DECLARED, NEVER INFERRED. The library does not read your handler, guess
+   * from co-occurrence, or promote a guard key. Which keys matter is meaning,
+   * and meaning stays on the app's side of the seam — the same law `writes`
+   * lives under. An app that declares nothing here serves byte-identical rows.
+   *
+   * Key NAMES only. No value crosses on this wire, and nothing here is compared
+   * against anything: the stamp says a key you depend on was written since your
+   * last look, not that the value is wrong or that firing would be a mistake.
+   */
+  reads?: string[];
   /** Page this affordance claims to move to. Reconciled by sync(). */
   navigatesTo?: string;
 }
@@ -865,6 +892,18 @@ export interface AvailableEdge {
    * looks like from the element's side.
    */
   navigatesTo?: string;
+  /**
+   * The state keys this edge CLAIMS its outcome depends on (from
+   * `effect.reads`), BEFORE anything is fired — the read side of the same
+   * declaration `navigatesTo` and `writes` are the other two thirds of.
+   *
+   * Here because it is the only place the serving layer can read it: the row is
+   * the whole of what `available()` tells a projection about an edge, and the
+   * `staleReads` stamp a served row carries is this list intersected with the
+   * keys committed since the caller last looked. Absent when the app declared
+   * none, and never inferred from a guard, a handler or a write.
+   */
+  reads?: string[];
   binding?: Binding;
   /** See Affordance.descriptionSource. */
   descriptionSource?: 'declared' | 'registration';
@@ -1643,6 +1682,16 @@ export interface ConfirmWillDo {
   does: string;
   /** State keys this edge CLAIMS to write (from effect.writes). Omitted when none. */
   writes?: string[];
+  /**
+   * State keys this edge CLAIMS its outcome depends on (from effect.reads).
+   * Omitted when none — the same presence law `writes` keeps.
+   *
+   * On the card a HUMAN reads, because the person approving a "settle for the
+   * amount on the claim" is entitled to know which claim number the amount will
+   * be read from. A CLAIM about the app's handler like everything else in this
+   * block, never an observation.
+   */
+  reads?: string[];
   /** Page this edge CLAIMS to navigate to (from effect.navigatesTo). Omitted when none. */
   navigatesTo?: string;
   /**

@@ -688,6 +688,33 @@ export function serveToAgent(
     `transitionId to learn how it came to rest. Do not perform the action again.`;
 
   /**
+   * THE SAME POINTER, AS A FIELD — because a projection cannot route on a
+   * sentence.
+   *
+   * `howToSettle` names the door in prose, and prose is readable by the model
+   * that is looking at it and by nothing else. A consumer that re-serves this
+   * surface into an action space of its own — a benchmark harness, a router, an
+   * app that publishes three verbs instead of four — reads the tool ARRAY, wires
+   * what it finds there, and drops a door that is only ever named inside a
+   * string. The failure then surfaces nowhere near here: an agent holding an
+   * unsettled high-effect fire, told not to repeat it and given no way to settle
+   * it, repeats it several turns later. That was measured, off a real campaign,
+   * and it is a drop the library cannot otherwise see happening to it.
+   *
+   * So: the prose stays byte-for-byte what it was, and this rides beside it.
+   * `tool` is a name this port publishes unconditionally; `arg` is the property
+   * that tool's schema requires; the id to put in it is the `transitionId`
+   * already on this very result. Nothing new is computed and no app data
+   * crosses. A consumer that wires it can settle; one that cannot now has a
+   * field to fail on rather than a sentence to ignore.
+   */
+  function settleWithData(): ServeResult {
+    // A fresh object per result: everything this port returns is the caller's
+    // to keep, and a shared literal would let one consumer's edit reach the next.
+    return { settleWith: { tool: didItWorkName, arg: 'transitionId' } };
+  }
+
+  /**
    * The journey door(s), in whichever shape this port was built for.
    *
    * ONE tool or N — and the N-tool array is what a journey costs in the channel
@@ -974,7 +1001,7 @@ export function serveToAgent(
     const since = sinceVersion === undefined ? undefined : { sinceVersion };
     const brief = session.contextBrief(since);
     const rows = session.available().edges;
-    const running = runningNow(rows);
+    const turn = turnFacts(rows, sinceVersion);
     const scoped = journeysHere();
     return {
       ok: true,
@@ -985,7 +1012,7 @@ export function serveToAgent(
       // refused fire is a gap row, not a transition).
       facts: session.groundTruth(since).text,
       brief: brief.text,
-      actions: rows.map((edge) => edgeData(edge, running)),
+      actions: rows.map((edge) => edgeData(edge, turn)),
       journeys: scoped.here.map((journey) => ({
         journey: journey.id,
         does: journey.description,
@@ -1733,7 +1760,11 @@ export function serveToAgent(
         // that has no move: the pointer names the door out (the settlement
         // tool, with this same id). Only on 'pending' — the other three words
         // are final, and pointing at a poll would invite a needless turn.
-        ...(fired.effectStatus === 'pending' ? { howToSettle } : {}),
+        //
+        // Twice, on purpose: the sentence for the reader, the field for the
+        // relay ({@link settleWithData}). Same door, same arm, one of them
+        // machine-readable.
+        ...(fired.effectStatus === 'pending' ? { howToSettle, ...settleWithData() } : {}),
         // Copy: fired.transition is the LIVE record — a consumer mutating its
         // result must never rewrite the trace.
         ...(fired.transition.guardUnevaluated ? { guardUnevaluated: [...fired.transition.guardUnevaluated] } : {}),
@@ -1897,6 +1928,115 @@ export function serveToAgent(
     return running;
   }
 
+  /**
+   * THE FACTS A ROW NEEDS AND CANNOT HOLD — session-wide, read ONCE per answer
+   * and handed down, for the reason {@link runningNow} states at length: none of
+   * them can differ between two rows of the same reply, and re-deriving each one
+   * per row walks the whole session per control.
+   */
+  interface TurnFacts {
+    /** What is in flight (see {@link runningNow}). */
+    running: RunningSet;
+    /**
+     * State keys committed since the caller's `sinceVersion`, from the session's
+     * own single derivation (`keysChangedSince`) — never a second reading of the
+     * commit log here.
+     *
+     * WITH NO `sinceVersion` THE WINDOW IS THE WHOLE SESSION, which is the same
+     * window `brief` and `facts` answer to on that same call. Three fields of
+     * one reply keeping two different clocks is precisely the disagreement this
+     * layer refuses to author.
+     */
+    changed: ReadonlySet<string>;
+    /**
+     * affordanceId → the transitionId of its most recent fire this session is
+     * still holding a latch open for.
+     *
+     * Most recent because they arrive in fire order and a later one overwrites:
+     * asked "is there an unsettled fire of this control?", the useful answer is
+     * the one that has just been made, not the oldest one still outstanding.
+     */
+    unsettled: ReadonlyMap<string, string>;
+  }
+
+  /** The open latches, by the action that opened them (see {@link TurnFacts.unsettled}). */
+  function unsettledByAction(): ReadonlyMap<string, string> {
+    const byAction = new Map<string, string>();
+    for (const id of session.awaitingSettlement()) {
+      const action = firedAction(id);
+      /* v8 ignore next -- unreachable: an open latch is one fire() opened, and fire() pushes the transition naming the action before it opens the latch, so this lookup always answers. It keeps a future latch source from putting `undefined` on a row as if it were an id. */
+      if (action === undefined) continue;
+      byAction.set(action, id);
+    }
+    return byAction;
+  }
+
+  /** Everything session-wide one `whats_here` answer rests on, read once. */
+  function turnFacts(rows: readonly AvailableEdge[], sinceVersion?: number): TurnFacts {
+    return {
+      running: runningNow(rows),
+      changed: new Set(session.keysChangedSince(sinceVersion)),
+      unsettled: unsettledByAction(),
+    };
+  }
+
+  /**
+   * WHAT THIS CONTROL DEPENDS ON THAT HAS SINCE MOVED — the join the surface
+   * could not make.
+   *
+   * The session has always been able to say a key changed, and the row has
+   * always been able to say what a control does. Nothing joined them, so a
+   * reader was handed "user push changed: claim.total" in one field and
+   * "ledger.settle-claim is available" in another and left to connect the two by
+   * eye. Measured, off a real campaign: it did not connect them, on every
+   * surface tested.
+   *
+   * The intersection, and ONLY the intersection: the app's declared
+   * {@link Effect.reads} ∩ the keys committed since the caller's last look.
+   *
+   * WHAT IT DOES NOT SAY. Not that the value differs from the one the caller
+   * saw — this compares no values and holds none. Not that firing is wrong; not
+   * that anything should be re-read. It is the same class of stamp as `enabled`,
+   * `humanDecides` and `busy` beside it: a fact on the row, refusing nothing,
+   * with the decision left where it belongs.
+   *
+   * PRESENCE-ONLY, and silent by default. An app that declares no `reads` serves
+   * byte-identical rows; a declared read that nothing has written serves no key.
+   * `staleReads: []` would be a claim ("we checked, nothing moved") on every row
+   * of every reply, and this library does not manufacture reassurance.
+   */
+  function staleReadsData(edge: AvailableEdge, changed: ReadonlySet<string>): ServeResult {
+    if (edge.reads === undefined || changed.size === 0) return {};
+    const stale = edge.reads.filter((key) => changed.has(key));
+    return stale.length > 0 ? { staleReads: stale } : {};
+  }
+
+  /**
+   * A FIRE OF THIS CONTROL HAS NOT COME TO REST — the fact under the advice.
+   *
+   * The pending fire report tells the model "do not perform the action again",
+   * and the very next `whats_here` served the control back with nothing on it to
+   * remember that by. So the sentence lived for one turn, in one result, while
+   * the row it was about kept looking exactly like a fresh one — and a repeated
+   * high-effect fire two turns later was, from the row's side, indistinguishable
+   * from a first.
+   *
+   * IT MUST NOT REFUSE, and does not. Refusing a repeat would be this library
+   * deciding that repeating is wrong, and there are legitimate retries — a
+   * genuinely lost fire is one, and the caller is the only one who can tell.
+   * Mechanism and honesty: state the fact, name the id it is about (so the
+   * settlement door can be asked), and leave the decision. Exactly the stance
+   * `enabled: false`, `humanDecides` and `busy` take on this same row.
+   *
+   * The id is one this session minted; no app data crosses. The claim is that
+   * the prior fire has not come to rest — which is what the latch knows — and
+   * nothing at all about whether it ever will.
+   */
+  function priorFireData(edge: AvailableEdge, unsettled: ReadonlyMap<string, string>): ServeResult {
+    const open = unsettled.get(edge.affordanceId);
+    return open === undefined ? {} : { priorFireUnsettled: open };
+  }
+
   /** The authored teaching sentence for one approval refusal, by reason. */
   function approvalWhy(fired: Extract<FireResult, { ok: false }>): ServeResult {
     switch (fired.reason) {
@@ -1924,7 +2064,7 @@ export function serveToAgent(
     }
   }
 
-  function edgeData(edge: AvailableEdge, running: RunningSet): ServeResult {
+  function edgeData(edge: AvailableEdge, turn: TurnFacts): ServeResult {
     return {
       action: edge.affordanceId,
       does: edge.description,
@@ -1986,7 +2126,12 @@ export function serveToAgent(
       // A CLAIM, NOT A PROMISE, and silence rather than a guess: where nothing
       // declares a write for the keys it waits on, the key is absent and the row
       // says nothing — the same absence law every other stamp here obeys.
-      ...unblockedByFor(edge, running),
+      ...unblockedByFor(edge, turn.running),
+      // WHAT THIS CONTROL DEPENDS ON THAT HAS MOVED SINCE YOU LOOKED, and
+      // whether one of your own fires of it is still out there. Both are facts
+      // about this row that only the session knows; neither refuses anything.
+      ...staleReadsData(edge, turn.changed),
+      ...priorFireData(edge, turn.unsettled),
       // THE SPINNER IN THE BUTTON, on the agent's row — the app's own words for
       // what it is doing, before anything is reached for. Data, like `holds` and
       // `does` above it: the label is the app's, and no sentence here is built

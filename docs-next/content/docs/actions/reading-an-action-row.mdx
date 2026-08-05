@@ -59,6 +59,54 @@ prove or disprove it.*
 | **`expects`** | `input:` (schema, or the literal `'none'`) | what a caller must send | `PAYLOAD_INVALID`, which carries the contract back with the refusal |
 | **`instances`** + **`enumeration`** | `repeats: true` on a container | this row stands for N cards, addressed by key — and `enumeration` says whether that list is complete (`'selector'`) or only what is mounted (`'mounted-window'`) | `INSTANCE_REQUIRED` / `INSTANCE_UNKNOWN`, each listing the live keys |
 | **`activation`** | a [presence](doc:presence) source other than the ordinary two | how the library came to believe this is on screen | the word itself; the ordinary `'registered'` / `'synced'` never ride |
+| **`staleReads`** | `reads: ['<key>', …]` | a key this action's outcome depends on **was written since you last looked** | the key names, and only the ones that moved — `session.keysChangedSince(sinceVersion)` is the same fact as data, and the brief narrates it as prose |
+| **`priorFireUnsettled`** | *nothing* — a fire of this control that this session is still holding a latch for | your own earlier fire of this control has not come to rest | the transitionId itself: hand it to `did_it_work` |
+
+### `staleReads` — what this control depends on that has moved
+
+An action can declare what it **writes**; `reads` is the other half — the state keys its *outcome*
+is computed from. Not the guard: guard keys decide whether the control is on offer at all, and they
+are already served as `evidence`. These are the keys the answer comes from.
+
+```ts
+settle: {
+  does: 'Settle the claim for the amount on it',
+  when:   { 'claim.stage': { eq: 'open' } }, // whether it is here
+  writes: ['purse.left'],                    // what it changes
+  reads:  ['claim.total'],                   // what its answer is computed FROM
+}
+```
+
+Declare it and the row can be told that something under it moved:
+
+```jsonc
+// whats_here({ sinceVersion }) — after the user revised the claim
+{ "action": "ledger.settle", "does": "Settle the claim for the amount on it",
+  "highEffect": true,
+  "staleReads": ["claim.total"] }   // ← a key you depend on was written since your last look
+```
+
+**It refuses nothing.** No value is compared and none crosses; the stamp does not say the number is
+different, that firing is wrong, or that anything must be re-read. Before this, the brief said *a
+key changed* and the row said *here is a control*, and nothing joined them.
+
+**Declared, never inferred.** The library does not read your handler, promote a guard key, or guess
+from co-occurrence. Which keys matter is meaning, and meaning is yours. An app that declares no
+`reads` serves byte-identical rows, and a declared read nothing has written serves no key.
+
+### `priorFireUnsettled` — your own fire, still out there
+
+A fire whose handler has not finished comes back `effectStatus: 'pending'` with
+[the settlement pointer](doc:waiting-for-the-app). Until that fire comes to rest, every row for the
+same control carries the id it is waiting on:
+
+```jsonc
+{ "action": "pay.send-money", "does": "Send the money", "highEffect": true,
+  "priorFireUnsettled": "pay.send-money#2" }
+```
+
+**It refuses nothing either**, and that is deliberate: some repeats are right — a genuinely lost
+fire is one — and only you can tell. Ask `did_it_work` with that id before you fire again.
 
 ## The one that is never a stamp
 

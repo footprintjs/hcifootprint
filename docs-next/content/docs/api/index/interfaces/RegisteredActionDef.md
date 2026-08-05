@@ -80,7 +80,7 @@ off changes not one byte of what is served. Say WHY here; say WHETHER with
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
+Defined in: [src/tree/types.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L113)
 
 Requires explicit confirmation (the high-effect gate).
 
@@ -132,7 +132,7 @@ its position in the tree.
 
 > `optional` **goTo?**: `string`
 
-Defined in: [src/tree/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L97)
+Defined in: [src/tree/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L111)
 
 Page this action claims to navigate to (a top-level page id).
 
@@ -154,7 +154,7 @@ Defined in: [src/traverse/nav-session.ts:71](https://github.com/footprintjs/hcif
 
 > `optional` **humanDecides?**: [`HumanDecides`](/api/index/interfaces/HumanDecides)
 
-Defined in: [src/tree/types.ts:143](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L143)
+Defined in: [src/tree/types.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L157)
 
 THIS CHOICE IS THE PERSON'S TO MAKE — not a gate on the agent acting, but a
 statement that the decision itself belongs to a human.
@@ -189,7 +189,7 @@ exists for it. See [HumanDecides](/api/index/interfaces/HumanDecides).
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/tree/types.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L110)
+Defined in: [src/tree/types.ts:124](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L124)
 
 Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
 or the literal `'none'`, meaning "this control takes NO input". A caller
@@ -206,11 +206,35 @@ shape, so it advertises nothing rather than inventing an empty contract.
 
 ***
 
+### reads?
+
+> `optional` **reads?**: `string`[]
+
+Defined in: [src/tree/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L109)
+
+State keys this action's OUTCOME DEPENDS ON — the read side of `writes`,
+and the one an app is asked for so a reader can be told that something it
+depends on moved.
+
+```ts
+settle: { does: 'Settle the claim', writes: ['purse.left'], reads: ['claim.total'] },
+```
+
+Not `when`: that decides whether the control is HERE. This says what the
+outcome is computed FROM. Declared, never inferred — see [Effect.reads](/api/index/interfaces/Effect#reads)
+for the law and for what the serving layer does with it.
+
+#### Inherited from
+
+[`ActionDef`](/api/index/interfaces/ActionDef).[`reads`](/api/index/interfaces/ActionDef#reads)
+
+***
+
 ### role?
 
 > `optional` **role?**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/tree/types.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L144)
+Defined in: [src/tree/types.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L158)
 
 #### Inherited from
 
@@ -222,7 +246,7 @@ Defined in: [src/tree/types.ts:144](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **verify?**: [`VerifyContract`](/api/index/type-aliases/VerifyContract)
 
-Defined in: [src/tree/types.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L118)
+Defined in: [src/tree/types.ts:132](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L132)
 
 The app's OWN check that firing this really did something — evaluated once,
 at settlement, and the only thing that can turn a handler that merely RAN

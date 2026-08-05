@@ -4,7 +4,7 @@ title: PageDef
 
 # Interface: PageDef
 
-Defined in: [src/atom/types.ts:206](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L206)
+Defined in: [src/atom/types.ts:238](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L238)
 
 ## Extended by
 
@@ -16,7 +16,7 @@ Defined in: [src/atom/types.ts:206](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **description?**: `string`
 
-Defined in: [src/atom/types.ts:208](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L208)
+Defined in: [src/atom/types.ts:240](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L240)
 
 ***
 
@@ -24,4 +24,4 @@ Defined in: [src/atom/types.ts:208](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **route?**: `string`
 
-Defined in: [src/atom/types.ts:207](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L207)
+Defined in: [src/atom/types.ts:239](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L239)

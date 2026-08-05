@@ -4,7 +4,7 @@ title: DependencyEdge
 
 # Interface: DependencyEdge
 
-Defined in: [src/atom/types.ts:2023](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2023)
+Defined in: [src/atom/types.ts:2128](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2128)
 
 B depends on A when A's declared writes overlap B's guard keys — DERIVED, never authored.
 
@@ -14,7 +14,7 @@ B depends on A when A's declared writes overlap B's guard keys — DERIVED, neve
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:2024](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2024)
+Defined in: [src/atom/types.ts:2129](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2129)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [src/atom/types.ts:2024](https://github.com/footprintjs/hcifootprint
 
 > **viaKeys**: `string`[]
 
-Defined in: [src/atom/types.ts:2025](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2025)
+Defined in: [src/atom/types.ts:2130](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2130)

@@ -4,7 +4,7 @@ title: TransitionRecord
 
 # Interface: TransitionRecord
 
-Defined in: [src/atom/types.ts:694](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L694)
+Defined in: [src/atom/types.ts:726](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L726)
 
 One occurrence: a row in the interaction log. SETTLED (and stimulus/sync)
 transitions join 1:1 to a CommitBundle by `id`; pending and
@@ -15,9 +15,9 @@ rejected/rolled-back rows exist only here — that asymmetry is deliberate
 
 ### arrival?
 
-> `optional` **arrival?**: `"claimed"` \| `"observed"`
+> `optional` **arrival?**: `"observed"` \| `"claimed"`
 
-Defined in: [src/atom/types.ts:744](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L744)
+Defined in: [src/atom/types.ts:776](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L776)
 
 WHERE THE CLAIM AND THE OBSERVATION MEET — present only on a fire whose edge
 declared `effect.navigatesTo`, whichever gesture carries it, and absent
@@ -51,7 +51,7 @@ live record and rides ALONGSIDE the receipt — see docs/design/answer-grammar.m
 
 > `optional` **askId?**: `string`
 
-Defined in: [src/atom/types.ts:776](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L776)
+Defined in: [src/atom/types.ts:808](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L808)
 
 Set when this fire was authorized by a high-effect confirm ask — the
 [ConfirmRecord](/api/index/interfaces/ConfirmRecord) `askId` it closes. Makes the ask → decision → fire
@@ -62,11 +62,35 @@ a human clicking the button directly with no ask outstanding).
 
 ***
 
+### captured?
+
+> `optional` **captured?**: [`ActionCapture`](/api/index/interfaces/ActionCapture)
+
+Defined in: [src/atom/types.ts:835](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L835)
+
+D21 — THE CAPTURE ENVELOPE, present only on a fire of a `contextful()`
+action: what was true the moment before it ran, how it came to rest, what
+went wrong, and what its anchor saw while it was in flight.
+
+DATA CHANNEL, ALWAYS. Nothing in here is ever composed into agent-facing
+prose — not a brief, not a tool description, not a result sentence — which
+is what makes it safe for it to describe a page the library does not
+control. And nothing in here carries a value the app did not allowlist: key
+NAMES and event TYPES are the default, and `include` is the only door out of
+it (see `ContextfulOptions`).
+
+`before` and `after`/`failure` are stamped by the fire itself, so a
+settlement receipt carries them; `sensed` lands one turn later on the LIVE
+record, exactly as an `arrival: 'observed'` upgrade does, because a receipt
+taken at rest is never rewritten.
+
+***
+
 ### cause
 
 > **cause**: [`Cause`](/api/index/interfaces/Cause)
 
-Defined in: [src/atom/types.ts:697](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L697)
+Defined in: [src/atom/types.ts:729](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L729)
 
 ***
 
@@ -74,7 +98,7 @@ Defined in: [src/atom/types.ts:697](https://github.com/footprintjs/hcifootprint/
 
 > **cursorVersion**: `number`
 
-Defined in: [src/atom/types.ts:767](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L767)
+Defined in: [src/atom/types.ts:799](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L799)
 
 Cursor version when the transition was created.
 
@@ -84,7 +108,7 @@ Cursor version when the transition was created.
 
 > `optional` **effectVerified?**: `boolean` \| `"unobservable"`
 
-Defined in: [src/atom/types.ts:707](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L707)
+Defined in: [src/atom/types.ts:739](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L739)
 
 Whether every DECLARED write key was present in the settled delta.
 'unobservable' when the affordance declared no writes. This checks key
@@ -96,7 +120,7 @@ presence only — not values, extra writes, or navigation claims.
 
 > `optional` **evidence?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:709](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L709)
+Defined in: [src/atom/types.ts:741](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L741)
 
 Guard evidence captured at fire time (why this edge was passable).
 
@@ -106,7 +130,7 @@ Guard evidence captured at fire time (why this edge was passable).
 
 > **fromNode**: `string`
 
-Defined in: [src/atom/types.ts:710](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L710)
+Defined in: [src/atom/types.ts:742](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L742)
 
 ***
 
@@ -114,7 +138,7 @@ Defined in: [src/atom/types.ts:710](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:756](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L756)
+Defined in: [src/atom/types.ts:788](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L788)
 
 Guard keys that could NOT be evaluated at fire time because the session's
 state view never contained them (L0/L1 — no state tap for those keys).
@@ -127,7 +151,7 @@ honestly which conditions were taken on faith (D18 rung-killer fix).
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:696](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L696)
+Defined in: [src/atom/types.ts:728](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L728)
 
 runtimeStageId — the join key into the footprintjs commit log.
 
@@ -137,7 +161,7 @@ runtimeStageId — the join key into the footprintjs commit log.
 
 > `optional` **materialized?**: `false`
 
-Defined in: [src/atom/types.ts:785](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L785)
+Defined in: [src/atom/types.ts:817](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L817)
 
 Present (false) only on an allowed unmaterialized fire (the
 `allowUnmaterializedFires` tour): the fire invoked NOTHING — nothing was
@@ -152,7 +176,7 @@ library is telling you what it could not do.
 
 > **outcome**: [`Settlement`](/api/index/type-aliases/Settlement)
 
-Defined in: [src/atom/types.ts:701](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L701)
+Defined in: [src/atom/types.ts:733](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L733)
 
 ***
 
@@ -160,7 +184,7 @@ Defined in: [src/atom/types.ts:701](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [src/atom/types.ts:700](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L700)
+Defined in: [src/atom/types.ts:732](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L732)
 
 ***
 
@@ -168,7 +192,7 @@ Defined in: [src/atom/types.ts:700](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **produced?**: `unknown`
 
-Defined in: [src/atom/types.ts:765](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L765)
+Defined in: [src/atom/types.ts:797](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L797)
 
 Data the fired handler RETURNED (search results, a looked-up record) —
 sanitized + capped. This is the "act → get data back" channel: an action
@@ -183,7 +207,7 @@ Populated once the handler resolves (await the settlement to read it).
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:699](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L699)
+Defined in: [src/atom/types.ts:731](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L731)
 
 Epoch milliseconds when the transition was created.
 
@@ -193,7 +217,7 @@ Epoch milliseconds when the transition was created.
 
 > `optional` **toNode?**: `string`
 
-Defined in: [src/atom/types.ts:711](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L711)
+Defined in: [src/atom/types.ts:743](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L743)
 
 ***
 
@@ -201,7 +225,7 @@ Defined in: [src/atom/types.ts:711](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **toNodeClaimed?**: `boolean`
 
-Defined in: [src/atom/types.ts:716](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L716)
+Defined in: [src/atom/types.ts:748](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L748)
 
 True when toNode came from the affordance's declared navigatesTo — a
 CLAIM about the app, not an observation. sync() records observations.
@@ -212,7 +236,7 @@ CLAIM about the app, not an observation. sync() records observations.
 
 > `optional` **unverifiedEdge?**: `boolean`
 
-Defined in: [src/atom/types.ts:749](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L749)
+Defined in: [src/atom/types.ts:781](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L781)
 
 True on sync()-recorded hops: the cursor moved without passing any guard.
 Backward slices must treat the hop as inferred, not authorized.

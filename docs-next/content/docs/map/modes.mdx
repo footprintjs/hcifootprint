@@ -211,6 +211,26 @@ still has to do that word is `'pending'` — nobody has done it yet. So the resu
 `howToSettle`, naming the door out: **`did_it_work`**, called with the `transitionId` from
 that same result.
 
+Beside the sentence, the same pointer as **data** — because a consumer that re-serves this surface
+into an action space of its own cannot route on prose:
+
+```jsonc
+{ "ok": true, "did": "pay.send-money", "effectStatus": "pending",
+  "transitionId": "pay.send-money#2",
+  "howToSettle": "Not finished yet — the app's side is still running. …",
+  "settleWith": { "tool": "pay.did_it_work", "arg": "transitionId" } }
+```
+
+`settleWith.tool` is a tool this port publishes unconditionally and `arg` is the property its
+schema requires; the id to put in it is the `transitionId` on that same result. If you are
+projecting this surface into fewer verbs than the four it publishes, **wire this** — a settlement
+door that is only named inside a string is one a projection drops silently, and the agent then
+holds an unsettled high-effect fire with nowhere to put the question. Both keys ride the
+`'pending'` arm only: the three final words point at no poll.
+
+Until that fire comes to rest, `whats_here` also carries
+[`priorFireUnsettled`](doc:reading-an-action-row) on the control's own row.
+
 It is a **poll, not a wait** — `call()` is synchronous, so it answers immediately, in one of
 these ways, and never blocks:
 

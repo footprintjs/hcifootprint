@@ -4,7 +4,7 @@ title: Explanation
 
 # Interface: Explanation
 
-Defined in: [src/atom/types.ts:1026](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1026)
+Defined in: [src/atom/types.ts:1088](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1088)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1026](https://github.com/footprintjs/hcifootprint
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1027](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1027)
+Defined in: [src/atom/types.ts:1089](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1089)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:1027](https://github.com/footprintjs/hcifootprint
 
 > **available**: `boolean`
 
-Defined in: [src/atom/types.ts:1031](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1031)
+Defined in: [src/atom/types.ts:1093](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1093)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:1031](https://github.com/footprintjs/hcifootprint
 
 > **evidence**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:1032](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1032)
+Defined in: [src/atom/types.ts:1094](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1094)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/atom/types.ts:1032](https://github.com/footprintjs/hcifootprint
 
 > **guardPassed**: `boolean`
 
-Defined in: [src/atom/types.ts:1030](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1030)
+Defined in: [src/atom/types.ts:1092](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1092)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: [src/atom/types.ts:1030](https://github.com/footprintjs/hcifootprint
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:1034](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1034)
+Defined in: [src/atom/types.ts:1096](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1096)
 
 Guard keys that could not be evaluated (absent from the state view, or holding undefined).
 
@@ -54,7 +54,7 @@ Guard keys that could not be evaluated (absent from the state view, or holding u
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1028](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1028)
+Defined in: [src/atom/types.ts:1090](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1090)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [src/atom/types.ts:1028](https://github.com/footprintjs/hcifootprint
 
 > **offeredOnThisNode**: `boolean`
 
-Defined in: [src/atom/types.ts:1029](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1029)
+Defined in: [src/atom/types.ts:1091](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1091)

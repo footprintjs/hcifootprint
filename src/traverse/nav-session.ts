@@ -457,9 +457,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
       binding: actionDef.binding ? structuredClone(actionDef.binding) : undefined,
       guard,
       effect:
-        actionDef.writes || actionDef.goTo
+        actionDef.writes || actionDef.reads || actionDef.goTo
           ? {
               ...(actionDef.writes ? { writes: [...actionDef.writes] } : {}),
+              ...(actionDef.reads ? { reads: [...actionDef.reads] } : {}),
               ...(actionDef.goTo ? { navigatesTo: actionDef.goTo } : {}),
             }
           : undefined,

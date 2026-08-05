@@ -4,7 +4,7 @@ title: ElementLocator
 
 # Interface: ElementLocator
 
-Defined in: [src/atom/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L97)
+Defined in: [src/atom/types.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L102)
 
 ARIA-first element locator: role + accessible name, never CSS classes.
 
@@ -14,7 +14,7 @@ ARIA-first element locator: role + accessible name, never CSS classes.
 
 > **name**: `string`
 
-Defined in: [src/atom/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L99)
+Defined in: [src/atom/types.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L104)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [src/atom/types.ts:99](https://github.com/footprintjs/hcifootprint/b
 
 > **role**: `string`
 
-Defined in: [src/atom/types.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L98)
+Defined in: [src/atom/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L103)

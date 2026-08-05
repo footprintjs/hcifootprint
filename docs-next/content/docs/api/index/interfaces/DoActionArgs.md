@@ -4,7 +4,7 @@ title: DoActionArgs
 
 # Interface: DoActionArgs
 
-Defined in: [src/serve/modes.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L77)
+Defined in: [src/serve/modes.ts:116](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L116)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/serve/modes.ts:77](https://github.com/footprintjs/hcifootprint/
 
 > **action**: `string`
 
-Defined in: [src/serve/modes.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L78)
+Defined in: [src/serve/modes.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L117)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/serve/modes.ts:78](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/serve/modes.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L80)
+Defined in: [src/serve/modes.ts:119](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L119)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/serve/modes.ts:80](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **decline?**: `boolean`
 
-Defined in: [src/serve/modes.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L86)
+Defined in: [src/serve/modes.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L125)
 
 Record the human's refusal of a high-effect action (they said no) — closes
 the ask, does not fire. Under `requireHumanApproval` it is recorded as the
@@ -40,7 +40,7 @@ caller's REPORT and closes nothing, so the person's card stays live.
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/serve/modes.ts:79](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L79)
+Defined in: [src/serve/modes.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L118)
 
 ***
 
@@ -48,4 +48,4 @@ Defined in: [src/serve/modes.ts:79](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/serve/modes.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L87)
+Defined in: [src/serve/modes.ts:126](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L126)

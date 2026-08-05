@@ -203,6 +203,66 @@ stamps `principal: 'user'` like its siblings, and an honest relay that names any
 is refused `WRONG_PRINCIPAL` — an agent must never be able to withdraw a human's decision, in
 either direction.
 
+### `reads` — the read side of an effect, and the staleness stamp it makes possible
+
+**An app could say what a control CHANGES and never what it is ABOUT.** So a session that knew a
+key had just been written could not say which of the controls it was offering that change was
+about. Measured on a real campaign against a live model: the surface disclosed `user push changed:
+claim.total` in one field and offered `ledger.settle-claim` in the next, and the reader joined the
+two by eye — which is to say it did not. Every substrate lost that scenario; the one that
+disclosed the most lost it too. The missing piece was vocabulary, not disclosure.
+
+`Effect.reads` / `ActionDef.reads` is a list of state key NAMES an action's outcome depends on —
+declared beside `writes`, in the same shape, under the same law. **Not the guard**: guard keys are
+the precondition read set (whether the control is on offer at all) and are already served as
+`evidence`. These are the keys the outcome is computed FROM — a "settle the claim" button guarded
+on `claim.stage` may compute its amount from `claim.total`, and only the app knows that.
+
+The library then makes the join it could not make before. A `whats_here` row carries
+**`staleReads`**: the declared reads ∩ the keys committed since the caller's `sinceVersion`, from
+`session.keysChangedSince(sinceVersion)` — one derivation, lifted out of `contextBrief` so the
+prose and the data can never disagree about a key. Presence-only, names only, and it **refuses
+nothing**: the stamp says a key you depend on was written in this window, never that the value
+differs, never that firing would be wrong. An app that declares no `reads` serves byte-identical
+rows; a declared read nothing has written serves no key (`staleReads: []` would be manufactured
+reassurance on every row of every reply). `ConfirmWillDo.reads` puts the same claim on the card the
+**person** reads, because approving "settle for the amount on the claim" is approving a lookup.
+
+**Declared, never inferred** — not scanned out of a handler, not promoted from a guard, not guessed
+from a write. Which keys matter is meaning, and meaning stays on the app's side of the seam. A
+version that inferred would score better on the family that motivated this, and is refused.
+
+### `settleWith` — the settlement pointer, as something a machine can route on
+
+**A pending fire's instructions named the door out in prose, and a projection cannot route on a
+sentence.** The `pending` arm has always answered with `howToSettle`: call `did_it_work` with this
+transitionId, and do not perform the action again. The door is real and this port publishes it
+unconditionally — but a consumer that re-serves this surface into an action space of its own reads
+the tool ARRAY, wires what it finds, and silently drops a door mentioned only inside a string. The
+failure then surfaces nowhere near the drop: an agent holding an unsettled high-effect fire, told
+not to repeat it and given no way to settle it, repeats it several turns later. That was measured,
+19 rows of it, and it is a drop the library could not otherwise see happening to it.
+
+The prose stays byte-for-byte what it was, and **`settleWith: { tool, arg }`** rides beside it on
+the same `pending` arm: the tool name this port publishes, and the property its schema requires.
+Nothing new is computed — the id to put in it is the `transitionId` already on that result. A
+consumer that wires it can settle; one that cannot now has a field to fail on.
+
+### `priorFireUnsettled` — the fact under "do not perform the action again"
+
+**The advice lived for exactly one result.** The next `whats_here` served the control back looking
+like a fresh one, with nothing on the row recording that a fire of it was still out there — though
+the session was holding the latch the whole time. So a repeated high-effect fire two turns later
+was, from the row's side, indistinguishable from a first.
+
+A `whats_here` row now carries **`priorFireUnsettled: '<transitionId>'`** when this session holds
+an open latch for that action — the most recent one, since that is the fire a reader is asking
+about. **It refuses nothing**, and that is the design: refusing a repeat would be this library
+deciding that repeating is wrong, and there are legitimate retries — a genuinely lost fire is one,
+and only the caller can tell. State the fact, name the id so the settlement door can be asked,
+leave the decision. The stance `enabled: false`, `humanDecides` and `busy` already take on that
+same row.
+
 ## [1.5.0] - 2026-08-02
 
 **A route table with names in it is a thing somebody typed twice. The router already has the

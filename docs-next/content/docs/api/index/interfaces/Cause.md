@@ -4,7 +4,7 @@ title: Cause
 
 # Interface: Cause
 
-Defined in: [src/atom/types.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L44)
+Defined in: [src/atom/types.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L49)
 
 Why a transition exists.
 - `fired`   — an affordance was fired through the driver (guard-checked).
@@ -17,7 +17,7 @@ Why a transition exists.
 
 > `optional` **affordanceId?**: `string`
 
-Defined in: [src/atom/types.ts:48](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L48)
+Defined in: [src/atom/types.ts:53](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L53)
 
 Set when kind === 'fired'.
 
@@ -27,7 +27,7 @@ Set when kind === 'fired'.
 
 > `optional` **does?**: `string`
 
-Defined in: [src/atom/types.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L73)
+Defined in: [src/atom/types.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L78)
 
 THE AUTHORED SENTENCE FOR THAT ACTION, FROZEN AT THIS MOMENT — the
 affordance's own `does`, copied off the spec as this row was minted.
@@ -58,7 +58,7 @@ constant refusing.
 
 > `optional` **inferred?**: `boolean`
 
-Defined in: [src/atom/types.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L81)
+Defined in: [src/atom/types.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L86)
 
 True when the attribution was GUESSED by effect-signature inference (an
 unattributed delta matched exactly one registered affordance's declared
@@ -70,7 +70,7 @@ writes) rather than observed. Honesty marker — never laundered as fact.
 
 > **kind**: `"fired"` \| `"stimulus"`
 
-Defined in: [src/atom/types.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L45)
+Defined in: [src/atom/types.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L50)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: [src/atom/types.ts:45](https://github.com/footprintjs/hcifootprint/b
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L46)
+Defined in: [src/atom/types.ts:51](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L51)
 
 ***
 
@@ -86,6 +86,6 @@ Defined in: [src/atom/types.ts:46](https://github.com/footprintjs/hcifootprint/b
 
 > `optional` **stimulus?**: [`StimulusKind`](/api/index/type-aliases/StimulusKind)
 
-Defined in: [src/atom/types.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L75)
+Defined in: [src/atom/types.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L80)
 
 Set when kind === 'stimulus'.
