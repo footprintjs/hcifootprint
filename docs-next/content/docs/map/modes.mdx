@@ -18,7 +18,8 @@ const graph = buildNavigationGraph('shop', {
 });
 const session = graph.createSession();
 // ---cut---
-const port = serveToAgent(session); // opts: { confirmHighEffect?: boolean, source?: Principal }
+// opts: { confirmHighEffect?: boolean, source?: Principal, journeyTools?: 'per-journey' | 'single' }
+const port = serveToAgent(session);
 
 const tools = port.tools();          // static MCPToolDescription[] — register with your host
 const result = port.call('shop.journey.purchase', {}); // route a tool_use; return as the tool_result
@@ -36,6 +37,45 @@ For graph id `shop`, `tools()` returns:
 - **`shop.did_it_work`** — how an action came to rest. Input `{ transitionId }`, taken from
   that action's result — or the `askId` from a `needs-confirm` result, to learn whether the
   human has decided. See below.
+
+## The journeys a reply lists
+
+`whats_here` lists the journeys you can **start from here** — the ones whose first step is offered
+on this page with its guard holding — and never every journey the app declares. It is the same
+on-demand rule Mode B already applies one level down, where steps arrive only after a journey is
+entered. Measured on a 60-page app declaring 57 journeys, the un-scoped list grew from 382 to 8,651
+bytes while the rest of the position block did not move at all: the whole growth, every turn,
+describing flows that could not be started from where the model was.
+
+What it leaves out, it says. When journeys are declared elsewhere the reply carries
+**`journeysElsewhere: n`** and one sentence: the list is scoped to a *position* — not to permission,
+and not to the whole app — and the way through is `routeTo`, which names the declared hops to the
+page a journey starts on. A silently shortened list is a worse failure than a long one.
+
+Two things stay whole. The journey you are currently **inside** is always listed, whatever its entry
+step says now: a flow that vanishes from the list reads as a flow that ended. And
+[`session.availableJourneys()`](doc:sessions) still answers for every declared journey — this scopes
+what the *model* is served, never what your app can see.
+
+## One journey tool, or one per journey
+
+`serveToAgent(session, { journeyTools: 'single' })` serves **one** `<graph>.journey` tool taking
+`journey: '<id from whats_here>'` alongside the arguments it already took — the shape `do_action`
+has always had for actions. Journey discovery moves to the result channel. The default,
+`'per-journey'`, is unchanged byte for byte.
+
+Why the option exists, in the bytes that produced it: at 57 declared journeys the tool array was
+79,199 bytes and **85% of it was two authored constants repeated 57 times** — a byte-identical step
+schema and the same usage sentence. The per-journey information content is the authored `does`,
+21–121 bytes of a ~1,331-byte marginal cost. In `'single'` the array stops depending on how many
+journeys an app declares, so it is byte-stable across *apps* and not merely across turns.
+
+**What is not known, said plainly:** whether a model selects as well from one generic tool plus a
+list as it does from N named, described tools is **unmeasured**. That is a tool-selection quality
+question rather than a byte-count one, and it is being measured on a task grid before any default
+moves — which is exactly why this is opt-in. Switching is breaking for a host matching on
+`<graph>.journey.<id>` tool names: those names are answered `UNKNOWN_TOOL` with the list that does
+exist, never routed silently.
 
 ## Reading a result
 

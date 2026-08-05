@@ -27,6 +27,21 @@ compatibility (no `tools/list_changed` required — any host works). Stated
 trade-off: per-step inputs are validated at `fire()`, not by the API schema;
 error results carry what was expected. One conversation = one mode.
 
+Two things are scoped to the POSITION rather than to the declaration, and both
+were measured before they were changed (a 60-page app declaring 57 journeys):
+
+- `whats_here` lists the journeys whose FIRST STEP is available here
+  (`AvailableJourney.entryAvailable`, not `preconditionPassed`), and discloses
+  what it left out — `journeysElsewhere: n` plus the sentence naming `routeTo`.
+  The un-scoped list was 100% of the position block's growth (382 → 8,651 bytes).
+  The OPEN journey is always listed. `test/journeys-you-can-start.test.ts`.
+- `serveToAgent(session, { journeyTools: 'single' })` — opt-in, default
+  untouched byte for byte — serves ONE `<graph>.journey` tool taking
+  `journey: '<id>'` instead of N. At 57 journeys the array was 79,199 bytes,
+  **85% of it two authored constants repeated 57×**. Tool-SELECTION quality
+  under one generic tool is UNMEASURED, which is why the default does not move.
+  `test/one-journey-tool.test.ts`.
+
 This file consumes ONLY the public Session surface — a pure projection,
 independently testable (`test/modes.test.ts`).
 

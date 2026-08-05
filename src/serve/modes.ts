@@ -11,6 +11,12 @@
  * last look), and `why` serves the causal backward slice for a state key —
  * the mixed-initiative attribution query.
  *
+ * The journey door has TWO shapes, and the default is the one above: with
+ * `journeyTools: 'single'` there is one `<graph>.journey` tool taking a journey
+ * id instead of N named ones — same rule, one level up (discovery moves to the
+ * result channel, which is where steps already live). See
+ * {@link JourneyToolsOptions.journeyTools} for what that trades.
+ *
  * Why: tools render first in the prompt; any tool-set change busts every
  * prompt-cache tier. Result payloads are ordinary messages — cache-stable.
  * ("JIT disclosure moved from the tool channel to the result channel.")
@@ -36,6 +42,7 @@ import type { MCPToolDescription } from 'footprintjs';
 import type {
   AskStatus,
   AvailableEdge,
+  AvailableJourney,
   Explanation,
   FireResult,
   FireSettlement,
@@ -58,6 +65,38 @@ export interface JourneyToolsOptions {
    * serves stops claiming a gate it does not have.
    */
   source?: Principal;
+  /**
+   * How journeys are offered in the TOOL channel. Default `'per-journey'` —
+   * today's behaviour, byte for byte.
+   *
+   * - `'per-journey'` — one `<graph>.journey.<id>` tool per DECLARED journey.
+   *   Every journey is named and described in the channel a model selects from,
+   *   and the array grows with the app.
+   * - `'single'` — ONE `<graph>.journey` tool taking `journey: '<id>'`, the same
+   *   shape `do_action` already has for actions. Journey DISCOVERY moves to the
+   *   result channel (`whats_here` lists the journeys you can start from here),
+   *   which is what this port already does for steps.
+   *
+   * WHY THE OPTION EXISTS. Measured on a 60-page app declaring 57 journeys:
+   * **85% of the 79,199-byte tool array was two authored constants repeated 57
+   * times** — the step input schema and the usage sentence, byte-identical each
+   * time. The per-journey information content is the authored `does`, 21–121
+   * bytes of a ~1,331-byte marginal cost. In `'single'` the array is ~4,428
+   * bytes and STAYS there, so the tool channel stops depending on how many
+   * journeys an app declares — byte-stable across apps, not merely across turns.
+   *
+   * WHAT IS NOT KNOWN, and it is the reason this is opt-in rather than the
+   * default: whether a model SELECTS as well from one generic tool plus a list
+   * as it does from N named, described tools is **unmeasured**. That is a
+   * tool-selection quality question, not a byte-count one, and it is being
+   * measured on a task grid before any default changes. Until then the default
+   * is untouched and this mode is a choice you make with your eyes open.
+   *
+   * BREAKING FOR NAMES, if you switch: a host matching on `<graph>.journey.<id>`
+   * tool names sees one tool instead. Names that no longer exist are answered
+   * `UNKNOWN_TOOL` with the list that does — never routed silently.
+   */
+  journeyTools?: 'per-journey' | 'single';
 }
 
 export interface JourneyCallArgs {
@@ -163,12 +202,40 @@ export interface JourneyToolsPortWithSettlement extends JourneyToolsPort {
   settledAnswer(transitionId: string): ServeResult | undefined;
 }
 
-const JOURNEY_USAGE =
-  ' Call with no arguments to open this journey and see its ready steps; call again with' +
-  " {step: '<name from readySteps>', input: {...}} to perform a step. A high-effect step first returns" +
+// The half of the usage sentence that is true of a journey however it is
+// offered. Split out — not duplicated — so the two tool shapes can never teach
+// two different confirm protocols; the bytes either one serves are unchanged.
+const JOURNEY_USAGE_TAIL =
+  ' A high-effect step first returns' +
   ' needs-confirm WITH receipts (what it will do and why): show the human, then call again with' +
   ' confirm: true to proceed — or decline: true if they refuse. Steps arrive as DATA in results —' +
   ' they are never separate tools.';
+
+const JOURNEY_USAGE =
+  ' Call with no arguments to open this journey and see its ready steps; call again with' +
+  " {step: '<name from readySteps>', input: {...}} to perform a step." +
+  JOURNEY_USAGE_TAIL;
+
+/** The ONE generic journey tool's description (opts.journeyTools: 'single'). */
+const JOURNEY_TOOL_DESCRIPTION =
+  'Follow one of this app’s declared journeys — a named multi-step flow. Call whats_here first: it ' +
+  'lists the journeys you can start from where you are, each with what it does. Then call this with ' +
+  "journey: '<id from whats_here>' to open it and see its ready steps; call again with the same " +
+  "journey and {step: '<name from readySteps>', input: {...}} to perform a step." +
+  JOURNEY_USAGE_TAIL;
+
+/** The `journey` argument's own description — authored, like every other. */
+const JOURNEY_ARG_DESCRIPTION = 'A journey id from the journeys list in a whats_here result.';
+
+// WHAT A SCOPED LIST OMITS, said on the row that omits it. A silently shortened
+// list is a worse failure than a long one: a model that cannot see a journey and
+// is not told one exists concludes the app cannot do it. This sentence says the
+// list is about POSITION (not permission, and not the whole app) and names the
+// way through — the same routeTo argument this tool already takes.
+const JOURNEYS_ELSEWHERE_MEANS =
+  'This list is scoped to where you are: it holds the journeys whose first step is available on this ' +
+  'page right now. The others are declared on other pages — not gone, and not refused. Go to the page ' +
+  'one starts on (pass routeTo: <page id> here for the declared hops) and it appears in this list.';
 
 /** The `routeTo` argument's own description — authored, like every other. */
 const ROUTE_TO_ARG_DESCRIPTION =
@@ -578,11 +645,20 @@ export function serveToAgent(
   // Journeys are declared-only data: the tool array derived from them is static
   // BY CONSTRUCTION — freeze it once, serve identical bytes every turn.
   const declaredJourneys = session.availableJourneys().journeys;
+  const journeyToolMode = opts?.journeyTools ?? 'per-journey';
   const journeyToolNames = new Map<string, string>(); // tool name → journey id
-  for (const journey of declaredJourneys) {
-    journeyToolNames.set(sanitizeName(`${graphId}.journey.${journey.id}`), journey.id);
+  if (journeyToolMode === 'per-journey') {
+    for (const journey of declaredJourneys) {
+      journeyToolNames.set(sanitizeName(`${graphId}.journey.${journey.id}`), journey.id);
+    }
   }
+  // The ONE generic tool's name in 'single' mode. Computed either way (it is one
+  // string) but only ever REACHABLE in that mode: in 'per-journey' the array
+  // never carries it, and the dispatcher below asks the mode before the name, so
+  // an app with a journey literally called '' can never collide with it.
+  const singleJourneyName = sanitizeName(`${graphId}.journey`);
   const journeySteps = new Map(declaredJourneys.map((journey) => [journey.id, [...journey.steps]]));
+  const declaredJourneyIds = new Set(declaredJourneys.map((journey) => journey.id));
   const whatsHereName = sanitizeName(`${graphId}.whats_here`);
   const doActionName = sanitizeName(`${graphId}.do_action`);
   const whyName = sanitizeName(`${graphId}.why`);
@@ -596,15 +672,44 @@ export function serveToAgent(
     `Not finished yet — the app’s side is still running. Call ${didItWorkName} with this ` +
     `transitionId to learn how it came to rest. Do not perform the action again.`;
 
+  /**
+   * The journey door(s), in whichever shape this port was built for.
+   *
+   * ONE tool or N — and the N-tool array is what a journey costs in the channel
+   * that renders first in every prompt. See {@link JourneyToolsOptions.journeyTools}
+   * for the measurement and for what is still unknown about the single-tool mode.
+   */
+  const journeyTools: MCPToolDescription[] =
+    journeyToolMode === 'single'
+      ? [
+          {
+            name: singleJourneyName,
+            description: JOURNEY_TOOL_DESCRIPTION,
+            inputSchema: {
+              type: 'object',
+              properties: {
+                journey: { type: 'string', description: JOURNEY_ARG_DESCRIPTION },
+                // The five step arguments, taken from the SAME rendered schema a
+                // per-journey tool serves — so no two journey doors can ever
+                // describe confirm differently.
+                ...stepSchema().properties,
+              },
+              required: ['journey'],
+              additionalProperties: false,
+            },
+          } as MCPToolDescription,
+        ]
+      : declaredJourneys.map(
+          (journey) =>
+            ({
+              name: sanitizeName(`${graphId}.journey.${journey.id}`),
+              description: journey.description + JOURNEY_USAGE,
+              inputSchema: stepSchema(),
+            }) as MCPToolDescription,
+        );
+
   const staticTools: MCPToolDescription[] = [
-    ...declaredJourneys.map(
-      (journey) =>
-        ({
-          name: sanitizeName(`${graphId}.journey.${journey.id}`),
-          description: journey.description + JOURNEY_USAGE,
-          inputSchema: stepSchema(),
-        }) as MCPToolDescription,
-    ),
+    ...journeyTools,
     {
       name: whatsHereName,
       description: WHATS_HERE_DESCRIPTION,
@@ -811,11 +916,51 @@ export function serveToAgent(
     return { routeTo: { to: routeTo, hops, means: ROUTE_MEANS } };
   }
 
+  /**
+   * THE JOURNEYS THIS POSITION CAN ACTUALLY START — and a count of the ones it
+   * cannot, because a scoped list that does not say it is scoped is a lie.
+   *
+   * Until now this door listed every journey the app DECLARES, wherever its
+   * first step lives. On a 60-page app declaring 57 journeys that list grew from
+   * 382 to 8,651 bytes while the rest of the position block did not move at all
+   * — 100% of the growth, served every turn, describing flows that cannot be
+   * started from here. It is the same on-demand-disclosure rule this port
+   * already applies one level down (steps arrive after a journey is entered),
+   * applied to the journeys themselves.
+   *
+   * `entryAvailable` IS THE SIGNAL, and the session already computes it
+   * (`AvailableJourney.entryAvailable` — the first step is offered on this node
+   * AND its guard holds). NOT `preconditionPassed`: measured at that same cursor,
+   * 56 of 57 journeys passed their precondition and 2 had an available entry —
+   * a journey declaring no precondition passes trivially, so filtering on it
+   * buys nothing.
+   *
+   * THE OPEN FRAME IS ALWAYS LISTED, whatever its entry says. A journey in
+   * progress has usually moved past its first step, so an entry-only filter
+   * would drop the one journey the model is actually inside — and a flow that
+   * vanishes from the list reads as a flow that ended.
+   *
+   * Nothing is hidden from the APP: `session.availableJourneys()` still answers
+   * for every declared journey. This is what the model is SERVED.
+   */
+  function journeysHere(): { here: AvailableJourney[]; elsewhere: number } {
+    const all = session.availableJourneys().journeys;
+    const openId = session.journeyFrame()?.journeyId;
+    const here = all.filter((journey) => journey.entryAvailable || journey.id === openId);
+    return { here, elsewhere: all.length - here.length };
+  }
+
+  /** The omission, disclosed — a count and the way through, never silence. */
+  function elsewhereData(elsewhere: number): ServeResult {
+    return elsewhere > 0 ? { journeysElsewhere: elsewhere, journeysElsewhereMeans: JOURNEYS_ELSEWHERE_MEANS } : {};
+  }
+
   function callWhatsHere(sinceVersion?: number, routeTo?: string): ServeResult {
     const since = sinceVersion === undefined ? undefined : { sinceVersion };
     const brief = session.contextBrief(since);
     const rows = session.available().edges;
     const running = runningNow(rows);
+    const scoped = journeysHere();
     return {
       ok: true,
       // FIRST, and on the call a model already makes. The field failure was a
@@ -826,7 +971,7 @@ export function serveToAgent(
       facts: session.groundTruth(since).text,
       brief: brief.text,
       actions: rows.map((edge) => edgeData(edge, running)),
-      journeys: session.availableJourneys().journeys.map((journey) => ({
+      journeys: scoped.here.map((journey) => ({
         journey: journey.id,
         does: journey.description,
         feasible: journey.preconditionPassed,
@@ -839,6 +984,7 @@ export function serveToAgent(
         standing: session.journeyStanding(journey.id).standing,
         ...(journey.preconditionUnevaluable ? { feasibilityUnknownFor: journey.preconditionUnevaluable } : {}),
       })),
+      ...elsewhereData(scoped.elsewhere),
       ...positionData(),
       ...routeAnswer(routeTo),
     };
@@ -1853,15 +1999,40 @@ export function serveToAgent(
     tools: () => structuredClone(staticTools),
     call(name: string, args?: unknown): ServeResult {
       const parsed = (args ?? {}) as Record<string, unknown>;
+      const stepArgs = (): JourneyCallArgs => ({
+        step: typeof parsed['step'] === 'string' ? parsed['step'] : undefined,
+        input: parsed['input'],
+        confirm: parsed['confirm'] === true,
+        decline: parsed['decline'] === true,
+        instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
+      });
       const journeyId = journeyToolNames.get(name);
       if (journeyId !== undefined) {
-        return callJourney(journeyId, {
-          step: typeof parsed['step'] === 'string' ? parsed['step'] : undefined,
-          input: parsed['input'],
-          confirm: parsed['confirm'] === true,
-          decline: parsed['decline'] === true,
-          instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
-        });
+        return callJourney(journeyId, stepArgs());
+      }
+      if (journeyToolMode === 'single' && name === singleJourneyName) {
+        const asked = parsed['journey'];
+        if (typeof asked !== 'string' || !asked) {
+          return { ok: false, judgment: 'error', reason: 'JOURNEY_REQUIRED' };
+        }
+        // RESOLVED HERE, so `callJourney` keeps the invariant it was written
+        // under: only a DECLARED journey id ever reaches it (and its
+        // step resolver). The refusal is scoped like the list it points at —
+        // naming all 57 ids on an error path would put back the bytes this mode
+        // exists to remove — and it discloses the omission the same way.
+        if (!declaredJourneyIds.has(asked)) {
+          const scoped = journeysHere();
+          return {
+            ok: false,
+            judgment: 'error',
+            reason: 'UNKNOWN_JOURNEY',
+            journey: asked,
+            journeys: scoped.here.map((journey) => journey.id),
+            ...elsewhereData(scoped.elsewhere),
+            ...positionData(),
+          };
+        }
+        return callJourney(asked, stepArgs());
       }
       if (name === whatsHereName) {
         return callWhatsHere(

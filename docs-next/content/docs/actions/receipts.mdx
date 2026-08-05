@@ -200,6 +200,18 @@ moves on almost every report.
 byte-identical without it — same rows, same principals, same supersede semantics, pinned by its own
 test file (`test/human-approval-default-unchanged.test.ts`).
 
+**And the library says something when you have not.** On the first high-effect fire from principal
+`'agent'` with no `askId` on its record, on a session that never mentioned this option, `onWarn`
+carries one line naming the action, the option, and the fact that this fire executed with no
+approval on record. It is said **once per session** and it refuses nothing.
+
+It exists because of a real configuration: a gate declared on one serving port
+(`confirmHighEffect`), or as a boolean inside one chatbot, is a property of a **door** — any other
+caller holding the same session performs the same action unheld, and the journal shows an agent fire
+with nobody's approval attached. The gate here travels with the session, which is why the warning
+points at it. An app that means the default can say so — `requireHumanApproval: false` is a policy
+stated rather than a policy never considered, and it is never warned about.
+
 **Note for anyone switching exhaustively.** Three public unions widen — `FireResult`,
 `GapRecord.rejectionReason`, and `ConfirmRecord.kind` — so an exhaustive `switch` gains cases and
 stops compiling until you add them. Every existing value keeps exactly the meaning it had: **a new

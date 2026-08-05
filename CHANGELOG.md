@@ -108,6 +108,72 @@ New exports on the root entry: `contextful`, `ERROR_MESSAGE`, and the types `Act
 New session doors: `session.sense(actionId, declaration)` and `session.sensedTrail(transitionId)`.
 Nothing existing changed shape: a plain handler records exactly what it always did.
 
+---
+
+**A benchmark pointed a token counter at the serving layer, and three things it found were ours.**
+
+Measured on a synthetic 60-page app declaring 57 journeys, served through `serveToAgent`. Not
+opinions about scale — bytes, from the port's own output.
+
+### `whats_here` lists the journeys you can START from here
+
+The reply used to carry every journey the app DECLARES, wherever its first step lives. On that app
+the `journeys` array grew **382 → 8,651 bytes** across the axis while the rest of the position block
+did not move at all: 100% of the growth, served every turn, describing flows that cannot be started
+from where the model is. It now lists the ones whose first step is available here — the same
+on-demand rule this port already applied one level down, where steps arrive only after a journey is
+entered.
+
+The signal is `AvailableJourney.entryAvailable`, which the session already computed and the serve
+layer dropped. **Not** `preconditionPassed`: at that cursor 56 of the 57 journeys passed their
+precondition (one declaring none passes trivially) and 2 had an available entry.
+
+An omission is disclosed on the row that omits it, so the reply carries **`journeysElsewhere: n`**
+and one sentence saying the list is scoped to a position — not to permission, and not to the whole
+app — plus the way through (`routeTo` names the declared hops to the page a journey starts on). A
+silently shortened list is a worse failure than a long one. The journey you are currently INSIDE is
+always listed, whatever its entry says: a flow that vanishes from the list reads as a flow that
+ended. `session.availableJourneys()` still answers for every declared journey — this scopes what the
+model is SERVED.
+
+### `serveToAgent(session, { journeyTools: 'single' })` — one journey tool instead of N
+
+Opt-in, and the default is unchanged byte for byte. Today one tool is minted per declared journey;
+at 57 journeys that array was **79,199 bytes, 85% of it two authored constants repeated 57 times** —
+a byte-identical step schema and the same usage sentence. The per-journey information content is the
+authored `does`: 21–121 bytes of a ~1,331-byte marginal cost.
+
+With `'single'` there is one `<graph>.journey` tool taking `journey: '<id from whats_here>'`
+alongside the arguments it already took — the shape `do_action` has always had for actions. Journey
+discovery moves to the result channel, which is where this port already puts steps. The array stops
+depending on how many journeys an app declares, so it is byte-stable across apps and not merely
+across turns.
+
+**What is not known, and why it is opt-in:** whether a model SELECTS as well from one generic tool
+plus a list as it does from N named, described tools is **unmeasured**. That is a tool-selection
+quality question, not a byte-count one, and it is being measured on a task grid before any default
+moves. Switching modes is breaking for a host matching on `<graph>.journey.<id>` names — those names
+are answered `UNKNOWN_TOOL` with the list that does exist, never routed silently.
+
+### A warning when nothing holds a high-effect agent fire
+
+An expert integrator put the human in the loop where it was easiest to see — `confirmHighEffect` on
+one serving port, an approvals set inside one chatbot — and a second consumer holding the SAME
+session placed a real order with no card raised and no record that an approval had been skipped.
+Both gates were properties of a DOOR. The session-level gate (`requireHumanApproval`) does travel,
+and it was simply never declared.
+
+So on the FIRST high-effect fire from principal `'agent'` with no `askId` on its record, on a session
+that never mentioned `requireHumanApproval`, the session says so once through its own `onWarn` sink —
+naming the action, the option, and the fact that this one executed with nothing holding it.
+
+Not a refusal, not a new field, not a changed default. The audit trail already existed (a high-effect
+`'agent'` fire with no `askId` is exactly "an agent did this and nobody approved it"); what was
+missing was anyone telling the integrator they were in that state. It stays quiet for a fire the app
+reports about itself (`'user'`/`'system'`, `invoke: false`), for a fire a human answered, under
+enforcement — and for an app that wrote `requireHumanApproval: false`, which is a policy stated
+rather than a policy never considered.
+
 ## [1.5.0] - 2026-08-02
 
 **A route table with names in it is a thing somebody typed twice. The router already has the

@@ -685,6 +685,10 @@ export class Session {
   readonly #standingGrants: ConfirmRecord[] = [];
   /** Refusals already warned about, keyed `affordanceId@reason` (the #warnedOnce discipline). */
   readonly #approvalWarned = new Set<string>();
+  /** Whether the "no gate is declared" complaint has been made (once per session). */
+  #warnedUngatedFire = false;
+  /** Whether `requireHumanApproval` was PASSED at all — `false` is a statement, absence is not. */
+  readonly #approvalPolicyDeclared: boolean;
   /**
    * THE DECISIONS BOOK — per `humanDecides` action, who the LATEST committed
    * delta touching any of its `doneWhen` keys was attributed to.
@@ -766,6 +770,12 @@ export class Session {
         : opts.requireHumanApproval === true
           ? {}
           : opts.requireHumanApproval;
+    // SAID vs NEVER SAID — the one difference `#humanApproval` cannot carry,
+    // because `false` and absence both mean "do not enforce". Only the complaint
+    // below reads it: an app that wrote `requireHumanApproval: false` has stated
+    // its policy and is not told about it again; an app that never mentioned the
+    // option is the one that does not know where its gate is.
+    this.#approvalPolicyDeclared = opts.requireHumanApproval !== undefined;
     this.#now = opts.now ?? Date.now;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
@@ -2435,6 +2445,10 @@ export class Session {
     // 'approved', which is the forgery this option exists to refuse.
     if (approval !== undefined) this.#spendApproval(record, affordanceId, approval, source);
     else if (this.#humanApproval === undefined) this.#resolveOpenAsk(record, affordanceId, source);
+    // AND IF NOBODY APPROVED IT, SAY SO — once, to the integrator, never to the
+    // model. Read AFTER the two lines above because they are what decides
+    // whether this fire has an approval on record at all.
+    this.#warnUngatedFireOnce(affordanceId, aff, record, source, opts);
     // A new fire closes any older navigation claim's window, and — when this one
     // declares a destination — opens its own.
     //
@@ -4969,6 +4983,58 @@ export class Session {
       now: this.#now(),
       stateVersion: this.#stateVersion,
     });
+  }
+
+  /**
+   * AN AGENT DID SOMETHING HIGH-EFFECT AND NOBODY APPROVED IT — said once, to
+   * the developer, through the session's own warn sink.
+   *
+   * The gap this closes is DISCOVERABILITY, not enforcement. An expert
+   * integrator put the human in the loop where it was easiest to see — a
+   * `confirmHighEffect` on one serving port, or an approvals Set inside one
+   * chatbot — and both are properties of a DOOR. Any other caller holding the
+   * same session (a second port, a flat tool surface a baseline drives, a
+   * script) walks straight past them, performs the action, and leaves no record
+   * that an approval was skipped. Nothing in the library said so, because from
+   * `fire()`'s side the configuration is simply the default.
+   *
+   * WHAT IT IS NOT, deliberately: not a refusal, not a new result field, not a
+   * changed default. The audit trail already exists — a high-effect fire with
+   * principal 'agent' and no `askId` on its record is exactly "an agent did this
+   * and nobody approved it", derivable from the journal today. What was missing
+   * is anyone telling the integrator they are in that state.
+   *
+   * THE FOUR CONDITIONS, and each one is why it stays quiet the rest of the time:
+   * - no policy is in force (under `requireHumanApproval` the gate answered this
+   *   fire already, and it answered it in the record);
+   * - the option was never PASSED (`requireHumanApproval: false` is an app
+   *   stating its policy — it gets told once and is then left alone);
+   * - principal 'agent' on a high-effect action that actually ran
+   *   (`invoke: false` is the app reporting its OWN motion — the gate itself
+   *   skips it, and so does this);
+   * - no `askId` landed on the record, so nothing minted a card for this fire.
+   *   A port that asked first and fired on the human's answer is the
+   *   configuration this warning is asking for, and it never hears from it.
+   */
+  #warnUngatedFireOnce(
+    affordanceId: string,
+    aff: Affordance,
+    record: TransitionRecord,
+    source: Principal,
+    opts: FireOptions,
+  ): void {
+    if (this.#warnedUngatedFire || this.#approvalPolicyDeclared) return;
+    if (source !== 'agent' || aff.highEffect !== true || opts.invoke === false) return;
+    if (record.askId !== undefined) return;
+    this.#warnedUngatedFire = true;
+    this.#warn(
+      `hcifootprint: '${affordanceId}' is high-effect and an agent just fired it with NO human approval on record. ` +
+        `This session was created without requireHumanApproval, so fire() held nothing — a confirm on a serving port, ` +
+        `or a boolean in the model's own tool arguments, protects that one door and travels with nothing: any other ` +
+        `caller holding this session performs the same action unheld. Pass requireHumanApproval to createSession to ` +
+        `gate high-effect agent fires at the session itself, or pass requireHumanApproval: false to state that this ` +
+        `app means it. Said once per session.`,
+    );
   }
 
   /**
