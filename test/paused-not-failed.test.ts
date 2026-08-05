@@ -284,6 +284,38 @@ describe('did_it_work — the three fates of an ask', () => {
     expect(session.asks()[0]).toMatchObject({ answer: 'approved', stale: true });
   });
 
+  it('a yes the person took back is answered WITHDRAWN — never "go and do it", forever', async () => {
+    // The same loop as the stale arm, entered through the book's third word: a
+    // revoked card is approved-and-unspent to every reading the old arm made, so
+    // without its own answer the tool would order the fire the gate refuses
+    // (APPROVAL_REVOKED) identically every time.
+    const { session, port } = shop(true);
+    const { askId } = ask(port, { input: { total: 42 } });
+    expect(session.approveAsk(askId, { by: 'ops@example.com' }).ok).toBe(true);
+    expect(session.revokeAsk(askId, { by: 'ops@example.com' }).ok).toBe(true);
+
+    const answer = port.call('shop.did_it_work', { transitionId: askId });
+    expect(answer).toMatchObject({
+      ok: true,
+      settled: false,
+      performed: false,
+      judgment: 'approval-withdrawn',
+      askId,
+    });
+    expect(String(answer['howToAct'])).toContain('withdrew that approval');
+    expect(String(answer['howToAct'])).toContain('fresh answer');
+    expect(String(answer['howToAct'])).not.toContain('Perform the action');
+    // …and the instruction is TRUE: the fire it would have ordered is refused.
+    const fired = session.fire('checkout.place-order', {
+      source: 'agent',
+      payload: { total: 42 },
+      askId,
+    });
+    expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_REVOKED' });
+    // The ask book carries the same reading, for any consumer that asks directly.
+    expect(session.asks()[0]).toMatchObject({ answer: 'approved', revoked: true });
+  });
+
   it('a live approval is NOT marked stale — the mark is a policy reading, not a mood', () => {
     const { session, port } = shop(true, { refuseWhenWorldMoved: true });
     const { askId } = ask(port, { input: { total: 42 } });

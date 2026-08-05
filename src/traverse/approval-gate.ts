@@ -58,6 +58,14 @@ export interface OpenAsk {
   answeredBy?: string;
   /** True once a fire has spent this approval. One yes authorizes one fire. */
   spent?: boolean;
+  /**
+   * True once the person WITHDREW their yes ({@link Session.revokeAsk}) before
+   * anything spent it. The answer above stays `'approved'` — the receipt taken
+   * at rest is never rewritten — and this marker is what the gate reads to
+   * refuse a fire that presents the withdrawn pointer. Never true beside
+   * `spent`: a spent yes has already happened, and revoking cannot un-fire it.
+   */
+  revoked?: true;
 }
 
 /** How strict the session is about a yes given a while ago, or in an older world. */
@@ -72,7 +80,8 @@ export type ApprovalRefusal =
   | 'APPROVAL_SPENT'
   | 'APPROVAL_MISMATCH'
   | 'APPROVAL_STALE'
-  | 'APPROVAL_DECLINED';
+  | 'APPROVAL_DECLINED'
+  | 'APPROVAL_REVOKED';
 
 /** WHICH part of what the human was shown does not match this fire. */
 export type ApprovalDiffers = 'action' | 'input' | 'instance' | 'both' | 'cannot-judge';
@@ -83,7 +92,8 @@ export type ApprovalVerdict =
   | { ok: false; reason: 'APPROVAL_SPENT'; askId: string }
   | { ok: false; reason: 'APPROVAL_MISMATCH'; askId: string; differs: ApprovalDiffers }
   | { ok: false; reason: 'APPROVAL_STALE'; askId: string }
-  | { ok: false; reason: 'APPROVAL_DECLINED'; askId: string };
+  | { ok: false; reason: 'APPROVAL_DECLINED'; askId: string }
+  | { ok: false; reason: 'APPROVAL_REVOKED'; askId: string };
 
 export interface ApprovalQuestion {
   /** The pointer the fire presented. Absent is the bare `confirm: true` case. */
@@ -189,6 +199,17 @@ export function checkApproval(question: ApprovalQuestion): ApprovalVerdict {
   //    it refuses even though a genuine human approval exists — because it was
   //    for the action that already happened.
   if (presented.spent === true) return { ok: false, reason: 'APPROVAL_SPENT', askId };
+
+  // 8b. THE PERSON TOOK THE YES BACK before anything spent it. The answer on
+  //     the card is still 'approved' — a receipt taken at rest is never
+  //     rewritten — but a withdrawn yes authorizes nothing, and the refusal
+  //     says WITHDRAWN rather than the blank "nobody approved this" so the
+  //     caller learns the person changed their mind. Checked before staleness:
+  //     a decision-fact outranks a policy-fact, and a withdrawn yes must not be
+  //     reported as merely old. (Never reachable beside `spent`: revokeAsk
+  //     refuses a spent card, so the two marks are mutually exclusive by
+  //     construction.)
+  if (presented.revoked === true) return { ok: false, reason: 'APPROVAL_REVOKED', askId };
 
   // 9. A yes from a world that has moved on. Both rules default OFF: whether an
   //    old yes still counts is a product decision, and the library records the

@@ -337,6 +337,16 @@ const PAUSED_APPROVAL_STALE_HOWTO =
   'things changed since they looked. Nothing has been done. Do not keep trying to perform it: show ' +
   'them the action again and get a fresh answer.';
 
+// The third word of the ask book: the person gave a yes and took it back before
+// anything spent it. Said instead of PAUSED_APPROVED_HOWTO for the same reason
+// the stale sentence is — "go and perform it" here would order the one move the
+// gate refuses forever, since the refusal leaves the card exactly as it found it.
+const PAUSED_APPROVAL_REVOKED_HOWTO =
+  'The human approved this and then withdrew that approval before it was acted on. Nothing has been ' +
+  'done, and the withdrawn yes will not be accepted. Do not keep trying to perform it and do not ' +
+  'treat the earlier yes as standing — if it still needs doing, show them the action again and get ' +
+  'a fresh answer.';
+
 // One id, two objects, and no way to tell which was meant — so neither answer is
 // given. The app team is the reader who can fix it; the model is told what it
 // safely can do.
@@ -496,7 +506,7 @@ const WITH_THE_HUMAN_MEANS =
   'made: true means they have answered; act on it as a normal step, and know that nothing fires by ' +
   'itself. Nothing here will time any of this out.';
 
-// The five requireHumanApproval refusals, in the NOT_MATERIALIZED_WHY shape: name
+// The requireHumanApproval refusals, in the NOT_MATERIALIZED_WHY shape: name
 // what happened, name the next move, name the option. Every one is a fixed
 // authored sentence (the two-string-class invariant above) — a refusal that
 // interpolated the payload it rejected would leak the value it was protecting.
@@ -525,6 +535,11 @@ const APPROVAL_STALE_WHY =
 const APPROVAL_DECLINED_WHY =
   'The human said no to this. Do not ask again about the same thing — tell them it was not done, and ' +
   'move on or ask about something different.';
+
+const APPROVAL_REVOKED_WHY =
+  'The human approved this and then withdrew that approval before anything acted on it. A withdrawn ' +
+  'yes authorizes nothing. Tell them it was not done; if it still needs doing, show them the ' +
+  'receipts again and wait for a fresh answer.';
 
 // The `confirm` and `decline` descriptions, in the two modes each can honestly
 // have. The enforced pair is served only by a port whose OWN fires the gate holds
@@ -1376,6 +1391,11 @@ export function serveToAgent(
     }
     if (ask.answer === undefined) return pausedAnswer('awaiting-human', ask, PAUSED_AWAITING_HUMAN_HOWTO);
     if (ask.answer === 'declined') return pausedAnswer('declined', ask, PAUSED_DECLINED_HOWTO);
+    // The withdrawn yes — the book's third word, before the unspent arm below,
+    // whose "go and perform it" instruction is exactly the loop this card must
+    // never be handed: the gate refuses APPROVAL_REVOKED identically every
+    // time, without changing anything the ask book can see.
+    if (ask.revoked === true) return pausedAnswer('approval-withdrawn', ask, PAUSED_APPROVAL_REVOKED_HOWTO);
     if (ask.spent !== true) {
       // A yes the app's own policy has aged out is still a yes on the card and
       // still unspent, so it lands here — and the instruction has to split. The
@@ -1897,6 +1917,8 @@ export function serveToAgent(
         return { why: APPROVAL_STALE_WHY };
       case 'APPROVAL_DECLINED':
         return { why: APPROVAL_DECLINED_WHY };
+      case 'APPROVAL_REVOKED':
+        return { why: APPROVAL_REVOKED_WHY };
       default:
         return {};
     }

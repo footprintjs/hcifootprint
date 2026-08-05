@@ -39,8 +39,8 @@
  * Drop the appended half of that warning → 2 red.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph, serveToAgent } from '../src/index.js';
-import type { ConfirmRecord, NavigationGraph, Session } from '../src/index.js';
+import { Session, buildNavigationGraph, serveToAgent } from '../src/index.js';
+import type { ConfirmRecord, NavigationGraph } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -1314,6 +1314,232 @@ describe('withdrawing a standing yes', () => {
       reason: 'APPROVAL_REQUIRED',
     });
     expect(session.fire('list.row.refund', { source: 'agent', instance: 'o-2' }).ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The ask book's THIRD WORD — a yes given, then taken back (revokeAsk)
+// ---------------------------------------------------------------------------
+
+/**
+ * THE GAP, found in the field: a person could not withdraw a yes they had
+ * already given. declineAsk refuses an answered card (a decision is never
+ * overwritten), so the ordinary human act of changing one's mind was caught
+ * only by an app's own rules and was INVISIBLE on the served surface — which
+ * kept holding, and honouring, a permission its own person had taken back.
+ *
+ * MUTATION PROOFS:
+ * - 'never rewritten' — make revokeAsk touch the 'approved' row and the
+ *   deep-equal on the receipt goes red.
+ * - 'refused at every door' — drop the gate's revoked check and all three door
+ *   tests place the withdrawn order.
+ * - 'the port never presents a revoked pointer as usable' — drop the
+ *   `revoked !== true` arm in openAskFor and the port test refuses with the
+ *   blank APPROVAL_REQUIRED instead of teaching APPROVAL_REVOKED.
+ * - 'an agent cannot revoke' — honour a non-'user' principal and the human's
+ *   standing yes is cancellable by the model that dislikes it.
+ */
+describe('the third word: a yes taken back before it was spent', () => {
+  /** One approved, unspent card, ready to be withdrawn. */
+  function approvedCard(session: Session): string {
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } });
+    expect(session.approveAsk(askId, { by: 'alice@ops' }).ok).toBe(true);
+    return askId;
+  }
+
+  it('an unanswered card cannot be revoked — decline is the right verb, and the refusal says so', () => {
+    const session = enforcedShop();
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } });
+    const refused = session.revokeAsk(askId, { by: 'alice@ops' });
+    expect(refused).toMatchObject({ ok: false, reason: 'REVOKE_UNANSWERED' });
+    if (refused.ok) throw new Error('unreachable');
+    expect(refused.explanation).toContain('declineAsk');
+    // …and the named verb still works: the boundary teaches, it does not trap.
+    expect(session.declineAsk(askId, { by: 'alice@ops' }).ok).toBe(true);
+  });
+
+  it('the withdrawal lands as a NEW row, and the answered receipt is never rewritten', () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    const receiptAtRest = session.confirms().find((r) => r.kind === 'approved');
+
+    const revoked = session.revokeAsk(askId, { by: 'alice@ops', note: 'changed my mind' });
+    expect(revoked).toMatchObject({ ok: true });
+    if (!revoked.ok) throw new Error('unreachable');
+    expect(revoked.record).toMatchObject({
+      kind: 'revoked',
+      askId,
+      affordanceId: 'checkout.place-order',
+      principal: 'user',
+      by: 'alice@ops',
+      note: 'changed my mind',
+      enforced: true,
+    });
+
+    // APPEND-ONLY: three rows, and the middle one is byte-identical to what it
+    // was before the person changed their mind.
+    expect(kinds(session)).toEqual(['ask', 'approved', 'revoked']);
+    expect(session.confirms().find((r) => r.kind === 'approved')).toEqual(receiptAtRest);
+    // The book carries the fact as DATA, beside the answer it does not touch.
+    expect(session.asks()[0]).toMatchObject({ askId, answer: 'approved', revoked: true });
+    expect(session.asks()[0]).not.toHaveProperty('spent');
+  });
+
+  it('a revoked yes refuses the fire at the RAW door, and the refusal is in both ledgers', () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    session.revokeAsk(askId, { by: 'alice@ops' });
+
+    const fired = session.fire('checkout.place-order', { source: 'agent', payload: { total: 42 }, askId });
+    expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_REVOKED', askId });
+    expect(session.state()['orders']).toBeUndefined();
+    // The journal shows the whole story, and the gap ledger names the same word.
+    expect(kinds(session)).toEqual(['ask', 'approved', 'revoked', 'refused']);
+    expect(session.confirms().at(-1)).toMatchObject({ kind: 'refused', askId, rejectionReason: 'APPROVAL_REVOKED' });
+    expect(session.gaps().at(-1)).toMatchObject({ kind: 'fire-rejected', rejectionReason: 'APPROVAL_REVOKED' });
+  });
+
+  it('a revoked yes refuses the fire over the PORT — the pointer is looked up, the word crosses, the sentence teaches', async () => {
+    const session = enforcedShop();
+    const port = serveToAgent(session);
+    const asked = port.call('shop.do_action', { action: 'place-order', input: { total: 42 } });
+    const askId = asked['askId'] as string;
+    session.approveAsk(askId, { by: 'alice@ops' });
+    session.revokeAsk(askId, { by: 'alice@ops' });
+
+    const fired = port.call('shop.do_action', { action: 'place-order', input: { total: 42 }, confirm: true });
+    await tick();
+    // The port presents the withdrawn pointer rather than none at all, so the
+    // refusal teaches WITHDRAWN instead of the blank "nobody approved this".
+    expect(fired).toMatchObject({ ok: false, reason: 'APPROVAL_REVOKED', askId });
+    expect(String(fired['why'])).toContain('withdrew that approval');
+    expect(session.state()['orders']).toBeUndefined();
+  });
+
+  it('a revoked yes refuses the fire on a FLAT session — the same gate guards the graphless door', () => {
+    const session = new Session(shopMap().spec, {
+      node: 'checkout',
+      state: {},
+      requireHumanApproval: true,
+      onWarn: () => undefined,
+    });
+    session.registerHandlers({ group: 'desk', handlers: { 'checkout.place-order': () => undefined } });
+    const askId = approvedCard(session);
+    session.revokeAsk(askId, { by: 'alice@ops' });
+
+    expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 42 }, askId })).toMatchObject({
+      ok: false,
+      reason: 'APPROVAL_REVOKED',
+      askId,
+    });
+  });
+
+  it('revoking after the fire is refused honestly — a spend cannot be un-fired', () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 42 }, askId }).ok).toBe(true);
+
+    const refused = session.revokeAsk(askId, { by: 'alice@ops' });
+    expect(refused).toMatchObject({ ok: false, reason: 'ASK_ALREADY_SPENT' });
+    if (refused.ok) throw new Error('unreachable');
+    expect(refused.explanation).toContain('un-fire');
+    // No 'revoked' row was minted: the record says what happened, not what was wished.
+    expect(kinds(session)).toEqual(['ask', 'approved', 'used']);
+  });
+
+  it("an agent principal cannot revoke — a human's decision stands, in either direction", () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    // The yes: an agent's withdrawal attempt is refused, and the approval survives.
+    expect(session.revokeAsk(askId, { by: 'model', principal: 'agent' })).toMatchObject({
+      ok: false,
+      reason: 'WRONG_PRINCIPAL',
+    });
+    expect(session.fire('checkout.place-order', { source: 'agent', payload: { total: 42 }, askId }).ok).toBe(true);
+
+    // The no, same law: a declined card is not the agent's to unwind either.
+    const second = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 7 } });
+    session.declineAsk(second.askId, { by: 'alice@ops' });
+    expect(session.revokeAsk(second.askId, { by: 'model', principal: 'agent' })).toMatchObject({
+      ok: false,
+      reason: 'WRONG_PRINCIPAL',
+    });
+    expect(
+      session.fire('checkout.place-order', { source: 'agent', payload: { total: 7 }, askId: second.askId }),
+    ).toMatchObject({ ok: false, reason: 'APPROVAL_DECLINED' });
+  });
+
+  it('a declined card has no yes to withdraw', () => {
+    const session = enforcedShop();
+    const { askId } = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } });
+    session.declineAsk(askId, { by: 'alice@ops' });
+    const refused = session.revokeAsk(askId, { by: 'alice@ops' });
+    expect(refused).toMatchObject({ ok: false, reason: 'ASK_ALREADY_ANSWERED' });
+    if (refused.ok) throw new Error('unreachable');
+    expect(refused.explanation).toContain('declined');
+  });
+
+  it('the withdrawal is recorded once — a second revoke is refused, not doubled', () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    expect(session.revokeAsk(askId, { by: 'alice@ops' }).ok).toBe(true);
+    const again = session.revokeAsk(askId, { by: 'alice@ops' });
+    expect(again).toMatchObject({ ok: false, reason: 'ASK_ALREADY_ANSWERED' });
+    if (again.ok) throw new Error('unreachable');
+    expect(again.explanation).toContain('already withdrawn');
+    expect(session.confirms().filter((r) => r.kind === 'revoked')).toHaveLength(1);
+  });
+
+  it('a revoked card is never re-approved — a fresh ask is the only cure, and it works', () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    session.revokeAsk(askId, { by: 'alice@ops' });
+    expect(session.approveAsk(askId, { by: 'alice@ops' })).toMatchObject({
+      ok: false,
+      reason: 'ASK_ALREADY_ANSWERED',
+    });
+
+    const fresh = session.confirmAsk('checkout.place-order', { source: 'agent', input: { total: 42 } });
+    expect(fresh.askId).not.toBe(askId);
+    session.approveAsk(fresh.askId, { by: 'alice@ops' });
+    expect(
+      session.fire('checkout.place-order', { source: 'agent', payload: { total: 42 }, askId: fresh.askId }).ok,
+    ).toBe(true);
+  });
+
+  it('the guards hold at this door like at its siblings', () => {
+    const unenforced = shopMap().createSession({ node: 'checkout', state: {}, onWarn: () => undefined });
+    expect(unenforced.revokeAsk('ask#1', { by: 'alice@ops' })).toMatchObject({ ok: false, reason: 'NOT_ENFORCED' });
+
+    const session = enforcedShop();
+    expect(session.revokeAsk('ask#1', { by: '  ' })).toMatchObject({ ok: false, reason: 'NEEDS_DECIDER' });
+    expect(session.revokeAsk('ask#404', { by: 'alice@ops' })).toMatchObject({ ok: false, reason: 'UNKNOWN_ASK' });
+  });
+
+  it('the FACTS block says the yes was withdrawn, and stops saying it stands', () => {
+    const session = enforcedShop();
+    const askId = approvedCard(session);
+    expect(session.groundTruth().text).toContain(
+      `Approved by the human, not yet done: checkout.place-order (${askId}).`,
+    );
+
+    // The app's own control names its principal outright — the honest claim is honoured.
+    expect(session.revokeAsk(askId, { by: 'alice@ops', principal: 'user' }).ok).toBe(true);
+    const facts = session.groundTruth().text;
+    expect(facts).toContain(`The human withdrew their approval: checkout.place-order (${askId}).`);
+    expect(facts).not.toContain('Approved by the human, not yet done');
+    // by/note are runtime free text and deliberately stay out of the block.
+    expect(facts).not.toContain('alice@ops');
+  });
+
+  it("a withdrawn yes is never reported stale — the person's own act outranks the policy's", () => {
+    let clock = 1_000;
+    const session = enforcedShop({ expiresAfterMs: 10 }, () => clock);
+    const askId = approvedCard(session);
+    session.revokeAsk(askId, { by: 'alice@ops' });
+    clock = 60_000; // long past the policy's window
+    expect(session.asks()[0]).toMatchObject({ askId, revoked: true });
+    expect(session.asks()[0]).not.toHaveProperty('stale');
   });
 });
 

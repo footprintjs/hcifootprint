@@ -174,6 +174,35 @@ reports about itself (`'user'`/`'system'`, `invoke: false`), for a fire a human 
 enforcement — and for an app that wrote `requireHumanApproval: false`, which is a policy stated
 rather than a policy never considered.
 
+### `revokeAsk(askId, { by })` — the ask book's third word
+
+**A person could not take back a yes they had already given.** `declineAsk` refuses an answered
+card ("a decision is never overwritten" — right, and staying that way), so the ordinary human act
+of changing one's mind before the thing happened had no door: a withdrawal was caught only by an
+app's own rules and was invisible on the served surface, which kept holding — and honouring — a
+permission its own person had taken back.
+
+`revokeAsk` withdraws an approved, **unspent** yes. Append-only, like everything in the journal:
+the `'approved'` receipt is never rewritten; the withdrawal is a NEW `'revoked'` row referencing
+the askId (principal, timestamp, `by`), and the ask book carries the fact as data
+(`AskStatus.revoked: true`, beside the `answer` it does not touch).
+
+The gate's law grows one word: a usable yes is now *answered-yes AND not revoked AND not spent*. A
+fire that presents a withdrawn pointer refuses **`APPROVAL_REVOKED`** through every door — the raw
+`fire()`, the serving port (which never presents a revoked pointer as usable, so the refusal
+teaches the specific word instead of a blank `APPROVAL_REQUIRED`), and a flat session.
+`did_it_work` answers the card `'approval-withdrawn'` (paused, not failed — and never "go and
+perform it", which the gate would refuse forever), and `groundTruth()`'s FACTS block says "The
+human withdrew their approval" instead of "Approved by the human, not yet done".
+
+The boundaries are typed refusals, not throws: an unanswered card refuses `REVOKE_UNANSWERED`
+(decline is the right verb, and the refusal says so); a spent yes refuses `ASK_ALREADY_SPENT`
+(revoking cannot un-fire the past — the `'used'` row stays the honest record); a declined or
+already-revoked card refuses `ASK_ALREADY_ANSWERED`. And only the human side revokes: the door
+stamps `principal: 'user'` like its siblings, and an honest relay that names any other principal
+is refused `WRONG_PRINCIPAL` — an agent must never be able to withdraw a human's decision, in
+either direction.
+
 ## [1.5.0] - 2026-08-02
 
 **A route table with names in it is a thing somebody typed twice. The router already has the

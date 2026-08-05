@@ -1270,7 +1270,10 @@ export type FireResult =
   /** The yes is older than this session's rules allow, or predates a state change. */
   | { ok: false; reason: 'APPROVAL_STALE'; affordanceId: string; askId: string }
   /** The human said no to this ask. Terminal for that askId, for the session's life. */
-  | { ok: false; reason: 'APPROVAL_DECLINED'; affordanceId: string; askId: string };
+  | { ok: false; reason: 'APPROVAL_DECLINED'; affordanceId: string; askId: string }
+  /** The human gave a yes and took it back before it was spent ({@link Session.revokeAsk}).
+   *  The withdrawn pointer authorizes nothing; a fresh ask mints a new card. */
+  | { ok: false; reason: 'APPROVAL_REVOKED'; affordanceId: string; askId: string };
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -1573,7 +1576,8 @@ export interface GapRecord {
     | 'APPROVAL_SPENT'
     | 'APPROVAL_MISMATCH'
     | 'APPROVAL_STALE'
-    | 'APPROVAL_DECLINED';
+    | 'APPROVAL_DECLINED'
+    | 'APPROVAL_REVOKED';
   principal?: Principal;
   evidence?: FilterCondition[];
   /**
@@ -1783,7 +1787,10 @@ export interface ConfirmRecord {
    *   report that closes nothing, and says so with `relayed`.
    * - `'used'`             — an approval was SPENT by a fire (`transitionId`).
    * - `'refused'`          — a crossing attempt with no valid yes (`rejectionReason`).
-   * - `'revoked'`          — a standing grant was withdrawn.
+   * - `'revoked'`          — a yes was withdrawn: a standing grant
+   *   ({@link Session.revokeAlwaysApprove}) or a single unspent approval
+   *   ({@link Session.revokeAsk}). Always a NEW row referencing the askId —
+   *   the answered row it withdraws is never rewritten.
    */
   kind: 'ask' | 'approved' | 'always-approved' | 'declined' | 'used' | 'refused' | 'revoked';
   /**
@@ -1845,7 +1852,7 @@ export interface ConfirmRecord {
    */
   stateVersion?: number;
   /** Why a crossing attempt was refused (`'refused'` rows) — joins the gap ledger. */
-  rejectionReason?: 'APPROVAL_REQUIRED' | 'APPROVAL_SPENT' | 'APPROVAL_MISMATCH' | 'APPROVAL_STALE' | 'APPROVAL_DECLINED';
+  rejectionReason?: 'APPROVAL_REQUIRED' | 'APPROVAL_SPENT' | 'APPROVAL_MISMATCH' | 'APPROVAL_STALE' | 'APPROVAL_DECLINED' | 'APPROVAL_REVOKED';
 }
 
 /**
@@ -1895,6 +1902,16 @@ export interface AskStatus {
    * fresh ask, and it is the only one: a decision is never overwritten.
    */
   stale?: true;
+  /**
+   * THE ASK BOOK'S THIRD WORD: the human gave this yes and took it back before
+   * anything spent it ({@link Session.revokeAsk}). `answer` stays `'approved'`
+   * — the receipt taken at rest is never rewritten — and this marker beside it
+   * is the withdrawal, as data. A fire presenting the card refuses
+   * `APPROVAL_REVOKED`; the cure is a fresh ask. Never present beside
+   * `spent: true`: revoking a spent yes is refused, because it cannot un-fire
+   * the past.
+   */
+  revoked?: true;
 }
 
 /**
@@ -2011,8 +2028,8 @@ export interface JourneyStanding {
 
 /**
  * What one of the human-side approval doors did — {@link Session.approveAsk},
- * {@link Session.declineAsk}, {@link Session.alwaysApprove},
- * {@link Session.revokeAlwaysApprove}.
+ * {@link Session.declineAsk}, {@link Session.revokeAsk},
+ * {@link Session.alwaysApprove}, {@link Session.revokeAlwaysApprove}.
  *
  * A typed REFUSAL rather than a throw, because these run inside click handlers: a
  * button that throws takes the page down, while a button that reports gets to
@@ -2026,12 +2043,28 @@ export type ApprovalResult =
        * - `'UNKNOWN_ASK'`          — no such ask (or no such standing grant).
        * - `'ASK_ALREADY_ANSWERED'` — a decision is already recorded; nothing here
        *   ever overwrites one.
+       * - `'ASK_ALREADY_SPENT'`    — the yes was already spent by a fire
+       *   (revokeAsk): revoking cannot un-fire the past, and the journal keeps
+       *   the `'used'` row where an auditor can count it.
+       * - `'REVOKE_UNANSWERED'`    — nothing to withdraw: the person has not
+       *   decided. To answer no, {@link Session.declineAsk} is the right verb;
+       *   revoke exists for taking back a yes already given.
+       * - `'WRONG_PRINCIPAL'`      — only the human side withdraws a human
+       *   decision (revokeAsk): a caller that names a non-'user' principal is
+       *   refused, in either direction.
        * - `'NEEDS_DECIDER'`        — `by` is required: an approval whose decider is
        *   unknown is the very claim-as-fact this closes.
        * - `'NOT_ENFORCED'`         — the session was not created with
        *   requireHumanApproval, so this row would authorize nothing.
        */
-      reason: 'UNKNOWN_ASK' | 'ASK_ALREADY_ANSWERED' | 'NEEDS_DECIDER' | 'NOT_ENFORCED';
+      reason:
+        | 'UNKNOWN_ASK'
+        | 'ASK_ALREADY_ANSWERED'
+        | 'ASK_ALREADY_SPENT'
+        | 'REVOKE_UNANSWERED'
+        | 'WRONG_PRINCIPAL'
+        | 'NEEDS_DECIDER'
+        | 'NOT_ENFORCED';
       /** One authored sentence naming the cure. */
       explanation: string;
     };

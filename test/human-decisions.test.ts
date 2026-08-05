@@ -699,6 +699,9 @@ describe('T-A12 frozen-unions-stay-frozen', () => {
       | 'APPROVAL_MISMATCH'
       | 'APPROVAL_STALE'
       | 'APPROVAL_DECLINED'
+      // revokeAsk (the ask book's third word) grew the union by exactly this
+      // one — a conscious act, recorded here, exactly what the pin is for.
+      | 'APPROVAL_REVOKED'
     > = true;
     expect(pin).toBe(true);
   });
@@ -724,6 +727,8 @@ describe('T-A12 frozen-unions-stay-frozen', () => {
       | 'APPROVAL_MISMATCH'
       | 'APPROVAL_STALE'
       | 'APPROVAL_DECLINED'
+      // grown with FireResult above, in lockstep — revokeAsk's refusal word.
+      | 'APPROVAL_REVOKED'
     > = true;
     expect(pin).toBe(true);
   });

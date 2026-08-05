@@ -4581,7 +4581,12 @@ export class Session {
         if (sameInput(input, ask.input) !== 'same') continue;
         if ((opts?.instance ?? undefined) !== (ask.instance ?? undefined)) continue;
       }
-      if (ask.answer === 'approved' && ask.spent !== true) return ask.askId;
+      // A revoked yes is never presented as USABLE: the person withdrew it, and
+      // handing it out as live would send the caller into the gate's refusal
+      // believing it had an approval. It still lands on the answered fallback
+      // below, so the refusal teaches APPROVAL_REVOKED instead of the blank
+      // "nobody approved this".
+      if (ask.answer === 'approved' && ask.spent !== true && ask.revoked !== true) return ask.askId;
       if (ask.answer === undefined) unanswered ??= ask.askId;
       else answered = ask.askId; // the LATEST answered one — the freshest news
     }
@@ -4752,6 +4757,98 @@ export class Session {
   }
 
   /**
+   * WITHDRAW A YES THE PERSON ALREADY GAVE, before anything spends it — the ask
+   * book's third word. The ordinary human act of changing one's mind had no
+   * door: `declineAsk` refuses an answered card (a decision is never
+   * overwritten), so a withdrawal was caught only by the app's own rules and
+   * was INVISIBLE on the served surface, which kept holding a yes the person
+   * had taken back.
+   *
+   * APPEND-ONLY, like everything in this journal: the `'approved'` row is
+   * NEVER rewritten. The withdrawal is a NEW `'revoked'` row referencing the
+   * askId — principal, timestamp, `by` — and the ask book carries the fact as
+   * data ({@link AskStatus.revoked}) beside the answer it does not touch. A
+   * fire that then presents the pointer refuses `APPROVAL_REVOKED`, through
+   * every door the gate guards; the cure is a fresh ask.
+   *
+   * THE BOUNDARIES, each a typed refusal rather than a throw:
+   * - an UNANSWERED card refuses `REVOKE_UNANSWERED` — there is no yes to
+   *   withdraw, and the right verb for answering no is {@link Session.declineAsk};
+   * - a DECLINED card refuses `ASK_ALREADY_ANSWERED` — the no already refuses
+   *   every fire, and needs no withdrawal;
+   * - a SPENT yes refuses `ASK_ALREADY_SPENT` — revoking cannot un-fire the
+   *   past, and the honest record of what happened is the `'used'` row;
+   * - a card already revoked refuses `ASK_ALREADY_ANSWERED` — the withdrawal
+   *   is recorded once, never doubled.
+   *
+   * ONLY THE HUMAN SIDE REVOKES, in either direction. Like its siblings this
+   * door stamps `principal: 'user'`; unlike them it accepts an optional
+   * `principal` CLAIM so an honest relay (a port built with `source: 'agent'`,
+   * a scripted driver) can state what it is — and any claim other than
+   * `'user'` is refused `WRONG_PRINCIPAL`. An agent must never be able to
+   * withdraw a human's decision: honouring an agent's revoke would let it
+   * cancel a yes it dislikes as surely as forging one it wants.
+   */
+  revokeAsk(
+    askId: string,
+    opts: { by: string; note?: string; principal?: Principal },
+  ): ApprovalResult {
+    const guard = this.#approvalDoorGuard(opts);
+    if (guard) return guard;
+    if ((opts.principal ?? 'user') !== 'user') {
+      return this.#doorRefusal(
+        'WRONG_PRINCIPAL',
+        `hcifootprint: revokeAsk is the human side's door — a '${opts.principal}' principal cannot withdraw a human's decision, in either direction. Relay the person's change of mind to the app, whose own control calls this without a principal to claim.`,
+      );
+    }
+    const ask = this.#openAsks.get(askId);
+    if (!ask) {
+      return this.#doorRefusal('UNKNOWN_ASK', `hcifootprint: no ask '${askId}' in this session.`);
+    }
+    if (ask.answer === undefined) {
+      return this.#doorRefusal(
+        'REVOKE_UNANSWERED',
+        `hcifootprint: ask '${askId}' has no answer to withdraw — the person has not decided. To answer no, declineAsk(askId, { by }) is the right verb; revoke exists for taking back a yes already given.`,
+      );
+    }
+    if (ask.answer === 'declined' || ask.revoked === true) {
+      return this.#doorRefusal(
+        'ASK_ALREADY_ANSWERED',
+        ask.answer === 'declined'
+          ? `hcifootprint: ask '${askId}' was declined — there is no yes to withdraw, and the no already refuses every fire. A decision is never overwritten.`
+          : `hcifootprint: the yes on ask '${askId}' was already withdrawn. The revocation is recorded once — ask again for a fresh decision.`,
+      );
+    }
+    if (ask.spent === true) {
+      return this.#doorRefusal(
+        'ASK_ALREADY_SPENT',
+        `hcifootprint: the yes on ask '${askId}' was already spent by a fire — revoking cannot un-fire the past. The 'used' row keeps that honest; what remains withdrawable is the next yes, on a fresh card.`,
+      );
+    }
+    // The withdrawal lands: a marker on the BOOK entry (bookkeeping, the same
+    // pen that writes `spent`), and a NEW row in the JOURNAL (the receipt). The
+    // 'approved' row stays in #approvalRows untouched, so the gate still walks
+    // its full law and refuses with the specific word rather than a blank
+    // APPROVAL_REQUIRED.
+    ask.revoked = true;
+    const row: ConfirmRecord = {
+      kind: 'revoked',
+      askId,
+      affordanceId: ask.affordanceId,
+      timestamp: this.#now(),
+      node: this.#node,
+      version: this.#version,
+      stateVersion: this.#stateVersion,
+      principal: 'user',
+      by: opts.by,
+      ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
+      enforced: true,
+    };
+    this.#pushConfirm(row);
+    return { ok: true, record: structuredClone(row) };
+  }
+
+  /**
    * RECORD A DURABLE ALWAYS ALLOW — a scoped standing policy, not an approval of
    * one action. Every fire it authorizes lands its own `'used'` row, so the
    * journal shows how many times the standing yes was exercised. That visible
@@ -4869,7 +4966,14 @@ export class Session {
   }
 
   #doorRefusal(
-    reason: 'UNKNOWN_ASK' | 'ASK_ALREADY_ANSWERED' | 'NEEDS_DECIDER' | 'NOT_ENFORCED',
+    reason:
+      | 'UNKNOWN_ASK'
+      | 'ASK_ALREADY_ANSWERED'
+      | 'ASK_ALREADY_SPENT'
+      | 'REVOKE_UNANSWERED'
+      | 'WRONG_PRINCIPAL'
+      | 'NEEDS_DECIDER'
+      | 'NOT_ENFORCED',
     explanation: string,
   ): ApprovalResult {
     return { ok: false, reason, explanation };
@@ -4958,6 +5062,7 @@ export class Session {
       ...(ask.instance !== undefined ? { instance: ask.instance } : {}),
       ...(ask.answer !== undefined ? { answer: ask.answer } : {}),
       ...(ask.spent !== undefined ? { spent: ask.spent } : {}),
+      ...(ask.revoked === true ? { revoked: true as const } : {}),
       ...(this.#approvalWentStale(ask) ? { stale: true as const } : {}),
     }));
   }
@@ -4974,7 +5079,10 @@ export class Session {
    */
   #approvalWentStale(ask: OpenAsk): boolean {
     if (this.#humanApproval === undefined) return false;
-    if (ask.answer !== 'approved' || ask.spent === true) return false;
+    // A withdrawn yes is finished the way a spent one is: the decision-fact is
+    // the whole story, and reporting it stale would bury the person's own act
+    // under a policy's.
+    if (ask.answer !== 'approved' || ask.spent === true || ask.revoked === true) return false;
     const row = this.#approvalRows.get(ask.askId);
     /* v8 ignore next -- unreachable: the two lines above have already proven a policy is in force and this ask is APPROVED, and under a policy the only thing that approves an ask (#answerAsk) files its row in the same breath. */
     if (row === undefined) return false;
@@ -5448,10 +5556,10 @@ export class Session {
       if (omitted > 0) lines.push(`  … ${omitted} earlier attempt(s) omitted.`);
       for (const row of shown) lines.push(`  • ${this.#attemptLine(row)}`);
     }
-    // Three states, three authored lines, every one routed through #actionLabel so
+    // Four states, four authored lines, every one routed through #actionLabel so
     // an id the graph does not have renders as a constant.
     //
-    // The two answered lines exist because marking an ask ANSWERED would otherwise
+    // The answered lines exist because marking an ask ANSWERED would otherwise
     // silence the awaiting line in exactly the window that matters most: a
     // recorded human approval that nothing has acted on yet, and a no the agent
     // might quietly re-ask around. `by` and `note` are deliberately NOT rendered —
@@ -5476,6 +5584,11 @@ export class Session {
           lines.push(`Awaiting the human's decision: ${what} (${ask.askId}).`);
           awaitingShown++;
         } else awaitingOmitted++;
+      } else if (ask.revoked === true) {
+        // The third word, in the same status plumbing as its two siblings — a
+        // block that kept saying "approved, not yet done" about a withdrawn yes
+        // would be instructing the model to fire into APPROVAL_REVOKED forever.
+        lines.push(`The human withdrew their approval: ${what} (${ask.askId}).`);
       } else if (ask.answer === 'approved' && ask.spent !== true) {
         lines.push(`Approved by the human, not yet done: ${what} (${ask.askId}).`);
       } else if (ask.answer === 'declined') {
