@@ -45,6 +45,15 @@ describe('the real DOM satisfies the port — proved by compiling against it', (
       expect(probe).toContain(real);
     }
   });
+
+  it('and D21’s anchor port makes the same claim about a real element and observer', () => {
+    // One probe project, two ports: the anchor (src/contextful/anchor-port.ts)
+    // is declared structurally for the same reason the sensor's is, so the same
+    // compiler run is what keeps it honest about `MutationObserver`.
+    const probe = readFileSync('test/sensor-probe/real-dom.ts', 'utf8');
+    expect(probe).toContain('MutationObserver');
+    expect(probe).toContain('AnchorElement');
+  });
 });
 
 describe("SSR safety is the COMPILER's, not a convention", () => {

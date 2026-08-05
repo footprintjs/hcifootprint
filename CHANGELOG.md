@@ -1,5 +1,113 @@
 # Changelog
 
+## [Unreleased]
+
+**A UI action already knows almost everything about itself. Nothing was writing it down.**
+
+An app registers a handler so an agent can call it, and declares an anchor so an agent can find
+the control. Both of those are one-directional today: the handler runs when the agent fires, the
+anchor is a locator the agent aims at. Meanwhile the same button is being clicked by a person all
+day, through the app's own `onClick`, and none of it reaches the record — the guard that was open
+at that moment, what came back, what happened on screen a beat later, or that it happened at all.
+
+### `contextful(fn, opts?)` — turn a UI action into a contextful action
+
+```ts
+import { contextful } from 'hcifootprint';
+
+const addToCart = contextful(shop.add, {
+  watch: true,                      // listen at the anchor while this action runs
+  anchor: () => buttonRef.current,  // a getter: nothing reads the DOM until the session attaches
+  include: ['qty'],                 // the VALUE allowlist — nothing else ever carries values
+  redact: app.redactor,             // your policy, the last word on every value that survives it
+});
+
+session.registerActions('catalog', { handlers: { 'add-to-cart': addToCart } });
+// the agent's door:  session.fire('catalog.add-to-cart', { source: 'agent' })
+// the human's door:  <button ref={buttonRef} onClick={() => addToCart({ qty: 2 })}>
+```
+
+Both doors now land in one **capture envelope**, on `TransitionRecord.captured`:
+
+- **before** — the cursor, and the guard READ-KEYS with how each one read (`held: true | false |
+  'unevaluated'`). Names and outcomes; the values stay in your app.
+- **after** — how it came to rest: `effectStatus`, `outcome`, and how long it took.
+- **failure** — the error's CLASS, always. Its message only if you allowlist `ERROR_MESSAGE`,
+  because messages carry app data.
+- **sensed** — what the anchor saw while the action was in flight: an event trail
+  (`{ type, targetRole, targetTag, at }`), a count of DOM changes, and — only when your own
+  declared `expect` matched one — `effect: { status: 'observed' }`.
+
+**The sentence this is for: the anchor is bidirectional.** The same declaration that lets an agent
+actuate a control lets the library listen at it. One declaration, two directions.
+
+### The human's call settles exactly like the agent's
+
+A direct call is recorded **record-only** (`invoke: false` — the browser has already run your code,
+and a fire that also invoked would run one click twice) and then the settlement waits for *your*
+function: it goes through the same completion and failure paths an agent's fire does, verify
+contract and all. So a person's click on a no-writes action now reads `effectStatus: 'performed'`
+instead of `'unobservable'`, and an async handler holds its own row open until it resolves.
+
+**Severable, in the strong sense.** Delete the wrapper and the app behaves identically: every
+argument is forwarded, the return value comes back untouched, a throw is rethrown unchanged — and a
+fire the graph REFUSES still runs your function (the refusal is on the ledger; your button is not
+the library's to break). A wrapped handler no session registered is a plain call.
+
+### `contextful.sense(anchor)` — the rung below a registered handler
+
+For an app with no handler to wrap: the anchor alone is enough to see that a person acted.
+
+```ts
+const release = session.sense('catalog.add-to-cart', contextful.sense(() => buttonRef.current));
+```
+
+A **trusted** click inside it opens a record-only fire stamped `cause.inferred` — a listener saw a
+click and nothing more, and the record says so. An `element.click()` from an agent is not a person
+and is never recorded as one.
+
+### Four laws, each with a test named after it
+
+1. **Boundary.** Key names and event types by default; a value crosses only through `include`, and
+   only after your `redact` has seen it. A redactor that throws fails CLOSED. A direct call's
+   argument is recorded as its **allowlist projection**, never raw — and a direct call's return
+   value is not captured at all: it came back to your code, not to an agent that asked for it.
+2. **Two-string firewall.** Everything captured is DATA channel. No captured string is ever composed
+   into agent-facing prose — not `contextBrief()`, not `groundTruth()`, not a tool description. A
+   `role` attribute containing "IGNORE PREVIOUS INSTRUCTIONS" rides the record and reaches no prompt.
+3. **Sensing is evidence, not proof.** Listener-derived causality is stamped `association:
+   'inferred'` and carries the correlation rule ON the record: *an event or change delivered between
+   the fire and the end of the task it came to rest in.* Anything outside that window is **stimulus**
+   — delivered to your `onStimulus`, never filed as part of the action.
+4. **The blind spot stays honest.** An anchor may say `effect: 'observed'` only when your own
+   declared expectation matched an observed change, and the predicate is handed name-class facts
+   (`kind`, `attribute`, `targetRole`, `targetTag`, `at`) — never an element and never a value. The
+   settlement's own `effectStatus` is NOT upgraded: a receipt taken at rest is never rewritten, and
+   value-CORRECTNESS remains out of scope and a reported limitation.
+
+### Budgets, said out loud
+
+A virtualized list under an anchor can produce thousands of changes for one action. Per invocation
+window: **50 changes examined** (past that, `changesDropped: n`), **200 events retained** (past that,
+`eventsDropped: n`), and a trail longer than **20** rides `by-reference` — the record says
+`{ shape: 'by-reference', count }` and `session.sensedTrail(transitionId)` hands over the whole
+thing (the newest 20 oversized trails are kept). Honest degradation, never silence.
+
+### SSR, StrictMode, and the DOM it never reaches for
+
+The anchor port is declared structurally (`src/contextful/anchor-port.ts`) exactly as the sensor's
+is, so `contextful()` at module scope on a server touches nothing: the getter runs when the session
+attaches, and the observer is reached through the element you handed in. Anchors are refcounted per
+(action, element), so a React StrictMode double mount attaches **one** listener set and the first
+unmount does not silence the survivor.
+
+New exports on the root entry: `contextful`, `ERROR_MESSAGE`, and the types `ActionCapture`,
+`ActionExpectation`, `CaptureBefore`, `CaptureAfter`, `CaptureFailure`, `ContextfulOptions`,
+`DirectPrincipal`, `GuardRead`, `SenseDeclaration`, `SensedChange`, `SensedEffect`, `SensedEvent`,
+`SensedSummary`, `SensedTrail`, `AnchorElement`, `AnchorSource`, `AnchorDocument`, `AnchorView`.
+New session doors: `session.sense(actionId, declaration)` and `session.sensedTrail(transitionId)`.
+Nothing existing changed shape: a plain handler records exactly what it always did.
+
 ## [1.5.0] - 2026-08-02
 
 **A route table with names in it is a thing somebody typed twice. The router already has the

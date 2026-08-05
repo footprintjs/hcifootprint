@@ -24,6 +24,11 @@
  */
 import type { WhereFilter } from 'footprintjs';
 import type { FilterCondition } from 'footprintjs/advanced';
+// TYPE-ONLY, and one direction only: contextful/ is a leaf that imports this
+// file's vocabulary, and the one thing that travels back is the shape of what a
+// contextful fire recorded (TransitionRecord.captured). No value crosses, so
+// neither module drags the other into a consumer's bundle.
+import type { ActionCapture } from '../contextful/types.js';
 
 // ---------------------------------------------------------------------------
 // Provenance
@@ -783,6 +788,24 @@ export interface TransitionRecord {
    * library is telling you what it could not do.
    */
   materialized?: false;
+  /**
+   * D21 — THE CAPTURE ENVELOPE, present only on a fire of a `contextful()`
+   * action: what was true the moment before it ran, how it came to rest, what
+   * went wrong, and what its anchor saw while it was in flight.
+   *
+   * DATA CHANNEL, ALWAYS. Nothing in here is ever composed into agent-facing
+   * prose — not a brief, not a tool description, not a result sentence — which
+   * is what makes it safe for it to describe a page the library does not
+   * control. And nothing in here carries a value the app did not allowlist: key
+   * NAMES and event TYPES are the default, and `include` is the only door out of
+   * it (see `ContextfulOptions`).
+   *
+   * `before` and `after`/`failure` are stamped by the fire itself, so a
+   * settlement receipt carries them; `sensed` lands one turn later on the LIVE
+   * record, exactly as an `arrival: 'observed'` upgrade does, because a receipt
+   * taken at rest is never rewritten.
+   */
+  captured?: ActionCapture;
 }
 
 export interface AvailableEdge {

@@ -55,6 +55,35 @@ export type { MCPToolDescription } from 'footprintjs';
 export type { WhereFilter } from 'footprintjs';
 export { Session } from './traverse/session.js';
 export type { RegisteredHandlers, RegisterHandlersOptions } from './traverse/session.js';
+// D21 — contextful actions: one wrapper at registration, and BOTH doors into an
+// action (the agent's fire, the app's own call) land in the same capture
+// envelope. `contextful.sense(anchor)` is the same idea with no handler to wrap.
+// Its DOM surface is structural (contextful/anchor-port.ts), so importing this
+// on a server touches no global.
+export { contextful } from './contextful/contextful.js';
+export { ERROR_MESSAGE } from './contextful/types.js';
+export type {
+  ActionCapture,
+  ActionExpectation,
+  CaptureAfter,
+  CaptureBefore,
+  CaptureFailure,
+  ContextfulOptions,
+  DirectPrincipal,
+  GuardRead,
+  SenseDeclaration,
+  SensedChange,
+  SensedEffect,
+  SensedEvent,
+  SensedSummary,
+  SensedTrail,
+} from './contextful/types.js';
+export type {
+  AnchorDocument,
+  AnchorElement,
+  AnchorSource,
+  AnchorView,
+} from './contextful/anchor-port.js';
 // The marker a redacted field is replaced by — exported so a consumer (and a
 // test) can assert "this was hidden" without hard-coding the string.
 export { REDACTED } from './traverse/redact-fields.js';

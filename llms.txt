@@ -246,6 +246,59 @@ On the flat `Session` (no container tree) the same door is `registerHandlers({ g
 handler so calling it records the act as `source: 'user'` AND invokes the handler (wire a trigger IN
 PLACE OF the handler; keeping both runs it twice). `unregisterGroup(group)` releases by name.
 
+### `contextful(fn, opts?)` — one wrapper, both doors into an action
+
+Wrap a handler AT REGISTRATION and both ways the action can happen land in one capture envelope:
+the agent's `fire()`, and the app's own call through its own `onClick`. Source:
+`src/contextful/`.
+
+```ts
+const addToCart = contextful(shop.add, { watch: true, anchor: () => ref.current, include: ['qty'] });
+session.registerActions('catalog', { handlers: { 'add-to-cart': addToCart } });
+```
+
+`ContextfulOptions`: `watch?` (attach listeners + one observer at the anchor), `anchor?`
+(the element or a getter — the getter is the SSR-safe form, nothing reads the DOM until the session
+attaches), `include?` (the VALUE allowlist; the reserved name `ERROR_MESSAGE` opens a failure
+message), `redact?` (the app's own last word on every allowlisted value), `expect?`
+(`{ name, matches(change) }` — the ONLY door to `effect: 'observed'`), `principal?`
+(`'user' | 'system'` for a direct call, default `'user'`), `onStimulus?` (anchor events no
+invocation claimed).
+
+`TransitionRecord.captured` — present only on a contextful fire:
+
+- `before` — `{ at, node, cursorVersion, guard: [{ key, held: true|false|'unevaluated' }], input? }`.
+  Key NAMES and outcomes; `input` is the allowlist projection or absent.
+- `after` — `{ at, ms, effectStatus, outcome }`, stamped at rest (so a settlement receipt has it).
+- `failure` — `{ errorClass, message? }`. The CLASS always; the message only behind the allowlist.
+- `sensed` — `{ association: 'inferred', rule, trail, changes, changesDropped?, eventsDropped?,
+  effect? }`, landing one turn after rest on the LIVE record (the `arrival: 'observed'` precedent).
+
+RULES, and they are the point:
+
+- SEVERABLE. Delete the wrapper and behaviour is identical — arguments forwarded, return value and
+  throws passed through, and a REFUSED fire still runs the app's function. A direct call is recorded
+  record-only (`invoke: false`) and its settlement waits for the app's own function, so a human's
+  click settles `'performed'` exactly as an agent's does.
+- VALUES ONLY VIA `include`. A direct call's argument is recorded as its allowlist PROJECTION, never
+  raw; its return value is not captured at all (it went back to the app, not to an agent that asked).
+  A redactor that throws fails closed.
+- DATA CHANNEL ONLY. No captured string is ever composed into `contextBrief()`, `groundTruth()` or a
+  tool description.
+- SENSING IS EVIDENCE. `association: 'inferred'` plus the correlation rule on the record: an event or
+  change delivered between the fire and the end of the task it came to rest in. Outside it →
+  stimulus, never part of the action. `effectStatus` is never upgraded by sensing: value-correctness
+  is out of scope.
+- BUDGETS: 50 changes examined and 200 events retained per window (`changesDropped` /
+  `eventsDropped` say what was dropped); a trail over 20 events rides `{ shape: 'by-reference',
+  count }` and `session.sensedTrail(transitionId)` hands over the whole thing (newest 20 kept).
+- ANCHORS ARE REFCOUNTED per (action, element), so a React StrictMode double mount attaches ONE
+  listener set.
+
+`session.sense(actionId, contextful.sense(anchorOrGetter, opts?))` is the sense-only rung for an app
+with no handler to wrap: a TRUSTED click inside the anchor opens a record-only fire stamped
+`cause.inferred`. Returns the release.
+
 ### Reporting reality — fire / updateState / sync / stimulus
 
 - `fire(affordanceId, opts)` — apply a transition. `opts` (`FireOptions`): `source` (Principal:

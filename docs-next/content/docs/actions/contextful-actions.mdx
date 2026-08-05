@@ -1,0 +1,166 @@
+---
+title: Contextful actions
+description: "One wrapper at registration, and both doors into an action — the agent's fire and your app's own click — land in the same capture envelope. The anchor becomes bidirectional: it actuates for the agent and senses for the record."
+---
+
+Your app registers a handler so an agent can call it. The same function is called all day by a
+person, through your own `onClick`, and none of that reaches the record — not the guard that was
+open at the moment, not how it came to rest, not what happened on screen a beat later.
+
+`contextful()` is one wrapper at registration that closes both halves.
+
+```ts twoslash
+import { contextful } from 'hcifootprint';
+import type { InteractionSession } from 'hcifootprint';
+
+declare const session: InteractionSession;
+declare const shop: { add: (input: unknown) => void };
+declare const buttonRef: { current: HTMLElement | null };
+// ---cut---
+const addToCart = contextful(shop.add, {
+  watch: true,                      // listen at the anchor while this action runs
+  anchor: () => buttonRef.current,  // a getter: nothing reads the DOM until the session attaches
+  include: ['qty'],                 // the VALUE allowlist — nothing else ever carries values
+});
+
+session.registerActions('catalog', { handlers: { 'add-to-cart': addToCart } });
+```
+
+Now both doors are the same door:
+
+- the agent's — `session.fire('add-to-cart', { source: 'agent' })`
+- yours — `<button ref={buttonRef} onClick={() => addToCart({ qty: 2 })}>`
+
+### What gets captured
+
+Every fire of a contextful action carries an envelope on `TransitionRecord.captured`:
+
+```ts twoslash
+import type { InteractionSession } from 'hcifootprint';
+
+declare const session: InteractionSession;
+// ---cut---
+const row = session.transitions().at(-1);
+
+row?.captured?.before;   // { at, node, cursorVersion, guard: [{ key, held }], input? }
+row?.captured?.after;    // { at, ms, effectStatus, outcome }
+row?.captured?.failure;  // { errorClass, message? }
+row?.captured?.sensed;   // { association: 'inferred', rule, trail, changes, effect? }
+```
+
+`before` and `after`/`failure` are stamped by the fire itself, so a settlement receipt carries
+them. `sensed` lands one turn later on the live record — the same way an `arrival: 'observed'`
+upgrade does, and for the same reason: a receipt taken at rest is never rewritten.
+
+### Delete the wrapper and nothing changes
+
+Every argument is forwarded, the return value comes back untouched, a throw is rethrown unchanged.
+A fire the graph **refuses** still runs your function — the refusal goes on the gap ledger, and your
+button is not this library's to break. A wrapped handler no session has registered is a plain call,
+so importing this on a server does nothing at all.
+
+What *does* change is the settlement: a direct call is recorded record-only (the browser already ran
+your code — a fire that also invoked would run one click twice) and the row stays open until **your**
+function reports. So a person's click on a no-writes action reads `effectStatus: 'performed'`
+instead of `'unobservable'`, and an async handler holds its own row open until it resolves.
+
+### Values: key names by default
+
+The envelope carries key **names** and event **types**. A value crosses only through `include`, and
+only after your own `redact` has seen it:
+
+```ts twoslash
+import { contextful, ERROR_MESSAGE, REDACTED } from 'hcifootprint';
+
+declare const charge: (input: unknown) => void;
+// ---cut---
+const pay = contextful(charge, {
+  include: ['amount', ERROR_MESSAGE],           // the reserved name opens the failure MESSAGE
+  redact: (value, key) => (key === 'amount' ? REDACTED : value),
+});
+```
+
+Absent `include`, a contextful capture carries **no values at all** — that is the honest minimum.
+A redactor that throws fails closed: the value does not travel. And a direct call's **return value**
+is not captured either; it came back to your code, not to an agent that asked for it.
+
+Everything captured is data channel. No captured string is ever composed into agent-facing prose —
+not `contextBrief()`, not `groundTruth()`, not a tool description. That is what makes it safe for
+the record to describe a page whose text you do not control.
+
+### Sensing is evidence, not proof
+
+With `watch: true` the library listens at the anchor (capture phase, so it sees the gesture as the
+human made it) and observes its subtree. Everything it derives is stamped:
+
+```ts
+row?.captured?.sensed;
+// {
+//   association: 'inferred',
+//   rule: 'an event or change delivered between the fire and the end of the task it came to rest in',
+//   trail: { shape: 'inline', events: [{ type: 'click', targetTag: 'button', at: 1785... }] },
+//   changes: 3,
+// }
+```
+
+Anything outside that window is **stimulus** — handed to your `onStimulus` callback, never filed as
+part of the action. React synthetic events, portals and shadow DOM make certainty impossible here,
+so the record says how it knows instead of pretending.
+
+An anchor may claim an effect was **observed** only when your own declared expectation matches a
+change the library actually saw:
+
+```ts twoslash
+import { contextful } from 'hcifootprint';
+
+declare const addRow: () => void;
+declare const listRef: { current: HTMLElement | null };
+// ---cut---
+const add = contextful(addRow, {
+  watch: true,
+  anchor: () => listRef.current,
+  expect: { name: 'a cart row appeared', matches: (change) => change.kind === 'added' },
+});
+```
+
+The predicate is handed name-class facts (`kind`, `attribute`, `targetRole`, `targetTag`, `at`) —
+never an element, never a value — so an expectation cannot become a value-capture door. And the
+settlement's own `effectStatus` is **not** upgraded by it: nothing here checked that what appeared
+was *right*, and that blind spot stays reported rather than half-closed.
+
+### Budgets
+
+A virtualized list under an anchor can produce thousands of changes for one action. Per invocation
+window the library examines **50 changes** and retains **200 events**; past either, the record says
+how many were dropped (`changesDropped`, `eventsDropped`). A trail longer than **20** rides by
+reference:
+
+```ts twoslash
+import type { InteractionSession } from 'hcifootprint';
+
+declare const session: InteractionSession;
+declare const transitionId: string;
+// ---cut---
+// { shape: 'by-reference', count: 137 } on the record…
+session.sensedTrail(transitionId); // …and the whole trail here (newest 20 kept)
+```
+
+### No handler to wrap? The anchor is enough
+
+`contextful.sense()` is the rung below a registered handler — the L0 on-ramp for a page whose button
+does its own thing:
+
+```ts twoslash
+import { contextful } from 'hcifootprint';
+import type { InteractionSession } from 'hcifootprint';
+
+declare const session: InteractionSession;
+declare const buttonRef: { current: HTMLElement | null };
+// ---cut---
+const release = session.sense('add-to-cart', contextful.sense(() => buttonRef.current));
+```
+
+A **trusted** click inside the anchor opens a record-only fire stamped `cause.inferred`. An
+`element.click()` from an agent is not a person, and is never recorded as one. Call `release()` on
+unmount — anchors are refcounted per (action, element), so a React StrictMode double mount attaches
+one listener set and the first unmount does not silence the survivor.

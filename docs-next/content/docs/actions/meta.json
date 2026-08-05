@@ -11,6 +11,7 @@
     "live-bindings",
     "human-sensor",
     "react-binding",
+    "contextful-actions",
     "---What the agent gets---",
     "reading-an-action-row",
     "what-would-free-it",

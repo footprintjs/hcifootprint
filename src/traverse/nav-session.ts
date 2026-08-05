@@ -256,7 +256,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // Through the SAME door a later flip takes, so a label that mounts and a
       // label that arrives are normalised (and refused) identically.
       const busy = this.busyLabel(qualifiedId, opts?.busy?.[name] ?? opts?.busy?.[qualifiedId]);
-      this.registry.register(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled, busy);
+      // Through the SESSION's binding door, not the registry's: that is where a
+      // contextful wrapper is recognised (D21), so every mount door gets the
+      // capture envelope without four call sites each remembering to ask.
+      this.bindHandler(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled, busy);
     }
 
     // 3. Value readers, AFTER the overlay above so an action declared here-and-now
@@ -371,7 +374,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
         `hcifootprint: mount('${path}') re-declares '${qualifiedId}' — the declared action wins; ` +
           `only the handler was bound.`,
       );
-      if (actionDef.handler) this.registry.register(group, this.#registryKey(qualifiedId, instance), actionDef.handler);
+      if (actionDef.handler) this.bindHandler(group, this.#registryKey(qualifiedId, instance), actionDef.handler);
       return null;
     }
     if (!actionDef.does || !actionDef.does.trim()) {
@@ -489,7 +492,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
     }) as Affordance;
     this.#dynamic.set(qualifiedId, [...(existing ?? []), { owner, affordance }]);
     this.#mergedSpec = null;
-    if (actionDef.handler) this.registry.register(group, this.#registryKey(qualifiedId, instance), actionDef.handler);
+    if (actionDef.handler) this.bindHandler(group, this.#registryKey(qualifiedId, instance), actionDef.handler);
     return qualifiedId;
   }
 

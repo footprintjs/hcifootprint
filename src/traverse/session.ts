@@ -88,6 +88,21 @@ import type {
   WorkRow,
 } from '../atom/types.js';
 import { edgesToMCPTools, leaveJourneyTool } from '../serve/mcp.js';
+import { sanitizeProduced } from './data-channel.js';
+import { failureOf, guardReads, projectInput } from '../contextful/capture.js';
+import { readContextful } from '../contextful/contextful.js';
+import type { ContextfulSite } from '../contextful/contextful.js';
+import { watchAnchor } from '../contextful/anchor.js';
+import type { AnchorWatch } from '../contextful/anchor.js';
+import { resolveAnchor } from '../contextful/anchor-port.js';
+import type { AnchorElement } from '../contextful/anchor-port.js';
+import type {
+  ActionCapture,
+  ContextfulOptions,
+  SenseDeclaration,
+  SensedEvent,
+  SensedSummary,
+} from '../contextful/types.js';
 import { createSettlementLatch, settledNow } from './settlement.js';
 import type { SettlementLatch } from './settlement.js';
 import { checkApproval, stale } from './approval-gate.js';
@@ -336,6 +351,42 @@ interface PendingTransition {
   settleOnCompletion?: boolean;
 }
 
+/**
+ * One watched anchor. `refs` is the mount refcount (StrictMode), `element` is
+ * what a second registration is compared against to tell a remount from a move.
+ */
+interface AnchorEntry {
+  element: AnchorElement;
+  watch: AnchorWatch;
+  refs: number;
+}
+
+/** What {@link Session.#contextFire} carries into one fire. See the field. */
+interface ContextAssist {
+  /** The app is invoking its own handler around this fire — hold the settlement open. */
+  direct?: true;
+  /** A listener attributed this row rather than an observation (law 3). */
+  inferred?: true;
+  /** What the RECORD may carry as payload — the allowlist projection, never the raw input. */
+  recordPayload?: unknown;
+}
+
+/**
+ * How many by-reference event trails a session keeps. Twenty is "the recent
+ * past a person is debugging", and the number is stated here rather than
+ * guessed at each door — the record's own `count` survives eviction, so the
+ * fact that there were 300 events is never lost, only the events themselves.
+ */
+const TRAILS_RETAINED = 20;
+
+/** What an anchor-less (or watch-less) contextful registration hands back. */
+const NOTHING_TO_RELEASE = (): void => {};
+
+/** A value the app returned that a later turn will answer for. */
+function isThenable(value: unknown): value is Promise<unknown> {
+  return typeof (value as { then?: unknown })?.then === 'function';
+}
+
 /** registerHandlers() input: one group per component/section, existing handlers by reference. */
 export interface RegisterHandlersOptions {
   group: string;
@@ -480,6 +531,55 @@ export class Session {
    * observation attribute a call, or a call close a claim.
    */
   #invokingRecordId: string | null = null;
+  /**
+   * The ACTION whose handler is executing right now — the same window as
+   * {@link #invokingRecordId}, one field over.
+   *
+   * It exists for exactly one question, asked by a contextful wrapper the
+   * instant it is entered: "is this call the one the session is already
+   * recording?" (contextful/contextful.ts). Keyed on the action rather than on
+   * the record because a wrapped handler invoked from INSIDE another action's
+   * handler must answer no — otherwise a nested call would attach itself to the
+   * neighbour's fire and the ledger would name the wrong action.
+   */
+  #invokingActionId: string | null = null;
+  /**
+   * D21 — the one-shot channel a contextful fire opens for itself, read and
+   * CLEARED on the first line of `fire()`.
+   *
+   * Two facts fire() cannot learn from its arguments, because neither is a
+   * caller's to state: that the app is invoking its own handler right now (so
+   * the settlement must stay open until it reports, exactly as it does for a
+   * handler the session itself ran), and that a listener — not an observation —
+   * is what attributed this row (`cause.inferred`, law 3). A public FireOptions
+   * field for either would be a boolean the caller controls, which is precisely
+   * what this library refuses to call evidence.
+   */
+  #contextFire: ContextAssist | null = null;
+  /**
+   * Anchors being watched right now, by ACTION. One action, one anchor: a
+   * second registration on the SAME element refcounts (React StrictMode mounts
+   * twice before it unmounts once, and a double attach would double every
+   * listener), a registration on a DIFFERENT element replaces — the registry's
+   * own last-registration-wins rule, one field over.
+   */
+  readonly #anchors = new Map<string, AnchorEntry>();
+  /** Sense-only declarations, by action — {@link Session.sense}'s ledger. */
+  readonly #senses = new Map<string, ContextfulOptions>();
+  /** What each open capture needs at settlement: the options that opened it, and its anchor. */
+  readonly #captures = new Map<string, { options: ContextfulOptions; actionId: string }>();
+  /**
+   * Event trails too long to ride the record inline, by transition id — what
+   * {@link Session.sensedTrail} answers with. Bounded (the newest
+   * {@link TRAILS_RETAINED}), because a trail is bulk evidence about one action
+   * rather than a ledger row, and the record itself always says how many events
+   * there were.
+   */
+  readonly #trails = new Map<string, SensedEvent[]>();
+  /** Contextful teardowns owned by a mount group — released with its handlers. */
+  readonly #contextReleases = new Map<string, Array<() => void>>();
+  /** Contextful complaints already made (the #warnedOnce discipline). */
+  readonly #contextWarned = new Set<string>();
   /**
    * THE WORK LEDGER — every piece of work the app said it started, by work id.
    *
@@ -837,6 +937,11 @@ export class Session {
       ...(t.askId !== undefined ? { askId: t.askId } : {}),
       ...(t.payload !== undefined ? { payload: cloneSafe(t.payload) } : {}),
       ...(t.produced !== undefined ? { produced: cloneSafe(t.produced) } : {}),
+      // The capture envelope is plain data by construction (names, types, and
+      // whatever the app's own allowlist let through the data-channel bound), so
+      // it clones — and it MUST, or a 'transition' listener holds the live
+      // record's own event trail and can rewrite the evidence.
+      ...(t.captured !== undefined ? { captured: cloneSafe(t.captured) as ActionCapture } : {}),
     };
   }
 
@@ -1481,7 +1586,7 @@ export class Session {
     }
     const triggers: Record<string, (payload?: unknown) => FireResult> = {};
     for (const [affordanceId, handler] of Object.entries(opts.handlers)) {
-      this.#registry.register(opts.group, affordanceId, handler);
+      this.bindHandler(opts.group, affordanceId, handler);
       triggers[affordanceId] = (payload?: unknown) =>
         this.fire(affordanceId, { source: 'user', payload });
     }
@@ -1537,6 +1642,11 @@ export class Session {
   /** Remove every live binding currently owned by `group` (component unmount). */
   unregisterGroup(group: string): string[] {
     const removed = this.#registry.unregisterGroup(group);
+    // D21 — a contextful wrapper's site and its anchor go with the handlers that
+    // brought them, on the same terms: each release takes back only what IT put
+    // there, so a group that re-registered after this one keeps its wire.
+    for (const release of this.#contextReleases.get(group) ?? []) release();
+    this.#contextReleases.delete(group);
     // The group's value readers go with its handlers: an unmounted component's
     // closure still answering "what does this control hold" is the stale-read bug
     // this whole surface exists to avoid. Ownership-checked like the registry's
@@ -2058,6 +2168,13 @@ export class Session {
    * See THE APPROVAL GATE below.
    */
   fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
+    // READ AND CLEARED ON THE FIRST LINE. The contextful channel is one-shot by
+    // construction (see #contextFire): a fire that never reached this line —
+    // refused by a tree gate in the InteractionSession override — cannot leave
+    // the channel armed for somebody else's fire, and neither can a nested fire
+    // inherit it.
+    const assist = this.#contextFire;
+    this.#contextFire = null;
     // One reading of the principal for every gate, ledger row and cause below
     // — an opts object built at runtime can arrive with `source` missing even
     // though the default above covered the no-arguments call.
@@ -2150,7 +2267,15 @@ export class Session {
     // The one question every settlement arm below asks: will OUR side actually
     // execute anything? (`unmaterialized` already answered "invoke wanted but
     // nothing bound" — this is the same lookup, not a second one.)
-    const handlerWillRun = opts.invoke !== false && !unmaterialized;
+    //
+    // A DIRECT contextful call answers YES through the second arm, and it is the
+    // whole reason that arm exists: the fire is record-only (the app is running
+    // its own function, and a session that invoked as well would run one human
+    // click twice), yet somebody IS executing it — so the settlement must stay
+    // open until that somebody reports, exactly as it does for a handler this
+    // session ran itself. Without it a human's click on a no-writes action
+    // settles 'unobservable' before the app's own function has even started.
+    const handlerWillRun = (opts.invoke !== false && !unmaterialized) || assist?.direct === true;
     if (honestNoOp && !this.#allowUnmaterialized) {
       this.recordRejection(affordanceId, 'NOT_MATERIALIZED', source, undefined, undefined, {
         gestureKind: aff.binding?.kind,
@@ -2252,7 +2377,18 @@ export class Session {
       // THE NAME IS CAPTURED HERE, at the only moment it is certainly true: the
       // spec has this action right now — the gate above proved it — and nothing
       // guarantees it still will when someone reads this row back.
-      cause: { kind: 'fired', affordanceId, principal: source, ...this.#captureDoes(affordanceId) },
+      cause: {
+        kind: 'fired',
+        affordanceId,
+        principal: source,
+        ...this.#captureDoes(affordanceId),
+        // LAW 3, stamped at the source. A sense-only anchor saw a trusted click
+        // and nothing else: that is evidence a person acted, never proof this
+        // action is what they performed, and the marker says so in the field
+        // every reader of a cause already checks. A DIRECT call is not stamped —
+        // the app called its own function, which is an observation.
+        ...(assist?.inferred === true ? { inferred: true as const } : {}),
+      },
       timestamp: Date.now(),
       // REDACTION POINT 1 of 4 (SessionOptions.redactedFields.payload). The
       // RECORD's copy only: the handler is still handed `opts.payload` below, and
@@ -2265,7 +2401,18 @@ export class Session {
       // redacted-fields.test.ts go red with the card number in hand — all three
       // under "a fire's payload" (the record, every export, the live listener)
       // plus the one proving a passed array cannot be widened after the fact.
-      payload: redactFields(opts.payload, this.#redactedFields.payload),
+      //
+      // AND A DIRECT CONTEXTFUL CALL RECORDS ITS ALLOWLIST, NOT ITS ARGUMENT
+      // (law 1). Every gate above judged the REAL value — a schema must see what
+      // the app actually passed — but the argument to a human's own click is a
+      // value this library never saw before D21, so what it may keep is what the
+      // app named in `include` and nothing else. An agent's fire is untouched:
+      // it sent that payload through this door itself, under the redaction dial
+      // the app already controls.
+      payload: redactFields(
+        assist?.direct === true ? assist.recordPayload : opts.payload,
+        this.#redactedFields.payload,
+      ),
       outcome: 'pending',
       evidence: conditions,
       // Unevaluated conditions are taken on faith (the app is the enforcer at
@@ -2307,6 +2454,9 @@ export class Session {
     if (aff.effect?.navigatesTo !== undefined && !honestNoOp) {
       this.#navClaim = { recordId: record.id, target: aff.effect.navigatesTo };
     }
+    // D21 — the capture envelope opens BEFORE the first emit, so the very first
+    // observer of this row already sees what was true the moment before it ran.
+    this.#openCapture(record, aff, conditions, unevaluable, opts);
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 
@@ -2433,78 +2583,108 @@ export class Session {
     void Promise.resolve()
       .then(() => {
         this.#invokingRecordId = record.id;
+        this.#invokingActionId = affordanceId;
         try {
           return handler(opts.payload);
         } finally {
           this.#invokingRecordId = null;
+          this.#invokingActionId = null;
         }
       })
-      .then((returnValue) => {
-        // A handler that FAILED BY RETURNING takes the throw's path, exactly —
-        // checked BEFORE the produced capture, because a refusal is the
-        // settlement's reason, never planner-visible data. While only a throw
-        // reached .catch, a returned {ok:false,error} was stamped onto a
-        // COMMITTED transition as `produced`: the failure read as a success.
-        if (isReturnedFailure(returnValue)) {
-          const reason = failureReason(returnValue);
-          this.#handleHandlerFailure(record, reason);
-          // Distinct wording from "threw:" so a log reader can tell a protocol
-          // refusal from an exception.
-          this.#warn(
-            `hcifootprint: handler for '${affordanceId}' returned failure: ${String(reason)}`,
-          );
-          return;
-        }
-        // Act → get data back: whatever the handler returned (search results, a
-        // looked-up record) rides the DATA channel on the record — sanitized +
-        // capped so untrusted content can never become planner instructions.
-        if (this.#captureProduced && returnValue !== undefined && returnValue !== null) {
-          // REDACTION POINT 2 of 4 (SessionOptions.redactedFields.produced).
-          // AFTER the sanitizer, deliberately: sanitizeProduced has already
-          // flattened Maps and class instances into plain objects and dropped
-          // whatever exceeded its caps, so the walk below is over a plain shape
-          // and can never be defeated by an exotic one. Nothing is lost by the
-          // order — a value the sanitizer dropped reaches no audience either —
-          // and the marker survives its later re-sanitizing (it is an 11-char
-          // string, far inside the 200-char cap).
-          //
-          // MUTATION PROOF: drop the redactFields() call and the three tests under
-          // "a handler's return value" (redacted-fields.test.ts) go red — the
-          // model's door, the settlement, and the wire, one each.
-          record.produced = redactFields(
-            sanitizeProduced(returnValue),
-            this.#redactedFields.produced,
-          );
-        }
-        const entry = this.#pending.find((p) => p.record.id === record.id);
-        if (!entry) {
-          // No pending entry: this fire committed synchronously (no declared
-          // writes) and its handler has now run to completion — the only event
-          // that will ever answer the 'pending' this fire() returned. If a
-          // state report already answered it, resolve-once keeps that answer.
-          //
-          // The verify contract matters MOST here: a click with no declared
-          // writes is precisely the fire that used to say 'performed' on the
-          // strength of a handler returning, while nothing on screen moved.
-          this.#comeToRest(record, aff);
-          return;
-        }
-        if (entry.settleOnCompletion) {
-          // Tapless session: the handler finishing IS the settlement signal.
-          this.#pending.splice(this.#pending.indexOf(entry), 1);
-          this.#settle(entry.record, entry.affordance, {}, { forceUnobservable: true });
-          // Our side ran to completion, which is what 'performed' claims —
-          // orthogonal to effectVerified, which stays honestly 'unobservable'
-          // because no report exists to check the declared writes against.
-          this.#comeToRest(entry.record, entry.affordance);
-          return;
-        }
-        entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
-      })
-      .catch((error) => {
-        this.#handleHandlerFailure(record, error);
-        this.#warn(`hcifootprint: handler for '${affordanceId}' threw: ${String(error)}`);
-      });
+      .then((returnValue) => this.#invocationSucceeded(record, affordanceId, returnValue))
+      .catch((error) => this.#invocationFailed(record, affordanceId, error));
+  }
+
+  /**
+   * ONE ACTION FINISHED — whichever side ran it.
+   *
+   * Extracted from #invokeHandler when D21 gave the app's OWN call the same
+   * settlement it always gave the agent's: a human clicking a wrapped handler
+   * and an agent firing it now come to rest through this exact code, so the two
+   * doors cannot drift into two settlement stories. (contextful/contextful.ts is
+   * the other caller, via #directRun.)
+   */
+  #invocationSucceeded(
+    record: TransitionRecord,
+    affordanceId: string,
+    returnValue: unknown,
+    /**
+     * The APP called its own function, so the value came back to the app's own
+     * code — not to an agent that asked for it. Set on the direct contextful
+     * path, and the reason is law 1: `produced` is the act → get data back
+     * channel for a caller who ASKED, and a wrapper must not turn a human's own
+     * return value into a channel the agent reads. An agent's fire captures it
+     * exactly as it always did.
+     */
+    returnedToTheApp = false,
+  ): void {
+    const aff = this.spec.affordances[affordanceId];
+    // A handler that FAILED BY RETURNING takes the throw's path, exactly —
+    // checked BEFORE the produced capture, because a refusal is the
+    // settlement's reason, never planner-visible data. While only a throw
+    // reached .catch, a returned {ok:false,error} was stamped onto a
+    // COMMITTED transition as `produced`: the failure read as a success.
+    if (isReturnedFailure(returnValue)) {
+      const reason = failureReason(returnValue);
+      this.#handleHandlerFailure(record, reason);
+      // Distinct wording from "threw:" so a log reader can tell a protocol
+      // refusal from an exception.
+      this.#warn(`hcifootprint: handler for '${affordanceId}' returned failure: ${String(reason)}`);
+      return;
+    }
+    // Act → get data back: whatever the handler returned (search results, a
+    // looked-up record) rides the DATA channel on the record — sanitized +
+    // capped so untrusted content can never become planner instructions.
+    if (
+      !returnedToTheApp &&
+      this.#captureProduced &&
+      returnValue !== undefined &&
+      returnValue !== null
+    ) {
+      // REDACTION POINT 2 of 4 (SessionOptions.redactedFields.produced).
+      // AFTER the sanitizer, deliberately: sanitizeProduced has already
+      // flattened Maps and class instances into plain objects and dropped
+      // whatever exceeded its caps, so the walk below is over a plain shape
+      // and can never be defeated by an exotic one. Nothing is lost by the
+      // order — a value the sanitizer dropped reaches no audience either —
+      // and the marker survives its later re-sanitizing (it is an 11-char
+      // string, far inside the 200-char cap).
+      //
+      // MUTATION PROOF: drop the redactFields() call and the three tests under
+      // "a handler's return value" (redacted-fields.test.ts) go red — the
+      // model's door, the settlement, and the wire, one each.
+      record.produced = redactFields(sanitizeProduced(returnValue), this.#redactedFields.produced);
+    }
+    const entry = this.#pending.find((p) => p.record.id === record.id);
+    if (!entry) {
+      // No pending entry: this fire committed synchronously (no declared
+      // writes) and its handler has now run to completion — the only event
+      // that will ever answer the 'pending' this fire() returned. If a
+      // state report already answered it, resolve-once keeps that answer.
+      //
+      // The verify contract matters MOST here: a click with no declared
+      // writes is precisely the fire that used to say 'performed' on the
+      // strength of a handler returning, while nothing on screen moved.
+      this.#comeToRest(record, aff);
+      return;
+    }
+    if (entry.settleOnCompletion) {
+      // Tapless session: the handler finishing IS the settlement signal.
+      this.#pending.splice(this.#pending.indexOf(entry), 1);
+      this.#settle(entry.record, entry.affordance, {}, { forceUnobservable: true });
+      // Our side ran to completion, which is what 'performed' claims —
+      // orthogonal to effectVerified, which stays honestly 'unobservable'
+      // because no report exists to check the declared writes against.
+      this.#comeToRest(entry.record, entry.affordance);
+      return;
+    }
+    entry.handlerInFlight = false; // async app: the tap's later report may FIFO-settle it
+  }
+
+  /** The other half of the same pair: an action that threw, whichever side ran it. */
+  #invocationFailed(record: TransitionRecord, affordanceId: string, error: unknown): void {
+    this.#handleHandlerFailure(record, error);
+    this.#warn(`hcifootprint: handler for '${affordanceId}' threw: ${String(error)}`);
   }
 
   /**
@@ -2521,6 +2701,12 @@ export class Session {
     /** Stamped only by the verify route — the third axis, carried, never averaged in. */
     verifyHeld?: false,
   ): void {
+    // D21 — stamped HERE rather than at settlement, because a failure can land
+    // after this fire has already come to rest (an app function that throws two
+    // turns later, a verify contract that refuses a committed row). The
+    // settlement receipt is never rewritten; the live record still gains the
+    // class of what went wrong.
+    this.#captureFailure(record, reason);
     const index = this.#pending.findIndex((p) => p.record.id === record.id);
     if (index >= 0) {
       // Effect never landed: reject the pending so later deltas are not mis-attributed.
@@ -2593,6 +2779,367 @@ export class Session {
   }
 
   // -------------------------------------------------------------------------
+  // D21 — contextful actions: the capture envelope, and the anchor that senses
+  // -------------------------------------------------------------------------
+
+  /**
+   * SENSE-ONLY — declare that this action lives at that element, with no handler
+   * to wrap. The L0 on-ramp, and the human-interleave path: an app whose button
+   * does its own thing still gets its people into the record.
+   *
+   * A TRUSTED click inside the anchor opens a record-only fire (the browser has
+   * already run the app's code — a fire that also invoked would run one human
+   * click twice) stamped `cause.inferred`, carrying the correlation rule on the
+   * record. Nothing here performs anything, and nothing here reads a value.
+   *
+   * Returns the release, token-identity like every other declaration pair in
+   * this library. An id no affordance answers to is filed and simply reports
+   * whatever refusal its own fire earns — a control can be handed over before
+   * the action that declares it is mounted, and refusing at this door would only
+   * shout at a mount race.
+   */
+  sense(affordanceId: string, declaration: SenseDeclaration): () => void {
+    const options = declaration.options;
+    this.#senses.set(affordanceId, options);
+    const releaseAnchor = this.#openAnchor(affordanceId, options, () =>
+      this.#senseClick(affordanceId),
+    );
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      releaseAnchor();
+      // Token identity: a newer declaration for this action has already taken
+      // the slot, and deleting it here is how a StrictMode remount goes blind.
+      if (this.#senses.get(affordanceId) === options) this.#senses.delete(affordanceId);
+    };
+  }
+
+  /**
+   * The whole event trail behind one contextful fire — the door the record
+   * points at when the trail was too long to ride inline.
+   *
+   * ONE DOOR FOR BOTH SHAPES: an inline trail is answered off the record itself,
+   * so a caller never has to branch on which shape it got (the record still SAYS
+   * which, because a reader deserves to know whether they are holding everything
+   * or a pointer to it). Copies, never the live arrays.
+   *
+   * Throws for an id this session cannot answer for — the same stance
+   * {@link Session.settlementOf} takes, and for the same reason: a silent `[]`
+   * would read as "nothing happened" about an action that may have had three
+   * hundred events.
+   */
+  sensedTrail(transitionId: string): readonly SensedEvent[] {
+    const retained = this.#trails.get(transitionId);
+    if (retained !== undefined) return retained.map((event) => ({ ...event }));
+    const trail = this.#transitions.find((t) => t.id === transitionId)?.captured?.sensed?.trail;
+    if (trail?.shape === 'inline') return trail.events.map((event) => ({ ...event }));
+    throw new Error(
+      `hcifootprint: no event trail for '${transitionId}'. A trail exists only for a contextful fire ` +
+        `whose action was watching an anchor, and only the newest ${TRAILS_RETAINED} oversized trails are ` +
+        `kept — the record's own \`captured.sensed.trail.count\` survives either way.`,
+    );
+  }
+
+  /**
+   * THE ONE REGISTRATION DOOR, and the reason D21 needed no new option: every
+   * way an app binds a handler — the flat `registerHandlers`, the tree's
+   * `registerActions`, a mount-declared action, a live source — lands here, so
+   * recognising a contextful wrapper happens once instead of at four call sites
+   * that could each forget.
+   *
+   * Recognition is a BRAND ON THE FUNCTION (contextful/contextful.ts): the
+   * registry is deliberately session-blind and stores plain handlers, so the
+   * declaration travels on the handler itself. Registering binds the site the
+   * wrapper reports through and attaches its anchor; unregistering takes both
+   * back, token-identity, with the group that owns them.
+   */
+  protected bindHandler(
+    group: string,
+    registryKey: string,
+    handler: ActionHandler,
+    enabled = true,
+    busy?: string,
+  ): void {
+    this.#registry.register(group, registryKey, handler, enabled, busy);
+    const brand = readContextful(handler);
+    if (brand === undefined) return;
+    const actionId = baseActionId(registryKey);
+    const instance = registryKey === actionId ? undefined : registryKey.slice(actionId.length + 1, -1);
+    const site = this.#siteFor(actionId, instance, brand.options);
+    brand.site = site;
+    const releaseAnchor = this.#openAnchor(actionId, brand.options);
+    const releases = this.#contextReleases.get(group) ?? [];
+    releases.push(() => {
+      // Only the site THIS registration installed may be taken back — a newer
+      // registration has already superseded it, and clearing that one is how a
+      // StrictMode remount ends up with a wrapper reporting to nobody.
+      if (brand.site === site) brand.site = null;
+      releaseAnchor();
+    });
+    this.#contextReleases.set(group, releases);
+  }
+
+  /** The contextful declaration behind one action: the handler's brand, or a sense-only one. */
+  #contextOptions(affordanceId: string, opts: FireOptions): ContextfulOptions | undefined {
+    const handler = this.handlerFor(affordanceId, opts);
+    const brand = handler === undefined ? undefined : readContextful(handler);
+    return brand?.options ?? this.#senses.get(affordanceId);
+  }
+
+  /**
+   * Open the envelope: what was true the moment before this action ran.
+   *
+   * LAW 1 LIVES IN THE ARGUMENTS. The guard block is built from key NAMES and
+   * outcomes — never from the conditions themselves, which carry state — and the
+   * input block is the app's allowlist projection or nothing at all.
+   */
+  #openCapture(
+    record: TransitionRecord,
+    aff: Affordance,
+    conditions: FilterCondition[],
+    unevaluable: string[],
+    opts: FireOptions,
+  ): void {
+    const options = this.#contextOptions(aff.id, opts);
+    if (options === undefined) return;
+    const input = projectInput(opts.payload, options);
+    record.captured = {
+      before: {
+        at: record.timestamp,
+        node: record.fromNode,
+        cursorVersion: record.cursorVersion,
+        guard: guardReads(Object.keys(aff.guard ?? {}), conditions, unevaluable),
+        ...(input !== undefined ? { input } : {}),
+      },
+    };
+    this.#captures.set(record.id, { options, actionId: aff.id });
+    this.#anchors.get(aff.id)?.watch.open();
+  }
+
+  /** The failure block: the error CLASS always, its message only behind the allowlist. */
+  #captureFailure(record: TransitionRecord, reason: unknown): void {
+    const entry = this.#captures.get(record.id);
+    if (entry === undefined || record.captured === undefined) return;
+    // First failure wins, like every other settlement fact on this record.
+    /* v8 ignore next -- unreachable today: the failure spine is entered once per invocation (a handler either throws, returns a refusal, or succeeds and meets its verify contract), so no record reaches it twice. The guard is what keeps a SECOND failure — a rollback re-entering the spine, an app that rejects a row its own handler already failed — from rewriting the first thing the app said went wrong. */
+    if (record.captured.failure !== undefined) return;
+    record.captured.failure = failureOf(reason, entry.options);
+  }
+
+  /** Close the envelope at rest, and ask the anchor for what it saw. */
+  #closeCapture(record: TransitionRecord, effectStatus: FireSettlement['effectStatus']): void {
+    const entry = this.#captures.get(record.id);
+    if (entry === undefined || record.captured === undefined) return;
+    /* v8 ignore next -- unreachable today: #effectSnapshot is reached only through the two latch doors, and both are guarded by first-settlement-wins before they get here. The guard states that law for the CAPTURE too, so a future third door cannot quietly re-time an action that already came to rest. */
+    if (record.captured.after !== undefined) return; // first settlement wins here too
+    const at = Date.now();
+    record.captured.after = {
+      at,
+      ms: at - record.captured.before.at,
+      effectStatus,
+      outcome: record.outcome,
+    };
+    this.#anchors
+      .get(entry.actionId)
+      ?.watch.close((summary, events) => this.#stampSensed(record, summary, events));
+  }
+
+  /**
+   * The sensing block, one turn after rest (see contextful/anchor.ts's header
+   * for why the window ends where it does).
+   *
+   * It lands on the LIVE record and is announced like the `arrival: 'observed'`
+   * upgrade it is modelled on — same shape, same reason: the receipt taken at
+   * rest is never rewritten, and an observer that mirrors rows still learns.
+   */
+  #stampSensed(
+    record: TransitionRecord,
+    summary: SensedSummary,
+    events: readonly SensedEvent[],
+  ): void {
+    /* v8 ignore next -- unreachable: the only caller is #closeCapture, which has already proved this record HAS a capture, and nothing deletes one. The guard is what keeps a future caller from inventing a sensing block on a record that never opened an envelope. */
+    if (record.captured === undefined) return;
+    record.captured.sensed = summary;
+    if (summary.trail.shape === 'by-reference') this.#retainTrail(record.id, events);
+    this.#emitTransition(record);
+  }
+
+  /** Keep an oversized trail, newest {@link TRAILS_RETAINED} — bulk evidence, not a ledger row. */
+  #retainTrail(transitionId: string, events: readonly SensedEvent[]): void {
+    this.#trails.set(transitionId, [...events]);
+    for (const oldest of this.#trails.keys()) {
+      if (this.#trails.size <= TRAILS_RETAINED) break;
+      this.#trails.delete(oldest);
+    }
+  }
+
+  /**
+   * Start (or join) the watch at one action's anchor. Returns the release.
+   *
+   * REFCOUNTED ON THE ELEMENT, because React StrictMode mounts twice before it
+   * unmounts once: the second registration of the same control must not double
+   * every listener, and the first release must not silence the survivor. A
+   * registration naming a DIFFERENT element is a move, not a remount — the old
+   * watch stops and the new one takes over (last registration wins, the
+   * registry's own rule).
+   */
+  #openAnchor(actionId: string, options: ContextfulOptions, onHumanClick?: () => void): () => void {
+    if (options.watch !== true) return NOTHING_TO_RELEASE;
+    const element = resolveAnchor(options.anchor);
+    if (element === undefined) {
+      this.#warnContextOnce(
+        `anchor:${actionId}`,
+        `hcifootprint: '${actionId}' is contextful with watch: true, but no anchor was handed over — ` +
+          `nothing is being sensed. Pass the element the action lives at: ` +
+          `contextful(fn, { watch: true, anchor: () => ref.current }). A getter is the SSR-safe form.`,
+      );
+      return NOTHING_TO_RELEASE;
+    }
+    const existing = this.#anchors.get(actionId);
+    if (existing !== undefined && existing.element === element) {
+      existing.refs += 1;
+      return () => this.#releaseAnchor(actionId, existing);
+    }
+    existing?.watch.stop();
+    const entry: AnchorEntry = {
+      element,
+      refs: 1,
+      watch: watchAnchor(element, {
+        ...(options.expect !== undefined ? { expect: options.expect } : {}),
+        ...(options.onStimulus !== undefined ? { onStimulus: options.onStimulus } : {}),
+        ...(onHumanClick !== undefined ? { onHumanClick } : {}),
+        now: () => Date.now(),
+        warn: (message) => this.#warn(message),
+      }),
+    };
+    this.#anchors.set(actionId, entry);
+    return () => this.#releaseAnchor(actionId, entry);
+  }
+
+  /** One release of one anchor reference; the last one stops the watch. */
+  #releaseAnchor(actionId: string, entry: AnchorEntry): void {
+    entry.refs -= 1;
+    if (entry.refs > 0) return;
+    // Only if this entry is still the live one: a MOVE already stopped it and
+    // put a newer watch in the slot, and deleting that one would blind the
+    // control that is actually on screen.
+    if (this.#anchors.get(actionId) !== entry) return;
+    entry.watch.stop();
+    this.#anchors.delete(actionId);
+  }
+
+  /** One contextful complaint per reason — the #warnedOnce discipline. */
+  #warnContextOnce(key: string, message: string): void {
+    if (this.#contextWarned.has(key)) return;
+    this.#contextWarned.add(key);
+    this.#warn(message);
+  }
+
+  /**
+   * The wire a wrapped handler reports through — one per registration, and it
+   * CARRIES the declaration it was built from.
+   *
+   * Carried rather than looked up again: the brand is right there at
+   * registration, and a second lookup at call time would have to guess a
+   * registry key and could answer differently from the site that is calling it.
+   */
+  #siteFor(actionId: string, instance: string | undefined, options: ContextfulOptions): ContextfulSite {
+    return {
+      // Keyed on the ACTION: a wrapped handler called from inside ANOTHER
+      // action's handler must answer no, or its call would attach itself to the
+      // neighbour's fire and the ledger would name the wrong action.
+      invoking: () => this.#invokingActionId === actionId,
+      direct: (payload, run) => this.#directRun(actionId, instance, options, payload, run),
+    };
+  }
+
+  /**
+   * THE APP CALLING ITS OWN ACTION — the second direction of one declaration.
+   *
+   * Record first (record-only: the app is about to run its own function, and a
+   * fire that also invoked would run one human click twice), then run it, then
+   * come to rest through the SAME two methods an agent's fire uses — so a human
+   * click and an agent call settle identically, verify contract and all.
+   *
+   * A REFUSED FIRE STILL RUNS THE APP'S FUNCTION. Severability is the whole
+   * promise of this wrapper: deleting it must change nothing about behaviour, so
+   * a guard the graph has closed can ledger a rejection but can never stop the
+   * app's own button from working. The refusal is on the record either way.
+   */
+  #directRun(
+    actionId: string,
+    instance: string | undefined,
+    options: ContextfulOptions,
+    payload: unknown,
+    run: () => unknown,
+  ): unknown {
+    const result = this.#fireAssisted(
+      actionId,
+      {
+        source: options.principal ?? 'user',
+        // The one canonical door: RECORD, never perform (sensor/types.ts).
+        invoke: false,
+        payload,
+        ...(instance !== undefined ? { instance } : {}),
+      },
+      { direct: true, recordPayload: projectInput(payload, options) },
+    );
+    if (!result.ok) return run();
+    const record = result.transition;
+    const entry = this.#pending.find((p) => p.record.id === record.id);
+    if (entry) entry.handlerInFlight = true;
+    // The same attribution window #invokeHandler opens: an updateState() the
+    // app's function makes inline lands on THIS record rather than being
+    // FIFO-matched to a neighbour.
+    this.#invokingRecordId = record.id;
+    this.#invokingActionId = actionId;
+    let returned: unknown;
+    let thrown: unknown;
+    let failed = false;
+    try {
+      returned = run();
+    } catch (error) {
+      failed = true;
+      thrown = error;
+    }
+    this.#invokingRecordId = null;
+    this.#invokingActionId = null;
+    if (failed) {
+      this.#invocationFailed(record, actionId, thrown);
+      throw thrown; // the app's own error reaches the app, exactly as it did before
+    }
+    if (isThenable(returned)) {
+      // The ORIGINAL promise is what the app gets back; this is a second reader
+      // of it, so nothing is swallowed and no unhandled rejection is invented.
+      void returned.then(
+        (value) => this.#invocationSucceeded(record, actionId, value, true),
+        (error: unknown) => this.#invocationFailed(record, actionId, error),
+      );
+      return returned;
+    }
+    this.#invocationSucceeded(record, actionId, returned, true);
+    return returned;
+  }
+
+  /** Arm the one-shot contextful channel for exactly one fire. */
+  #fireAssisted(affordanceId: string, opts: FireOptions, assist: ContextAssist): FireResult {
+    this.#contextFire = assist;
+    try {
+      return this.fire(affordanceId, opts);
+    } finally {
+      // fire() clears it on its first line; this covers the fire that never got
+      // there — an InteractionSession tree gate refusing before super.fire().
+      this.#contextFire = null;
+    }
+  }
+
+  /** A trusted click inside a sense-only anchor: evidence a person acted, never proof. */
+  #senseClick(affordanceId: string): void {
+    this.#fireAssisted(affordanceId, { source: 'user', invoke: false }, { inferred: true });
+  }
+
+  // -------------------------------------------------------------------------
   // Settlement latches — the promise side of fire() (see traverse/settlement.ts)
   // -------------------------------------------------------------------------
 
@@ -2629,6 +3176,12 @@ export class Session {
     effectStatus: FireSettlement['effectStatus'],
     extra?: SettlementExtra,
   ): FireSettlement {
+    // D21 — THE ONE PLACE A FIRE COMES TO REST, whichever arm brought it here,
+    // so the capture's `after` block is stamped exactly once and BEFORE the copy
+    // below: a receipt carries how the action came to rest, and the sensing that
+    // lands a turn later rides the live record alone (the `arrival: 'observed'`
+    // precedent — a receipt taken at rest is never rewritten).
+    this.#closeCapture(record, effectStatus);
     return {
       effectStatus,
       outcome: record.outcome,
@@ -5554,36 +6107,6 @@ export function busyMark(busy: string | undefined): string {
 function describeKind(raw: unknown): string {
   const name: unknown = (raw as { constructor?: { name?: unknown } })?.constructor?.name;
   return typeof name === 'string' && name.length > 0 ? name : 'value';
-}
-
-/**
- * Bounded, firewall-safe copy of a handler's return value for the DATA channel.
- * Caps depth/breadth/string length (search results can be large), drops
- * functions, and tolerates cycles via the depth cap — so a handler return can
- * never blow up a tool result or smuggle live references into the record.
- */
-function sanitizeProduced(value: unknown, depth = 0): unknown {
-  if (typeof value === 'function') return undefined;
-  if (typeof value === 'string') return value.length > 200 ? `${value.slice(0, 200)}…` : value;
-  // A bigint survives structuredClone — this library's usual wire bar — and then
-  // THROWS in JSON.stringify, which is how every MCP result crosses. One app
-  // value of this type would cost the model the whole answer (facts, actions and
-  // journeys), so it crosses as its decimal digits: the same number, in the only
-  // type JSON has for it.
-  if (typeof value === 'bigint') return `${value}`;
-  if (value === null || typeof value !== 'object') return value; // number, boolean, undefined
-  if (depth >= 4) return null; // deep enough — and a cycle backstop
-  if (Array.isArray(value)) {
-    return value.slice(0, 30).map((item) => sanitizeProduced(item, depth + 1));
-  }
-  const out: Record<string, unknown> = {};
-  let count = 0;
-  for (const [key, child] of Object.entries(value)) {
-    if (count++ >= 40) break;
-    const clean = sanitizeProduced(child, depth + 1);
-    if (clean !== undefined) out[key] = clean;
-  }
-  return out;
 }
 
 /**

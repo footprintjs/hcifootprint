@@ -78,3 +78,46 @@ export function registrationTypechecks(node: HTMLElement, listener: (event: Sens
   asRoot.addEventListener('click', listener, { capture: true });
   asRoot.removeEventListener('click', listener, { capture: true });
 }
+
+// ---------------------------------------------------------------------------
+// D21 — the ANCHOR port (src/contextful/anchor-port.ts), same claim, same proof
+// ---------------------------------------------------------------------------
+import type {
+  AnchorDocument,
+  AnchorElement,
+  AnchorEvent,
+  AnchorObserver,
+  AnchorObserverCtor,
+  AnchorView,
+} from '../../src/contextful/anchor-port.js';
+
+/** The element an app hands over as an action's anchor. */
+export function anchorSatisfiesThePort(node: HTMLElement): AnchorElement {
+  return node;
+}
+
+/** The document it reaches its view through, and the view that owns the observer. */
+export function anchorDocumentSatisfiesThePort(node: Document): AnchorDocument {
+  return node;
+}
+
+// `Window & typeof globalThis` is exactly what `document.defaultView` is typed
+// as, and it is where the global `MutationObserver` declaration lives — the bare
+// `Window` interface does not carry it.
+export function anchorViewSatisfiesThePort(view: Window & typeof globalThis): AnchorView {
+  return view;
+}
+
+/** A real MutationObserver — and the constructor the view publishes. */
+export function realObserverSatisfiesThePort(observer: MutationObserver): AnchorObserver {
+  return observer;
+}
+
+export function realObserverCtorSatisfiesThePort(ctor: typeof MutationObserver): AnchorObserverCtor {
+  return ctor;
+}
+
+/** The event, whose `isTrusted` is the whole mis-attribution guard here too. */
+export function anchorEventSatisfiesThePort(event: MouseEvent): AnchorEvent {
+  return event;
+}
