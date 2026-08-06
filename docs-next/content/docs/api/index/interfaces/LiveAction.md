@@ -22,7 +22,7 @@ snapshots — same key means same action.
 
 > `optional` **binding?**: [`Binding`](/api/index/type-aliases/Binding)
 
-Defined in: [src/tree/types.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L43)
+Defined in: [src/tree/types.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L47)
 
 How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
@@ -36,7 +36,7 @@ How to reach it on screen (optional — L0b actuation; handlers don't need it).
 
 > `optional` **blockedBecause?**: [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| (() => [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| `undefined`)
 
-Defined in: [src/tree/types.ts:93](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L93)
+Defined in: [src/tree/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L97)
 
 YOUR OWN REASON THIS CONTROL IS OFF, and who clears it — served only while
 the control is off, and only ever as data.
@@ -88,11 +88,39 @@ about the control, never "idle", and there is no boolean form.
 
 ***
 
+### concurrency?
+
+> `optional` **concurrency?**: [`ConcurrencyPolicy`](/api/index/interfaces/ConcurrencyPolicy)
+
+Defined in: [src/tree/types.ts:237](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L237)
+
+MAY A SECOND FIRE OVERLAP AN UNRESOLVED FIRST? Default `'parallel'` — what
+every release before this one did.
+
+```ts
+'pay-invoice': {
+  does: 'Pay the invoice', confirm: true, writes: ['invoice.paid'],
+  concurrency: { mode: 'single-flight', scope: 'payload' },
+}
+```
+
+Under `'single-flight'` a fire made while a prior occurrence is still
+unresolved is refused `PRIOR_FIRE_PENDING`, carrying that fire's id and the
+doors that can settle it. It clears on settlement and on nothing else — no
+timeout, no second look, and not the caller reporting it done. See
+[ConcurrencyPolicy](/api/index/interfaces/ConcurrencyPolicy).
+
+#### Inherited from
+
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`concurrency`](/api/index/interfaces/RegisteredActionDef#concurrency)
+
+***
+
 ### confirm?
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/tree/types.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L113)
+Defined in: [src/tree/types.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L117)
 
 Requires explicit confirmation (the high-effect gate).
 
@@ -106,7 +134,7 @@ Requires explicit confirmation (the high-effect gate).
 
 > **does**: `string`
 
-Defined in: [src/tree/types.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L41)
+Defined in: [src/tree/types.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L45)
 
 AUTHORED intent, one string two readers (consumer label = agent tool description).
 
@@ -130,7 +158,7 @@ False = on screen but greyed out (flows to TOOL_DISABLED). Default true.
 
 > `optional` **enabledWhen?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L59)
+Defined in: [src/tree/types.ts:63](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L63)
 
 Is this control currently CLICKABLE? Declarative disabledness — a different
 question from `when`, which decides whether the control is here at all. A
@@ -150,11 +178,41 @@ its position in the tree.
 
 ***
 
+### freshness?
+
+> `optional` **freshness?**: [`FreshnessPolicy`](/api/index/interfaces/FreshnessPolicy)
+
+Defined in: [src/tree/types.ts:219](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L219)
+
+WHAT THIS CONTROL DOES WHEN SOMETHING IT WAS OFFERED UNDER HAS SINCE MOVED
+— declared per axis, and `'disclose'` (today's behaviour) wherever you say
+nothing.
+
+```ts
+'settle-claim': {
+  does: 'Settle the claim',
+  reads: ['claim.total'], writes: ['purse.left'],
+  freshness: { readChanges: 'require-ack', writeChanges: 'refuse' },
+}
+```
+
+It is the enforceable sibling of the `staleReads` / `staleWrites` stamps,
+which say the same thing and refuse nothing. Declaring it overrides the
+session default AXIS BY AXIS, and an enforcing axis makes one new demand of
+the caller: cite the offer you planned against
+([FireOptions.offerId](/api/index/interfaces/FireOptions#offerid)). See [FreshnessPolicy](/api/index/interfaces/FreshnessPolicy).
+
+#### Inherited from
+
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`freshness`](/api/index/interfaces/RegisteredActionDef#freshness)
+
+***
+
 ### goTo?
 
 > `optional` **goTo?**: `string`
 
-Defined in: [src/tree/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L111)
+Defined in: [src/tree/types.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L115)
 
 Page this action claims to navigate to (a top-level page id).
 
@@ -168,7 +226,7 @@ Page this action claims to navigate to (a top-level page id).
 
 > `optional` **handler?**: [`ActionHandler`](/api/index/type-aliases/ActionHandler)
 
-Defined in: [src/traverse/nav-session.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L71)
+Defined in: [src/traverse/nav-session.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L75)
 
 #### Inherited from
 
@@ -180,7 +238,7 @@ Defined in: [src/traverse/nav-session.ts:71](https://github.com/footprintjs/hcif
 
 > `optional` **humanDecides?**: [`HumanDecides`](/api/index/interfaces/HumanDecides)
 
-Defined in: [src/tree/types.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L157)
+Defined in: [src/tree/types.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L161)
 
 THIS CHOICE IS THE PERSON'S TO MAKE — not a gate on the agent acting, but a
 statement that the decision itself belongs to a human.
@@ -215,7 +273,7 @@ exists for it. See [HumanDecides](/api/index/interfaces/HumanDecides).
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/tree/types.ts:124](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L124)
+Defined in: [src/tree/types.ts:128](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L128)
 
 Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
 or the literal `'none'`, meaning "this control takes NO input". A caller
@@ -262,11 +320,69 @@ Node path the action lives on (a page or declared container).
 
 ***
 
+### observability?
+
+> `optional` **observability?**: [`Observability`](/api/index/type-aliases/Observability)
+
+Defined in: [src/tree/types.ts:199](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L199)
+
+HOW WOULD ANYONE SEE THAT THIS HAPPENED — `'state-delta'`,
+`'postcondition'`, `'navigation'`, `'external'` or `'unobservable'`.
+
+Declared, never inferred, and it refuses nothing on its own. A session
+created with `effectPolicy: { highEffectRequiresVerify: true }` reads it and
+refuses a high-effect action whose effect nobody could check — where
+`'state-delta'` deliberately does NOT count, because key presence is not
+value correctness. See [Observability](/api/index/type-aliases/Observability).
+
+Two coherence rules are refused HERE, at authoring, whether or not any
+session enforces anything: `'postcondition'` needs a `verify`, and
+`'navigation'` needs a `goTo`.
+
+#### Inherited from
+
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`observability`](/api/index/interfaces/RegisteredActionDef#observability)
+
+***
+
+### principalPolicy?
+
+> `optional` **principalPolicy?**: [`PrincipalPolicy`](/api/index/interfaces/PrincipalPolicy)
+
+Defined in: [src/tree/types.ts:184](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L184)
+
+WHO MAY PERFORM THIS, WHOSE CHOICE IT IS, AND WHETHER A RECORDED YES IS
+NEEDED — three separate facts, three fields, never one word.
+
+`humanDecides` above is disclosure and stays disclosure. This is its
+enforceable neighbour, and it enforces NOTHING until the session is created
+with `enforcePrincipalPolicy: true` — declaring it changes not one byte
+otherwise.
+
+```ts
+'transfer-funds': {
+  does: 'Transfer the balance',
+  confirm: true,
+  principalPolicy: { mayInvoke: ['human'], requiresHumanApproval: true },
+}
+```
+
+Note the vocabulary: a policy names an ACTOR (`'human'`), while a record
+files an act under a principal (`'user'`). Writing `mayInvoke: ['user']` is
+refused at this door with the correction, rather than silently locking a
+person out of their own control. See [PrincipalPolicy](/api/index/interfaces/PrincipalPolicy).
+
+#### Inherited from
+
+[`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef).[`principalPolicy`](/api/index/interfaces/RegisteredActionDef#principalpolicy)
+
+***
+
 ### reads?
 
 > `optional` **reads?**: `string`[]
 
-Defined in: [src/tree/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L109)
+Defined in: [src/tree/types.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L113)
 
 State keys this action's OUTCOME DEPENDS ON — the read side of `writes`,
 and the one an app is asked for so a reader can be told that something it
@@ -290,7 +406,7 @@ for the law and for what the serving layer does with it.
 
 > `optional` **role?**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/tree/types.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L158)
+Defined in: [src/tree/types.ts:238](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L238)
 
 #### Inherited from
 
@@ -302,7 +418,7 @@ Defined in: [src/tree/types.ts:158](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **verify?**: [`VerifyContract`](/api/index/type-aliases/VerifyContract)
 
-Defined in: [src/tree/types.ts:132](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L132)
+Defined in: [src/tree/types.ts:136](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L136)
 
 The app's OWN check that firing this really did something — evaluated once,
 at settlement, and the only thing that can turn a handler that merely RAN
@@ -320,7 +436,7 @@ may read whatever the app can see, the DOM included.
 
 > `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L45)
+Defined in: [src/tree/types.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L49)
 
 Availability guard over projected state (AND-composed with every ancestor `when`).
 
@@ -334,7 +450,7 @@ Availability guard over projected state (AND-composed with every ancestor `when`
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/tree/types.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L95)
+Defined in: [src/tree/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L99)
 
 State keys this action claims to change.
 

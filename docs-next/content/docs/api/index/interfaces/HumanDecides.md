@@ -4,7 +4,7 @@ title: HumanDecides
 
 # Interface: HumanDecides
 
-Defined in: [src/atom/types.ts:345](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L345)
+Defined in: [src/atom/types.ts:630](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L630)
 
 A DECISION THAT BELONGS TO A PERSON — declared once, on the control they
 answer through.
@@ -56,7 +56,7 @@ because a card is the sharper referent.
 
 > `optional` **about?**: `string`
 
-Defined in: [src/atom/types.ts:360](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L360)
+Defined in: [src/atom/types.ts:645](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L645)
 
 The app's own words for WHAT is being decided ('which shipping speed').
 
@@ -77,7 +77,7 @@ than silent truncation for a string the author can fix once.
 
 > `optional` **doneWhen?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:381](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L381)
+Defined in: [src/atom/types.ts:666](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L666)
 
 The app's own "it has been decided", as a plain serializable `WhereFilter`
 over projected state — evaluated by the same evaluator, and under the same

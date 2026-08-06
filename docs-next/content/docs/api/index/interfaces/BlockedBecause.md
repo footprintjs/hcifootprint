@@ -4,7 +4,7 @@ title: BlockedBecause
 
 # Interface: BlockedBecause
 
-Defined in: [src/atom/types.ts:293](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L293)
+Defined in: [src/atom/types.ts:578](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L578)
 
 THE APP'S OWN REASON A CONTROL IS OFF — and WHO can clear it.
 
@@ -36,7 +36,7 @@ are unchanged — this rides BESIDE them.
 
 > **clearedBy**: `"user"` \| `"app"` \| `"invalid"`
 
-Defined in: [src/atom/types.ts:297](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L297)
+Defined in: [src/atom/types.ts:582](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L582)
 
 Who clears it: 'app' → the agent waits; 'user' → interrupt the person; 'invalid' → report a validation problem.
 
@@ -46,6 +46,6 @@ Who clears it: 'app' → the agent waits; 'user' → interrupt the person; 'inva
 
 > **says**: `string`
 
-Defined in: [src/atom/types.ts:295](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L295)
+Defined in: [src/atom/types.ts:580](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L580)
 
 Registration-site app text — the same string class, and the same trust tier, as `does`.

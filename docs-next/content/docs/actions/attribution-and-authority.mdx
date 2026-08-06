@@ -1,0 +1,234 @@
+---
+title: Who did it, who may, and how you would know
+description: "Every transition says which rung filed it and what that is worth. Then three opt-in policies: refuse the guesses, refuse the wrong actor, and refuse a high-effect action nobody could check."
+---
+
+## The failure this prevents
+
+The same measurement behind [freshness](doc:freshness-and-single-flight). In **20 of 33**
+residual-harm rows of a preregistered campaign, the decisive warning was on the exact control, at the
+exact turn, and the model fired anyway.
+
+**A warning can be ignored. A required protocol step cannot be skipped silently.**
+
+Freshness answers *was the world still the one you planned in*. This page answers the three questions
+a reader of the log asks next — and each one used to be answerable only by guessing.
+
+| question | always on, refuses nothing | opt-in enforcement |
+| --- | --- | --- |
+| who did it, and how do we know | `transition.attribution` | `attributionPolicy: 'strict'` |
+| who is allowed to | `mayInvoke` / `decisionOwner` on the row | `enforcePrincipalPolicy: true` |
+| how would anyone see it happened | `observability` | `effectPolicy: { highEffectRequiresVerify: true }` |
+
+<Callout type="info">
+  The left column is on for everyone and takes nothing away. The right column is off until you turn
+  it on, and turning it off again restores byte-identical behaviour.
+</Callout>
+
+## Every transition says which rung filed it
+
+`updateState()` associates a state delta with a fire through a ladder — an explicit `transitionId`, a
+report from inside the handler's own call, a unique signature, the oldest pending fire. Every rung
+used to write the same shape of row, so a log reader could not tell an observation from a guess.
+
+```ts
+const fired = session.fire('bank.transfer', { source: 'agent' });
+fired.transition.attribution;
+// { principal: 'agent', basis: 'caller-asserted', certainty: 'observed' }
+
+session.updateState({ balance: 40 });          // nothing named this delta
+// the row is now { principal: 'agent', basis: 'queue-order', certainty: 'inferred' }
+```
+
+| basis | how the association was made | certainty |
+| --- | --- | --- |
+| `caller-asserted` | a fire came through `fire()` and named its principal | observed |
+| `named-by-report` | `updateState({ transitionId })` — the app named the fire | observed |
+| `handler-window` | the report came from inside that fire's own handler call | observed |
+| `direct-call` | the app called its own [`contextful`](doc:contextful-actions) function | observed |
+| `declared-stimulus` | the caller said the world moved (`stimulus` / `principal`) | observed |
+| `external-report` | `observeEffect` — a source outside this client, named by the app | observed |
+| `sensed-click` | an anchor saw a trusted click; *which* action is a guess | inferred |
+| `signature-match` | the delta matched one action's declared writes — a shape, not an identity | inferred |
+| `queue-order` | the oldest pending fire, in arrival order | inferred |
+| `unknown` | nobody named anything and nothing matched | unknown |
+
+**`certainty` grades the association between the record and the motion — never an identity, and never
+a value.** `caller-asserted` is `observed` because the library watched the call come through its own
+door; *who* was behind that door is your word, which is what ASSERTED is doing in the name.
+
+**Certainty only ever goes down.** A fire is stamped when it happens and settled later by a report,
+and the row's honest claim afterwards is the weakest link in that chain. A fire closed by FIFO is an
+inferred row whatever door it came through; a fire whose *action* an anchor guessed stays inferred
+however precisely you then name the row. An upgrade path is a laundering path.
+
+## `attributionPolicy: 'strict'` — refuse the guesses
+
+```ts
+map.createSession({ node: 'bank', state, attributionPolicy: 'strict' });
+```
+
+Exactly two rungs change, and nothing else moves:
+
+- **`queue-order` is never used.** Arrival order is not evidence of anything.
+- **`signature-match` must be unambiguous.** The default asks *do one pending fire's declared writes
+  all appear here?* Strict asks a second question: *could anything else have produced this?* A second
+  pending fire whose writes merely overlap the delta is a plausible source too, so strict requires the
+  delta to touch exactly one candidate at all.
+
+<Callout type="warn">
+  **The trade, and it is why this is opt-in.** An unplaceable delta becomes an `'unknown'` stimulus
+  and the fire **stays pending** rather than being falsely closed. It then waits forever — visibly, in
+  `session.pending()` and `session.awaitingSettlement()` — instead of quietly borrowing somebody
+  else's report. Apps whose state taps pass `transitionId` lose nothing at all.
+</Callout>
+
+The stamp itself is unaffected by the switch: every transition carries its attribution in both modes,
+because disclosure is never a policy.
+
+## `principalPolicy` — who may perform this
+
+Three facts that are constantly mistaken for one, kept in three fields.
+
+```ts
+'transfer': {
+  does: 'Transfer the balance',
+  writes: ['balance'],
+  principalPolicy: {
+    mayInvoke: ['human'],          // ACTOR IDENTITY  — the only half enforcement gates
+    decisionOwner: 'human',        // DECISION OWNER  — disclosure, never a permission
+    requiresHumanApproval: true,   // CONSENT STATUS  — a recorded yes is required
+  },
+}
+```
+
+```ts
+map.createSession({ node: 'bank', state, enforcePrincipalPolicy: true });
+
+session.fire('bank.transfer', { source: 'agent' });
+// { ok: false, reason: 'PRINCIPAL_NOT_ALLOWED', affordanceId: 'bank.transfer',
+//   required: ['human'], attempted: 'agent' }
+```
+
+The refusal **names the requirement**, because an agent told only *no* tries again, while an agent
+told *a human must do this* hands it to the person. Nothing about the world changes this one, and the
+served sentence says so rather than inviting a retry.
+
+<Callout type="warn">
+  **`decisionOwner` is never enforced.** An owner is not a permission. Making "this is the customer's
+  choice" silently mean "the agent is forbidden" would be a refusal nobody wrote — if you want the
+  agent kept out, write `mayInvoke: ['human']` and mean it. [`humanDecides`](doc:whose-decision-it-is)
+  stays exactly what it was: disclosure, and this is its enforceable neighbour rather than its
+  replacement.
+</Callout>
+
+**Two vocabularies, one bridge.** A record *files* an act under a principal (`'user'`); a policy
+*names* a kind of actor (`'human'`). `mayInvoke: ['user']` is refused loudly at both authoring doors,
+with the correction in hand — ignoring it would silently lock a person out of their own control. And
+`mayInvoke: []` is refused too: an action nobody may ever perform is an action not to declare.
+
+It never refuses reality. The app self-reporting motion it already performed (`invoke: false`, the
+record-only DOM sensor) passes untouched.
+
+<Callout type="info">
+  A port carries a principal — `serveToAgent(session, { source: 'agent' })`, the default. That is what
+  makes the refusal answerable, and it is the sharp edge: a port built with `source: 'user'` is
+  exempt. See [receipts](doc:receipts).
+</Callout>
+
+## `observability` — how would anyone see this happened
+
+One word, next to the action. Declared, never inferred: the library does not read your handler, watch
+the DOM, or promote a `writes` list into an answer.
+
+```ts
+'pay': { does: 'Pay the invoice', highEffect: true, writes: ['paid'], observability: 'external' }
+```
+
+```ts
+map.createSession({ node: 'shop', state, effectPolicy: { highEffectRequiresVerify: true } });
+```
+
+| word | what it claims | passes the policy |
+| --- | --- | --- |
+| `postcondition` | you declared a [`verify`](doc:receipts) contract — a real check | yes |
+| `navigation` | the effect **is** page motion, to the declared destination | yes |
+| `external` | it happens where this client cannot see, and you will report it | yes |
+| `state-delta` | the declared `writes` appear in a reported delta | **no** |
+| `unobservable` | you say nobody can tell from here | **no** |
+
+<Callout type="warn">
+  **`state-delta` is refused on purpose, and it is the point of the feature.** `effectVerified` checks
+  that the declared write **keys** appeared. Key presence is not value correctness: a handler that
+  wrote `orderId: null` satisfies it exactly as a real order does. The comfortable version of this
+  feature is the one that accepts key presence and calls it verification.
+</Callout>
+
+```ts
+session.fire('shop.pay', { source: 'agent' });
+// { ok: false, reason: 'EFFECT_NOT_VERIFIABLE', affordanceId: 'shop.pay',
+//   needs: 'postcondition', observability: 'state-delta' }
+```
+
+`needs` says which half is missing — `'observability'` when you declared nothing, `'postcondition'`
+when you declared something that is not a check. The audience is **you**, and the served sentence
+tells the model that plainly instead of sending it looking for a workaround it does not have.
+
+## `observeEffect` — the app hands in what only it can see
+
+A payment clears at a processor, a job finishes on a queue, a letter is posted. The browser sees none
+of it, so the honest answer used to be `'unobservable'` forever.
+
+```ts
+const fired = session.fire('checkout.pay', { source: 'agent' });
+// …the webhook arrives, minutes later…
+session.observeEffect(fired.transition.id, {
+  source: 'stripe-webhook',
+  status: 'performed',
+  evidenceRef: 'evt_1P2x…',
+});
+```
+
+<Callout type="warn">
+  **What is recorded is the report, never the fact.** The row says a source you named said this
+  happened, with a **reference** to evidence this library never fetches, dereferences or interprets.
+  Nothing here is proof the effect occurred, and no sentence anywhere in this library says it is.
+</Callout>
+
+- **First report settles; every report is kept.** A later one — a reversal, a second source — is
+  appended to `transition.observations`, and `settled: false` says the receipt it did not rewrite.
+- **It moves no state.** `effectVerified` stays honestly `'unobservable'`: no report exists to check
+  the declared writes against, and that has not changed because somebody said the work was done.
+- **It still asks your own `verify` contract.** A report from outside is not a licence to skip your
+  own check.
+- **It is a fourth settling door.** A [single-flight](doc:freshness-and-single-flight) hold clears on
+  it, and `howToSettle` names it.
+
+### The served answer says who answered
+
+`effectStatus: 'performed'` is the same word for a handler the library watched run and for a sentence
+handed in about a processor it cannot see, so `did_it_work` serves the difference:
+
+```json
+{ "effectStatus": "performed",
+  "settledBy": "external-report",
+  "reportedBy": "ops-desk",
+  "evidenceOnRecord": true,
+  "settledByMeans": "The word above came from OUTSIDE this client: a source the app named reported this action's outcome, and this library recorded that report without checking it. …" }
+```
+
+Names and presence only. The `evidenceRef` itself **never crosses** — the library does not follow it,
+so quoting it would dress a pointer up as a check. You hold it; read the trail with
+`session.observationsOf(transitionId)`.
+
+## What none of it says
+
+- **No value crosses.** Action ids, actor kinds, key names, and one label you wrote, capped.
+- **An acknowledgement, an approval and a report are acts, never understandings.** Each proves a
+  protocol step was performed. None is evidence that anybody read a value, weighed a risk, or
+  comprehended a consequence.
+- **A refusal is your declared response to a mechanical fact**, not the library's opinion about the
+  plan.
+
+The full law, including the alternatives that were considered and refused, is in
+[docs/design/attribution-authority-and-evidence.md](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/attribution-authority-and-evidence.md).

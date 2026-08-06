@@ -1,0 +1,211 @@
+---
+title: When the world moved under the row
+description: "The tier above disclosure: cite the row you planned against, declare what a control does when something it was offered under has since moved, and allow one occurrence at a time. All of it opt-in; none of it on by default."
+---
+
+## The failure this prevents
+
+A preregistered campaign measured what a warning is worth. In **20 of 33** residual-harm rows, the
+decisive warning was on the exact control, at the exact turn, and the model fired anyway.
+
+`staleReads` and `staleWrites` say a key moved and [refuse
+nothing](/actions/reading-an-action-row) — correctly, because whether that matters is *meaning*, and
+meaning is yours. This page is the other half: a way for you to say that it matters, and to get a
+refusal that names what moved.
+
+**A warning can be ignored. A required protocol step cannot be skipped silently.**
+
+<Callout type="info">
+  Everything here is off unless you turn it on. A session and a graph that declare neither policy
+  serve byte-identical rows and refuse byte-identical fires.
+</Callout>
+
+## Step 1 — every served row now has a name
+
+`available()` stamps each edge with an `offerRef`, and `fire()` may cite it.
+
+```ts
+const edge = session.available().edges.find((e) => e.affordanceId === 'ledger.settle')!;
+edge.offerRef;
+// { offerId: 'offer#3', actionId: 'ledger.settle', node: 'ledger', stateVersion: 7, structureVersion: 2 }
+
+session.fire('ledger.settle', { source: 'agent', offerId: edge.offerRef!.offerId });
+```
+
+**It is a citation, not a capability.** It is printed on the row a model reads, and holding one
+authorizes nothing — guard, payload shape, disabled, materialisation and human approval all run
+exactly as they did. What it buys is a *join*: the library can now compare what was true when you
+were offered a row against what is true now. `expectedVersion` could only approximate that, because
+it was a number you typed by hand and tied to no row.
+
+Read the record back with `session.offerFor(offerId)`:
+
+```ts
+session.offerFor('offer#3');
+// { offerId: 'offer#3', actionId: 'ledger.settle', node: 'ledger',
+//   stateVersion: 7, structureVersion: 2, version: 9, servedAt: 1754500000000,
+//   guardEvaluated: ['claim.stage'], guardUnevaluated: [],
+//   staleReads: [], staleWrites: [] }
+```
+
+An offer's id is minted from its **facts**, so looking twice at an unchanged world hands back the
+same id — a session that looks ten times mints one offer per action, not ten. The ledger is bounded
+(`maxOffers`, default 500) and says so: `session.offersDropped()` counts evictions on every session,
+and the first one warns you *where citations are required* — the only place a dropped one costs
+anything. A fire citing a dropped id is refused with `why: 'evicted'` rather than being told it made
+the id up; one that cites a **retained** id minted for a different control is refused
+`why: 'other-action'`, with `offeredFor` naming the row it does belong to. Only `'unknown'` means an
+id this session never handed out.
+
+## Step 2 — declare what a moved world costs
+
+Per action, or once for the session. Four axes, three answers.
+
+```ts
+'settle-claim': {
+  does: 'Settle the claim',
+  reads: ['claim.total'],
+  writes: ['purse.left'],
+  freshness: { readChanges: 'require-ack', writeChanges: 'refuse' },
+}
+```
+
+```ts
+map.createSession({ node: 'ledger', state, freshness: { writeChanges: 'require-ack' } });
+```
+
+| axis | what it compares against the offer |
+| --- | --- |
+| `guardChanges` | a key this control's availability was judged on has been committed since |
+| `readChanges` | a declared `reads` key has been committed since |
+| `writeChanges` | a declared `writes` key has been committed since |
+| `positionChanges` | the cursor is on a different page, or the served surface has changed |
+
+| answer | what a fire gets |
+| --- | --- |
+| `'disclose'` | **the default** — the stamp on the row, and nothing refused. Today's behaviour. |
+| `'require-ack'` | `ACKNOWLEDGEMENT_REQUIRED` until the caller performs the step |
+| `'refuse'` | `WORLD_MOVED`, naming the axes and the keys |
+
+An action's answer wins **axis by axis** over the session default, so adjusting one line does not
+switch the other three off.
+
+```ts
+const fired = session.fire('ledger.settle', { source: 'agent', offerId });
+// { ok: false, reason: 'WORLD_MOVED', affordanceId: 'ledger.settle', offerId: 'offer#3',
+//   moved: [{ axis: 'writes', response: 'refuse', keys: ['purse.left'] }] }
+```
+
+Key names only. Nothing here holds, compares or serves a value, and `moved` never says *who* moved
+the key or that your write would be wrong.
+
+<Callout type="warn">
+  An enforcing axis requires the fire to cite an offer (`OFFER_REQUIRED`). There is nothing to
+  compare a fire against otherwise — and judging against "now" would grade every uncited fire as
+  fresh, which makes the policy something a caller opts out of by saying less.
+</Callout>
+
+## Step 3 — the acknowledgement, and what it does not prove
+
+`acknowledgeStale` now writes an append-only row and hands back its id.
+
+```ts
+const { cleared, acknowledgementId } =
+  session.acknowledgeStale('ledger.settle', ['claim.total'], { offerId });
+
+session.fire('ledger.settle', { source: 'agent', offerId, acknowledgementId });
+```
+
+```ts
+session.acknowledgements();
+// [{ acknowledgementId: 'ack#1', actionId: 'ledger.settle', offerId: 'offer#3',
+//    principal: 'agent', keys: ['claim.total'],
+//    acknowledgedAtStateVersion: 7, timestamp: 1754500000000 }]
+```
+
+<Callout type="warn">
+  **This records that a protocol step was performed.** It is not evidence that a model read a value,
+  understood a consequence, weighed a risk, or decided well. This library never serves a value, so it
+  cannot know any of that — and no field on the row claims it.
+</Callout>
+
+A row **stops authorizing** as soon as `stateVersion` moves again (`ACKNOWLEDGEMENT_STALE`): a step
+performed against different facts is not a step performed against these. The row itself is never
+edited or rewritten — it stays on the ledger as what it always was.
+
+A row that named keys covers exactly those keys. A row that named none covers everything for that
+control — the caller made the larger statement, not the smaller one.
+
+**The trail is bounded, and says so.** The refused → acknowledge → refire loop writes one row per
+turn, so the ledger keeps the most recent `maxAcknowledgements` (default 500) and drops the oldest
+whole. Because that means a cited receipt can expire, the bound is answered rather than absorbed:
+`session.acknowledgementsDropped()` counts evictions, the integrator is warned once, and a fire
+citing a dropped receipt is refused with `why: 'evicted'` — a step you really did perform, dropped by
+this library's own limit. It is never reported as a pointer you made up.
+
+<Callout type="info">
+  This warning is said to **every** session that fills the ledger, unlike the offer ledger's. Nothing
+  enters this one except through an explicit `acknowledgeStale` call, so it can never reach somebody
+  who switched nothing on.
+</Callout>
+
+## Step 4 — one occurrence at a time
+
+The mechanism the repeated-payment row demanded.
+
+```ts
+'pay-invoice': {
+  does: 'Pay the invoice',
+  confirm: true,
+  writes: ['invoice.paid'],
+  concurrency: { mode: 'single-flight', scope: 'payload' },
+}
+```
+
+```ts
+session.fire('counter.pay', { source: 'agent', payload: { invoice: 'A' } });   // ok
+session.fire('counter.pay', { source: 'agent', payload: { invoice: 'A' } });
+// { ok: false, reason: 'PRIOR_FIRE_PENDING', affordanceId: 'counter.pay',
+//   pendingTransitionId: 'counter.pay#0', scope: 'payload', howToSettle: '…' }
+```
+
+Default is `'parallel'` — what every release before this one did. `scope` is `'action'` (default,
+one at a time whatever it carries), `'instance'` (one per repeats card) or `'payload'` (one per
+identical input).
+
+**It clears on settlement and on nothing else** — and there are four doors: your handler resolving or
+throwing, the app reporting the state delta, `session.reject(transitionId)`, or (for an effect this
+client cannot see) [`session.observeEffect(transitionId, …)`](doc:attribution-and-authority).
+`howToSettle` names all four. No timeout expires it — a clock is not evidence, and *it has been a
+while* is evidence neither of done nor of failed. Not another look, not a question about it, and not
+the caller saying the first one finished.
+
+Under `scope: 'payload'`, a second fire goes through only when the two inputs are **provably**
+different. An input this library cannot render faithfully (a `Map`, a `Date`, a cycle) is treated as
+the same one: on a repeat-suppression boundary an unprovable difference is not a difference.
+
+And it never refuses reality — the app self-reporting motion it already performed (`invoke: false`,
+the record-only DOM sensor) passes untouched.
+
+## Where the gates sit
+
+```
+guard → payload → disabled → materialisation → PRIOR_FIRE_PENDING → freshness → human approval → run
+```
+
+After every capability refusal, so a control that is greyed out or wired to nothing still says the
+word that was already true. And **before** the human-approval gate, under that gate's own law: nobody
+is sent to approve an action this session is about to turn away. The served row carries the verdict
+too (`heldByPriorFire`), so a serving layer stops summoning a person to confirm a fire it will refuse
+as a repeat.
+
+## What none of it says
+
+- **No value crosses.** Key names, page ids, version numbers, session-local ids.
+- **It does not say who moved the key** — only that a key this control declares was committed since
+  the row went out. If your own earlier fire wrote it, that is still a key that moved.
+- **A refusal is your declared response to a mechanical fact**, not the library's opinion about your
+  plan.
+
+The full law, including the acts that were considered and refused, is in
+[docs/design/freshness-and-single-flight.md](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/freshness-and-single-flight.md).

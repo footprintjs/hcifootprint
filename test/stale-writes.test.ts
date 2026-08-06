@@ -48,6 +48,15 @@ import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { ServeResult } from '../src/index.js';
 
 /**
+ * `acknowledgeStale` now also hands back the id of the append-only row it wrote
+ * ({@link StaleAcknowledgement}), so a `'require-ack'` fire can CITE the step it
+ * performed. `cleared` means exactly what it always meant, which is what every
+ * assertion below is still about — the id is matched loosely so these keep
+ * testing the bookkeeping and not a counter.
+ */
+const anyAck = expect.stringMatching(/^ack#\d+$/) as unknown as string;
+
+/**
  * The travel board from the campaign: a control that HOLDS a room — its
  * declared writes are exactly the keys a person holding one moves — beside a
  * control that reads a key it does not write, and one that declares neither.
@@ -270,7 +279,7 @@ describe('acknowledgement — an act, never an understanding', () => {
     session.updateState({ 'itinerary.roomHeld': true }, { stimulus: 'push' });
     expect(row(port, 'trip.hold-room', lastLook)['staleWrites']).toEqual(['itinerary.roomHeld']);
 
-    expect(session.acknowledgeStale('trip.hold-room')).toEqual({ cleared: ['itinerary.roomHeld'] });
+    expect(session.acknowledgeStale('trip.hold-room')).toEqual({ cleared: ['itinerary.roomHeld'], acknowledgementId: anyAck });
     expect(session.carriedStale('trip.hold-room')).toEqual([]);
     expect(row(port, 'trip.hold-room', session.version)).not.toHaveProperty('staleWrites');
   });
@@ -285,11 +294,13 @@ describe('acknowledgement — an act, never an understanding', () => {
     row(port, 'trip.hold-room', lastLook);
     expect(session.acknowledgeStale('trip.hold-room', ['itinerary.roomHeld'])).toEqual({
       cleared: ['itinerary.roomHeld'],
+      acknowledgementId: anyAck,
     });
     expect(row(port, 'trip.hold-room', session.version)['staleWrites']).toEqual(['itinerary.roomBookings']);
     // Naming the last one is answering all of them.
     expect(session.acknowledgeStale('trip.hold-room', ['itinerary.roomBookings'])).toEqual({
       cleared: ['itinerary.roomBookings'],
+      acknowledgementId: anyAck,
     });
     expect(session.carriedStale('trip.hold-room')).toEqual([]);
     expect(row(port, 'trip.hold-room', session.version)).not.toHaveProperty('staleWrites');
@@ -301,10 +312,10 @@ describe('acknowledgement — an act, never an understanding', () => {
     session.updateState({ 'itinerary.roomHeld': true }, { stimulus: 'push' });
     row(port, 'trip.hold-room', lastLook);
     // A key nobody is carrying clears nothing, and says so.
-    expect(session.acknowledgeStale('trip.hold-room', ['trip.budget'])).toEqual({ cleared: [] });
+    expect(session.acknowledgeStale('trip.hold-room', ['trip.budget'])).toEqual({ cleared: [], acknowledgementId: anyAck });
     expect(session.carriedStale('trip.hold-room')).toEqual(['itinerary.roomHeld']);
     // A control nobody is carrying anything for, likewise.
-    expect(session.acknowledgeStale('trip.hold-flight')).toEqual({ cleared: [] });
+    expect(session.acknowledgeStale('trip.hold-flight')).toEqual({ cleared: [], acknowledgementId: anyAck });
   });
 
   it('USING THE CONTROL ANSWERS IT: the agent’s own fire clears the row it was on', () => {

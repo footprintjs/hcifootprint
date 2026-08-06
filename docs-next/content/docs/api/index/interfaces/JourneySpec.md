@@ -4,7 +4,7 @@ title: JourneySpec
 
 # Interface: JourneySpec
 
-Defined in: [src/atom/types.ts:252](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L252)
+Defined in: [src/atom/types.ts:537](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L537)
 
 A journey in the COMPILED vocabulary, before its id is attached — the shape
 that lands in [NavigationGraphSpec.journeys](/api/index/interfaces/NavigationGraphSpec#journeys) as a [Journey](/api/index/interfaces/Journey).
@@ -24,7 +24,7 @@ this whole layer is built on (navigation in, journey graph out).
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:254](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L254)
+Defined in: [src/atom/types.ts:539](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L539)
 
 AUTHORED planner-facing text (same string class as affordance descriptions).
 
@@ -34,7 +34,7 @@ AUTHORED planner-facing text (same string class as affordance descriptions).
 
 > `optional` **precondition?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:257](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L257)
+Defined in: [src/atom/types.ts:542](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L542)
 
 ***
 
@@ -42,6 +42,6 @@ Defined in: [src/atom/types.ts:257](https://github.com/footprintjs/hcifootprint/
 
 > **steps**: `string`[]
 
-Defined in: [src/atom/types.ts:256](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L256)
+Defined in: [src/atom/types.ts:541](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L541)
 
 Affordance ids, in canonical order. v0: linear; step-DAG is roadmap.

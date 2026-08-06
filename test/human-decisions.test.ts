@@ -702,6 +702,24 @@ describe('T-A12 frozen-unions-stay-frozen', () => {
       // revokeAsk (the ask book's third word) grew the union by exactly this
       // one — a conscious act, recorded here, exactly what the pin is for.
       | 'APPROVAL_REVOKED'
+      // Freshness and single-flight, each a conscious act recorded the same way.
+      | 'OFFER_REQUIRED'
+      | 'OFFER_NOT_ON_RECORD'
+      | 'WORLD_MOVED'
+      | 'ACKNOWLEDGEMENT_REQUIRED'
+      | 'ACKNOWLEDGEMENT_STALE'
+      | 'PRIOR_FIRE_PENDING'
+      // AND THE TWO THIS RELEASE ADDS — read what the pin is actually for
+      // before reading them as this test failing at its own job. It guards
+      // `humanDecides`: ownership is DISCLOSURE and mints no refusal word, and
+      // neither of these is one. `PRINCIPAL_NOT_ALLOWED` belongs to a separate
+      // declaration (`principalPolicy.mayInvoke`) that an integrator must switch
+      // on, and it is deliberately NOT reachable from `decisionOwner` — the test
+      // 'NEVER refuses on ownership' in principal-policy.test.ts is that claim's
+      // own pin. `EFFECT_NOT_VERIFIABLE` is about an app's missing declaration
+      // and touches no ownership surface at all.
+      | 'PRINCIPAL_NOT_ALLOWED'
+      | 'EFFECT_NOT_VERIFIABLE'
     > = true;
     expect(pin).toBe(true);
   });
@@ -729,6 +747,16 @@ describe('T-A12 frozen-unions-stay-frozen', () => {
       | 'APPROVAL_DECLINED'
       // grown with FireResult above, in lockstep — revokeAsk's refusal word.
       | 'APPROVAL_REVOKED'
+      | 'OFFER_REQUIRED'
+      | 'OFFER_NOT_ON_RECORD'
+      | 'WORLD_MOVED'
+      | 'ACKNOWLEDGEMENT_REQUIRED'
+      | 'ACKNOWLEDGEMENT_STALE'
+      | 'PRIOR_FIRE_PENDING'
+      // IN LOCKSTEP, as the two always are — see the sentence on the pin above
+      // for why neither of these is `humanDecides` growing a refusal.
+      | 'PRINCIPAL_NOT_ALLOWED'
+      | 'EFFECT_NOT_VERIFIABLE'
     > = true;
     expect(pin).toBe(true);
   });

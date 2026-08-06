@@ -14,6 +14,9 @@ const settlement = (over: Partial<FireSettlement> = {}): FireSettlement => ({
   transition: {
     id: 't#0',
     cause: { kind: 'fired', principal: 'agent', affordanceId: 'a' },
+    // Every transition carries how it came to be filed — the fire door's own
+    // basis here, because that is what a hand-built fire row would have.
+    attribution: { principal: 'agent', basis: 'caller-asserted', certainty: 'observed' },
     timestamp: 0,
     outcome: 'committed',
     fromNode: 'p',

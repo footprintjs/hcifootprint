@@ -6,7 +6,7 @@ title: buildNavigationGraph
 
 > **buildNavigationGraph**\<`Def`\>(`id`, `rawDef`): [`NavigationGraph`](/api/index/interfaces/NavigationGraph)\<[`NodePathsOf`](/api/index/type-aliases/NodePathsOf)\<`Def`\>\>
 
-Defined in: [src/tree/appmap.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/appmap.ts#L39)
+Defined in: [src/tree/appmap.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/appmap.ts#L44)
 
 Compile a navigation graph. The `const` type parameter preserves the literal
 node names, so the returned graph's session methods (registerActions,

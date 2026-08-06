@@ -4,7 +4,7 @@ title: Effect
 
 # Interface: Effect
 
-Defined in: [src/atom/types.ts:147](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L147)
+Defined in: [src/atom/types.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L223)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:147](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **navigatesTo?**: `string`
 
-Defined in: [src/atom/types.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L178)
+Defined in: [src/atom/types.ts:254](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L254)
 
 Page this affordance claims to move to. Reconciled by sync().
 
@@ -22,7 +22,7 @@ Page this affordance claims to move to. Reconciled by sync().
 
 > `optional` **reads?**: `string`[]
 
-Defined in: [src/atom/types.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L176)
+Defined in: [src/atom/types.ts:252](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L252)
 
 State keys this affordance's OUTCOME DEPENDS ON — the read side of the same
 declaration, and the half that was missing.
@@ -38,7 +38,7 @@ NOT the guard. `guard` keys are the PRECONDITION read set — whether the
 control is on offer at all — and they are already served as `evidence`.
 These are the keys whose values the outcome is computed FROM: a "settle the
 claim" button guarded on `claim.stage` may compute its amount from
-`claim.total`, and it is the second one a stale-world reader needs named.
+`order.total`, and it is the second one a staleness reader needs named.
 
 DECLARED, NEVER INFERRED. The library does not read your handler, guess
 from co-occurrence, or promote a guard key. Which keys matter is meaning,
@@ -55,6 +55,6 @@ last look, not that the value is wrong or that firing would be a mistake.
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/atom/types.ts:149](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L149)
+Defined in: [src/atom/types.ts:225](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L225)
 
 State keys this affordance claims to change. Verified at settlement.

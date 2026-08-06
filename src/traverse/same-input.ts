@@ -81,6 +81,19 @@ export function sameInput(a: unknown, b: unknown): InputVerdict {
 }
 
 /**
+ * The same rendering, handed out for a caller that needs a KEY rather than a
+ * verdict — single-flight, which has to hold what a pending fire carried and
+ * compare a later one against it without keeping the caller's object alive.
+ *
+ * ONE RENDERER, deliberately. Two canonical forms would let the approval gate
+ * and the repeat check disagree about whether two payloads are the same payload,
+ * and a disagreement of that shape is a second payment.
+ */
+export function renderInput(payload: unknown): string | undefined {
+  return canonical(payload);
+}
+
+/**
  * A deterministic string for a value, or `undefined` meaning "this library
  * cannot render this faithfully". A string rather than a structure so the
  * comparison is one `===` with no deep-equality walker to get subtly wrong.

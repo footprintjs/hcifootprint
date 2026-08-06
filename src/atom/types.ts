@@ -87,6 +87,82 @@ export interface Cause {
 }
 
 /**
+ * WHICH RUNG FILED THIS MOTION under the principal it names. A closed set, one
+ * word per way this library can come to associate a transition with an actor —
+ * and the reason the set is closed is that three of the ten are guesses and a
+ * reader has to be able to tell which.
+ *
+ * The certainty each one is worth is a TABLE, not a judgement call:
+ * `CERTAINTY_OF` in traverse/attribution.ts, total over this union.
+ *
+ * - `'caller-asserted'`   — a fire came through `fire()` and named its
+ *   principal (or a principal-bound port did). This library watched the call;
+ *   who was behind it is the caller's word.
+ * - `'named-by-report'`   — `updateState({ transitionId })`: the app's own
+ *   report named the fire it is about.
+ * - `'handler-window'`    — the report arrived from inside that fire's own
+ *   handler call. Nothing was matched, so nothing could be mismatched.
+ * - `'direct-call'`       — the app called its own wrapped (`contextful`)
+ *   function; the library was in the call.
+ * - `'declared-stimulus'` — the caller said the world moved (`stimulus` and/or
+ *   `principal` on the report).
+ * - `'external-report'`   — `observeEffect(transitionId, …)`: the app handed in
+ *   a report from a source THIS CLIENT CANNOT SEE and named the fire it closes.
+ *   The ASSOCIATION is observed (the id was given, nothing was matched); what
+ *   the report SAYS is a claim nobody here watched, and no word in this union
+ *   grades that — {@link TransitionRecord.observations} names who said it.
+ * - `'sensed-click'`      — an anchor observed a trusted click. Evidence a
+ *   person acted; WHICH action is inferred (see {@link Cause.inferred}).
+ * - `'signature-match'`   — the delta matched exactly one action's declared
+ *   writes. A shape, never an identity.
+ * - `'queue-order'`       — the oldest pending fire, in arrival order. Order is
+ *   not evidence.
+ * - `'unknown'`           — nobody named anything and nothing matched. The row
+ *   exists because state never moves silently.
+ */
+export type AttributionBasis =
+  | 'caller-asserted'
+  | 'named-by-report'
+  | 'handler-window'
+  | 'direct-call'
+  | 'declared-stimulus'
+  | 'external-report'
+  | 'sensed-click'
+  | 'signature-match'
+  | 'queue-order'
+  | 'unknown';
+
+/**
+ * How strong the basis is. It grades THE ASSOCIATION between this record and the
+ * motion — never an identity, and never a value. See traverse/attribution.ts for
+ * the whole of the reasoning; the short version is that `'observed'` means a
+ * door that carries identity said so (or the library was in the call),
+ * `'inferred'` means the library matched a shape or an order, and `'unknown'`
+ * means nobody said and nothing matched.
+ */
+export type AttributionCertainty = 'observed' | 'inferred' | 'unknown';
+
+/**
+ * WHO THIS TRANSITION IS FILED UNDER, HOW IT GOT THERE, AND WHAT THAT IS WORTH.
+ *
+ * Present on every transition — fires, stimulus rows, sync hops. It is a
+ * DISCLOSURE and refuses nothing; the enforcement half is
+ * {@link SessionOptions.attributionPolicy}, which an integrator turns on.
+ *
+ * `principal` is not always `cause.principal`, and the difference is the point.
+ * A stimulus nobody attributed records `cause.principal: 'system'` — this
+ * library's honest default for a ROW — while this field says `'unknown'`,
+ * because nobody claimed it. The record keeps its old bytes (a consumer reading
+ * `cause` sees exactly what it always saw); the new field says the true thing.
+ */
+export interface Attribution {
+  /** The principal this motion is filed under. `'unknown'` when nobody claimed it. */
+  principal: Principal;
+  basis: AttributionBasis;
+  certainty: AttributionCertainty;
+}
+
+/**
  * Settlement of a transition's declared effect.
  * fire() → 'pending' when the affordance declares writes; the app reports the
  * real state delta via updateState() which settles to 'committed'. Async and
@@ -176,6 +252,215 @@ export interface Effect {
   reads?: string[];
   /** Page this affordance claims to move to. Reconciled by sync(). */
   navigatesTo?: string;
+}
+
+/**
+ * HOW WOULD ANYONE SEE THAT THIS ACTION HAPPENED — the app's own answer,
+ * declared once next to the action.
+ *
+ * Five words, and the split that matters runs between the first two:
+ * - `'state-delta'`   — the declared `writes` appear in a reported delta. THIS
+ *   IS KEY PRESENCE, NOT VALUE CORRECTNESS: a handler that wrote `orderId:
+ *   null` satisfies it exactly as a real order does. Nothing in this library
+ *   ever claims more of it, and {@link EffectPolicy} refuses it as a
+ *   verification for precisely that reason.
+ * - `'postcondition'` — the app declared a {@link VerifyContract}: a real check,
+ *   asked once, at settlement.
+ * - `'navigation'`    — the effect IS page motion, to the destination the action
+ *   declares. Corroborated by a later `sync()` ({@link TransitionRecord.arrival}),
+ *   which is corroboration and never causal proof.
+ * - `'external'`      — it happens somewhere this client cannot see (a payment
+ *   processor, a queue). The app reports completion through
+ *   {@link Session.observeEffect}; the library records the reference and invents
+ *   nothing.
+ * - `'unobservable'`  — the app itself says nobody can tell from here. An honest
+ *   answer, and the one a high-effect policy will not accept.
+ *
+ * DECLARED, NEVER INFERRED — the law `writes` and `reads` live under. The
+ * library does not read your handler, watch the DOM, or promote a `writes` list
+ * into an answer. An app that declares nothing behaves and serves identically.
+ */
+export type Observability =
+  | 'state-delta'
+  | 'postcondition'
+  | 'navigation'
+  | 'external'
+  | 'unobservable';
+
+/**
+ * WHAT A HIGH-EFFECT ACTION MUST BE ABLE TO PROVE before this session will run
+ * it. Opt-in, absent by default, and it refuses nothing else.
+ *
+ * With `highEffectRequiresVerify: true`, a high-effect fire is refused
+ * (`EFFECT_NOT_VERIFIABLE`) unless the action declared an
+ * {@link Observability} that is actually checkable: a postcondition, a declared
+ * navigation, or an external observation the app promises to report. The two it
+ * refuses are `'state-delta'` (key presence is not value correctness) and
+ * `'unobservable'` (the app said nobody can tell), and an action that declared
+ * nothing at all is refused with `needs: 'observability'` — say how, or do not
+ * mark it high-effect.
+ */
+export interface EffectPolicy {
+  highEffectRequiresVerify?: boolean;
+}
+
+/**
+ * WHAT SOMEBODY ELSE SAW — one report about an effect this client cannot
+ * observe, handed in through {@link Session.observeEffect}.
+ *
+ * A RECORD OF A REPORT, NEVER A FACT ABOUT THE WORLD. The library did not watch
+ * the payment clear; the app said a source it trusts said so, and that sentence
+ * is what is written down — source, status, and a REFERENCE to evidence nobody
+ * here ever fetches, dereferences or interprets.
+ *
+ * APPEND-ONLY. Observations accumulate on the live record in arrival order and
+ * are never rewritten; the FIRST one decides the settlement (first settlement
+ * wins, traverse/settlement.ts), and a later one is a new record beside the old,
+ * exactly as an `arrival: 'observed'` upgrade rides beside its receipt.
+ */
+export interface ExternalObservation {
+  /** WHO reported it, in the app's own words ('stripe-webhook'). App data, capped, never a sentence. */
+  source: string;
+  /** What they said happened. Two words, because a settlement has two answers. */
+  status: 'performed' | 'refused';
+  /**
+   * A POINTER at the evidence — a receipt id, a URL, a log key. Recorded
+   * verbatim (capped) and never followed: the library cannot check it, so it
+   * does not pretend to have.
+   */
+  evidenceRef?: string;
+  /** When this session recorded the report (epoch ms). Never when the effect happened — nobody here knows that. */
+  recordedAt: number;
+}
+
+/** What {@link Session.observeEffect} takes. `recordedAt` is stamped by the session, not the caller. */
+export interface ObserveEffectOptions {
+  source: string;
+  status: 'performed' | 'refused';
+  evidenceRef?: string;
+}
+
+/**
+ * What became of one external observation.
+ *
+ * `settled: false` is not a failure — it means the fire had already come to rest
+ * (its receipt stands, never rewritten) and this report was recorded beside it.
+ */
+export type ObserveEffectResult =
+  | { ok: true; transition: TransitionRecord; settled: boolean }
+  | {
+      ok: false;
+      reason: 'UNKNOWN_TRANSITION';
+      /** The fires still awaiting a settlement — the ids this door can still answer for. */
+      awaiting: string[];
+    }
+  | { ok: false; reason: 'NOT_A_FIRE'; transitionId: string }
+  | { ok: false; reason: 'INVALID_OBSERVATION'; issues: string };
+
+// ---------------------------------------------------------------------------
+// Freshness — what a control does when the world moved under a served row
+// ---------------------------------------------------------------------------
+
+/**
+ * WHAT THIS CONTROL DOES WHEN SOMETHING IT WAS OFFERED UNDER HAS SINCE MOVED.
+ *
+ * - `'disclose'` — say so on the row and refuse nothing. TODAY'S BEHAVIOUR, and
+ *   the default on every axis: a session that declares no policy serves the
+ *   same bytes and refuses the same fires it always did.
+ * - `'require-ack'` — refuse unless the fire cites a {@link StaleAcknowledgement}
+ *   this session recorded. The caller must PERFORM a protocol step; nothing
+ *   about that step claims the caller understood anything (see
+ *   {@link StaleAcknowledgement}).
+ * - `'refuse'` — refuse, naming what moved. There is no way past it but a fresh
+ *   look: the caller plans against a new row and cites that offer instead.
+ *
+ * WHY THE LADDER EXISTS AT ALL, in one measured sentence: a preregistered
+ * campaign found that in 20 of 33 residual harm rows the decisive warning was on
+ * the exact control at the exact turn and the model fired anyway. Disclosure has
+ * a ceiling. A warning can be ignored; a required protocol step cannot be
+ * skipped silently.
+ */
+export type FreshnessResponse = 'disclose' | 'require-ack' | 'refuse';
+
+/**
+ * FOUR AXES, EACH ANSWERED SEPARATELY — declare it per action
+ * (`ActionDef.freshness`) or once for the session
+ * ({@link SessionOptions.freshness}); the action's own answer wins, axis by
+ * axis, and an axis nobody answered is `'disclose'`.
+ *
+ * Every axis compares the {@link OfferRecord} a fire CITES against the session
+ * right now. A fire that cites no offer cannot be compared to anything, which is
+ * why an enforcing policy requires the citation (`OFFER_REQUIRED`) — see
+ * {@link FireOptions.offerId}.
+ *
+ * ```ts
+ * 'settle-claim': {
+ *   does: 'Settle the claim',
+ *   reads: ['claim.total'], writes: ['purse.left'],
+ *   freshness: { readChanges: 'require-ack', writeChanges: 'refuse' },
+ * }
+ * ```
+ *
+ * KEY NAMES AND VERSIONS ONLY. No value is compared, held or served on this
+ * path: the mechanism says a key moved, never that its value is now wrong. What
+ * the movement MEANS stays on the app's side of the seam — which is why the
+ * response is something an integrator declares rather than something the library
+ * picks.
+ */
+export interface FreshnessPolicy {
+  /**
+   * A key this control's GUARD is judged on has been committed since the offer.
+   * The guard still passes — a guard that stopped passing is `GUARD_FAILED`,
+   * which fires first and is not this.
+   */
+  guardChanges?: FreshnessResponse;
+  /** A key the app declared this control's outcome READS has been committed since the offer. */
+  readChanges?: FreshnessResponse;
+  /** A key the app declared this control WRITES has been committed since the offer. */
+  writeChanges?: FreshnessResponse;
+  /**
+   * The cursor is on a different page than when the row was served, or the
+   * served structure has changed under it (`structureVersion`). Both halves are
+   * "the row you planned against is not the surface you are firing into".
+   */
+  positionChanges?: FreshnessResponse;
+}
+
+/**
+ * ONE OCCURRENCE AT A TIME, OR AS MANY AS THE CALLER MAKES — the declaration
+ * behind the `PRIOR_FIRE_PENDING` refusal.
+ *
+ * `'parallel'` is the default and is what every release before this one did:
+ * fire twice, get two occurrences. `'single-flight'` refuses a fire while a
+ * prior occurrence in the same scope is UNRESOLVED — and unresolved means
+ * exactly one thing: this session is still holding that fire's settlement
+ * question open. It clears on real settlement and on nothing else. No timeout
+ * expires it (a clock is not evidence), no read clears it, and the caller saying
+ * the first one is finished is not the first one finishing.
+ *
+ * ```ts
+ * 'pay-invoice': {
+ *   does: 'Pay the invoice', confirm: true, writes: ['invoice.paid'],
+ *   concurrency: { mode: 'single-flight', scope: 'payload' },
+ * }
+ * ```
+ */
+export interface ConcurrencyPolicy {
+  mode: 'parallel' | 'single-flight';
+  /**
+   * WHAT COUNTS AS "THE SAME FIRE AGAIN". Default `'action'`.
+   *
+   * - `'action'` — one occurrence of this control at a time, whatever it carries.
+   * - `'instance'` — one per repeats-container card (`FireOptions.instance`), so
+   *   cancelling order #57 does not block cancelling #58.
+   * - `'payload'` — one per identical input, compared over the same canonical
+   *   rendering the approval gate uses. A payload this library cannot render
+   *   faithfully (a Map, a Date, a cycle, anything past the caps) is treated as
+   *   THE SAME as the pending one and refused: on a repeat-suppression boundary
+   *   an unprovable difference is not a difference — the same stance
+   *   `traverse/same-input.ts` takes, for the same reason.
+   */
+  scope?: 'action' | 'instance' | 'payload';
 }
 
 /**
@@ -381,6 +666,77 @@ export interface HumanDecides {
   doneWhen?: WhereFilter;
 }
 
+/**
+ * A KIND OF ACTOR a policy may name — deliberately NOT {@link Principal}.
+ *
+ * A record files an act: `'user'` is how a person's fire is FILED. A policy
+ * names who may act: `'human'` is the actor. Two questions, two vocabularies,
+ * one bridge (`actorKindOf`, traverse/principal-policy.ts) — and writing
+ * `mayInvoke: ['user']` is refused LOUDLY at the authoring door rather than
+ * silently locking a person out of their own control.
+ *
+ * `'unknown'` is not a kind, because you cannot grant a permission to nobody. A
+ * fire whose principal this library never learned is refused by any declared
+ * list, which is the fail-closed direction.
+ */
+export type ActorKind = 'human' | 'agent' | 'system';
+
+/**
+ * WHO MAY PERFORM THIS ACTION, WHOSE CHOICE IT IS, AND WHETHER A RECORDED YES IS
+ * NEEDED — three separate facts that this library refuses to fold into one word.
+ *
+ * `humanDecides` stays what it is: disclosure, never enforcement, the app's
+ * statement that a CHOICE belongs to a person. This is the enforceable
+ * neighbour, and it exists because disclosure alone has a measured ceiling — in
+ * 20 of 33 residual-harm rows of a preregistered campaign the decisive warning
+ * was on the exact control at the exact turn and the model fired anyway.
+ *
+ * NOTHING HERE ENFORCES BY ITSELF. Declaring it changes not one byte of what a
+ * session does; {@link SessionOptions.enforcePrincipalPolicy} is the switch, and
+ * an integrator owns it.
+ *
+ * ```ts
+ * 'transfer-funds': {
+ *   does: 'Transfer the balance',
+ *   confirm: true,
+ *   principalPolicy: {
+ *     mayInvoke: ['human'],          // the agent may never perform it
+ *     decisionOwner: 'human',        // …and the choice is theirs too (disclosure)
+ *     requiresHumanApproval: true,   // …and a recorded yes is required when it is performed
+ *   },
+ * }
+ * ```
+ */
+export interface PrincipalPolicy {
+  /**
+   * ACTOR IDENTITY — the kinds that may invoke this action. The ONE half
+   * enforcement gates: a fire from any other principal is refused
+   * `PRINCIPAL_NOT_ALLOWED`, naming the kinds required.
+   *
+   * Omitted means the app said nothing, never "everyone" as a decision — the
+   * refusal only exists where a list does. `[]` is refused at authoring: an
+   * action nobody may ever perform is an action not to declare.
+   */
+  mayInvoke?: ActorKind[];
+  /**
+   * DECISION OWNERSHIP — whose call the choice is. DISCLOSURE, and enforcement
+   * never reads it: an owner is not a permission, and making "this is the
+   * customer's choice" silently mean "the agent is forbidden" would be a refusal
+   * nobody wrote. An app that wants ownership enforced says `mayInvoke: ['human']`
+   * and means it.
+   *
+   * `'either'` is a real answer, not a shrug: the app looked and says both may.
+   */
+  decisionOwner?: 'human' | 'agent' | 'either';
+  /**
+   * CONSENT STATUS — this action needs a recorded human approval, whether or not
+   * it is marked `confirm`. Under enforcement it is held to the SAME gate
+   * {@link SessionOptions.requireHumanApproval} applies to high-effect actions,
+   * and it mints NO new refusal word: the `APPROVAL_*` set is unchanged.
+   */
+  requiresHumanApproval?: boolean;
+}
+
 export interface Affordance {
   id: string;
   on: string[];
@@ -433,6 +789,33 @@ export interface Affordance {
    * "the agent's to make", which the library cannot know.
    */
   humanDecides?: HumanDecides;
+  /**
+   * The app's declaration about WHO may perform this and whose choice it is,
+   * compiled verbatim from `ActionDef.principalPolicy` at either authoring door.
+   * See {@link PrincipalPolicy}. Absent means nothing was declared — never
+   * "anyone may", which the library cannot know.
+   */
+  principalPolicy?: PrincipalPolicy;
+  /**
+   * How this action's effect can be SEEN, compiled verbatim from
+   * `ActionDef.observability` at either authoring door. See
+   * {@link Observability}. Absent means the app did not say — and under
+   * {@link EffectPolicy} that absence is what a high-effect fire is refused for.
+   */
+  observability?: Observability;
+  /**
+   * This control's own freshness answers, compiled verbatim from
+   * `ActionDef.freshness`. Absent means the session default answers for it, and
+   * an unanswered axis is `'disclose'` — today's behaviour. See
+   * {@link FreshnessPolicy}.
+   */
+  freshness?: FreshnessPolicy;
+  /**
+   * Whether a second fire may overlap an unresolved first, compiled verbatim
+   * from `ActionDef.concurrency`. Absent means `'parallel'` — what every release
+   * before this one did. See {@link ConcurrencyPolicy}.
+   */
+  concurrency?: ConcurrencyPolicy;
   highEffect: boolean;
   role: CanonicalRole;
   /**
@@ -619,6 +1002,108 @@ export interface SessionOptions {
    */
   requireHumanApproval?: boolean | HumanApprovalPolicy;
   /**
+   * THE SESSION'S DEFAULT ANSWER on each freshness axis, for every action that
+   * does not answer for itself. Off by default in the only way that matters: an
+   * unanswered axis is `'disclose'`, which is what every release before this one
+   * did, so a session that omits this option serves the same bytes and refuses
+   * the same fires it always did.
+   *
+   * ```ts
+   * map.createSession({ node: 'ledger', state, freshness: { writeChanges: 'require-ack' } });
+   * ```
+   *
+   * An action's own `freshness` wins AXIS BY AXIS — a session default of
+   * `'refuse'` on writes and an action declaring `{ writeChanges: 'disclose' }`
+   * leaves that one control disclosing while the rest refuse. See
+   * {@link FreshnessPolicy}, and note the one thing enforcement adds to the door:
+   * an enforcing axis requires the fire to cite an offer
+   * ({@link FireOptions.offerId}).
+   */
+  freshness?: FreshnessPolicy;
+  /**
+   * How many {@link OfferRecord}s this session retains before dropping the
+   * oldest. Default 500.
+   *
+   * The ledger is bounded because it is written from a read path — `available()`
+   * is called on every look, on every refused fire's gap row, on every served
+   * reply — and an unbounded session-lifetime map fed from a read path is a leak
+   * with a friendly name. Bounding it means a citation can expire, so eviction is
+   * COUNTED (`session.offersDropped()`), WARNED once, and refused by its own word
+   * (`OFFER_NOT_ON_RECORD` with `why: 'evicted'`) rather than reported as an id
+   * that never existed.
+   *
+   * The COUNT is kept on every session; the WARNING is said only to a session
+   * that requires a citation somewhere ({@link SessionOptions.freshness}, or an
+   * action's own). Nothing expires under a session that opted into nothing, so
+   * there is nothing there to tune.
+   *
+   * Raising it costs memory and nothing else; the records hold key NAMES and
+   * numbers, never a value.
+   */
+  maxOffers?: number;
+  /**
+   * HOW MANY ACKNOWLEDGEMENT RECEIPTS a session keeps before dropping the
+   * oldest. Default 500.
+   *
+   * The `ACKNOWLEDGEMENT_REQUIRED` → acknowledge → refire loop writes one row
+   * per turn, so `session.acknowledgements()` grows for as long as a session
+   * lives. Bounding it means a cited receipt can expire, so eviction is COUNTED
+   * (`session.acknowledgementsDropped()`), WARNED once, and refused by its own
+   * word (`ACKNOWLEDGEMENT_REQUIRED` with `why: 'evicted'`) rather than reported
+   * as a pointer the caller made up.
+   *
+   * Unlike {@link SessionOptions.maxOffers}, the warning here is said to every
+   * session that fills it: nothing enters this ledger except through an explicit
+   * `acknowledgeStale` call, so it can never reach somebody who switched nothing
+   * on.
+   *
+   * Nothing is ever edited or retracted — the cap drops the oldest rows whole,
+   * and a retained row says exactly what it always said. Raising it costs memory
+   * and nothing else; the rows hold action ids, key NAMES and numbers.
+   */
+  maxAcknowledgements?: number;
+  /**
+   * HOW HARD THIS SESSION IS ALLOWED TO GUESS when a state report does not say
+   * which fire it is about. Default `'default'` — today's ladder, byte for byte.
+   *
+   * `'strict'` turns off the two rungs that are guesses:
+   * - FIFO (`'queue-order'`) is never used. Arrival order is not evidence.
+   * - a signature match must be UNAMBIGUOUS — nothing else pending may even
+   *   partly explain the delta (traverse/attribution.ts, THE SIGNATURE RULE).
+   *
+   * An unplaceable delta is then recorded as an `'unknown'` stimulus and the
+   * fire STAYS PENDING rather than being falsely closed. That is the trade, and
+   * it is the whole reason this is opt-in: a fire that never gets its report
+   * waits forever, visibly ({@link Session.pending},
+   * {@link Session.awaitingSettlement}), instead of quietly borrowing somebody
+   * else's report. Apps whose taps pass `transitionId` lose nothing at all.
+   *
+   * The STAMP is not affected by this option: every transition carries its
+   * {@link Attribution} in both modes, because disclosure is never a policy.
+   */
+  attributionPolicy?: AttributionPolicy;
+  /**
+   * ENFORCE what actions declare in {@link PrincipalPolicy}. Off by default, and
+   * with it off every such declaration is disclosure exactly as `humanDecides`
+   * is — the same byte-identical stance every enforcement in this library takes.
+   *
+   * On, two things become refusals: a fire from a principal outside an action's
+   * `mayInvoke` list (`PRINCIPAL_NOT_ALLOWED`, naming the kinds required), and a
+   * fire of an action that declared `requiresHumanApproval` with no recorded
+   * approval to present (the existing `APPROVAL_*` words — no new vocabulary).
+   *
+   * `decisionOwner` is NEVER enforced by this switch. An owner is not a
+   * permission; an app that wants the agent kept out says `mayInvoke: ['human']`.
+   */
+  enforcePrincipalPolicy?: boolean;
+  /**
+   * REQUIRE THAT A HIGH-EFFECT ACTION CAN BE CHECKED. Off by default. See
+   * {@link EffectPolicy} — and note the thing it deliberately does not do:
+   * `'state-delta'` does not satisfy it, because key presence is not value
+   * correctness.
+   */
+  effectPolicy?: EffectPolicy;
+  /**
    * The clock the confirm chain reads (epoch ms). Defaults to `Date.now`. Inject
    * a controllable clock to test an expiring approval without real waits — the
    * same option name and default the tree layer already uses for its grace
@@ -626,6 +1111,13 @@ export interface SessionOptions {
    */
   now?: () => number;
 }
+
+/**
+ * How hard {@link Session.updateState} may guess. See
+ * {@link SessionOptions.attributionPolicy} — `'default'` is today's ladder,
+ * `'strict'` refuses the two rungs that are guesses.
+ */
+export type AttributionPolicy = 'default' | 'strict';
 
 /**
  * How strict {@link SessionOptions.requireHumanApproval} is about a yes given a
@@ -727,6 +1219,29 @@ export interface TransitionRecord {
   /** runtimeStageId — the join key into the footprintjs commit log. */
   id: string;
   cause: Cause;
+  /**
+   * WHICH RUNG FILED THIS ROW, AND WHAT THAT IS WORTH — on every transition, of
+   * every kind, always. See {@link Attribution}.
+   *
+   * Not part of `cause`, deliberately: `cause` says WHAT this row is (a fire, a
+   * stimulus) and carries bytes consumers have read since 0.1. This says how the
+   * library came to believe it, which is a different question with a different
+   * answer — and on a stimulus nobody attributed the two honestly disagree
+   * (`cause.principal: 'system'`, `attribution.principal: 'unknown'`).
+   */
+  attribution: Attribution;
+  /**
+   * WHAT SOMEBODY ELSE SAW about this fire's effect — every
+   * {@link Session.observeEffect} report, in arrival order, appended and never
+   * rewritten. Absent until one arrives; a fire nobody reported on has no key,
+   * which is the honest shape of "nothing was said".
+   *
+   * The FIRST report decides the settlement; later ones ride the live record
+   * beside a receipt that is never rewritten (the `arrival: 'observed'`
+   * precedent). Nothing here is proof the effect happened — it is proof a source
+   * the app named reported that it did.
+   */
+  observations?: ExternalObservation[];
   /** Epoch milliseconds when the transition was created. */
   timestamp: number;
   payload?: unknown;
@@ -807,6 +1322,16 @@ export interface TransitionRecord {
    */
   askId?: string;
   /**
+   * The served row this fire cited ({@link FireOptions.offerId}), when it cited
+   * one. Recorded whether or not any freshness axis enforces, because it is a
+   * fact about the fire: this occurrence was planned against that row, and the
+   * join from here to `session.offerFor(offerId)` — and on to any
+   * {@link StaleAcknowledgement} naming the same offer — is what makes the chain
+   * auditable from the transition log alone, exactly as `askId` does for the
+   * confirm chain. Absent on a fire that cited nothing.
+   */
+  offerId?: string;
+  /**
    * Present (false) only on an allowed unmaterialized fire (the
    * `allowUnmaterializedFires` tour): the fire invoked NOTHING — nothing was
    * bound to execute it — so every effect on this record is a claim, including
@@ -835,10 +1360,197 @@ export interface TransitionRecord {
   captured?: ActionCapture;
 }
 
+// ---------------------------------------------------------------------------
+// Offers — the row that was served, given a name a fire can cite
+// ---------------------------------------------------------------------------
+
+/**
+ * THE NAME OF ONE SERVED ROW — stamped on every edge `available()` hands over,
+ * so a fire can say which row it was planned against.
+ *
+ * A CITATION, NOT A SECRET AND NOT A CAPABILITY. `offerId` is a session-local
+ * counter (`'offer#7'`), it is handed to the model on the row it names, and
+ * holding one authorizes nothing: every gate this library has — guard, payload,
+ * disabled, materialisation, human approval — runs exactly as it did whether a
+ * fire cites an offer or not. What the citation buys is a JOIN: the library can
+ * compare what was true when the row was served against what is true now, which
+ * is a comparison nobody could make while `expectedVersion` was a number the
+ * caller typed in by hand. Treat it the way {@link FireOptions.askId} is treated
+ * — a pointer to a row this session wrote, worthless to guess.
+ *
+ * The four version fields are the anchor that comparison is made from, and they
+ * are what makes two rows the same offer or different ones.
+ */
+export interface OfferRef {
+  /** This offer's id, unique within the session. Cite it as {@link FireOptions.offerId}. */
+  offerId: string;
+  /** The action this row was for. */
+  actionId: string;
+  /** The page the cursor was on when it was served. */
+  node: string;
+  /** The app's state version at serve time — the anchor "what has moved since?" is asked from. */
+  stateVersion: number;
+  /** The served-surface version at serve time (mounts, frames, enablement flips). */
+  structureVersion: number;
+}
+
+/**
+ * WHAT WAS TRUE WHEN THAT ROW WAS SERVED — the session-local record an
+ * {@link OfferRef} points at, read back with `session.offerFor(offerId)`.
+ *
+ * APPEND-ONLY. A record is written once and never rewritten. Serving the same
+ * action again under an unchanged world hands back the SAME `offerId`, because
+ * it is the same offer — the facts below are the offer's identity, so two
+ * records can never disagree about one id, and one id can never quietly come to
+ * mean something else.
+ *
+ * BOUNDED, AND SAID SO. A session retains a fixed number of these and drops the
+ * oldest when it is full (`session.offersDropped()` counts them, and the first
+ * eviction warns the integrator once — where citations are required, which is
+ * the only place a dropped one costs anything). A fire citing an id that was dropped is
+ * refused as `OFFER_NOT_ON_RECORD` with `why: 'evicted'` — never answered as if
+ * the citation had been checked, and never confused with an id this session
+ * never minted (`why: 'unknown'`).
+ */
+export interface OfferRecord extends OfferRef {
+  /** When this offer was FIRST served (epoch ms). Never rewritten by a later serve. */
+  servedAt: number;
+  /**
+   * The cursor version at first serve — what `keysChangedSince` is asked with
+   * when a fire cites this offer. Older than a re-serve's cursor by design: no
+   * state key can be committed without `stateVersion` moving, and a moved
+   * `stateVersion` is a different offer, so the two windows name the same keys.
+   */
+  version: number;
+  /** Guard keys the session could evaluate when it served the row. */
+  guardEvaluated: string[];
+  /** Guard keys it could NOT — served anyway, with the marker, and recorded as such. */
+  guardUnevaluated: string[];
+  /** Declared reads this session was already carrying an unanswered staleness for. */
+  staleReads: string[];
+  /** Declared writes this session was already carrying an unanswered staleness for. */
+  staleWrites: string[];
+}
+
+/**
+ * A PROTOCOL STEP THE CALLER PERFORMED — the append-only row
+ * `session.acknowledgeStale()` writes, and the only thing a `'require-ack'`
+ * fire may cite.
+ *
+ * WHAT IT PROVES AND WHAT IT DOES NOT. It proves that a caller, at this state
+ * version, named this action (and optionally these keys) through this door. It
+ * is NOT evidence that a model read a value, understood a consequence, weighed a
+ * risk, or decided well — none of which is visible from here, and none of which
+ * this library will ever claim on somebody's behalf. The library never serves a
+ * value, so it can never conclude a value was understood. An acknowledgement is
+ * an ACT, recorded because acts are all this layer can witness.
+ *
+ * INVALIDATED WHEN THE WORLD MOVES AGAIN. The row stamps the state version it
+ * was made at; once `session.stateVersion` moves past it, it authorizes nothing
+ * and a fire citing it is refused `ACKNOWLEDGEMENT_STALE`. The row itself is
+ * never deleted or edited — it stays in `session.acknowledgements()` as what it
+ * always was, a thing somebody did at a moment. (The same stance
+ * `HumanApprovalPolicy.refuseWhenWorldMoved` takes on a human's yes, and the
+ * same comparison.)
+ */
+export interface StaleAcknowledgement {
+  /** This row's id. Cite it as {@link FireOptions.acknowledgementId}. */
+  acknowledgementId: string;
+  /** The action it is about. */
+  actionId: string;
+  /** The offer it answers, when the caller named one — a join, never a requirement. */
+  offerId?: string;
+  /**
+   * Who performed the step. Defaults to `'agent'`, never `'user'` — the same law
+   * {@link FireOptions.source} keeps, because filing a machine's act under a
+   * person is the one mistake a ledger must not make on its own.
+   */
+  principal: Principal;
+  /**
+   * The keys the caller NAMED. Empty means they named none, which this door
+   * reads as "everything outstanding for this control" — so an empty list covers
+   * whatever a later fire is refused over, and a named list covers exactly its
+   * own names. What the caller said, not what happened to be on the ledger:
+   * `cleared` is the bookkeeping answer and it is reported separately.
+   */
+  keys: string[];
+  /** The state version this was made at. Moves past it and this row stops authorizing. */
+  acknowledgedAtStateVersion: number;
+  /** Epoch ms. */
+  timestamp: number;
+}
+
+/**
+ * ONE THING THAT MOVED UNDER A SERVED ROW — what a freshness refusal names, so a
+ * reader is told the FIELD rather than a conclusion (the shape `GUARD_FAILED`'s
+ * evidence and `TOOL_DISABLED`'s evidence already take).
+ *
+ * Key names and page ids only. No value crosses on this wire, and nothing here
+ * is compared against anything: it says a key moved, never that its value is now
+ * wrong.
+ */
+export interface FreshnessMovement {
+  /** Which declaration this movement is about. */
+  axis: 'guard' | 'reads' | 'writes' | 'position';
+  /** What this session's policy does about it — the reason the fire was refused. */
+  response: 'require-ack' | 'refuse';
+  /** The state keys that moved, by name. Absent on the `'position'` axis, which has none. */
+  keys?: string[];
+  /** `'position'` only: the page the row was served on. */
+  from?: string;
+  /** `'position'` only: the page the cursor is on now. */
+  to?: string;
+}
+
 export interface AvailableEdge {
   affordanceId: string;
   description: string;
   role: CanonicalRole;
+  /**
+   * THE NAME OF THIS ROW, so a fire can cite it (`fire(id, { offerId })`).
+   *
+   * On every row `available()` serves, whatever the session declares: an offer
+   * is IDENTITY, not enforcement, so an app can join a fire to the row it was
+   * planned against without turning any refusal on. Optional on the type because
+   * a hand-built row (a test double, a relay facade) is still a valid
+   * `AvailableEdge` — it simply names no offer.
+   *
+   * What IS opt-in is what a stale citation COSTS — see {@link FreshnessPolicy}.
+   * The Mode B row stays byte-identical until a policy enforces something,
+   * because a model that can never be asked for a citation should not be paying
+   * tokens to carry one.
+   */
+  offerRef?: OfferRef;
+  /**
+   * A FIRE OF THIS ROW MUST CITE ITS OFFER — presence-only, and absent on every
+   * session that enforces no freshness axis (which is the default, so an app that
+   * declares nothing serves byte-identical rows).
+   *
+   * The derived half of {@link FreshnessPolicy}: the serving layer cannot resolve
+   * a per-action policy against a session default, and two layers deriving it
+   * separately could disagree about one control. So the session answers once,
+   * here, and a projection just reads it — which is also how the Mode B row knows
+   * whether to spend tokens carrying an `offerId` at all.
+   */
+  mustCiteOffer?: true;
+  /**
+   * A PRIOR FIRE OF THIS CONTROL IS UNRESOLVED AND THIS CONTROL DECLARES
+   * `single-flight` — so a fire right now would be refused `PRIOR_FIRE_PENDING`.
+   * Presence-only, and absent on every control that declared no
+   * {@link ConcurrencyPolicy} (the default).
+   *
+   * A VERDICT, where `priorFireUnsettled` on the served row is a FACT: that stamp
+   * says a fire has not come to rest and refuses nothing, on any control; this
+   * says this session will turn the next one away. It exists so a serving layer
+   * can keep `fire()`'s own law — never send a human to approve an action that is
+   * about to be refused — without re-deriving a policy it cannot see.
+   *
+   * ONLY WHERE THE ROW CAN ANSWER FOR ITSELF: `scope: 'action'`. A narrower scope
+   * is decided by the card or the input a FUTURE fire will carry, and one served
+   * row stands for every mounted card — so putting a per-card verdict here would
+   * name a card nobody asked about (the same limit `busy` states).
+   */
+  heldByPriorFire?: true;
   /**
    * Present only when the session has live registrations: true = a handler is
    * mounted right now (fireable-with-execution), false = declared here but
@@ -1069,11 +1781,33 @@ export interface AvailableEdge {
    * ({@link Session.decisions}, the `withTheHuman` list), and an action row stays
    * lean.
    *
-   * IT GATES NOTHING. A fire of this control is not refused and never will be in
-   * v1 — the stamp is disclosure, and the honest place for enforcement is a
-   * session option nobody has asked for yet.
+   * IT GATES NOTHING, and that has not changed: a fire of this control is not
+   * refused, in v1 or after it. The ENFORCEABLE neighbour is a different
+   * declaration with a different name — `principalPolicy.mayInvoke`, switched on
+   * by {@link SessionOptions.enforcePrincipalPolicy} — precisely so that an app
+   * saying "this choice is the customer's" never silently becomes "the agent is
+   * forbidden". Two facts, two fields, two words.
    */
   humanDecides?: true;
+  /**
+   * WHO THE APP SAYS MAY PERFORM THIS — a copy of `principalPolicy.mayInvoke`,
+   * served before anything is reached for.
+   *
+   * DISCLOSURE ON EVERY SESSION, enforcement only where the integrator turned it
+   * on: the row says the same thing either way, because what the app declared is
+   * true whether or not this session refuses on it. A caller that reads it and
+   * stops has saved itself a refusal; a caller that ignores it meets
+   * `PRINCIPAL_NOT_ALLOWED` if enforcement is on, and is recorded acting outside
+   * a declared policy if it is not. Presence-only — an app that declares nothing
+   * serves the row it always served.
+   */
+  mayInvoke?: ActorKind[];
+  /**
+   * WHOSE CHOICE THIS IS, as `principalPolicy.decisionOwner` declared it. Never a
+   * permission, in any session: see {@link PrincipalPolicy}. Served beside
+   * `mayInvoke` and deliberately not folded into it.
+   */
+  decisionOwner?: 'human' | 'agent' | 'either';
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
   instances?: string[];
   /**
@@ -1154,6 +1888,36 @@ export interface FireOptions {
    * it honestly always was — the agent asking to proceed now.
    */
   askId?: string;
+  /**
+   * THE ROW THIS FIRE WAS PLANNED AGAINST — the `offerId` from
+   * {@link AvailableEdge.offerRef}, or from the served action row when the
+   * session's policy enforces something.
+   *
+   * A CITATION TO A SESSION RECORD. Not a secret, not a capability token, not a
+   * nonce: it names an {@link OfferRecord} this session wrote and the model was
+   * shown, and holding one grants nothing at all. Every gate that ran before
+   * still runs. Its whole job is to let the library compare *what was true when
+   * you were offered this* against *what is true now* — the comparison
+   * `expectedVersion` could only approximate, because that number was supplied
+   * by hand and tied to no row.
+   *
+   * OPTIONAL, and it stays optional: with no freshness policy declared, citing
+   * an offer changes not one byte of what happens (the id is recorded on the
+   * transition and nothing else). Under a policy that enforces any axis, a fire
+   * with no citation is refused `OFFER_REQUIRED` — you cannot judge a plan's
+   * freshness against a plan you cannot identify.
+   */
+  offerId?: string;
+  /**
+   * THE PROTOCOL STEP THIS FIRE PERFORMED — the `acknowledgementId` from
+   * `session.acknowledgeStale()`, read only under a `'require-ack'` axis.
+   *
+   * A pointer to a {@link StaleAcknowledgement} row, on the same terms as
+   * `askId` above: a citation, never a boolean the caller controls. It proves
+   * the step was performed. It proves nothing whatsoever about comprehension,
+   * and the record it points at says so in its own words.
+   */
+  acknowledgementId?: string;
 }
 
 /**
@@ -1329,7 +2093,164 @@ export type FireResult =
   | { ok: false; reason: 'APPROVAL_DECLINED'; affordanceId: string; askId: string }
   /** The human gave a yes and took it back before it was spent ({@link Session.revokeAsk}).
    *  The withdrawn pointer authorizes nothing; a fresh ask mints a new card. */
-  | { ok: false; reason: 'APPROVAL_REVOKED'; affordanceId: string; askId: string };
+  | { ok: false; reason: 'APPROVAL_REVOKED'; affordanceId: string; askId: string }
+  // --- freshness refusals (opt-in; see SessionOptions.freshness) ------------
+  /** A freshness axis enforces, and this fire cited no offer. Look again
+   *  (`available()` / `whats_here`) and cite the row you plan against — there is
+   *  nothing to compare a fire to otherwise. */
+  | { ok: false; reason: 'OFFER_REQUIRED'; affordanceId: string }
+  /** The cited offer is not one this session can answer THIS fire with, and
+   *  `why` says which of the three things happened. `'unknown'` — no such id was
+   *  ever minted here; `'evicted'` — it was, and the bounded ledger has since
+   *  dropped it; `'other-action'` — the id IS on this session's record and it
+   *  names a DIFFERENT control, so it answers that row and not this one. Three
+   *  words rather than one because the fixes differ and because collapsing them
+   *  would let the library report its own bound, or its own row, as a caller's
+   *  forged citation. */
+  | {
+      ok: false;
+      reason: 'OFFER_NOT_ON_RECORD';
+      affordanceId: string;
+      offerId: string;
+      why: 'unknown' | 'evicted' | 'other-action';
+      /** The control that offer WAS minted for — present only under
+       *  `'other-action'`, where this session really does hold the row. An
+       *  authored action id, never app data. */
+      offeredFor?: string;
+    }
+  /** Something the row was offered under has moved, and this control's policy
+   *  says refuse. `moved` names the axes and the KEYS — never a value, never a
+   *  conclusion. Fix by looking again and citing the fresh offer. */
+  | {
+      ok: false;
+      reason: 'WORLD_MOVED';
+      affordanceId: string;
+      offerId: string;
+      moved: FreshnessMovement[];
+    }
+  /** Something moved and this control's policy says the caller must acknowledge
+   *  it first. `acknowledgementId` echoes the pointer that was presented, when
+   *  one was and it named nothing usable — exactly as `APPROVAL_REQUIRED` echoes
+   *  `askId`. Acknowledge with `session.acknowledgeStale(actionId, keys, { offerId })`
+   *  and cite what it hands back. */
+  | {
+      ok: false;
+      reason: 'ACKNOWLEDGEMENT_REQUIRED';
+      affordanceId: string;
+      offerId: string;
+      moved: FreshnessMovement[];
+      acknowledgementId?: string;
+      /**
+       * `'evicted'` — and only ever that. The receipt cited here IS one this
+       * session wrote, and this session's own cap
+       * ({@link SessionOptions.maxAcknowledgements}) dropped it. Present only on
+       * that one case, because it is the only one that is not the caller's
+       * mistake: the fix is a bigger cap, or acknowledge again. Absent covers
+       * every other unusable pointer, deliberately without a taxonomy of how.
+       */
+      why?: 'evicted';
+    }
+  /** That acknowledgement was made in a world that has since moved on. A step
+   *  performed against different facts is not a step performed against these. */
+  | {
+      ok: false;
+      reason: 'ACKNOWLEDGEMENT_STALE';
+      affordanceId: string;
+      offerId: string;
+      acknowledgementId: string;
+      moved: FreshnessMovement[];
+    }
+  // --- single-flight refusal (opt-in; see ConcurrencyPolicy) ----------------
+  /** A prior occurrence of this control has not come to rest, and the action
+   *  declares `concurrency: { mode: 'single-flight' }`. It clears on SETTLEMENT
+   *  and nothing else — no timeout, no read, and not the caller reporting it
+   *  done. `howToSettle` names the doors that can. */
+  | {
+      ok: false;
+      reason: 'PRIOR_FIRE_PENDING';
+      affordanceId: string;
+      /** The fire that is still out there — ask `session.settlementOf(id)` about it. */
+      pendingTransitionId: string;
+      /** Which scope matched: the action, this card, or this exact input. */
+      scope: 'action' | 'instance' | 'payload';
+      /** The authored sentence naming every door that can settle it. */
+      howToSettle: string;
+    }
+  // --- principal policy (opt-in; see SessionOptions.enforcePrincipalPolicy) --
+  /** This principal may not perform this action — the app declared who may, and
+   *  this is not one of them. `required` NAMES the kinds, because an agent told
+   *  only "no" tries again while an agent told "a human must do this" asks the
+   *  person. Never a retry: nothing about the world changes this one. */
+  | {
+      ok: false;
+      reason: 'PRINCIPAL_NOT_ALLOWED';
+      affordanceId: string;
+      required: ActorKind[];
+      /** The principal that tried, echoed so one row answers the whole question. */
+      attempted: Principal;
+    }
+  // --- effect policy (opt-in; see SessionOptions.effectPolicy) --------------
+  /** This session requires a high-effect action to say how its effect can be
+   *  checked, and this one cannot. `needs` says which half is missing:
+   *  `'observability'` — nothing was declared; `'postcondition'` — what was
+   *  declared is not a check (key presence is not value correctness). Fixed by
+   *  the APP, at the keyboard, not by the caller at run time. */
+  | {
+      ok: false;
+      reason: 'EFFECT_NOT_VERIFIABLE';
+      affordanceId: string;
+      needs: 'observability' | 'postcondition';
+      /** What the app did declare, when it declared something. */
+      observability?: Observability;
+    };
+
+/**
+ * A SESSION DOOR WITH THE PRINCIPAL ALREADY ON IT — `session.asAgent()`,
+ * `asHuman()`, `asSystem()`.
+ *
+ * Provenance was a per-call argument, repeated at every door, and a repeated
+ * argument is a forgotten argument: a relay that omits `source` files a machine's
+ * action under the library's default, and one that copies the wrong line files it
+ * under a person. The port says it ONCE, at the boundary where the caller's
+ * identity is actually known.
+ *
+ * IT IS THE SAME ASSERTION, NOT A STRONGER ONE. A port stamps
+ * `attribution.basis: 'caller-asserted'` exactly as `fire({ source })` does,
+ * because it is the same caller making the same claim with less repetition —
+ * recording ergonomics as evidence would be this library laundering convenience
+ * into proof. `fire({ source })` stays fully supported; nothing here replaces it.
+ *
+ * NO AUTHORITY DOOR IS ON IT, EVER. `approveAsk`, `alwaysApprove`, `revokeAsk`
+ * and `declineConfirm` are the human-side doors the approval gate's whole design
+ * rests on — a port carrying them is a capability whose safety depends on nobody
+ * handing the wrong port to the wrong caller, which is the trap this library
+ * refuses on principle. The port binds ACT doors only.
+ */
+export interface PrincipalPort {
+  /** The actor kind this port speaks as. Read-only — a port never changes principals. */
+  readonly as: ActorKind;
+  /** The principal its acts are FILED under ('human' files as 'user'). */
+  readonly principal: Principal;
+  /** Fire, as this principal. Every other {@link FireOptions} field still applies. */
+  fire(affordanceId: string, opts?: Omit<FireOptions, 'source'>): FireResult;
+  /** Report where the app now is, as this principal. */
+  sync(observedNode: string, opts?: { stimulus?: StimulusKind }): SyncResult;
+  /** Record unmet demand, as this principal. */
+  reportGap(opts: Omit<ReportGapOptions, 'principal'>): GapRecord;
+  /**
+   * NO `updateState` HERE, and the absence is the design.
+   *
+   * `UpdateOptions.principal` does not mean "I am reporting this" — it means
+   * "THIS MOTION WAS WORLD-INITIATED, attribute it to X", and it is one half of
+   * the explicit-stimulus signal that deliberately stops a report from settling
+   * a pending fire. A port that helpfully filled it in would turn the most
+   * natural call an app makes (`port.updateState({ cart: 1 })`) into a stimulus
+   * row that closes nothing, and the fire it was meant to answer would wait
+   * forever. Report state through `session.updateState(...)`, where the two
+   * meanings stay apart.
+   */
+  updateState?: never;
+}
 
 export interface UpdateOptions {
   /** Settle THIS pending transition (precise attribution — preferred over FIFO). */
@@ -1633,7 +2554,21 @@ export interface GapRecord {
     | 'APPROVAL_MISMATCH'
     | 'APPROVAL_STALE'
     | 'APPROVAL_DECLINED'
-    | 'APPROVAL_REVOKED';
+    | 'APPROVAL_REVOKED'
+    // Freshness refusals — the row was planned against a world that has moved.
+    | 'OFFER_REQUIRED'
+    | 'OFFER_NOT_ON_RECORD'
+    | 'WORLD_MOVED'
+    | 'ACKNOWLEDGEMENT_REQUIRED'
+    | 'ACKNOWLEDGEMENT_STALE'
+    // Single-flight: one occurrence of this control is still unresolved.
+    | 'PRIOR_FIRE_PENDING'
+    // Principal policy — a SECURITY row like the APPROVAL_* family, never demand:
+    // the capability exists and this principal is not allowed to use it.
+    | 'PRINCIPAL_NOT_ALLOWED'
+    // Effect policy — neither security nor demand: the APP has a declaration to
+    // write. Route these to the team that owns the graph.
+    | 'EFFECT_NOT_VERIFIABLE';
   principal?: Principal;
   evidence?: FilterCondition[];
   /**

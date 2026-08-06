@@ -4,7 +4,7 @@ title: JourneyToolsPort
 
 # Interface: JourneyToolsPort
 
-Defined in: [src/serve/modes.ts:132](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L132)
+Defined in: [src/serve/modes.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L151)
 
 ## Extended by
 
@@ -16,7 +16,7 @@ Defined in: [src/serve/modes.ts:132](https://github.com/footprintjs/hcifootprint
 
 > **call**(`name`, `args?`): [`ServeResult`](/api/index/type-aliases/ServeResult)
 
-Defined in: [src/serve/modes.ts:136](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L136)
+Defined in: [src/serve/modes.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L155)
 
 Route a tool_use by name. Unknown names return a structured error result.
 
@@ -40,7 +40,7 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 > `optional` **settledAnswer**(`transitionId`): [`ServeResult`](/api/index/type-aliases/ServeResult) \| `undefined`
 
-Defined in: [src/serve/modes.ts:192](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L192)
+Defined in: [src/serve/modes.ts:213](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L213)
 
 What `did_it_work` would ANSWER about a fire that has come to rest — the
 same facts, in the same words, minus that tool's own envelope. For the
@@ -64,7 +64,9 @@ Three answers, and they are three different things:
 The keys are the ones `did_it_work` documents (`effectStatus`, `outcome`,
 `outcomeNow`, `effectVerified`, `writesObserved`, `verifyHeld`, `arrival`,
 `arrivalMeans`, `materialized`, `why`, `toNode`, `error`, `data`,
-`stillWorking`, `stillWorkingMeans`, and `howToAct` on a moved outcome) —
+`stillWorking`, `stillWorkingMeans`, the external-report trio
+(`settledBy`, `reportedBy`, `evidenceOnRecord`, `settledByMeans`), and
+`howToAct` on a moved outcome) —
 absent when unknown, never filled in. A LIST IS A THING THAT GOES STALE, so
 the one a remote host reads is checked against a real answer by a test
 rather than kept in step by hand.
@@ -89,7 +91,7 @@ written against an earlier release must keep compiling.
 
 > **tools**(): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
-Defined in: [src/serve/modes.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L134)
+Defined in: [src/serve/modes.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L153)
 
 The STATIC tool array — identical bytes for the life of the conversation.
 
@@ -103,7 +105,7 @@ The STATIC tool array — identical bytes for the life of the conversation.
 
 > `optional` **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
 
-Defined in: [src/serve/modes.ts:159](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L159)
+Defined in: [src/serve/modes.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L178)
 
 How a fire came to rest — the ASYNC door, for the caller that holds this
 port and nothing else (a relay, a transport wrapper). `call()` is

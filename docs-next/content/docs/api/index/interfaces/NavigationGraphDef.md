@@ -4,7 +4,7 @@ title: NavigationGraphDef
 
 # Interface: NavigationGraphDef
 
-Defined in: [src/tree/types.ts:226](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L226)
+Defined in: [src/tree/types.ts:306](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L306)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/tree/types.ts:226](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **actions?**: `Record`\<`string`, [`ActionDef`](/api/index/interfaces/ActionDef) & `object`\>
 
-Defined in: [src/tree/types.ts:238](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L238)
+Defined in: [src/tree/types.ts:318](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L318)
 
 Root-level multi-attach actions: offered on several PAGES at once.
 
@@ -22,7 +22,7 @@ Root-level multi-attach actions: offered on several PAGES at once.
 
 > `optional` **does?**: `string`
 
-Defined in: [src/tree/types.ts:227](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L227)
+Defined in: [src/tree/types.ts:307](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L307)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/tree/types.ts:227](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **journeys?**: `Record`\<`string`, [`JourneyDef`](/api/index/interfaces/JourneyDef)\>
 
-Defined in: [src/tree/types.ts:240](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L240)
+Defined in: [src/tree/types.ts:320](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L320)
 
 Named multi-step flows: the journeys this graph can be planned over.
 
@@ -40,7 +40,7 @@ Named multi-step flows: the journeys this graph can be planned over.
 
 > `optional` **pages?**: `Record`\<`string`, [`PageNodeDef`](/api/index/interfaces/PageNodeDef)\>
 
-Defined in: [src/tree/types.ts:236](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L236)
+Defined in: [src/tree/types.ts:316](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L316)
 
 Hand-authored pages. Optional since sources exist: a def whose whole
 spine comes from `fromRoutes(...)` is the headline use case, and forcing
@@ -55,7 +55,7 @@ loudly with "has no pages".
 
 > `optional` **sources?**: readonly [`GraphSource`](/api/index/type-aliases/GraphSource)[]
 
-Defined in: [src/tree/types.ts:256](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L256)
+Defined in: [src/tree/types.ts:336](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L336)
 
 Growable inputs the app ALREADY owns — fromRoutes(app.routes) seeds pages,
 fromJourneys(app.journeys) seeds journeys, fromLiveStore(app.actionStore)

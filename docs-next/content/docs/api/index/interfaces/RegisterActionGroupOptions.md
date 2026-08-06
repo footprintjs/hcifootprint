@@ -4,7 +4,7 @@ title: RegisterActionGroupOptions
 
 # Interface: RegisterActionGroupOptions
 
-Defined in: [src/traverse/nav-session.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L74)
+Defined in: [src/traverse/nav-session.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L78)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/traverse/nav-session.ts:74](https://github.com/footprintjs/hcif
 
 > `optional` **actions?**: `Record`\<`string`, [`RegisteredActionDef`](/api/index/interfaces/RegisteredActionDef)\>
 
-Defined in: [src/traverse/nav-session.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L78)
+Defined in: [src/traverse/nav-session.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L82)
 
 Declare new leaf actions here-and-now (the register-with-just-a-description path).
 
@@ -22,7 +22,7 @@ Declare new leaf actions here-and-now (the register-with-just-a-description path
 
 > `optional` **busy?**: `Record`\<`string`, `string`\>
 
-Defined in: [src/traverse/nav-session.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L95)
+Defined in: [src/traverse/nav-session.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L99)
 
 Which controls are ALREADY WORKING as this mounts, in your own words (leaf
 name — or qualified id — → the label). The registration-time half of
@@ -39,7 +39,7 @@ absent from this map says NOTHING about that control — not "idle".
 
 > `optional` **enabled?**: `Record`\<`string`, `boolean`\>
 
-Defined in: [src/traverse/nav-session.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L84)
+Defined in: [src/traverse/nav-session.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L88)
 
 Initial disabled state per action (leaf name → enabled). Flip later via handle.setEnabled.
 
@@ -49,7 +49,7 @@ Initial disabled state per action (leaf name → enabled). Flip later via handle
 
 > `optional` **handlers?**: `Record`\<`string`, [`ActionHandler`](/api/index/type-aliases/ActionHandler)\>
 
-Defined in: [src/traverse/nav-session.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L76)
+Defined in: [src/traverse/nav-session.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L80)
 
 Bind the app's EXISTING handlers (by reference) to actions declared on this node.
 
@@ -59,7 +59,7 @@ Bind the app's EXISTING handlers (by reference) to actions declared on this node
 
 > `optional` **holds?**: `Record`\<`string`, () => `unknown`\>
 
-Defined in: [src/traverse/nav-session.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L111)
+Defined in: [src/traverse/nav-session.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L115)
 
 What each control HOLDS right now (leaf name — or qualified id — → a reader
 the served row calls at serve time). The registration-time half of
@@ -81,7 +81,7 @@ that throws costs the row its value and nothing else.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/traverse/nav-session.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L80)
+Defined in: [src/traverse/nav-session.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L84)
 
 Instance key when registering one card of a repeats container ('o-123').
 
@@ -91,6 +91,6 @@ Instance key when registering one card of a repeats container ('o-123').
 
 > `optional` **visible?**: `boolean`
 
-Defined in: [src/traverse/nav-session.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L82)
+Defined in: [src/traverse/nav-session.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L86)
 
 Initial visibility signal (same wire as setVisible).

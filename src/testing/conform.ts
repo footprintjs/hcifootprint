@@ -116,6 +116,10 @@ export const DECLARABLE_ACTION_FIELDS = [
   'input',
   'verify',
   'humanDecides',
+  'freshness',
+  'concurrency',
+  'principalPolicy',
+  'observability',
   'role',
   'on',
   'handler',
@@ -259,6 +263,24 @@ function makeFixture(page: string): ConformanceFixture {
       about: 'the conformance fixture decision',
       doneWhen: { 'conformance.decided': { eq: true } },
     },
+    // Enforcement declarations, in a shape both authoring doors accept. The
+    // fixture never FIRES, so nothing here can refuse anything — the question at
+    // both seams is only whether the declaration was threaded.
+    freshness: { readChanges: 'require-ack', writeChanges: 'refuse' },
+    concurrency: { mode: 'single-flight', scope: 'payload' },
+    // Who may act, whose choice it is, and whether a yes is required — all three
+    // populated, because a source that threads one of them and drops the other
+    // two would otherwise pass.
+    principalPolicy: { mayInvoke: ['human'], decisionOwner: 'human', requiresHumanApproval: true },
+    // 'external' rather than 'postcondition', and the reason is this harness's
+    // own job: two of the five words are COUPLED to another declaration
+    // ('postcondition' needs a `verify`, 'navigation' needs a `goTo`) and the
+    // authoring doors refuse an incoherent pair. A fixture built on a coupled
+    // word would turn "this source drops `verify`" — the exact bug this module
+    // exists to REPORT — into a GraphValidationError thrown from the compiler,
+    // and a checker that crashes on the defect it was written to name is a
+    // checker that names nothing. 'external' couples to nothing.
+    observability: 'external',
     role: 'submit',
     on: [page],
     handler: noop,
@@ -519,6 +541,47 @@ function actionChecks(fixture: ConformanceFixture): Record<DeclarableActionField
       compile: (p) => same(p.affordance.humanDecides, action.humanDecides),
       // Presence is the whole claim on the row; the filter behind it never rides.
       serve: (p) => p.row['humanDecides'] === true,
+    },
+    freshness: {
+      compile: (p) => same(p.affordance.freshness, action.freshness),
+      serve: {
+        because:
+          'a freshness policy never crosses the wire — it is read in-process, at fire time, to decide what a ' +
+          'stale citation costs. What an agent sees is the OFFER on the row and, if it fires against a moved ' +
+          'world, the typed refusal; both need a fire, and this fixture makes none.',
+      },
+    },
+    concurrency: {
+      compile: (p) => same(p.affordance.concurrency, action.concurrency),
+      serve: {
+        because:
+          'a concurrency policy never crosses the wire either. Its agent-visible consequence is ' +
+          '`priorFireUnsettled` on the row and the PRIOR_FIRE_PENDING refusal, and both require an unsettled ' +
+          'fire — a fixture with none would test the intersection rather than the thread (the reason `reads` ' +
+          'is read at the edge above).',
+      },
+    },
+    principalPolicy: {
+      compile: (p) => same(p.affordance.principalPolicy, action.principalPolicy),
+      // TWO OF THE THREE FACTS REACH A READER, and the row carries them whether
+      // or not any session enforces: `mayInvoke` (who may act) and
+      // `decisionOwner` (whose choice it is), each under its own key. The third
+      // — `requiresHumanApproval` — is a rule about a gate rather than a fact
+      // about the row, so it rides no served surface; a source that drops the
+      // whole declaration still fails here on the two that do.
+      serve: (p) =>
+        same(p.edge.mayInvoke, action.principalPolicy?.mayInvoke) &&
+        p.edge.decisionOwner === action.principalPolicy?.decisionOwner,
+    },
+    observability: {
+      compile: (p) => p.affordance.observability === action.observability,
+      serve: {
+        because:
+          "how an effect can be SEEN is read in-process, at fire time, to decide whether a high-effect " +
+          'action may run under `effectPolicy`. Its agent-visible consequence is the EFFECT_NOT_VERIFIABLE ' +
+          'refusal, which needs a fire and an enforcing session — this fixture makes neither, and asking ' +
+          'here would test the intersection rather than the thread (the reason `verify` is stated above).',
+      },
     },
     role: {
       compile: (p) => p.affordance.role === action.role,

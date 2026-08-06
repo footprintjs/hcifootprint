@@ -8,6 +8,12 @@
  */
 import { isParam, segmentsOf } from './route-match.js';
 import type { RoutedPages } from './route-match.js';
+// TYPE-ONLY, and erased at build: this leaf judges the app's own vocabulary, so
+// it names the unions it judges rather than keeping a hand copy of their words.
+import type { ActorKind, Observability, PrincipalPolicy } from '../atom/types.js';
+
+/** The three answers `principalPolicy.decisionOwner` may give. */
+type DecisionOwner = NonNullable<PrincipalPolicy['decisionOwner']>;
 
 export const FILTER_OPERATORS = new Set(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn']);
 
@@ -314,6 +320,164 @@ export function validateHumanDecides(owner: string, value: unknown): void {
     }
     validateGuardShape(`${owner} humanDecides.doneWhen`, doneWhen as Record<string, unknown>);
   }
+}
+
+// ---------------------------------------------------------------------------
+// principalPolicy — who may act, whose choice it is (see PrincipalPolicy)
+// ---------------------------------------------------------------------------
+
+/**
+ * The whole declaration, judged at BOTH authoring doors in the same words —
+ * {@link validateHumanDecides}'s exact shape, for its exact reason.
+ *
+ * THE ONE REFUSAL THAT EARNS ITS OWN SENTENCE is `mayInvoke: ['user']`. A record
+ * files an act under a PRINCIPAL (`'user'`); a policy names an ACTOR
+ * (`'human'`). An author who writes the record's word here is not making a typo
+ * in the abstract — they are writing a list that would refuse the very person
+ * they meant to allow, and the failure would be silent, at run time, in the
+ * fail-closed direction. So it dies at the keyboard with the correction in hand.
+ */
+export function validatePrincipalPolicy(owner: string, value: unknown): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new GraphValidationError(
+      `${owner}: principalPolicy must be an object { mayInvoke?, decisionOwner?, requiresHumanApproval? } — ` +
+        `who may perform this, whose choice it is, and whether a recorded human yes is required. Three ` +
+        `separate facts, deliberately not one word.`,
+    );
+  }
+  const { mayInvoke, decisionOwner, requiresHumanApproval } = value as {
+    mayInvoke?: unknown;
+    decisionOwner?: unknown;
+    requiresHumanApproval?: unknown;
+  };
+  if (mayInvoke !== undefined) {
+    if (!Array.isArray(mayInvoke)) {
+      throw new GraphValidationError(
+        `${owner}: principalPolicy.mayInvoke must be an array of actor kinds ` +
+          `(${[...ACTOR_KIND_WORDS].join(', ')}).`,
+      );
+    }
+    if (mayInvoke.length === 0) {
+      throw new GraphValidationError(
+        `${owner}: principalPolicy.mayInvoke is empty [] — that is an action nobody may ever perform, ` +
+          `which is an action not to declare. List the kinds that may, or omit 'mayInvoke' entirely.`,
+      );
+    }
+    for (const kind of mayInvoke) {
+      if (ACTOR_KIND_WORDS.has(kind as string)) continue;
+      throw new GraphValidationError(
+        `${owner}: principalPolicy.mayInvoke names '${String(kind)}', which is not an actor kind ` +
+          `(${[...ACTOR_KIND_WORDS].join(', ')}).` +
+          (kind === 'user'
+            ? ` A POLICY names an actor — write 'human'. 'user' is how a person's act is FILED on a ` +
+              `record, and a list holding it would refuse the very person you meant to allow.`
+            : ''),
+      );
+    }
+  }
+  if (decisionOwner !== undefined && !DECISION_OWNER_WORDS.has(decisionOwner as string)) {
+    throw new GraphValidationError(
+      `${owner}: principalPolicy.decisionOwner must be one of ${[...DECISION_OWNER_WORDS].join(', ')} — ` +
+        `whose CHOICE this is. It is disclosure and is never enforced: to keep the agent out, say ` +
+        `mayInvoke: ['human'].`,
+    );
+  }
+  if (requiresHumanApproval !== undefined && typeof requiresHumanApproval !== 'boolean') {
+    throw new GraphValidationError(
+      `${owner}: principalPolicy.requiresHumanApproval must be true or false — it says whether a recorded ` +
+        `human approval is required for this action, and nothing else.`,
+    );
+  }
+}
+
+/**
+ * The words each half of the declaration may be — written as TOTAL RECORDS over
+ * their own unions rather than as hand-kept lists, so a word added to the type
+ * without a refusal here stops the build instead of being silently accepted.
+ * (`CERTAINTY_OF` in traverse/attribution.ts is the same lock, for the same
+ * reason.)
+ */
+const ACTOR_KIND_WORDS = new Set(Object.keys({ human: true, agent: true, system: true } satisfies Record<ActorKind, true>));
+/** `'either'` is an answer, not a shrug: the app looked and says both may. */
+const DECISION_OWNER_WORDS = new Set(
+  Object.keys({ human: true, agent: true, either: true } satisfies Record<DecisionOwner, true>),
+);
+
+// ---------------------------------------------------------------------------
+// observability — how anyone could see that an action happened (see Observability)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every word `observability` may be — the closed set both authoring doors judge
+ * against, under the same totality lock as the two above: a sixth word on the
+ * type without a line here stops the build.
+ */
+export const OBSERVABILITY_WORDS = Object.keys({
+  'state-delta': true,
+  postcondition: true,
+  navigation: true,
+  external: true,
+  unobservable: true,
+} satisfies Record<Observability, true>);
+
+/** Which question a declared `observability` failed — or nothing, if it is usable. */
+export type ObservabilityFault = 'word' | 'postcondition' | 'navigation';
+
+/**
+ * ONE READING of "is this declaration coherent", asked at BOTH authoring doors
+ * (the compiler's walk and mount-time declaration) — {@link blockedBecauseFault}'s
+ * exact shape, for its exact reason: a fault CODE rather than two copies of the
+ * same conditions, so the doors cannot drift into refusing different things.
+ *
+ * COHERENCE, NEVER POLICY. `'postcondition'` without a `verify` names a check
+ * that does not exist, and `'navigation'` without a destination names a page
+ * nobody declared. Both are mistakes only an author can fix, so they die at the
+ * keyboard — whether or not any session ever enforces anything.
+ */
+export function observabilityFault(
+  observability: unknown,
+  declared: { verify: boolean; destination: boolean },
+): ObservabilityFault | undefined {
+  if (
+    typeof observability !== 'string' ||
+    !(OBSERVABILITY_WORDS as readonly string[]).includes(observability)
+  ) {
+    return 'word';
+  }
+  if (observability === 'postcondition' && !declared.verify) return 'postcondition';
+  if (observability === 'navigation' && !declared.destination) return 'navigation';
+  return undefined;
+}
+
+/**
+ * `observability`, refused at an authoring door. The reading above is shared, so
+ * what one door refuses is what the other refuses, in the same words.
+ */
+export function validateObservability(
+  owner: string,
+  observability: unknown,
+  declared: { verify: boolean; destination: boolean },
+): void {
+  const fault = observabilityFault(observability, declared);
+  if (fault === undefined) return;
+  if (fault === 'word') {
+    throw new GraphValidationError(
+      `${owner}: observability must be one of ${OBSERVABILITY_WORDS.join(', ')} — how anyone could SEE ` +
+        `that this action happened. There is no sixth word, because there is no sixth channel this ` +
+        `library can read.`,
+    );
+  }
+  if (fault === 'postcondition') {
+    throw new GraphValidationError(
+      `${owner}: observability 'postcondition' names a check this action does not declare. Add a ` +
+        `'verify' (a filter over projected state, or a synchronous predicate), or say how the effect is ` +
+        `really seen — 'state-delta', 'navigation', 'external', or 'unobservable'.`,
+    );
+  }
+  throw new GraphValidationError(
+    `${owner}: observability 'navigation' names page motion this action does not declare. Add a 'goTo', ` +
+      `or say how the effect is really seen.`,
+  );
 }
 
 /** Catch shape mistakes at authoring time — the evaluator fails them silently at runtime. */

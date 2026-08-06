@@ -4,9 +4,9 @@ title: FireResult
 
 # Type Alias: FireResult
 
-> **FireResult** = \{ `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REVOKED"`; \}
+> **FireResult** = \{ `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REVOKED"`; \} \| \{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"OFFER_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `offeredFor?`: `string`; `offerId`: `string`; `ok`: `false`; `reason`: `"OFFER_NOT_ON_RECORD"`; `why`: `"unknown"` \| `"evicted"` \| `"other-action"`; \} \| \{ `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"WORLD_MOVED"`; \} \| \{ `acknowledgementId?`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_REQUIRED"`; `why?`: `"evicted"`; \} \| \{ `acknowledgementId`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_STALE"`; \} \| \{ `affordanceId`: `string`; `howToSettle`: `string`; `ok`: `false`; `pendingTransitionId`: `string`; `reason`: `"PRIOR_FIRE_PENDING"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `attempted`: [`Principal`](/api/index/type-aliases/Principal); `ok`: `false`; `reason`: `"PRINCIPAL_NOT_ALLOWED"`; `required`: [`ActorKind`](/api/index/type-aliases/ActorKind)[]; \} \| \{ `affordanceId`: `string`; `needs`: `"observability"` \| `"postcondition"`; `observability?`: [`Observability`](/api/index/type-aliases/Observability); `ok`: `false`; `reason`: `"EFFECT_NOT_VERIFIABLE"`; \}
 
-Defined in: [src/atom/types.ts:1239](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1239)
+Defined in: [src/atom/types.ts:2003](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2003)
 
 What became of one fire — the success arm, or one typed refusal.
 
@@ -253,3 +253,230 @@ The human said no to this ask. Terminal for that askId, for the session's life.
 
 The human gave a yes and took it back before it was spent ([Session.revokeAsk](/api/index/classes/Session#revokeask)).
  The withdrawn pointer authorizes nothing; a fresh ask mints a new card.
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"OFFER_REQUIRED"`; \}
+
+A freshness axis enforces, and this fire cited no offer. Look again
+ (`available()` / `whats_here`) and cite the row you plan against — there is
+ nothing to compare a fire to otherwise.
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `offeredFor?`: `string`; `offerId`: `string`; `ok`: `false`; `reason`: `"OFFER_NOT_ON_RECORD"`; `why`: `"unknown"` \| `"evicted"` \| `"other-action"`; \}
+
+The cited offer is not one this session can answer THIS fire with, and
+ `why` says which of the three things happened. `'unknown'` — no such id was
+ ever minted here; `'evicted'` — it was, and the bounded ledger has since
+ dropped it; `'other-action'` — the id IS on this session's record and it
+ names a DIFFERENT control, so it answers that row and not this one. Three
+ words rather than one because the fixes differ and because collapsing them
+ would let the library report its own bound, or its own row, as a caller's
+ forged citation.
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### offeredFor?
+
+> `optional` **offeredFor?**: `string`
+
+The control that offer WAS minted for — present only under
+ `'other-action'`, where this session really does hold the row. An
+ authored action id, never app data.
+
+#### offerId
+
+> **offerId**: `string`
+
+#### ok
+
+> **ok**: `false`
+
+#### reason
+
+> **reason**: `"OFFER_NOT_ON_RECORD"`
+
+#### why
+
+> **why**: `"unknown"` \| `"evicted"` \| `"other-action"`
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"WORLD_MOVED"`; \}
+
+Something the row was offered under has moved, and this control's policy
+ says refuse. `moved` names the axes and the KEYS — never a value, never a
+ conclusion. Fix by looking again and citing the fresh offer.
+
+***
+
+### Type Literal
+
+\{ `acknowledgementId?`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_REQUIRED"`; `why?`: `"evicted"`; \}
+
+Something moved and this control's policy says the caller must acknowledge
+ it first. `acknowledgementId` echoes the pointer that was presented, when
+ one was and it named nothing usable — exactly as `APPROVAL_REQUIRED` echoes
+ `askId`. Acknowledge with `session.acknowledgeStale(actionId, keys, { offerId })`
+ and cite what it hands back.
+
+#### acknowledgementId?
+
+> `optional` **acknowledgementId?**: `string`
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### moved
+
+> **moved**: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]
+
+#### offerId
+
+> **offerId**: `string`
+
+#### ok
+
+> **ok**: `false`
+
+#### reason
+
+> **reason**: `"ACKNOWLEDGEMENT_REQUIRED"`
+
+#### why?
+
+> `optional` **why?**: `"evicted"`
+
+`'evicted'` — and only ever that. The receipt cited here IS one this
+session wrote, and this session's own cap
+([SessionOptions.maxAcknowledgements](/api/index/interfaces/SessionOptions#maxacknowledgements)) dropped it. Present only on
+that one case, because it is the only one that is not the caller's
+mistake: the fix is a bigger cap, or acknowledge again. Absent covers
+every other unusable pointer, deliberately without a taxonomy of how.
+
+***
+
+### Type Literal
+
+\{ `acknowledgementId`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_STALE"`; \}
+
+That acknowledgement was made in a world that has since moved on. A step
+ performed against different facts is not a step performed against these.
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `howToSettle`: `string`; `ok`: `false`; `pendingTransitionId`: `string`; `reason`: `"PRIOR_FIRE_PENDING"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \}
+
+A prior occurrence of this control has not come to rest, and the action
+ declares `concurrency: { mode: 'single-flight' }`. It clears on SETTLEMENT
+ and nothing else — no timeout, no read, and not the caller reporting it
+ done. `howToSettle` names the doors that can.
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### howToSettle
+
+> **howToSettle**: `string`
+
+The authored sentence naming every door that can settle it.
+
+#### ok
+
+> **ok**: `false`
+
+#### pendingTransitionId
+
+> **pendingTransitionId**: `string`
+
+The fire that is still out there — ask `session.settlementOf(id)` about it.
+
+#### reason
+
+> **reason**: `"PRIOR_FIRE_PENDING"`
+
+#### scope
+
+> **scope**: `"action"` \| `"instance"` \| `"payload"`
+
+Which scope matched: the action, this card, or this exact input.
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `attempted`: [`Principal`](/api/index/type-aliases/Principal); `ok`: `false`; `reason`: `"PRINCIPAL_NOT_ALLOWED"`; `required`: [`ActorKind`](/api/index/type-aliases/ActorKind)[]; \}
+
+This principal may not perform this action — the app declared who may, and
+ this is not one of them. `required` NAMES the kinds, because an agent told
+ only "no" tries again while an agent told "a human must do this" asks the
+ person. Never a retry: nothing about the world changes this one.
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### attempted
+
+> **attempted**: [`Principal`](/api/index/type-aliases/Principal)
+
+The principal that tried, echoed so one row answers the whole question.
+
+#### ok
+
+> **ok**: `false`
+
+#### reason
+
+> **reason**: `"PRINCIPAL_NOT_ALLOWED"`
+
+#### required
+
+> **required**: [`ActorKind`](/api/index/type-aliases/ActorKind)[]
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `needs`: `"observability"` \| `"postcondition"`; `observability?`: [`Observability`](/api/index/type-aliases/Observability); `ok`: `false`; `reason`: `"EFFECT_NOT_VERIFIABLE"`; \}
+
+This session requires a high-effect action to say how its effect can be
+ checked, and this one cannot. `needs` says which half is missing:
+ `'observability'` — nothing was declared; `'postcondition'` — what was
+ declared is not a check (key presence is not value correctness). Fixed by
+ the APP, at the keyboard, not by the caller at run time.
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### needs
+
+> **needs**: `"observability"` \| `"postcondition"`
+
+#### observability?
+
+> `optional` **observability?**: [`Observability`](/api/index/type-aliases/Observability)
+
+What the app did declare, when it declared something.
+
+#### ok
+
+> **ok**: `false`
+
+#### reason
+
+> **reason**: `"EFFECT_NOT_VERIFIABLE"`

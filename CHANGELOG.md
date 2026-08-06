@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.7.0] - 2026-08-06
 
 **A stamp that goes quiet while the thing it describes is still true is not a disclosure. It is a
 disclosure that expired.**
@@ -69,6 +69,305 @@ The reasoning, and the acts that were considered and refused, are in
 is not expected to move an outcome rate by itself — the read side shipped, was served on the exact
 control the harm rows fired, kept its negative control silent, and the measured number did not move
 by one row. Disclosure is what a library on this side of the boundary can honestly change.
+
+### Offers, freshness, and one occurrence at a time
+
+**A warning can be ignored. A required protocol step cannot be skipped silently.**
+
+The measurement that motivates all three: in **20 of 33** residual-harm rows, the decisive warning
+was on the exact control at the exact turn and the model fired anyway. Disclosure has a ceiling.
+These are the mechanisms that let an integrator convert what this library already knows into
+something a fire has to answer for — **opt-in in the one sense that can be checked: nothing here
+refuses a fire, holds a row back, or changes what a word already on a row means, unless an
+integrator declared a policy.** What a consumer who declared nothing gets is strictly ADDITIVE, and
+additive is not byte-identical, so the additions are listed rather than waved at.
+
+**What DOES move for a consumer who declared nothing.** Five things. Every one is a field or a door
+APPEARING; no existing field changes meaning, and nothing new is refused:
+
+- every `available()` edge carries an `offerRef`, so anything that snapshots or compares whole edges
+  sees a new key (the Mode B row a MODEL reads does not: it carries `offerId` only where a fire will
+  be asked for one, so the served bytes are unchanged);
+- every `TransitionRecord` carries an `attribution` stamp;
+- `acknowledgeStale`'s return grew an `acknowledgementId` beside the `cleared` list;
+- `Session.observeEffect` / `observationsOf` / `acknowledgementsDropped` / `offersDropped` and the
+  `AttributionBasis` word `'external-report'` are new surface nothing reaches unless you call it;
+- a session that calls `acknowledgeStale` more than `maxAcknowledgements` (500) times warns once and
+  begins dropping its oldest receipts — the one NEW WARNING that can reach a consumer who declared no
+  policy, and it can only reach one that used that door five hundred times.
+
+The offer ledger's eviction warning is **not** in that list, deliberately: it is said only to a
+session that requires a citation somewhere. That ledger fills from the read path on every session, so
+warning unconditionally would tell an integrator to tune a mechanism they never switched on, about a
+refusal that cannot reach them. Evictions are still COUNTED everywhere (`session.offersDropped()`).
+The acknowledgement ledger is the other way round for the same reason: nothing enters it except
+through an explicit call, so its warning can never arrive unrequested.
+
+#### The offer contract — a name for the row that was served
+
+`available()` handed back a version and `fire()` took an `expectedVersion` the caller typed in by
+hand, so nothing joined a fire to the ROW it was planned against. Now every served edge carries an
+**`offerRef`** (`offerId`, `actionId`, `node`, `stateVersion`, `structureVersion`), and `fire()` may
+cite `{ offerId }`.
+
+```ts
+const edge = session.available().edges.find((e) => e.affordanceId === 'ledger.settle')!;
+session.fire('ledger.settle', { source: 'agent', offerId: edge.offerRef!.offerId });
+```
+
+**It is a CITATION to a session record — not a secret, not a capability.** It is printed on the row
+a model reads; holding one authorizes nothing, and every gate (guard, payload, disabled,
+materialisation, human approval) runs exactly as it did. `session.offerFor(offerId)` reads back what
+was true when the row went out: the guard keys it could evaluate, the ones it could not, and the
+declared reads/writes it was already carrying an unanswered staleness for.
+
+**Bounded, and honest about the bound.** The ledger is written from a read path, so it has a cap
+(`SessionOptions.maxOffers`, default 500) and drops the oldest. An offer's id is minted from its
+FACTS, so re-serving an unchanged row hands back the same id — a session that looks ten times mints
+one offer per action, not ten. Evictions are counted (`session.offersDropped()`) on every session and
+warn the integrator once **where citations are required** — the only place a dropped one costs
+anybody anything.
+
+A fire whose citation this session cannot answer with is refused `OFFER_NOT_ON_RECORD`, and `why`
+says which of three things happened: `'evicted'` (real, and this library's own bound dropped it),
+`'other-action'` (real, retained, and minted for a DIFFERENT control — `offeredFor` names it), or
+`'unknown'` (no such id was ever minted here). Three words rather than one, because only the last is
+the caller's mistake and telling somebody their honest citation was forged is the failure all three
+exist to prevent.
+
+#### Freshness policy — what a control does when the world moved under its row
+
+Per action (`ActionDef.freshness`) or once for the session (`SessionOptions.freshness`), on four
+axes, each answered `'disclose' | 'require-ack' | 'refuse'`:
+
+```ts
+'settle-claim': {
+  does: 'Settle the claim', reads: ['claim.total'], writes: ['purse.left'],
+  freshness: { readChanges: 'require-ack', writeChanges: 'refuse' },
+}
+```
+
+- **`guardChanges`** — a key this control's availability was judged on has been committed since the
+  offer (it still passes; a guard that stopped passing is `GUARD_FAILED`, which fires first).
+- **`readChanges`** / **`writeChanges`** — a declared read/write has been committed since the offer.
+- **`positionChanges`** — the cursor is on a different page, or the served surface has changed.
+
+`'disclose'` is the default on every axis and is **exactly today's behaviour**. `'refuse'` returns a
+typed `WORLD_MOVED` naming the axes and the KEYS — never a value, never a conclusion.
+`'require-ack'` returns `ACKNOWLEDGEMENT_REQUIRED` until the caller performs the step. An enforcing
+axis requires the fire to cite its offer (`OFFER_REQUIRED`): there is nothing to compare a fire
+against without one, and judging against "now" would grade every uncited fire as fresh.
+
+#### `acknowledgeStale` is now a referenceable transition
+
+It writes an append-only **`StaleAcknowledgement`** (`acknowledgementId`, `actionId`, `offerId`,
+`principal`, `keys`, `acknowledgedAtStateVersion`, `timestamp`), readable through
+`session.acknowledgements()`, and hands the id back beside the `cleared` list it always returned.
+
+```ts
+const { acknowledgementId } = session.acknowledgeStale('ledger.settle', ['claim.total'], { offerId });
+session.fire('ledger.settle', { source: 'agent', offerId, acknowledgementId });
+```
+
+**Said plainly, because the name invites the bigger claim: this records that a protocol step was
+PERFORMED.** It is not evidence that a model read a value, understood a consequence, or decided
+well — this library never serves a value, so it cannot know any of that, and no field on the row
+says otherwise. A row stops authorizing the moment `stateVersion` moves again
+(`ACKNOWLEDGEMENT_STALE`); it is never edited or rewritten, and stays on the ledger as what it was.
+
+**Bounded, and honest about the bound**, because that loop writes one row per turn and an unbounded
+receipt trail is a session-lifetime leak on exactly the protocol this feature asks for. The ledger
+keeps the most recent `SessionOptions.maxAcknowledgements` (default 500) and drops the oldest whole —
+never editing or retracting one. Evictions are counted (`session.acknowledgementsDropped()`), warned
+once, and a fire citing a dropped receipt is refused `ACKNOWLEDGEMENT_REQUIRED` with `why: 'evicted'`
+and a sentence that says so: a step this caller really did perform, dropped by this library's own
+limit, is never reported as a pointer they made up.
+
+#### Single-flight — the mechanism the repeated-payment row demanded
+
+```ts
+'pay-invoice': {
+  does: 'Pay the invoice', confirm: true, writes: ['invoice.paid'],
+  concurrency: { mode: 'single-flight', scope: 'payload' },
+}
+```
+
+Default is `'parallel'` — what every release before this one did. Under `'single-flight'`, a fire
+made while a prior occurrence is unresolved is refused `PRIOR_FIRE_PENDING`, carrying that fire's
+`pendingTransitionId` and the doors that can settle it. `scope` is `'action'` (default), `'instance'`
+(one per repeats card) or `'payload'` (one per identical input, compared over the same canonical
+rendering the approval gate uses — an input this library cannot render faithfully is treated as the
+SAME one, because an unprovable difference is not a difference here).
+
+**It clears on real settlement and on nothing else.** Not a timeout — a clock is not evidence, and
+"it has been a while" is evidence neither of done nor of failed. Not another look. Not the caller
+reporting the first one finished. **Four doors settle a fire, and `howToSettle` names all four:** the
+handler resolving or throwing, the app's state report landing, `reject()`, and — for an effect this
+client cannot see — `session.observeEffect(transitionId, …)`. And it never refuses reality: the app
+self-reporting motion it already performed (`invoke: false`) is not this session firing twice.
+
+Both new gates sit after every capability refusal and **before the human-approval gate**, under that
+gate's own law — nobody is sent to approve an action this session is about to turn away. The served
+row carries the verdict too (`heldByPriorFire`), so Mode B stops asking a person to confirm a fire it
+will refuse as a repeat.
+
+#### Also
+
+- `TransitionRecord.offerId` records the citation a fire made, whether or not anything enforces —
+  the join from the transition log to the offer record and on to any acknowledgement of it.
+- `AvailableEdge.mustCiteOffer` / `heldByPriorFire` are presence-only and absent by default, so a
+  session that declares neither policy serves rows that gained nothing but the `offerRef` listed
+  above. The Mode B row carries an `offerId` only where a fire will be asked for one.
+- Both authoring doors — `buildNavigationGraph` and mount-declared actions — refuse an unknown
+  freshness axis, an unknown answer, an unknown concurrency mode or scope, and a `scope` under
+  `mode: 'parallel'` (which scopes nothing). An enforcement rule that is silently ignored is the one
+  failure mode a safety feature must not have.
+
+### A warning can be ignored. A required step cannot be skipped silently.
+
+**Disclosure has a measured ceiling.** In a preregistered campaign, 20 of 33 residual-harm rows had
+the decisive warning on the exact control at the exact turn — and the model fired anyway. Everything
+below turns something this library already KNEW into something an integrator can enforce. Every one
+of them is off by default, and the default half of each test file exists to prove that a session
+which declared nothing refuses exactly what it refused before — the additions it does get are the
+five listed at the top of this release, and they only ever ADD a field.
+
+#### Attribution — every transition says which rung filed it, and what that is worth
+
+`updateState()` has always placed a state delta on a fire through a ladder: an explicit
+`transitionId`, a report from inside the handler's own call, the app's own wrapped function, a unique
+effect signature, the oldest pending fire, an explicit stimulus, and a floor that names nobody. Every
+rung wrote the same shape of row — so a settlement computed from ARRIVAL ORDER and one the app
+NAMED were, on the wire, the same fact.
+
+Every transition now carries an **`attribution`**: `{ principal, basis, certainty }`, over a closed
+ten-word `AttributionBasis` and a table that is total by construction.
+
+```jsonc
+// the same fire, closed two different ways
+{"basis":"named-by-report","certainty":"observed","principal":"agent"}
+{"basis":"queue-order",    "certainty":"inferred","principal":"agent"}
+```
+
+`certainty` grades **the association** — never an identity and never a value. `'caller-asserted'` is
+`'observed'` because this library watched the call come through its own door; who was behind it is
+the caller's word, which is what ASSERTED is doing in the name. A fire's stamp folds with its
+settlement's under one rule: **the weakest link wins, and among equals the settlement's own rung
+takes the field.** So a fire closed by FIFO reads inferred whatever door it came through, and an
+anchor's guessed action stays inferred however precisely the app names the row afterwards. On a
+stimulus nobody attributed, `cause.principal` keeps its honest `'system'` default and
+`attribution.principal` says `'unknown'` — the old bytes untouched, the true thing in the new field.
+
+#### `attributionPolicy: 'strict'` — the fire stays unresolved rather than falsely closed
+
+Opt-in. It turns off exactly the two rungs that are guesses: **no FIFO settlement** (arrival order is
+not evidence), and **a signature association only when nothing else pending could even partly
+explain the delta**. An unplaceable report becomes an `'unknown'` stimulus, the motion is still
+recorded, and the fire stays visibly pending (`session.pending()`, `awaitingSettlement()`). That is
+the trade, and it is why it is opt-in: an app whose tap passes `transitionId` loses nothing at all.
+
+#### `principalPolicy` — who may act, whose choice it is, whether a yes is required
+
+Three facts, three fields, and this library will not fold them into one word:
+
+```ts
+'transfer-funds': {
+  does: 'Transfer the balance', confirm: true,
+  principalPolicy: { mayInvoke: ['human'], decisionOwner: 'human', requiresHumanApproval: true },
+}
+```
+
+- **`mayInvoke`** (actor identity) is the only half enforcement gates. With
+  `SessionOptions.enforcePrincipalPolicy`, a fire from any other principal returns a typed
+  `PRINCIPAL_NOT_ALLOWED` **naming the kinds required** — an agent told only "no" tries again; an
+  agent told "a human must do this" hands it over.
+- **`decisionOwner`** (decision ownership) is disclosure and is **never** read by enforcement. An
+  owner is not a permission: making "this is the customer's choice" silently mean "the agent is
+  forbidden" would be a refusal nobody wrote. Say `mayInvoke: ['human']` and mean it.
+- **`requiresHumanApproval`** (consent status) widens the EXISTING approval gate to an action that is
+  not `confirm: true`. It mints no new refusal word, and it never arms the gate by itself — a
+  per-action switch that did would refuse fires through a port whose own reading of "is this session
+  gated?" is false, and the refusal could never be answered.
+
+A policy names an ACTOR (`'human'`); a record files an act under a PRINCIPAL (`'user'`). Writing
+`mayInvoke: ['user']` is refused at both authoring doors with the correction, rather than silently
+locking a person out of their own control. `AvailableEdge.mayInvoke` / `decisionOwner` and the Mode B
+row carry the declaration whether or not this session enforces it.
+
+#### Principal-bound ports — say who you are once, at the boundary
+
+`session.asAgent()`, `asHuman()`, `asSystem()` carry `fire`, `sync` and `reportGap` with the
+principal already on them. It is **the same assertion, not a stronger one**: a port fire stamps
+`'caller-asserted'` exactly as `fire({ source })` does, because recording ergonomics as evidence
+would launder convenience into proof. `fire({ source })` stays fully supported. No human-side
+authority door (`approveAsk`, `alwaysApprove`, `revokeAsk`, `declineConfirm`) is on a port, ever —
+and neither is `updateState`, whose `principal` means "this motion was world-initiated" and would
+turn every port report into a stimulus that closes nothing.
+
+#### `observability` + `effectPolicy` — how would anyone SEE that this happened
+
+`ActionDef.observability` is the app's own answer: `'state-delta' | 'postcondition' | 'navigation' |
+'external' | 'unobservable'`. Declared, never inferred. With
+`SessionOptions.effectPolicy: { highEffectRequiresVerify: true }`, a high-effect action whose effect
+nobody could check is refused `EFFECT_NOT_VERIFIABLE` before it runs, with `needs` naming the missing
+half.
+
+**`'state-delta'` deliberately does not satisfy it.** `effectVerified` checks that the declared write
+KEYS appeared; key presence is not value correctness, and a handler that wrote `orderId: null`
+satisfies it exactly as a real order does. Nothing here claims otherwise — which is why the strongest
+requirement the policy can make is a postcondition the app itself declared. Two coherence rules are
+refused at authoring, enforcement or not: `'postcondition'` needs a `verify`, `'navigation'` needs a
+`goTo`.
+
+#### `session.observeEffect()` — the door for what this client cannot see
+
+```ts
+session.observeEffect(transitionId, { source: 'stripe-webhook', status: 'performed', evidenceRef: 'evt_1P2x' });
+```
+
+A payment clears at a processor, a job finishes on a queue. The browser sees none of it, so the
+honest answer used to be `'unobservable'` for ever. **What is recorded is the REPORT, never the
+fact**: a source the app named, a status, and a REFERENCE this library never fetches, dereferences or
+interprets. The first report settles the fire exactly as a state report would; a later one is
+APPENDED to `TransitionRecord.observations` and answers `settled: false` — the receipt taken at rest
+is never rewritten. It writes no state: an effect nobody here can see is exactly the effect whose
+state consequences this library has no business inventing, so `effectVerified` stays honestly
+`'unobservable'` and the app's own `verify` still governs.
+
+**And the served answer says who answered.** `effectStatus: 'performed'` is the same word for a
+handler this library watched run and for a sentence handed in about a processor it cannot see, so
+`did_it_work` (and `port.settledAnswer`) now carry `settledBy: 'external-report'`, `reportedBy` (the
+source the app named), `evidenceOnRecord` when a reference exists, and one authored
+`settledByMeans` sentence saying a report is not proof. **The `evidenceRef` itself never crosses** —
+this library does not follow it, so quoting it would dress a pointer up as a check. A settlement
+nobody reported on serves exactly the bytes it always did.
+
+Closing a fire this way also folds `basis: 'external-report'` onto the row (certainty `'observed'` —
+it grades the ASSOCIATION, which the app named through this library's own door, and never the claim
+the outside source made). A report landing on a record ALREADY at rest folds nothing: it closed no
+question, so it must not describe itself as having.
+
+#### Also
+
+- `hcifootprint/testing`'s drift harness follows: `principalPolicy` and `observability` join
+  `DECLARABLE_ACTION_FIELDS`, so a source adapter that drops either is named at the seam that lost
+  it. The conformance fixture declares `observability: 'external'` on purpose — a coupled word would
+  turn "this source drops `verify`" into a compiler throw, and a checker that crashes on the defect
+  it exists to report names nothing.
+- `FireResult['reason']` and `GapRecord['rejectionReason']` grew by exactly `PRINCIPAL_NOT_ALLOWED`
+  and `EFFECT_NOT_VERIFIABLE`, in lockstep, and no existing word changed meaning. Route the first to
+  your audit sink (a security row, not missing capability); the second is an app's missing
+  declaration, and belongs to whoever owns the graph.
+- **Knowingly carried forward, so the next reader does not reopen it as an oversight:**
+  `EffectStatus` still contains `'refused'`, which also reads as an authority word elsewhere.
+  Renaming it is a breaking change to a field every consumer branches on, for a collision that has
+  never produced a wrong answer. `ExternalObservation.status` mirrors the same two words **on
+  purpose** — they are the two answers a settlement has, and a third vocabulary for one fork would be
+  worse than the echo.
+- The whole law, including the alternatives that were considered and refused, is in
+  [docs/design/attribution-authority-and-evidence.md](docs/design/attribution-authority-and-evidence.md),
+  with the reader-facing page at `docs-next` → Actions → *Who did it, who may, and how you would
+  know*.
 
 ## [1.6.0] - 2026-08-06
 

@@ -22,8 +22,12 @@ import type {
   Binding,
   BlockedBecause,
   CanonicalRole,
+  ConcurrencyPolicy,
+  FreshnessPolicy,
   HumanDecides,
   NavigationGraphSpec,
+  Observability,
+  PrincipalPolicy,
   VerifyContract,
 } from '../atom/types.js';
 // Type-only cycle with graph/sources/types.ts (it names PageNodeDef/JourneyDef,
@@ -155,6 +159,82 @@ export interface ActionDef {
    * exists for it. See {@link HumanDecides}.
    */
   humanDecides?: HumanDecides;
+  /**
+   * WHO MAY PERFORM THIS, WHOSE CHOICE IT IS, AND WHETHER A RECORDED YES IS
+   * NEEDED — three separate facts, three fields, never one word.
+   *
+   * `humanDecides` above is disclosure and stays disclosure. This is its
+   * enforceable neighbour, and it enforces NOTHING until the session is created
+   * with `enforcePrincipalPolicy: true` — declaring it changes not one byte
+   * otherwise.
+   *
+   * ```ts
+   * 'transfer-funds': {
+   *   does: 'Transfer the balance',
+   *   confirm: true,
+   *   principalPolicy: { mayInvoke: ['human'], requiresHumanApproval: true },
+   * }
+   * ```
+   *
+   * Note the vocabulary: a policy names an ACTOR (`'human'`), while a record
+   * files an act under a principal (`'user'`). Writing `mayInvoke: ['user']` is
+   * refused at this door with the correction, rather than silently locking a
+   * person out of their own control. See {@link PrincipalPolicy}.
+   */
+  principalPolicy?: PrincipalPolicy;
+  /**
+   * HOW WOULD ANYONE SEE THAT THIS HAPPENED — `'state-delta'`,
+   * `'postcondition'`, `'navigation'`, `'external'` or `'unobservable'`.
+   *
+   * Declared, never inferred, and it refuses nothing on its own. A session
+   * created with `effectPolicy: { highEffectRequiresVerify: true }` reads it and
+   * refuses a high-effect action whose effect nobody could check — where
+   * `'state-delta'` deliberately does NOT count, because key presence is not
+   * value correctness. See {@link Observability}.
+   *
+   * Two coherence rules are refused HERE, at authoring, whether or not any
+   * session enforces anything: `'postcondition'` needs a `verify`, and
+   * `'navigation'` needs a `goTo`.
+   */
+  observability?: Observability;
+  /**
+   * WHAT THIS CONTROL DOES WHEN SOMETHING IT WAS OFFERED UNDER HAS SINCE MOVED
+   * — declared per axis, and `'disclose'` (today's behaviour) wherever you say
+   * nothing.
+   *
+   * ```ts
+   * 'settle-claim': {
+   *   does: 'Settle the claim',
+   *   reads: ['claim.total'], writes: ['purse.left'],
+   *   freshness: { readChanges: 'require-ack', writeChanges: 'refuse' },
+   * }
+   * ```
+   *
+   * It is the enforceable sibling of the `staleReads` / `staleWrites` stamps,
+   * which say the same thing and refuse nothing. Declaring it overrides the
+   * session default AXIS BY AXIS, and an enforcing axis makes one new demand of
+   * the caller: cite the offer you planned against
+   * ({@link FireOptions.offerId}). See {@link FreshnessPolicy}.
+   */
+  freshness?: FreshnessPolicy;
+  /**
+   * MAY A SECOND FIRE OVERLAP AN UNRESOLVED FIRST? Default `'parallel'` — what
+   * every release before this one did.
+   *
+   * ```ts
+   * 'pay-invoice': {
+   *   does: 'Pay the invoice', confirm: true, writes: ['invoice.paid'],
+   *   concurrency: { mode: 'single-flight', scope: 'payload' },
+   * }
+   * ```
+   *
+   * Under `'single-flight'` a fire made while a prior occurrence is still
+   * unresolved is refused `PRIOR_FIRE_PENDING`, carrying that fire's id and the
+   * doors that can settle it. It clears on settlement and on nothing else — no
+   * timeout, no second look, and not the caller reporting it done. See
+   * {@link ConcurrencyPolicy}.
+   */
+  concurrency?: ConcurrencyPolicy;
   role?: CanonicalRole;
 }
 

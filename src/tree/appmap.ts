@@ -22,8 +22,13 @@ import type {
   Journey,
   NavigationGraphSpec,
 } from '../atom/types.js';
-import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateBlockedBecause, validateGuardShape, validateHumanDecides } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, checkSegment, composeGuards, guardStateKeys, validateBlockedBecause, validateGuardShape, validateHumanDecides, validateObservability, validatePrincipalPolicy } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from '../traverse/expects.js';
+// ONE LAW, TWO DOORS: the same refusal a mount-declared action gets
+// (traverse/nav-session.ts). The policy modules own their own vocabulary, so a
+// new axis or scope cannot be added in one place and left unjudged in another.
+import { validateFreshness } from '../traverse/freshness.js';
+import { validateConcurrency } from '../traverse/single-flight.js';
 import { mergeSources } from '../graph/sources/merge.js';
 import { actionsOf, journeysOf } from './authoring-keys.js';
 import { InteractionSession } from '../traverse/nav-session.js';
@@ -229,6 +234,29 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
     if (action.humanDecides !== undefined) {
       validateHumanDecides(`action '${qualifiedId}'`, action.humanDecides);
     }
+    // Who may act, whose choice it is — the same law in the same words at both
+    // doors, and the 'user'/'human' correction lives inside it.
+    if (action.principalPolicy !== undefined) {
+      validatePrincipalPolicy(`action '${qualifiedId}'`, action.principalPolicy);
+    }
+    // How the effect can be SEEN — judged for COHERENCE here (a postcondition
+    // needs a verify, a navigation needs a destination), never for policy: no
+    // session's effectPolicy is knowable at build.
+    if (action.observability !== undefined) {
+      validateObservability(`action '${qualifiedId}'`, action.observability, {
+        verify: action.verify !== undefined,
+        destination: action.goTo !== undefined,
+      });
+    }
+    // Freshness and concurrency are ENFORCING declarations, so a typo in one is
+    // the worst kind of silence: the app believes a control is protected and it
+    // is not. Both are refused here, at authoring, whether or not any session
+    // ever turns enforcement on — the same door `enabledWhen` and `verify` are
+    // judged at, and for the same reason.
+    if (action.freshness !== undefined) validateFreshness(`action '${qualifiedId}'`, action.freshness);
+    if (action.concurrency !== undefined) {
+      validateConcurrency(`action '${qualifiedId}'`, action.concurrency);
+    }
     // Never-trap BUILD gate, url half: a paramful href can NEVER materialise,
     // so it dies here — which also makes "a journey whose entry step's gesture
     // is such a url" unconstructable, since every static action passes this door.
@@ -277,6 +305,22 @@ export function buildNavigationGraph<const Def extends NavigationGraphDef>(
         ...(action.humanDecides !== undefined
           ? { humanDecides: structuredClone(action.humanDecides) }
           : {}),
+        // Cloned and owned by the graph, `enabledWhen`'s exact path: these are
+        // written declarations, not code, so the compiled affordance holds its
+        // own bytes and a consumer editing the object they authored cannot widen
+        // (or switch off) an enforcement rule after the graph was built.
+        ...(action.freshness !== undefined ? { freshness: structuredClone(action.freshness) } : {}),
+        ...(action.concurrency !== undefined
+          ? { concurrency: structuredClone(action.concurrency) }
+          : {}),
+        // The same law one line further: a policy about WHO may act is bytes the
+        // graph owns, so an author's later edit to the object they passed cannot
+        // widen a list this session is enforcing.
+        ...(action.principalPolicy !== undefined
+          ? { principalPolicy: structuredClone(action.principalPolicy) }
+          : {}),
+        // A single word — nothing to clone, and nothing to widen.
+        ...(action.observability !== undefined ? { observability: action.observability } : {}),
         highEffect: action.confirm ?? false,
         role: deriveRole(action),
         descriptionSource: 'declared',

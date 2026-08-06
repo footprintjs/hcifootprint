@@ -4,7 +4,7 @@ title: DECLARABLE_ACTION_FIELDS
 
 # Variable: DECLARABLE\_ACTION\_FIELDS
 
-> `const` **DECLARABLE\_ACTION\_FIELDS**: readonly \[`"does"`, `"binding"`, `"when"`, `"enabledWhen"`, `"blockedBecause"`, `"writes"`, `"reads"`, `"goTo"`, `"confirm"`, `"input"`, `"verify"`, `"humanDecides"`, `"role"`, `"on"`, `"handler"`\]
+> `const` **DECLARABLE\_ACTION\_FIELDS**: readonly \[`"does"`, `"binding"`, `"when"`, `"enabledWhen"`, `"blockedBecause"`, `"writes"`, `"reads"`, `"goTo"`, `"confirm"`, `"input"`, `"verify"`, `"humanDecides"`, `"freshness"`, `"concurrency"`, `"principalPolicy"`, `"observability"`, `"role"`, `"on"`, `"handler"`\]
 
 Defined in: [src/testing/conform.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L106)
 

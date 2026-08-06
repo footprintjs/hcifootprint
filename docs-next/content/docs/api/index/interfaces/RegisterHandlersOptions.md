@@ -4,7 +4,7 @@ title: RegisterHandlersOptions
 
 # Interface: RegisterHandlersOptions
 
-Defined in: [src/traverse/session.ts:391](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L391)
+Defined in: [src/traverse/session.ts:445](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L445)
 
 registerHandlers() input: one group per component/section, existing handlers by reference.
 
@@ -14,7 +14,7 @@ registerHandlers() input: one group per component/section, existing handlers by 
 
 > **group**: `string`
 
-Defined in: [src/traverse/session.ts:392](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L392)
+Defined in: [src/traverse/session.ts:446](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L446)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [src/traverse/session.ts:392](https://github.com/footprintjs/hcifoot
 
 > **handlers**: `Record`\<`string`, [`ActionHandler`](/api/index/type-aliases/ActionHandler)\>
 
-Defined in: [src/traverse/session.ts:393](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L393)
+Defined in: [src/traverse/session.ts:447](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L447)

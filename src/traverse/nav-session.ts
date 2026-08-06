@@ -38,8 +38,12 @@ import type {
 } from '../atom/types.js';
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
-import { GraphValidationError, checkLiteralHref, composeGuards, validateBlockedBecause, validateGuardShape, validateHumanDecides } from '../graph/guards.js';
+import { GraphValidationError, checkLiteralHref, composeGuards, validateBlockedBecause, validateGuardShape, validateHumanDecides, validateObservability, validatePrincipalPolicy } from '../graph/guards.js';
 import { noInputFlag, schemaOf, takesNoInput } from './expects.js';
+// The two enforcement vocabularies, judged by the modules that own them — so
+// this door and the compiler's door cannot come to accept different words.
+import { validateFreshness } from './freshness.js';
+import { validateConcurrency } from './single-flight.js';
 import type { LiveSource } from '../graph/sources/types.js';
 import { PresenceIndex } from '../presence/presence.js';
 import { actionsOf } from '../tree/authoring-keys.js';
@@ -434,6 +438,26 @@ export class InteractionSession<Paths extends string = string> extends Session {
     if (actionDef.humanDecides !== undefined) {
       validateHumanDecides(`mount-declared action '${qualifiedId}'`, actionDef.humanDecides);
     }
+    // And the two enforceable declarations, in the compiler's own words: a
+    // policy about who may act, and the app's answer to how the effect is seen.
+    if (actionDef.principalPolicy !== undefined) {
+      validatePrincipalPolicy(`mount-declared action '${qualifiedId}'`, actionDef.principalPolicy);
+    }
+    if (actionDef.observability !== undefined) {
+      validateObservability(`mount-declared action '${qualifiedId}'`, actionDef.observability, {
+        verify: actionDef.verify !== undefined,
+        destination: actionDef.goTo !== undefined,
+      });
+    }
+    // And the freshness/concurrency vocabulary, judged by the modules that own
+    // it — so a misspelled axis or mode cannot be refused at one authoring door
+    // and quietly accepted at the other.
+    if (actionDef.freshness !== undefined) {
+      validateFreshness(`mount-declared action '${qualifiedId}'`, actionDef.freshness);
+    }
+    if (actionDef.concurrency !== undefined) {
+      validateConcurrency(`mount-declared action '${qualifiedId}'`, actionDef.concurrency);
+    }
     // Never-trap BUILD gate at the mount door too: authoring is authoring
     // whether it happens in the def or at registration — same law, same words.
     if (actionDef.binding?.kind === 'url') {
@@ -486,6 +510,19 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // bytes — the compile door's own line, one door over.
       ...(actionDef.humanDecides !== undefined
         ? { humanDecides: structuredClone(actionDef.humanDecides) }
+        : {}),
+      // The compile door's own two lines, one door over: a policy is bytes the
+      // overlay owns, a word is a word.
+      ...(actionDef.principalPolicy !== undefined
+        ? { principalPolicy: structuredClone(actionDef.principalPolicy) }
+        : {}),
+      ...(actionDef.observability !== undefined ? { observability: actionDef.observability } : {}),
+      // Cloned onto the overlay, the compile door's own line one door over: an
+      // enforcement rule the overlay owns cannot be widened by an app editing
+      // the declaration object it registered with.
+      ...(actionDef.freshness !== undefined ? { freshness: structuredClone(actionDef.freshness) } : {}),
+      ...(actionDef.concurrency !== undefined
+        ? { concurrency: structuredClone(actionDef.concurrency) }
         : {}),
       highEffect: actionDef.confirm ?? false,
       role: actionDef.role ?? (actionDef.goTo ? 'next' : 'action'),

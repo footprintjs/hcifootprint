@@ -44,6 +44,7 @@ import type {
   AvailableEdge,
   AvailableJourney,
   Explanation,
+  ExternalObservation,
   FireResult,
   FireSettlement,
   JourneyPlanStep,
@@ -111,6 +112,10 @@ export interface JourneyCallArgs {
   decline?: boolean;
   /** Instance key for steps on repeats containers (from `instances` in results). */
   instance?: string;
+  /** The served row this step was planned against — see {@link DoActionArgs.offerId}. */
+  offerId?: string;
+  /** The acknowledgement this step performs — see {@link DoActionArgs.acknowledgementId}. */
+  acknowledgementId?: string;
 }
 
 export interface DoActionArgs {
@@ -124,6 +129,20 @@ export interface DoActionArgs {
    */
   decline?: boolean;
   instance?: string;
+  /**
+   * The served row this call was planned against — the `offerId` a `whats_here`
+   * row carried. A CITATION to a session record, never a secret and never a
+   * capability: holding one authorizes nothing, and every gate runs exactly as
+   * it did. Required only where the app's freshness policy enforces an axis
+   * ({@link FreshnessPolicy}); ignored otherwise, beyond being recorded.
+   */
+  offerId?: string;
+  /**
+   * The acknowledgement this call performs, for a `'require-ack'` axis — the id
+   * `session.acknowledgeStale()` handed back. It proves the protocol step was
+   * PERFORMED and says nothing about anything being understood.
+   */
+  acknowledgementId?: string;
 }
 
 /** Results are plain data objects — serialize one as the tool_result body. */
@@ -180,7 +199,9 @@ export interface JourneyToolsPort {
    * The keys are the ones `did_it_work` documents (`effectStatus`, `outcome`,
    * `outcomeNow`, `effectVerified`, `writesObserved`, `verifyHeld`, `arrival`,
    * `arrivalMeans`, `materialized`, `why`, `toNode`, `error`, `data`,
-   * `stillWorking`, `stillWorkingMeans`, and `howToAct` on a moved outcome) —
+   * `stillWorking`, `stillWorkingMeans`, the external-report trio
+   * (`settledBy`, `reportedBy`, `evidenceOnRecord`, `settledByMeans`), and
+   * `howToAct` on a moved outcome) —
    * absent when unknown, never filled in. A LIST IS A THING THAT GOES STALE, so
    * the one a remote host reads is checked against a real answer by a test
    * rather than kept in step by hand.
@@ -483,6 +504,27 @@ const STILL_WORKING_MEANS =
   'anything else on this result, and nothing here will time it out. Do not perform the action again ' +
   'to find out: ask this tool again, or call whats_here to see where things stand.';
 
+// WHO SAID 'performed' — the companion sentence for `settledBy: 'external-report'`,
+// in the `stillWorkingMeans` / `arrivalMeans` shape.
+//
+// WHY IT HAS TO EXIST. `observeEffect` records a REPORT, never a fact, and its
+// own doc-comment is emphatic about it — but the one surface a model actually
+// reads served the same `effectStatus: 'performed'` for a handler this library
+// watched run and for a sentence somebody handed in about a processor it cannot
+// see. `effectVerified: 'unobservable'` is a partial disclosure: it says nobody
+// checked the writes, not that the verdict itself came from outside. The session
+// HOLDS the distinguishing fact (TransitionRecord.observations), so withholding
+// it is the library flattening report and fact into one word.
+//
+// NAMES ONLY. The source rides as data (the app's own label, already capped
+// where it landed) and the evidence pointer rides as PRESENCE — this library
+// never fetches, dereferences or quotes it, and a reference is not evidence.
+const EXTERNAL_REPORT_MEANS =
+  'The word above came from OUTSIDE this client: a source the app named reported this action’s ' +
+  'outcome, and this library recorded that report without checking it. Nothing here watched the ' +
+  'effect happen, and a report is not proof — if it matters, say who reported it rather than that ' +
+  'it is confirmed.';
+
 // WHOSE THE CHOICE IS — the companion sentence for the `withTheHuman` list, in
 // the `stillWorkingMeans` / `arrivalMeans` shape: a fact rides as data, and one
 // authored constant says what the fact MEANS.
@@ -535,6 +577,103 @@ const APPROVAL_STALE_WHY =
 const APPROVAL_DECLINED_WHY =
   'The human said no to this. Do not ask again about the same thing — tell them it was not done, and ' +
   'move on or ask about something different.';
+
+// The freshness + single-flight refusals, in the same shape and under the same
+// two-string-class invariant: a fixed authored sentence, naming what happened and
+// the next move. Every one of them is about a MECHANISM the app switched on —
+// none of them second-guesses the caller's judgement, and none carries a value.
+const OFFER_REQUIRED_WHY =
+  'This app checks that an action is fired against the row you actually planned from, and this call ' +
+  'named no row. Look again (whats_here) and send the offerId that came with the action you pick. It ' +
+  'is a reference to what you were shown, not a password — it grants nothing on its own.';
+
+const OFFER_UNKNOWN_WHY =
+  'That offerId is not one this session handed out. Look again and use the offerId printed on the ' +
+  'row you are firing — an offer belongs to one action, and one row.';
+
+const OFFER_EVICTED_WHY =
+  'That offerId was real and this session no longer holds it: it keeps a bounded number of rows and ' +
+  'the oldest have been dropped. Nothing is wrong with what you did — look again and fire against a ' +
+  'fresh row.';
+
+const OFFER_OTHER_ACTION_WHY =
+  'That offerId is on this session’s record, and it names a DIFFERENT action (see offeredFor). An ' +
+  'offer answers only the row it was minted for, so it says nothing about this one. Look at the row ' +
+  'for the action you are firing and send ITS offerId.';
+
+/**
+ * The three answers to "this offer cannot settle this fire", by the word the
+ * refusal carries. A `Record` over the union, so a fourth `why` added to the type
+ * stops the build rather than silently falling back to the sentence that blames
+ * the caller.
+ */
+const OFFER_NOT_ON_RECORD_WHY: Record<
+  Extract<FireResult, { reason: 'OFFER_NOT_ON_RECORD' }>['why'],
+  string
+> = {
+  unknown: OFFER_UNKNOWN_WHY,
+  evicted: OFFER_EVICTED_WHY,
+  'other-action': OFFER_OTHER_ACTION_WHY,
+};
+
+const WORLD_MOVED_WHY =
+  'Something this action was offered under has changed since you were shown that row (see moved — ' +
+  'those are key names, not values). The app asks you to plan again rather than fire on an old ' +
+  'reading: look again, and fire against the new row.';
+
+const ACKNOWLEDGEMENT_REQUIRED_WHY =
+  'Something this action was offered under has changed since that row (see moved). The app requires ' +
+  'that you record having dealt with it before firing. Do it through the app’s own acknowledgement ' +
+  'door and send the id it returns. Recording it means you performed that step — this library makes ' +
+  'no claim that anything was understood, and neither should you.';
+
+// THE SAME REFUSAL, WITH THE BLAME PUT WHERE IT BELONGS. The step WAS performed
+// and this session's own cap dropped the receipt, so the sentence above — which
+// reads as "you have not done this yet" — would be the library charging a caller
+// for its own bound. Same split, same reason, as OFFER_EVICTED_WHY.
+const ACKNOWLEDGEMENT_EVICTED_WHY =
+  'You did record that step, and this session no longer holds the receipt: it keeps a bounded number ' +
+  'of them and the oldest have been dropped. Nothing is wrong with what you did — record it again ' +
+  'through the app’s own acknowledgement door and send the new id. Recording it means you performed ' +
+  'that step; this library makes no claim that anything was understood, and neither should you.';
+
+const ACKNOWLEDGEMENT_STALE_WHY =
+  'That acknowledgement was recorded before the app’s state moved again, so it does not cover the ' +
+  'world you are firing into. Look at what has changed and acknowledge again.';
+
+// The fourth settling door (observeEffect) is the APP's, not the caller's, so
+// this sentence names its CONSEQUENCE rather than its API: the wait may depend on
+// something no move of yours can hurry. Saying only "ask did_it_work" invites a
+// model to read a long wait as a failure and try again somewhere else.
+const PRIOR_FIRE_PENDING_WHY =
+  'An earlier attempt at this action has not finished, and this app allows one at a time. It is not ' +
+  'stuck because time passed — nothing here expires. It clears when that earlier fire settles, which ' +
+  'may be waiting on something outside this app (a payment processor, a queue) and is not something ' +
+  'you can do from here. Ask did_it_work about the id in pendingTransitionId; when it has an answer, ' +
+  'decide whether this still needs doing.';
+
+// The principal-policy refusals, in the same shape: name what happened, name
+// the next move, and never suggest a retry — nothing about the world changes
+// who this caller is. Two sentences because the useful next move differs: when
+// the app says a PERSON must do it, the move is to hand it to them.
+const PRINCIPAL_NOT_ALLOWED_WHY =
+  'This app declares who may perform this action, and you are not one of them (see required). This is ' +
+  'not a timing problem and not a permission you can be granted here — trying again will be refused ' +
+  'the same way. Tell the human what you were asked to do and that this app does not let you do it.';
+
+const PRINCIPAL_HUMAN_ONLY_WHY =
+  'This app declares that a PERSON performs this action, not you. Do not try again: show them what ' +
+  'needs doing and let them do it in the app — the flow moves because they acted, and you will see ' +
+  'the result like any other change in the world.';
+
+// The effect-policy refusal. The audience is the DEVELOPER, and the sentence
+// says so plainly rather than sending a model looking for a workaround it does
+// not have.
+const EFFECT_NOT_VERIFIABLE_WHY =
+  'This app requires a high-effect action to say how anyone could check that it happened, and this ' +
+  'one does not (see needs). Nothing you send can satisfy that — it is a missing declaration in the ' +
+  'app itself. Tell the human the action is not available and that their developer needs to declare ' +
+  'how its effect is observable.';
 
 const APPROVAL_REVOKED_WHY =
   'The human approved this and then withdrew that approval before anything acted on it. A withdrawn ' +
@@ -1055,7 +1194,12 @@ export function serveToAgent(
    * something nobody can do.
    */
   function greyedOut(edge: AvailableEdge): boolean {
-    return edge.enabled === false;
+    // TWO WAYS A CONTROL IS NOT PERFORMABLE RIGHT NOW, and both belong on this
+    // side of the human. The second is single-flight: a person asked to
+    // authorize a payment that is then refused as a repeat has been asked for
+    // nothing, and the app's own two sentences would disagree on one screen —
+    // exactly the inversion the greyed-out arm was written to fix.
+    return edge.enabled === false || edge.heldByPriorFire === true;
   }
 
   function callDoAction(args: DoActionArgs): ServeResult {
@@ -1357,6 +1501,12 @@ export function serveToAgent(
         ? { materialized: false, why: NOTHING_EXECUTED_IT }
         : {}),
       ...(settled.transition.toNode !== undefined ? { toNode: settled.transition.toNode } : {}),
+      // WHO ANSWERED. Read off the RECEIPT, not live: the question is who this
+      // fire came to rest on, and a reversal that lands afterwards is a new fact
+      // beside the receipt rather than a rewrite of it (the same law `outcome`
+      // keeps one arm up). Absent on every fire nobody reported on — silence, so
+      // an ordinary settlement serves exactly the bytes it always did.
+      ...externalReportData(settled.transition.observations),
       // Capped TEXT: an app's error object never crosses a result whole. Capped
       // HERE and nowhere else, so no second door can grow its own idea of how
       // much of an app's error object is allowed onto a model's context.
@@ -1366,6 +1516,31 @@ export function serveToAgent(
       // ride: a work row can outlive the receipt, and the receipt is not
       // rewritten to mention it. Alongside, never over.
       ...stillWorkingData(transitionId),
+    };
+  }
+
+  /**
+   * WHERE THIS FIRE'S ANSWER CAME FROM, when it came from outside — the one
+   * distinction `effectStatus` alone cannot carry.
+   *
+   * A handler this library watched complete and a webhook somebody handed in
+   * both settle as `'performed'`, and they are not the same claim. This names the
+   * second one: the marker a consumer BRANCHES on, the source the app named, and
+   * whether the app holds a reference to evidence. The reference itself never
+   * crosses — this library does not follow it, so quoting it would dress a
+   * pointer up as a check.
+   *
+   * The FIRST report is the one that answered. Later ones are new facts on the
+   * record (`session.observationsOf`) and do not rewrite a receipt.
+   */
+  function externalReportData(observations: ExternalObservation[] | undefined): ServeResult {
+    const first = observations?.[0];
+    if (first === undefined) return {};
+    return {
+      settledBy: 'external-report',
+      reportedBy: first.source,
+      ...(first.evidenceRef !== undefined ? { evidenceOnRecord: true } : {}),
+      settledByMeans: EXTERNAL_REPORT_MEANS,
     };
   }
 
@@ -1665,7 +1840,7 @@ export function serveToAgent(
   }
 
   /** The step/action arguments the confirm chain reads, from either door. */
-  type ConfirmArgs = { input?: unknown; instance?: string };
+  type ConfirmArgs = { input?: unknown; instance?: string; offerId?: string; acknowledgementId?: string };
 
   /**
    * Land the ask and assemble the card. The INPUT and INSTANCE go with it, so the
@@ -1714,6 +1889,12 @@ export function serveToAgent(
       payload: args.input,
       ...(args.instance !== undefined ? { instance: args.instance } : {}),
       ...(askId !== undefined ? { askId } : {}),
+      // The two citations, threaded verbatim. This layer judges neither: an id
+      // it cannot resolve is the session's to refuse, in the session's own
+      // words, and a port that pre-screened them would be a second gate to keep
+      // in step with the first.
+      ...(args.offerId !== undefined ? { offerId: args.offerId } : {}),
+      ...(args.acknowledgementId !== undefined ? { acknowledgementId: args.acknowledgementId } : {}),
     };
   }
 
@@ -1833,7 +2014,37 @@ export function serveToAgent(
         : {}),
       // Not retriable — unlike STILL_MOUNTING, nothing is expected to arrive.
       ...(fired.reason === 'NOT_MATERIALIZED' ? { why: NOT_MATERIALIZED_WHY } : {}),
+      // The machine-readable half of a freshness or single-flight refusal, beside
+      // its sentence: WHICH keys moved on which axis, or WHICH fire is still out
+      // there and how to settle it. Names and ids only — the same law the row's
+      // own stamps keep, so nothing a value could ride in on crosses here either.
+      ...('offerId' in fired ? { offerId: fired.offerId } : {}),
+      // WHICH ROW THAT OFFER REALLY NAMES, on the one refusal that knows: an
+      // authored action id, so a caller told "wrong row" can see which row it
+      // was rather than being sent to re-read everything. Presence-only, like
+      // `offerId` above — the field is written by exactly one arm and is never
+      // written empty, so there is no second check to make.
+      ...('offeredFor' in fired ? { offeredFor: fired.offeredFor } : {}),
+      ...('moved' in fired ? { moved: structuredClone(fired.moved) } : {}),
+      ...('acknowledgementId' in fired && fired.acknowledgementId !== undefined
+        ? { acknowledgementId: fired.acknowledgementId }
+        : {}),
+      ...('pendingTransitionId' in fired
+        ? { pendingTransitionId: fired.pendingTransitionId, scope: fired.scope }
+        : {}),
       ...approvalWhy(fired),
+      ...freshnessWhy(fired),
+      ...policyWhy(fired),
+      // The machine-readable half of a principal refusal: the kinds the app
+      // NAMED, and the principal that tried. Names only — the same law every
+      // other structured half on this result keeps.
+      ...('required' in fired ? { required: [...fired.required], attempted: fired.attempted } : {}),
+      // …and of an effect-policy refusal: which half is missing, and what the
+      // app did declare. Both are the APP's words about its own graph.
+      ...('needs' in fired ? { needs: fired.needs } : {}),
+      ...('observability' in fired && fired.observability !== undefined
+        ? { observability: fired.observability }
+        : {}),
     });
   }
 
@@ -2074,6 +2285,31 @@ export function serveToAgent(
     return open === undefined ? {} : { priorFireUnsettled: open };
   }
 
+  /**
+   * The authored teaching sentence for the two POLICY refusals this release
+   * adds — kept out of `approvalWhy` because neither is about a person's yes,
+   * and a function named for approvals answering for them would be the first
+   * step toward one word covering both.
+   *
+   * NEITHER IS RETRIABLE, and the sentences say so in different ways because the
+   * next move is different: a principal refusal wants a DIFFERENT ACTOR (ask the
+   * person), an effect refusal wants a DIFFERENT GRAPH (tell the developer).
+   * Telling a model to try again would send it round a loop nothing in the world
+   * can end.
+   */
+  function policyWhy(fired: Extract<FireResult, { ok: false }>): ServeResult {
+    if (fired.reason === 'PRINCIPAL_NOT_ALLOWED') {
+      return {
+        why:
+          fired.required.includes('human') && !fired.required.includes('agent')
+            ? PRINCIPAL_HUMAN_ONLY_WHY
+            : PRINCIPAL_NOT_ALLOWED_WHY,
+      };
+    }
+    if (fired.reason === 'EFFECT_NOT_VERIFIABLE') return { why: EFFECT_NOT_VERIFIABLE_WHY };
+    return {};
+  }
+
   /** The authored teaching sentence for one approval refusal, by reason. */
   function approvalWhy(fired: Extract<FireResult, { ok: false }>): ServeResult {
     switch (fired.reason) {
@@ -2096,6 +2332,41 @@ export function serveToAgent(
         return { why: APPROVAL_DECLINED_WHY };
       case 'APPROVAL_REVOKED':
         return { why: APPROVAL_REVOKED_WHY };
+      default:
+        return {};
+    }
+  }
+
+  /**
+   * The authored sentence for one freshness or single-flight refusal.
+   *
+   * A SECOND FUNCTION beside {@link approvalWhy} rather than one bigger switch,
+   * because the two families answer different questions — *who said you may* and
+   * *is this still the world you planned in* — and a reader tracing one refusal
+   * should not have to walk the other family's arms to find it.
+   */
+  function freshnessWhy(fired: Extract<FireResult, { ok: false }>): ServeResult {
+    switch (fired.reason) {
+      case 'OFFER_REQUIRED':
+        return { why: OFFER_REQUIRED_WHY };
+      case 'OFFER_NOT_ON_RECORD':
+        // THREE ANSWERS, THREE SENTENCES, because only one of them is the
+        // caller's mistake. 'evicted' is this library's own limit and says so;
+        // 'other-action' is a row this session really did hand out, one control
+        // over; only 'unknown' names an id nobody here ever minted. Telling a
+        // caller their honest citation was made up is the failure all three
+        // exist to prevent.
+        return { why: OFFER_NOT_ON_RECORD_WHY[fired.why] };
+      case 'WORLD_MOVED':
+        return { why: WORLD_MOVED_WHY };
+      case 'ACKNOWLEDGEMENT_REQUIRED':
+        return {
+          why: fired.why === 'evicted' ? ACKNOWLEDGEMENT_EVICTED_WHY : ACKNOWLEDGEMENT_REQUIRED_WHY,
+        };
+      case 'ACKNOWLEDGEMENT_STALE':
+        return { why: ACKNOWLEDGEMENT_STALE_WHY };
+      case 'PRIOR_FIRE_PENDING':
+        return { why: PRIOR_FIRE_PENDING_WHY };
       default:
         return {};
     }
@@ -2127,6 +2398,18 @@ export function serveToAgent(
       // other stamp on this row, and it refuses nothing: `do_action` still
       // performs it, and the fire is recorded as the agent's.
       ...(edge.humanDecides ? { humanDecides: true } : {}),
+      // WHO MAY PERFORM IT, AND WHOSE CHOICE IT IS — served whether or not this
+      // session enforces, because what the app declared is true either way. A
+      // model that reads `mayInvoke: ['human']` and hands the job over has saved
+      // itself a refusal; one that ignores it meets PRINCIPAL_NOT_ALLOWED where
+      // enforcement is on, and is RECORDED acting outside a declared policy
+      // where it is not.
+      //
+      // Two keys, never one: an owner is not a permission (see PrincipalPolicy),
+      // and folding them here would teach the conflation the declaration was
+      // designed to prevent.
+      ...(edge.mayInvoke !== undefined ? { mayInvoke: [...edge.mayInvoke] } : {}),
+      ...(edge.decisionOwner !== undefined ? { decisionOwner: edge.decisionOwner } : {}),
       ...(edge.guardUnevaluated ? { guardUnevaluated: edge.guardUnevaluated } : {}),
       // THE GREYED BUTTON, on the agent's row. `available()` has stamped this
       // from all four wires that can say it (registration, the group handle, a
@@ -2170,6 +2453,12 @@ export function serveToAgent(
       // only the session knows; none of them refuses anything.
       ...staleData(edge, turn.changed),
       ...priorFireData(edge, turn.unsettled),
+      // THE NAME OF THIS ROW, and only where a fire will be asked for it. An
+      // offer is minted for every row (it is identity, not enforcement), but a
+      // model that can never be asked to cite one should not pay tokens to carry
+      // it — so this is presence-gated on the session's own answer, and a session
+      // enforcing nothing serves the bytes it always served.
+      ...(edge.mustCiteOffer && edge.offerRef ? { offerId: edge.offerRef.offerId } : {}),
       // THE SPINNER IN THE BUTTON, on the agent's row — the app's own words for
       // what it is doing, before anything is reached for. Data, like `holds` and
       // `does` above it: the label is the app's, and no sentence here is built
@@ -2210,6 +2499,9 @@ export function serveToAgent(
         confirm: parsed['confirm'] === true,
         decline: parsed['decline'] === true,
         instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
+        offerId: typeof parsed['offerId'] === 'string' ? parsed['offerId'] : undefined,
+        acknowledgementId:
+          typeof parsed['acknowledgementId'] === 'string' ? parsed['acknowledgementId'] : undefined,
       });
       const journeyId = journeyToolNames.get(name);
       if (journeyId !== undefined) {
@@ -2269,6 +2561,9 @@ export function serveToAgent(
           confirm: parsed['confirm'] === true,
           decline: parsed['decline'] === true,
           instance: typeof parsed['instance'] === 'string' ? parsed['instance'] : undefined,
+          offerId: typeof parsed['offerId'] === 'string' ? parsed['offerId'] : undefined,
+          acknowledgementId:
+            typeof parsed['acknowledgementId'] === 'string' ? parsed['acknowledgementId'] : undefined,
         });
       }
       return { ok: false, judgment: 'error', reason: 'UNKNOWN_TOOL', tools: staticTools.map((tool) => tool.name) };

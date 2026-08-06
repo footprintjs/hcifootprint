@@ -124,12 +124,19 @@ So a served stale stamp is **carried** until something answers it, and only two 
 
 ```ts
 session.acknowledgeStale('board.hold-room');                  // everything outstanding for it
-session.acknowledgeStale('board.hold-room', ['itinerary.roomHeld']); // → { cleared: [...] }
+session.acknowledgeStale('board.hold-room', ['itinerary.roomHeld']);
+// → { cleared: [...], acknowledgementId: 'ack#1' }
 session.carriedStale('board.hold-room');                      // a pure question; asking is not answering
 ```
 
 …or **the agent firing that control**, which is an act this session witnessed on the very row the
 stamp was on.
+
+Every call also writes an append-only `StaleAcknowledgement` row (`session.acknowledgements()`) and
+hands back its id. That id is what a `freshness: { … : 'require-ack' }` action's fire has to CITE —
+see [Freshness and single-flight](/actions/freshness-and-single-flight). It records that a protocol
+step was **performed**; it is not evidence that anything was understood, and the row does not claim
+it was.
 
 Nothing else clears it. Not another look — that is the defect, not the fix, and this library never
 serves a value, so it can never conclude that a value was read. Not a *person* using the control: a

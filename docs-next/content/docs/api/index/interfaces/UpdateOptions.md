@@ -4,7 +4,7 @@ title: UpdateOptions
 
 # Interface: UpdateOptions
 
-Defined in: [src/atom/types.ts:1334](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1334)
+Defined in: [src/atom/types.ts:2255](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2255)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1334](https://github.com/footprintjs/hcifootprint
 
 > `optional` **principal?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1342](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1342)
+Defined in: [src/atom/types.ts:2263](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2263)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:1342](https://github.com/footprintjs/hcifootprint
 
 > `optional` **stimulus?**: [`StimulusKind`](/api/index/type-aliases/StimulusKind)
 
-Defined in: [src/atom/types.ts:1341](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1341)
+Defined in: [src/atom/types.ts:2262](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2262)
 
 Mark the delta as world-initiated. When set, the delta is NEVER
 attributed to a pending fired transition — explicit attribution wins.
@@ -31,6 +31,6 @@ attributed to a pending fired transition — explicit attribution wins.
 
 > `optional` **transitionId?**: `string`
 
-Defined in: [src/atom/types.ts:1336](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1336)
+Defined in: [src/atom/types.ts:2257](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2257)
 
 Settle THIS pending transition (precise attribution — preferred over FIFO).

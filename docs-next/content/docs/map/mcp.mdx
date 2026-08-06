@@ -60,6 +60,7 @@ through `port.settledAnswer(transitionId)`:
 | `data` | the handler's produced value, when there is one |
 | `error` | the failure, as capped **text** — an app's error object never crosses a result whole |
 | `stillWorking` + `stillWorkingMeans` | the app has a [work row](doc:when-the-app-is-still-working) open for this fire — a fire can be at rest while the app is still working |
+| `settledBy` + `reportedBy` + `evidenceOnRecord` + `settledByMeans` | this fire came to rest on a report from **outside** this client (`session.observeEffect`) — who named it, whether the app holds an evidence reference, and the sentence saying a report is not proof |
 | `howToSettle` | **deleted** — it pointed at `did_it_work`, and the model just got that answer |
 | `settlement` | **deleted** — see below |
 

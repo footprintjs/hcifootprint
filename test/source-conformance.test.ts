@@ -136,6 +136,10 @@ describe('the declarable-field manifest is locked to the declaration itself', ()
       input: 'none',
       verify: { k: { eq: true } },
       humanDecides: { about: 'which one' },
+      freshness: { readChanges: 'disclose' },
+      concurrency: { mode: 'single-flight' },
+      principalPolicy: { mayInvoke: ['human'] },
+      observability: 'external',
       role: 'action',
       on: 'home',
       handler: () => undefined,
@@ -179,12 +183,22 @@ describe('a source that threads the whole declaration reports nothing dropped', 
     // `writes.serve` LEFT THIS LIST when the write side reached the agent's row
     // — a declared write is now readable where a declared read is, so an
     // adapter that drops it is caught at both seams rather than one.
-    expect(report.excluded.map((row) => `${row.field}.${row.seam}`).sort()).toEqual([
-      'handler.serve',
-      'on.compile',
-      'on.serve',
-      'verify.serve',
-    ]);
+    expect(report.excluded.map((row) => `${row.field}.${row.seam}`).sort()).toEqual(
+      [
+        'handler.serve',
+        'on.compile',
+        'on.serve',
+        'verify.serve',
+        // The ENFORCEMENT declarations join the same list, for the same reason
+        // `verify` is on it: each one is read in-process at fire time, and its
+        // agent-visible consequence is a typed refusal that needs a fire and an
+        // enforcing session. A fixture that makes neither would be testing the
+        // intersection rather than the thread.
+        'freshness.serve',
+        'concurrency.serve',
+        'observability.serve',
+      ].sort(),
+    );
     for (const row of report.excluded) expect(row.because.length).toBeGreaterThan(20);
   });
 
@@ -230,12 +244,16 @@ describe('a source that drops a field is named, at the seam that lost it', () =>
       [
         'binding',
         'blockedBecause',
+        'concurrency',
         'confirm',
         'enabledWhen',
+        'freshness',
         'goTo',
         'handler',
         'humanDecides',
         'input',
+        'observability',
+        'principalPolicy',
         'reads',
         'role',
         'verify',

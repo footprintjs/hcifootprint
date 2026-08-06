@@ -4,7 +4,7 @@ title: ActionGroup
 
 # Interface: ActionGroup
 
-Defined in: [src/atom/types.ts:687](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L687)
+Defined in: [src/atom/types.ts:1179](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1179)
 
 The handle returned by registerActions — the group's IDENTITY. You never
 name a group with a string (two components would collide and you'd have to
@@ -21,7 +21,7 @@ it. `id` is a generated opaque token, exposed only for telemetry/warnings.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:689](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L689)
+Defined in: [src/atom/types.ts:1181](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1181)
 
 Generated identity of this registration (for telemetry/debug — not caller-supplied).
 
@@ -31,7 +31,7 @@ Generated identity of this registration (for telemetry/debug — not caller-supp
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:691](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L691)
+Defined in: [src/atom/types.ts:1183](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1183)
 
 The node path this group is registered on (tree API); undefined for the flat API.
 
@@ -41,7 +41,7 @@ The node path this group is registered on (tree API); undefined for the flat API
 
 > **setBusy**(`actionId`, `busy`): `void`
 
-Defined in: [src/atom/types.ts:703](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L703)
+Defined in: [src/atom/types.ts:1195](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1195)
 
 Say that one action in this group is WORKING RIGHT NOW, in your own words —
 or hand `undefined` to stop saying it. See [AvailableEdge.busy](/api/index/interfaces/AvailableEdge#busy): the
@@ -71,7 +71,7 @@ can say the third state rather than some of them.
 
 > **setEnabled**(`actionId`, `enabled`): `void`
 
-Defined in: [src/atom/types.ts:693](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L693)
+Defined in: [src/atom/types.ts:1185](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1185)
 
 Grey out / re-enable one action in this group (a disabled button).
 
@@ -95,7 +95,7 @@ Grey out / re-enable one action in this group (a disabled button).
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:705](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L705)
+Defined in: [src/atom/types.ts:1197](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1197)
 
 Remove this group's registrations (call on unmount). Idempotent.
 
