@@ -6,7 +6,7 @@ title: ApprovalResult
 
 > **ApprovalResult** = \{ `ok`: `true`; `record`: [`ConfirmRecord`](/api/index/interfaces/ConfirmRecord); \} \| \{ `explanation`: `string`; `ok`: `false`; `reason`: `"UNKNOWN_ASK"` \| `"ASK_ALREADY_ANSWERED"` \| `"ASK_ALREADY_SPENT"` \| `"REVOKE_UNANSWERED"` \| `"WRONG_PRINCIPAL"` \| `"NEEDS_DECIDER"` \| `"NOT_ENFORCED"`; \}
 
-Defined in: [src/atom/types.ts:2087](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2087)
+Defined in: [src/atom/types.ts:2104](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2104)
 
 What one of the human-side approval doors did — [Session.approveAsk](/api/index/classes/Session#approveask),
 [Session.declineAsk](/api/index/classes/Session#declineask), [Session.revokeAsk](/api/index/classes/Session#revokeask),

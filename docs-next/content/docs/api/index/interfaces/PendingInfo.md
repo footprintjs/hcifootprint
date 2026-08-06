@@ -4,7 +4,7 @@ title: PendingInfo
 
 # Interface: PendingInfo
 
-Defined in: [src/atom/types.ts:1349](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1349)
+Defined in: [src/atom/types.ts:1366](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1366)
 
 A fired transition still awaiting its state report.
 
@@ -14,7 +14,7 @@ A fired transition still awaiting its state report.
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:1351](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1351)
+Defined in: [src/atom/types.ts:1368](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1368)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:1351](https://github.com/footprintjs/hcifootprint
 
 > `optional` **does?**: `string`
 
-Defined in: [src/atom/types.ts:1358](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1358)
+Defined in: [src/atom/types.ts:1375](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1375)
 
 What the app said this action does, frozen when the fire was recorded —
 see [Cause.does](/api/index/interfaces/Cause#does). Carried here so a fire still awaiting its report can
@@ -35,7 +35,7 @@ sees is the one the session minted, not a fresh look at a spec that moved.
 
 > **firedAt**: `number`
 
-Defined in: [src/atom/types.ts:1359](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1359)
+Defined in: [src/atom/types.ts:1376](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1376)
 
 ***
 
@@ -43,4 +43,4 @@ Defined in: [src/atom/types.ts:1359](https://github.com/footprintjs/hcifootprint
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:1350](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1350)
+Defined in: [src/atom/types.ts:1367](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1367)

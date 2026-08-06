@@ -6,7 +6,7 @@ title: CommitJourneyResult
 
 > **CommitJourneyResult** = \{ `frame`: [`JourneyFrame`](/api/index/interfaces/JourneyFrame); `ok`: `true`; `plan`: [`JourneyPlan`](/api/index/interfaces/JourneyPlan); `version`: `number`; \} \| \{ `known`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_JOURNEY"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"PRECONDITION_FAILED"`; \} \| \{ `journeyId`: `string`; `ok`: `false`; `reason`: `"FRAME_ALREADY_OPEN"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"ENTRY_NOT_MATERIALIZED"`; \}
 
-Defined in: [src/atom/types.ts:2201](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2201)
+Defined in: [src/atom/types.ts:2218](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2218)
 
 ## Union Members
 

@@ -4,7 +4,7 @@ title: FireOptions
 
 # Interface: FireOptions
 
-Defined in: [src/atom/types.ts:1099](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1099)
+Defined in: [src/atom/types.ts:1116](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1116)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1099](https://github.com/footprintjs/hcifootprint
 
 > `optional` **askId?**: `string`
 
-Defined in: [src/atom/types.ts:1139](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1139)
+Defined in: [src/atom/types.ts:1156](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1156)
 
 The confirm-journal row that authorizes this fire — read only when the
 session was created with [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval). Pass
@@ -35,7 +35,7 @@ it honestly always was — the agent asking to proceed now.
 
 > `optional` **expectedVersion?**: `number`
 
-Defined in: [src/atom/types.ts:1113](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1113)
+Defined in: [src/atom/types.ts:1130](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1130)
 
 Optimistic-concurrency token from available().version. If supplied and
 stale, fire() rejects with STALE_CURSOR — the agent must replan on a
@@ -47,7 +47,7 @@ fresh slice. Guards are ALSO re-evaluated at fire time regardless.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:1116](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1116)
+Defined in: [src/atom/types.ts:1133](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1133)
 
 Instance key for a tool on a repeats container (e.g. an order-card id).
 
@@ -57,7 +57,7 @@ Instance key for a tool on a repeats container (e.g. an order-card id).
 
 > `optional` **invoke?**: `boolean`
 
-Defined in: [src/atom/types.ts:1122](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1122)
+Defined in: [src/atom/types.ts:1139](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1139)
 
 Invoke the registered handler (default true when one exists). The DOM
 sensor passes false: the browser already runs the app's own onClick, so
@@ -69,7 +69,7 @@ the sensor's fire() is record-only.
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [src/atom/types.ts:1114](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1114)
+Defined in: [src/atom/types.ts:1131](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1131)
 
 ***
 
@@ -77,7 +77,7 @@ Defined in: [src/atom/types.ts:1114](https://github.com/footprintjs/hcifootprint
 
 > **source**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1107](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1107)
+Defined in: [src/atom/types.ts:1124](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1124)
 
 Who is acting. Required here on purpose — a typed caller should never
 leave provenance to an assumption. It is only ever assumed for a caller
