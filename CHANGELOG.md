@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.6.0] - 2026-08-06
 
 **A UI action already knows almost everything about itself. Nothing was writing it down.**
 
