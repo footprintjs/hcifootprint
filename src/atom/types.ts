@@ -162,7 +162,7 @@ export interface Effect {
    * control is on offer at all — and they are already served as `evidence`.
    * These are the keys whose values the outcome is computed FROM: a "settle the
    * claim" button guarded on `claim.stage` may compute its amount from
-   * `claim.total`, and it is the second one a stale-world reader needs named.
+   * `order.total`, and it is the second one a staleness reader needs named.
    *
    * DECLARED, NEVER INFERRED. The library does not read your handler, guess
    * from co-occurrence, or promote a guard key. Which keys matter is meaning,
