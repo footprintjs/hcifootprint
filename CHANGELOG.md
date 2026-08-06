@@ -1,5 +1,75 @@
 # Changelog
 
+## [Unreleased]
+
+**A stamp that goes quiet while the thing it describes is still true is not a disclosure. It is a
+disclosure that expired.**
+
+Two halves of one gap, shipped together because either one alone is silent.
+
+### `staleWrites` — someone has written what you are about to write
+
+`staleReads` intersects the keys committed since your last look with what a control's outcome
+DEPENDS ON. A control that simply *overwrites* a key correctly declares no read of it — so the
+stamp is silent, by construction, on exactly the controls whose repeat does the most damage.
+
+Measured off a real campaign: a person held a room between two turns. The control that holds a room
+declares as its `writes` exactly the two keys that person moved. It was served with nothing on it,
+twice, while the same reply's brief named those keys as changed — and a second room was booked.
+
+```jsonc
+// whats_here, the turn after a person used the same control
+{"action":"board.hold-room","does":"Put a hold on a room for those nights",
+ "staleWrites":["itinerary.roomHeld","itinerary.roomBookings"]}
+```
+
+`writes ∩ keysChangedSince` — the one intersection nobody was computing, from two facts the library
+already held. Under every law the read side lives under: **key names only**, **declared by the app,
+never inferred**, **presence-only** (an app that declares no writes serves byte-identical rows), and
+**it refuses nothing**. It says a key this control declares it writes has moved. It does not say who
+moved it, that your write would be wrong, or that this is a repeat.
+
+`AvailableEdge.writes` now carries the declaration to the row, as a copy — the seam the serving
+layer reads it from, and the same seam `reads` has always been read at. `hcifootprint/testing`'s
+drift harness follows: `writes.serve` used to be a stated absence ("there is nothing to read at this
+seam") and is now a real check, so an adapter that drops a declared write is caught at both seams.
+
+### Staleness is carried until it is answered
+
+The window is a delta since the caller's `sinceVersion`, and that advances every time the caller
+looks. So a stamp described its condition for one turn and then went quiet while the condition held
+— measured: present on the turn the key moved, absent two turns later at the same version in the
+same world, and the fire landed on the third.
+
+Both stamps are now **carried** until somebody answers them. What may count as an answer is the
+whole of the design, and the rule is that **the library may only record what the caller
+demonstrably did**:
+
+- **`session.acknowledgeStale(actionId, keys?)`** — the door. It records that this caller said, of
+  this control, that it has dealt with these keys having moved. It does not claim the caller read
+  the value, understood the consequence, or decided well; none of that is visible from here.
+  `{ cleared }` is what was actually being carried, never an echo of the request.
+- **The agent firing that control** — it reached for the very control the stamp was on, with the
+  stamp on its row. An act, recorded. Not an understanding, and nothing here says otherwise.
+- **Nothing else.** Not another look — that is the defect, not the fix, and this library never
+  serves a value, so it can never conclude that a value was read. Not a *person* using the control:
+  a human's use is what CREATES staleness for a machine reader, and counting it as that reader's
+  answer would delete the fact at the moment it became truest. Not a refused fire: an act the app
+  turned away is not an act the caller got to make.
+
+`session.carriedStale(actionId)` answers what is outstanding — a pure question; asking is never
+answering. `session.carryStale(actionId, keys)` is the record that a stamp was SERVED, called by the
+layer that hands the row over, so **what is carried is what was told**: a stamp nobody was ever
+shown is not a thing anybody can be asked to answer for.
+
+The reasoning, and the acts that were considered and refused, are in
+[docs/design/staleness-is-carried.md](docs/design/staleness-is-carried.md).
+
+**The honest prior, restated:** this is expected to put a fact on the row at the decisive turn. It
+is not expected to move an outcome rate by itself — the read side shipped, was served on the exact
+control the harm rows fired, kept its negative control silent, and the measured number did not move
+by one row. Disclosure is what a library on this side of the boundary can honestly change.
+
 ## [1.6.0] - 2026-08-06
 
 **A UI action already knows almost everything about itself. Nothing was writing it down.**

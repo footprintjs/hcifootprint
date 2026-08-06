@@ -512,6 +512,31 @@ export class Session {
   readonly #settlements = new Map<string, FireSettlement>();
   /** runtimeStageId → keys tracked-read, collected live via the scope channel. */
   readonly #readsByStep = new Map<string, string[]>();
+  /**
+   * WHAT THIS SESSION HAS TOLD A CALLER IS STALE AND NOBODY HAS ACKNOWLEDGED —
+   * affordance id → the key names, in the order they were first served.
+   *
+   * A staleness used to be a DELTA: declared keys ∩ committed since the
+   * caller's `sinceVersion`, and the caller's `sinceVersion` advances every
+   * time it looks. So the stamp lived for exactly one turn and went silent
+   * while the condition it describes was still true — measured, off a real
+   * campaign: present on the turn the key moved, absent on the two turns after
+   * it with the same version and the same world, and the fire landed on the
+   * third.
+   *
+   * IT ONLY EVER HOLDS WHAT WAS SERVED. Nothing enters this ledger from a
+   * computation: `carryStale` is called by the layer that put the key on a row
+   * it handed out, so what is carried is what was SAID. A stamp nobody was ever
+   * shown is not something anybody can be asked to acknowledge.
+   *
+   * AND LOOKING IS NOT KNOWING. The one thing that never clears an entry here
+   * is another look — that is the defect, not the fix. It clears when the
+   * caller does something this session can WITNESS: acknowledges it by name
+   * (`acknowledgeStale`), or fires the control itself as the agent. Neither is
+   * evidence that anybody understood anything, and this library does not claim
+   * it: they are acts, recorded.
+   */
+  readonly #staleCarried = new Map<string, string[]>();
   readonly #recorder: ScopeRecorder;
   /** The one open journey frame (v0: one at a time). */
   #frame: JourneyFrame | null = null;
@@ -1285,6 +1310,12 @@ export class Session {
         // spec. Presence-only — an app that declares no reads serves the row it
         // always served.
         ...(aff.effect?.reads !== undefined ? { reads: [...aff.effect.reads] } : {}),
+        // AND WHAT IT CLAIMS IT WILL CHANGE, copied under the same law. The
+        // write side has always been on the spec and on the human's confirm
+        // receipt; the agent's row is where it was missing, and it is the only
+        // place the serving layer can reach it to say "someone has already
+        // written what you are about to write".
+        ...(aff.effect?.writes !== undefined ? { writes: [...aff.effect.writes] } : {}),
         // THE DECISION HERE IS A PERSON'S, said on the row a model reads BEFORE
         // it reaches for anything. Presence is the whole claim, and the filter
         // behind it never rides: a served row carries verdicts and stamps, not
@@ -2479,6 +2510,26 @@ export class Session {
     this.#openCapture(record, aff, conditions, unevaluable, opts);
     this.#transitions.push(record); this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
+
+    /**
+     * USING THE CONTROL ANSWERS WHAT THIS SESSION SAID ABOUT IT — the second
+     * acknowledgement, and the one nobody has to know exists.
+     *
+     * The agent reached for the very control the stamp was on, with the stamp
+     * on its row. What that proves is an ACT, not an understanding, and the
+     * distinction is the whole point: this clears the ledger, it does not
+     * record that anybody agreed, approved or comprehended. A warning no
+     * ordinary caller can ever clear is a warning that stops being read.
+     *
+     * THE AGENT'S FIRE ONLY. A person using the control is the world moving —
+     * it is what CREATES staleness, not what settles it — and treating it as
+     * the machine reader's acknowledgement would delete the fact at the exact
+     * moment it became truest.
+     *
+     * A REFUSED FIRE CLEARS NOTHING: it is returned long before this line, and
+     * an act the app turned away is not an act the caller got to make.
+     */
+    if (source === 'agent') this.#staleCarried.delete(affordanceId);
 
     const declaredWrites = aff.effect?.writes ?? [];
     // An allowed no-op never pends on the state tap: nothing ran, so no report
@@ -5495,6 +5546,78 @@ export class Session {
       for (const key of byId.get(t.id) ?? []) keys.add(key);
     }
     return [...keys];
+  }
+
+  /**
+   * CARRY THESE UNTIL SOMEBODY ACKNOWLEDGES THEM — the record that a staleness
+   * was SERVED on this control's row.
+   *
+   * Called by the layer that actually hands the row over, with exactly the keys
+   * that went onto it. Saying it is what creates the obligation to keep saying
+   * it: a stamp computed and not served is carried by nobody, because nobody
+   * can be asked to acknowledge a fact they were never told.
+   *
+   * Idempotent, and order is FIRST-SERVED: telling a caller the same thing
+   * twice does not make it two facts, and a key that has been outstanding for
+   * four turns stays where it was rather than jumping to the end of the list
+   * whenever it is re-served.
+   *
+   * An app may call it too — a surface that showed the fact in its own words
+   * has told the caller as much as this library's row would have.
+   */
+  carryStale(actionId: string, keys: readonly string[]): void {
+    if (keys.length === 0) return;
+    const carried = this.#staleCarried.get(actionId) ?? [];
+    for (const key of keys) if (!carried.includes(key)) carried.push(key);
+    this.#staleCarried.set(actionId, carried);
+  }
+
+  /**
+   * WHAT THIS SESSION IS STILL CARRYING FOR ONE CONTROL — the key names it has
+   * served as stale and nobody has acknowledged, oldest first.
+   *
+   * A pure question: asking never adds, never clears, and never advances any
+   * clock. The ledger is inspectable on purpose — a caller that is being told
+   * something on every turn is owed a way to ask why, without that asking being
+   * mistaken for an answer.
+   */
+  carriedStale(actionId: string): string[] {
+    return [...(this.#staleCarried.get(actionId) ?? [])];
+  }
+
+  /**
+   * I HAVE SEEN IT — the acknowledgement door, and the only one that takes a
+   * caller's word for anything.
+   *
+   * WHAT IT RECORDS AND WHAT IT DOES NOT CLAIM. It records that this caller
+   * said, of this control, that it has dealt with these keys having moved. It
+   * does not claim the caller read the value, understood the consequence, or
+   * made a good decision — none of which this session can see. It stops the
+   * library repeating a fact to somebody who has answered it, which is the
+   * whole of the promise.
+   *
+   * WHY THERE HAS TO BE A DOOR AT ALL. The alternative is to infer
+   * acknowledgement from a look, and a look is exactly what the caller was
+   * already doing on every turn the stamp was silently disarming itself. This
+   * library never serves a value, so it cannot know a value was read; the only
+   * honest acknowledgement is one somebody performs.
+   *
+   * With no `keys`, everything outstanding for that control is answered. Named
+   * keys clear only themselves, and a key nobody is carrying clears nothing —
+   * `cleared` is what was actually being carried, never an echo of the request.
+   */
+  acknowledgeStale(actionId: string, keys?: readonly string[]): { cleared: string[] } {
+    const carried = this.#staleCarried.get(actionId);
+    if (carried === undefined) return { cleared: [] };
+    if (keys === undefined) {
+      this.#staleCarried.delete(actionId);
+      return { cleared: carried };
+    }
+    const cleared = carried.filter((key) => keys.includes(key));
+    const left = carried.filter((key) => !keys.includes(key));
+    if (left.length > 0) this.#staleCarried.set(actionId, left);
+    else this.#staleCarried.delete(actionId);
+    return { cleared };
   }
 
   /**

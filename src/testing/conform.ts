@@ -474,11 +474,15 @@ function actionChecks(fixture: ConformanceFixture): Record<DeclarableActionField
     },
     writes: {
       compile: (p) => same(effectOf(p.affordance).writes, action.writes),
-      serve: {
-        because:
-          "an action's declared writes are not stamped on a served row — they surface after the fact, at " +
-          'settlement and in what-would-free-it. There is nothing to read at this seam.',
-      },
+      // READABLE AT THIS SEAM SINCE THE WRITE SIDE REACHED THE ROW. It used to
+      // be a stated absence — "declared writes surface after the fact, at
+      // settlement and in what-would-free-it" — and that stopped being true
+      // when `available()` began carrying them, so that the serving layer could
+      // stamp `staleWrites`. The same seam `reads` is read at, for the same
+      // reason: the DERIVED half (`staleWrites`) needs a transition to exist at
+      // all, and a fixture with none would test the intersection rather than
+      // the thread.
+      serve: (p) => same(p.edge.writes, action.writes),
     },
     reads: {
       compile: (p) => same(effectOf(p.affordance).reads, action.reads),

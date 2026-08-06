@@ -172,15 +172,18 @@ describe('a source that threads the whole declaration reports nothing dropped', 
 
   it('states a reason for every field/seam pair it could not read', () => {
     const report = conformSource(losslessSource);
-    // The five stated absences: writes and verify never ride a row, `on` is the
-    // root-attach extension no first-party source contributes, and a handler
-    // never crosses the wire.
+    // The four stated absences: the app's own post-settlement check never rides
+    // a row, `on` is the root-attach extension no first-party source
+    // contributes, and a handler never crosses the wire.
+    //
+    // `writes.serve` LEFT THIS LIST when the write side reached the agent's row
+    // — a declared write is now readable where a declared read is, so an
+    // adapter that drops it is caught at both seams rather than one.
     expect(report.excluded.map((row) => `${row.field}.${row.seam}`).sort()).toEqual([
       'handler.serve',
       'on.compile',
       'on.serve',
       'verify.serve',
-      'writes.serve',
     ]);
     for (const row of report.excluded) expect(row.because.length).toBeGreaterThan(20);
   });

@@ -2004,11 +2004,48 @@ export function serveToAgent(
    * byte-identical rows; a declared read that nothing has written serves no key.
    * `staleReads: []` would be a claim ("we checked, nothing moved") on every row
    * of every reply, and this library does not manufacture reassurance.
+   *
+   * AND THE WRITE SIDE, which the read side is silent about by construction.
+   * `staleReads` intersects the changed keys with what a control's outcome
+   * DEPENDS ON — so a control that simply overwrites a key, correctly declaring
+   * no read of it, served bare while somebody else's write of that very key sat
+   * in the same reply's brief. Measured, off a real campaign: a person held a
+   * room between two turns; the control that holds a room declares as its
+   * writes exactly the two keys that person moved; it was served with nothing
+   * on it, twice, and a second room was booked. `staleWrites` is `writes ∩
+   * changed` — the one intersection nobody was computing, under every law
+   * above: key names only, declared by the app, presence-only, refusing
+   * nothing. It says someone has written what you are about to write. It does
+   * not say who, that your write would be wrong, or that anything is a repeat.
+   *
+   * CARRIED UNTIL ACKNOWLEDGED, both of them. `changed` is a delta since the
+   * caller's last look and that look advances every time it looks, so a stamp
+   * described its condition for one turn and then went quiet while the
+   * condition held — measured too: present at the turn of the change, absent
+   * two turns later with the same version and the same world, and the fire
+   * landed on the third. What is served is the window UNION what this session
+   * has already said and nobody has answered, and serving it is what puts it on
+   * the ledger. It leaves the ledger only for an act the session can witness
+   * (`acknowledgeStale`, or an agent fire of that control) — never for another
+   * look, which is the defect rather than the fix.
    */
-  function staleReadsData(edge: AvailableEdge, changed: ReadonlySet<string>): ServeResult {
-    if (edge.reads === undefined || changed.size === 0) return {};
-    const stale = edge.reads.filter((key) => changed.has(key));
-    return stale.length > 0 ? { staleReads: stale } : {};
+  function staleData(edge: AvailableEdge, changed: ReadonlySet<string>): ServeResult {
+    const declared = [...(edge.reads ?? []), ...(edge.writes ?? [])];
+    if (declared.length === 0) return {};
+    const carried = session.carriedStale(edge.affordanceId);
+    const outstanding = (key: string): boolean => changed.has(key) || carried.includes(key);
+    const stale = declared.filter(outstanding);
+    if (stale.length === 0) return {};
+    // Recorded against the row that carries it, so what is carried is what was
+    // SAID — and a key a control both reads and writes is one fact on the
+    // ledger, served on both halves of the row.
+    session.carryStale(edge.affordanceId, stale);
+    const reads = edge.reads?.filter(outstanding) ?? [];
+    const writes = edge.writes?.filter(outstanding) ?? [];
+    return {
+      ...(reads.length > 0 ? { staleReads: reads } : {}),
+      ...(writes.length > 0 ? { staleWrites: writes } : {}),
+    };
   }
 
   /**
@@ -2127,10 +2164,11 @@ export function serveToAgent(
       // declares a write for the keys it waits on, the key is absent and the row
       // says nothing — the same absence law every other stamp here obeys.
       ...unblockedByFor(edge, turn.running),
-      // WHAT THIS CONTROL DEPENDS ON THAT HAS MOVED SINCE YOU LOOKED, and
-      // whether one of your own fires of it is still out there. Both are facts
-      // about this row that only the session knows; neither refuses anything.
-      ...staleReadsData(edge, turn.changed),
+      // WHAT THIS CONTROL DEPENDS ON — AND WHAT IT WOULD OVERWRITE — THAT HAS
+      // MOVED SINCE YOU LOOKED AND YOU HAVE NOT ANSWERED, and whether one of
+      // your own fires of it is still out there. All facts about this row that
+      // only the session knows; none of them refuses anything.
+      ...staleData(edge, turn.changed),
       ...priorFireData(edge, turn.unsettled),
       // THE SPINNER IN THE BUTTON, on the agent's row — the app's own words for
       // what it is doing, before anything is reached for. Data, like `holds` and

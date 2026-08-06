@@ -60,6 +60,7 @@ prove or disprove it.*
 | **`instances`** + **`enumeration`** | `repeats: true` on a container | this row stands for N cards, addressed by key — and `enumeration` says whether that list is complete (`'selector'`) or only what is mounted (`'mounted-window'`) | `INSTANCE_REQUIRED` / `INSTANCE_UNKNOWN`, each listing the live keys |
 | **`activation`** | a [presence](doc:presence) source other than the ordinary two | how the library came to believe this is on screen | the word itself; the ordinary `'registered'` / `'synced'` never ride |
 | **`staleReads`** | `reads: ['<key>', …]` | a key this action's outcome depends on **was written since you last looked** | the key names, and only the ones that moved — `session.keysChangedSince(sinceVersion)` is the same fact as data, and the brief narrates it as prose |
+| **`staleWrites`** | `writes: ['<key>', …]` | a key this action **would overwrite** was written since you last looked | the key names, and only the ones that moved — the same `session.keysChangedSince(sinceVersion)` fact, intersected with the other half of the declaration |
 | **`priorFireUnsettled`** | *nothing* — a fire of this control that this session is still holding a latch for | your own earlier fire of this control has not come to rest | the transitionId itself: hand it to `did_it_work` |
 
 ### `staleReads` — what this control depends on that has moved
@@ -93,6 +94,48 @@ key changed* and the row said *here is a control*, and nothing joined them.
 **Declared, never inferred.** The library does not read your handler, promote a guard key, or guess
 from co-occurrence. Which keys matter is meaning, and meaning is yours. An app that declares no
 `reads` serves byte-identical rows, and a declared read nothing has written serves no key.
+
+### `staleWrites` — someone has written what you are about to write
+
+The read side is silent, by construction, on a control that simply **overwrites** a key: such a
+control correctly declares no `reads` of it, because its outcome does not depend on the old value.
+That is exactly the control whose repeat costs the most — the second room, the second payment — so
+the same intersection is served against the write half of the declaration:
+
+```jsonc
+// whats_here({ sinceVersion }) — a person held the room between your last two turns
+{ "action": "board.hold-room", "does": "Put a hold on a room for those nights",
+  "staleWrites": ["itinerary.roomHeld", "itinerary.roomBookings"] }
+```
+
+**It does not say who.** It says a key this control declares it writes has been committed since your
+last look — not that another party did it, not that your write would be wrong, and not that this
+would be a repeat. Same laws as its sibling: names only, declared by you, presence-only, refusing
+nothing.
+
+### Both stale stamps are carried until you answer them
+
+The window is *since you last looked*, and your last look moves every time you look. So a stamp
+computed only from that window states its fact for one turn and then goes quiet **while the fact is
+still true** — measured in the field: present on the turn a key moved, gone two turns later with
+nothing changed, and the fire landed on the third.
+
+So a served stale stamp is **carried** until something answers it, and only two things can:
+
+```ts
+session.acknowledgeStale('board.hold-room');                  // everything outstanding for it
+session.acknowledgeStale('board.hold-room', ['itinerary.roomHeld']); // → { cleared: [...] }
+session.carriedStale('board.hold-room');                      // a pure question; asking is not answering
+```
+
+…or **the agent firing that control**, which is an act this session witnessed on the very row the
+stamp was on.
+
+Nothing else clears it. Not another look — that is the defect, not the fix, and this library never
+serves a value, so it can never conclude that a value was read. Not a *person* using the control: a
+human's use is what creates staleness for a machine reader. Not a refused fire: an act the app
+turned away is not an act you got to make. And only what was **served** is carried — a stamp nobody
+was ever shown is not a thing anybody can be asked to answer for.
 
 ### `priorFireUnsettled` — your own fire, still out there
 

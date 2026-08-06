@@ -904,6 +904,23 @@ export interface AvailableEdge {
    * none, and never inferred from a guard, a handler or a write.
    */
   reads?: string[];
+  /**
+   * The state keys this edge CLAIMS it will change (from `effect.writes`),
+   * BEFORE anything is fired — the third of the three, and the last one this
+   * row was missing.
+   *
+   * Here for the same reason `reads` is: the row is the whole of what
+   * `available()` tells a projection about an edge, and a projection that
+   * cannot see the declared writes cannot stamp `staleWrites` — *someone has
+   * written what you are about to write, since you last looked*. That fact was
+   * unreachable while the write side stopped at the spec: a control that
+   * overwrites a key correctly declares no `reads` of it, so the read-side
+   * stamp is silent by construction on exactly the controls whose repeat does
+   * the most damage.
+   *
+   * A COPY, never the frozen spec array, and absent when the app declared none.
+   */
+  writes?: string[];
   binding?: Binding;
   /** See Affordance.descriptionSource. */
   descriptionSource?: 'declared' | 'registration';
