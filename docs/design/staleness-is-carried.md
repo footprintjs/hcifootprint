@@ -57,6 +57,37 @@ called by the layer that put the key on a row it handed over, so what is carried
 A stamp nobody was ever served is not a thing anybody can be asked to answer for — and a caller
 whose window never included the change is not carrying it.
 
+## Whose move counts as movement — added 1.7.1, and the reason it had to be
+
+**A KEY IS STALE TO A CALLER WHEN IT MOVED SINCE THAT CALLER LAST ACTED ON IT.** The caller's own
+committed write is the caller acting, so it is not a disturbance to itself. Somebody else's write to
+that same key, afterwards, still is.
+
+1.7.0 shipped the carrying rule against a window that counted **every** key this session committed,
+whoever moved it. Carried, that turned a caller's own fire into a permanent accusation: the row
+stamped keys the caller's own last fire had written, and the only act that clears the ledger — the
+agent firing that control — is the act whose commit re-armed it on the next look. Measured on the
+campaign that found it: a control served stale against a change it had made itself, every turn, and
+fired four times against it. Every consumer that declares `writes` and lets an agent fire was in
+that loop; it is a defect of the carrying rule, not of the campaign's driver.
+
+The bound is an **act, at a version**, never an identity that outlives one commit: a motion this
+session filed under that principal un-marks a key, and the next motion filed under anybody else
+re-marks it. Three things follow, and all three are pinned:
+
+- **It can only remove a repetition, never add a disclosure.** Every key served because somebody
+  else moved it is still served.
+- **It is the CALLER, not the word `'agent'`.** The port's own principal asks the question, so a
+  port built with `source: 'user'` gets the same law from the other side.
+- **A guess is not an act.** A motion this library only inferred is filed under `'unknown'` and is
+  credited to nobody, so it still surfaces.
+- **It arms less; it never un-says.** A stamp already served stays on the ledger until an act
+  answers it, even if the caller later writes that key itself through another control.
+
+The refusing tier asks the same question of the same derivation, for the firing principal — a row
+that says nothing moved and a refusal that says writes moved would be the two doors disagreeing
+about one motion, which this layer is not allowed to author.
+
 ## Why a door, and why not a fifth tool
 
 The acknowledgement is a **session method**, not a new MCP verb. Publishing a fifth tool would change
@@ -71,10 +102,10 @@ until somebody does something about it, and it will never pretend that somebody 
 Unchanged from the read side's first day, and restated because the write side invites the mistake:
 
 - **Names only.** No value crosses. Nothing is compared against anything.
-- **It does not say WHO.** `staleWrites` says a key this control declares it writes has been
-  committed since your last look. Not that another party did it, not that your write would be
-  wrong, not that this is a repeat. If your own fire wrote it, that is still a key that moved, and
-  the row says so without attributing it.
+- **It does not NAME who.** `staleWrites` says a key this control declares it writes has been
+  committed since your last look, by somebody who is not you. Not who that was, not that your write
+  would be wrong, not that this is a repeat. No principal is ever served on the row; WHO stays on
+  the transition record, beside the attribution that grades how the library came to believe it.
 - **It refuses nothing.** The row stays fireable, exactly as `enabled: false`, `humanDecides` and
   `busy` do beside it. Disclosure is the mechanism; the decision stays with the caller.
 - **Presence-only.** An app that declares no `reads`/`writes` serves byte-identical rows, and

@@ -1,5 +1,68 @@
 # Changelog
 
+## [1.7.1] - 2026-08-07
+
+**Your own write is not the world moving under you.**
+
+### Fixed — carried staleness no longer serves a caller its own writes
+
+1.7.0 made the stale stamps *carried until answered*, which is what makes them worth reading. But
+"moved" meant every key **this session** committed, whoever moved it — so a caller's own fire came
+back to it one turn later as a disturbance, on the very control that made it. And the loop had no
+exit: the one act that clears the ledger is the agent firing that control, and that fire's own
+commit re-arms it on the next look.
+
+Measured on the campaign that found it: a control served with `staleWrites` naming keys its own last
+fire had written, every turn, and fired four times against a change it had made itself. **Every
+consumer on 1.7.0 that declares `writes` and lets an agent fire is in that loop** — it is a defect
+of the carrying rule, not of any one integration.
+
+The rule, and it is the smallest one that closes it:
+
+> A key is stale **to a caller** when it moved since **that caller** last acted on it. The caller's
+> own committed write is the caller acting. Somebody else's write to that same key, afterwards,
+> still is the world moving.
+
+```ts
+const port = serveToAgent(session);           // a port stamps its fires 'agent'
+session.fire('trip.hold-room', { source: 'agent' });
+session.updateState({ 'itinerary.roomHeld': true });   // its OWN effect, reported
+
+// 1.7.0 — every turn, forever, until acknowledged:
+//   { "action": "trip.hold-room", "staleWrites": ["itinerary.roomHeld"] }
+// now:
+//   { "action": "trip.hold-room" }
+
+session.updateState({ 'itinerary.roomHeld': false }, { stimulus: 'push', principal: 'user' });
+// the person moved it — unchanged, and still carried until answered:
+//   { "action": "trip.hold-room", "staleWrites": ["itinerary.roomHeld"] }
+```
+
+**Disclosure-only, in the safe direction.** The fix can only make a stamp disappear, never appear:
+every key served because somebody *else* moved it is still served, still carried, and still cleared
+only by an act. The enforcing tier (`freshness`) asks the same question of the same derivation, for
+the firing principal — a caller was being walled off from its own control by a policy declared to
+catch somebody else moving the key.
+
+**Bounded by an act, at a version — never by an identity.** A motion this session filed under that
+principal un-marks a key; the next motion filed under anybody else re-marks it. It is the **caller**
+and not the word `'agent'`: a port built with `source: 'user'` gets the same law from the other
+side, and a motion the library only *inferred* is filed under `'unknown'`, credited to nobody, and
+still surfaces. No principal is ever served on a row — WHO stays on the transition record, beside
+the attribution that grades how the library came to believe it.
+
+`session.keysChangedSince(sinceVersion)` is unchanged and still answers for the whole session. The
+per-caller question is the new optional second argument:
+
+```ts
+session.keysChangedSince(sinceVersion);                    // every key this SESSION committed
+session.keysChangedSince(sinceVersion, { for: 'agent' });  // …that moved under that caller
+```
+
+`docs/design/staleness-is-carried.md` carries the amended law. One clause of it was wrong and is
+now right: the row still never *names* who, but "if your own fire wrote it, that is still a key that
+moved" was the sentence that shipped the loop.
+
 ## [1.7.0] - 2026-08-06
 
 **A stamp that goes quiet while the thing it describes is still true is not a disclosure. It is a

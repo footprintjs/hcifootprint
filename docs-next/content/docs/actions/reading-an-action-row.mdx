@@ -59,8 +59,8 @@ prove or disprove it.*
 | **`expects`** | `input:` (schema, or the literal `'none'`) | what a caller must send | `PAYLOAD_INVALID`, which carries the contract back with the refusal |
 | **`instances`** + **`enumeration`** | `repeats: true` on a container | this row stands for N cards, addressed by key — and `enumeration` says whether that list is complete (`'selector'`) or only what is mounted (`'mounted-window'`) | `INSTANCE_REQUIRED` / `INSTANCE_UNKNOWN`, each listing the live keys |
 | **`activation`** | a [presence](doc:presence) source other than the ordinary two | how the library came to believe this is on screen | the word itself; the ordinary `'registered'` / `'synced'` never ride |
-| **`staleReads`** | `reads: ['<key>', …]` | a key this action's outcome depends on **was written since you last looked** | the key names, and only the ones that moved — `session.keysChangedSince(sinceVersion)` is the same fact as data, and the brief narrates it as prose |
-| **`staleWrites`** | `writes: ['<key>', …]` | a key this action **would overwrite** was written since you last looked | the key names, and only the ones that moved — the same `session.keysChangedSince(sinceVersion)` fact, intersected with the other half of the declaration |
+| **`staleReads`** | `reads: ['<key>', …]` | a key this action's outcome depends on **was written by somebody else since you last looked** | the key names, and only the ones that moved — `session.keysChangedSince(sinceVersion, { for })` is the same fact as data, and the brief narrates it as prose |
+| **`staleWrites`** | `writes: ['<key>', …]` | a key this action **would overwrite** was written by somebody else since you last looked | the key names, and only the ones that moved — the same `session.keysChangedSince(sinceVersion, { for })` fact, intersected with the other half of the declaration |
 | **`priorFireUnsettled`** | *nothing* — a fire of this control that this session is still holding a latch for | your own earlier fire of this control has not come to rest | the transitionId itself: hand it to `did_it_work` |
 
 ### `staleReads` — what this control depends on that has moved
@@ -108,10 +108,32 @@ the same intersection is served against the write half of the declaration:
   "staleWrites": ["itinerary.roomHeld", "itinerary.roomBookings"] }
 ```
 
-**It does not say who.** It says a key this control declares it writes has been committed since your
-last look — not that another party did it, not that your write would be wrong, and not that this
-would be a repeat. Same laws as its sibling: names only, declared by you, presence-only, refusing
-nothing.
+**It does not name who.** It says a key this control declares it writes has been committed since
+your last look, by somebody who is not you — not who that was, not that your write would be wrong,
+and not that this would be a repeat. Same laws as its sibling: names only, declared by you,
+presence-only, refusing nothing.
+
+### Your own write is not a disturbance to you
+
+A key is stale **to a caller** when it moved since *that caller* last acted on it. Your own
+committed write is you acting, so it never comes back to you as a stamp; anybody else's write to
+that same key, afterwards, still does.
+
+```ts
+session.keysChangedSince(sinceVersion);                    // every key this SESSION committed
+session.keysChangedSince(sinceVersion, { for: 'agent' });  // …that moved under that caller
+```
+
+Served rows ask the second question, for the principal the port stamps its fires with (`'agent'`
+unless you built it with [`source`](doc:attribution-and-authority)). The bound is an **act, at a version** — a
+caller's write un-marks a key until the next motion filed under anybody else, and not one turn
+longer. No principal is ever served on the row.
+
+<Callout type="warn">
+On **1.7.0** this was not so, and it mattered: the stamp is carried until answered, so a caller's
+own fire came back to it forever — the one act that clears the ledger (firing the control) is the
+act that re-armed it. Fixed in 1.7.1, disclosure-only: a stamp can only disappear, never appear.
+</Callout>
 
 ### Both stale stamps are carried until you answer them
 

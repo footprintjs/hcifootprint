@@ -3132,9 +3132,12 @@ export class Session {
       offer,
       now: { node: this.#node, structureVersion: this.#structureVersion },
       // The session's ONE derivation of what has been committed — the same
-      // answer `staleReads` is built from, so the row and the refusal can never
-      // name different keys about the same motion.
-      changedSinceOffer: this.keysChangedSince(offer.version),
+      // answer `staleReads` is built from, and asked FOR THE SAME CALLER, so the
+      // row and the refusal can never name different keys about the same motion.
+      // Without the caller, an agent whose own fire wrote a declared key would
+      // be walled off from its own control by a policy that was declared to
+      // catch somebody else moving it.
+      changedSinceOffer: this.keysChangedSince(offer.version, { for: source }),
       declaredReads: aff.effect?.reads ?? [],
       declaredWrites: aff.effect?.writes ?? [],
     });
@@ -6379,13 +6382,55 @@ export class Session {
    * NAMES ONLY, and no claim beyond presence: a key here was written, which is
    * not a statement that its value is different from the one you saw, that any
    * control is now wrong, or that anything should be re-read.
+   *
+   * ---
+   *
+   * `opts.for` — ANSWER IT FOR ONE CALLER, AND YOUR OWN WRITE IS NOT NEWS.
+   *
+   * Omit it and this is the session's own answer: every key this session
+   * committed in that window, whoever moved it, byte for byte what it has always
+   * been. It is the honest answer to "what has this session committed", and a
+   * caller joining the log to something else still wants exactly that.
+   *
+   * Name a principal and the question changes to the one a SERVED ROW is asking:
+   * *has this key moved under you?* A key is stale to a caller when it moved
+   * since that caller last acted on it. A caller's own committed write is the
+   * caller acting, so it is not a disturbance to itself — and anybody else's
+   * write to that same key, afterwards, is.
+   *
+   * WHY THIS IS NOT A COSMETIC FILTER. Before 1.7.0 the stamp built on this
+   * lived for one turn, so a self-write was one line of noise and then gone.
+   * Carried until answered, it became a loop with no exit: the agent's fire
+   * clears the control's ledger, the fire's own commit re-arms it on the next
+   * look, and the only act that clears it re-arms it again. Measured, off a real
+   * campaign: a control served with `staleWrites` naming keys its own last fire
+   * had written, every turn, and fired four times against a change it had made
+   * itself.
+   *
+   * WHAT IT IS BOUNDED BY, so it can never quietly grow into "trust the agent":
+   * an ACT, at a VERSION. Only a committed motion this session filed under that
+   * principal un-marks a key, and only until the next motion filed under anybody
+   * else. There is no identity here that outlives one commit.
+   *
+   * AND WHAT IT STILL DOES NOT SAY: no principal is served, on this list or on
+   * any row built from it. WHO moved a key stays where it always was — on the
+   * transition record, beside the {@link Attribution} that grades how the
+   * library came to believe it.
    */
-  keysChangedSince(sinceVersion?: number): string[] {
+  keysChangedSince(sinceVersion?: number, opts?: { for?: Principal }): string[] {
     const byId = this.#changedKeysById();
+    const caller = opts?.for;
     const keys = new Set<string>();
     for (const t of this.#transitions) {
-      if (sinceVersion !== undefined && t.cursorVersion < sinceVersion) continue;
-      for (const key of byId.get(t.id) ?? []) keys.add(key);
+      // WALKED IN ORDER, and the caller's own act un-marks rather than skips: a
+      // key somebody else moved BEFORE this caller wrote it has, by the time
+      // the caller wrote it, not moved since the caller last acted on it.
+      const mine = caller !== undefined && t.cause.principal === caller;
+      const inWindow = sinceVersion === undefined || t.cursorVersion >= sinceVersion;
+      for (const key of byId.get(t.id) ?? []) {
+        if (mine) keys.delete(key);
+        else if (inWindow) keys.add(key);
+      }
     }
     return [...keys];
   }

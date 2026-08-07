@@ -2157,6 +2157,13 @@ export function serveToAgent(
      * window `brief` and `facts` answer to on that same call. Three fields of
      * one reply keeping two different clocks is precisely the disagreement this
      * layer refuses to author.
+     *
+     * AND IT IS ASKED FOR THIS PORT'S PRINCIPAL, because "changed" on a served
+     * row means CHANGED UNDER YOU. A caller's own committed write is the caller
+     * acting, not the world moving beneath it — and once the stamp is carried
+     * until answered, serving it back is a loop the caller cannot leave: the act
+     * that clears it (firing the control) is the act that re-arms it. Anybody
+     * else's write to the same key still lands here, which is the whole feature.
      */
     changed: ReadonlySet<string>;
     /**
@@ -2186,7 +2193,7 @@ export function serveToAgent(
   function turnFacts(rows: readonly AvailableEdge[], sinceVersion?: number): TurnFacts {
     return {
       running: runningNow(rows),
-      changed: new Set(session.keysChangedSince(sinceVersion)),
+      changed: new Set(session.keysChangedSince(sinceVersion, { for: source })),
       unsettled: unsettledByAction(),
     };
   }
