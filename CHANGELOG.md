@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.9.0] - 2026-08-17
+
+**Two checks about the same idea: an address that names two things is not an address.**
+
+### Added — `ambiguous-binding` (error)
+
+An element binding is a `(role, name)` pair — the SAME pair an agent reads out of
+the accessibility tree and a screen reader announces. That is the point of binding
+this way: one identity serves the person, the agent, the test and the graph, and the
+declared surface meets the perceivable one by construction rather than by a checker
+chasing them.
+
+It is also where a fold hides. Two affordances on one page bound to the same role and
+name are keyed identically by `nameKey()`, and whichever the resolver reaches first
+wins — silently, and possibly differently between renders. Two "Delete" buttons on one
+screen is not exotic.
+
+Error severity, so `checkGraph().ok` goes false and a release gate catches it, rather
+than throwing at authoring time and breaking graphs that already ship. Scoped per page,
+because a page is the scope an agent perceives — the same name on two different pages
+is fine. Names compare trimmed and case-folded, because a screen reader announces
+`Delete` and ` delete ` identically, and letting a difference nobody can perceive
+pass would be a fold inside the fold-checker.
+
+### Added — `waypoint-page` (advisory)
+
+Layers are evidence; capabilities are where the work stops with an answer. A page whose
+every action only navigates elsewhere is a waypoint: a step in a route, not somewhere a
+person gets an answer. One is a hub and entirely correct — several, and most of the map,
+is a graph partitioned by structure rather than by intent.
+
+Advisory, never an error, with a floor: at least three waypoints AND at least half the
+pages. The floor is the whole design; an advisory that fires on an ordinary graph is one
+people learn to scroll past.
+
 ## [1.8.0] - 2026-08-17
 
 **Two things a recording could not tell you, and one name that was two names.**
