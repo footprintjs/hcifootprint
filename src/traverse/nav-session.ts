@@ -35,6 +35,8 @@ import type {
   SyncResult,
   ActionGroup,
   ActionHandle,
+  Cause,
+  FocusMove,
 } from '../atom/types.js';
 import { detectSchema } from 'footprintjs';
 import type { WhereFilter } from 'footprintjs';
@@ -135,6 +137,21 @@ export class InteractionSession<Paths extends string = string> extends Session {
   readonly #presence = new PresenceIndex();
   /** Deepest node evidenced by sync()/fire(). Registration NEVER writes this. */
   #focusPath: string;
+  /**
+   * Every move of {@link node}'s focus, and WHO moved it.
+   *
+   * The cursor has always moved; nothing recorded why. In a library whose
+   * subject is mixed initiative that is the one question worth answering — a
+   * journey where a person found a dress and an agent bought it is two
+   * different stories depending on which of them moved the cursor at each step,
+   * and until now the recording could not tell them apart.
+   *
+   * It reuses {@link Cause} rather than inventing a vocabulary beside it: the
+   * atom layer already says why a TRANSITION exists and who caused it, and a
+   * focus move is caused by the same two things. A second vocabulary for the
+   * same fact is how two answers to one question start disagreeing.
+   */
+  readonly #focusMoves: FocusMove[] = [];
   /**
    * Mount-declared action overlay: qualified id → a STACK of declarations
    * (newest last = the served one). A stack, not a slot: two components may
@@ -794,6 +811,26 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * has to hold here too — otherwise `session.fire('page.action')` from JS would
    * still crash in this override, one frame before the one it was fixed in.
    */
+  /** Move the focus and say who moved it. The ONLY writer of `#focusPath` after construction. */
+  #moveFocus(to: string, cause: Cause): void {
+    const from = this.#focusPath;
+    this.#focusPath = to;
+    // Recorded even when it does not move: "the agent fired and focus stayed"
+    // is a fact about initiative, and dropping it would make a stationary
+    // cursor indistinguishable from one nobody touched.
+    this.#focusMoves.push({ from, to, moved: from !== to, cause });
+  }
+
+  /**
+   * The focus moves of this session, oldest first.
+   *
+   * Read-only and complete: this is evidence, so it is not filtered by whether
+   * the cursor actually changed. See {@link FocusMove.moved}.
+   */
+  get focusHistory(): readonly FocusMove[] {
+    return this.#focusMoves;
+  }
+
   override fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
     const source = principalOf(opts);
     const affordance = this.spec.affordances[affordanceId];
@@ -833,11 +870,29 @@ export class InteractionSession<Paths extends string = string> extends Session {
           return { ok: false, reason: 'STILL_MOUNTING', node: path };
         }
         const result = super.fire(affordanceId, opts);
-        if (result.ok) this.#focusPath = path; // fire evidence moves focus
+        if (result.ok) {
+          this.#moveFocus(path, {
+            kind: 'fired',
+            principal: principalOf(opts),
+            affordanceId,
+          });
+        }
         return result;
       }
     }
-    return super.fire(affordanceId, opts);
+    // The ordinary path. The focus does not move here, and the move is still
+    // recorded: 'the agent fired and focus stayed' is a fact about initiative,
+    // and a log that only spoke when the cursor changed would make a fire
+    // nobody attributed look like a fire that never happened.
+    const plain = super.fire(affordanceId, opts);
+    if (plain.ok) {
+      this.#moveFocus(this.#focusPath, {
+        kind: 'fired',
+        principal: principalOf(opts),
+        affordanceId,
+      });
+    }
+    return plain;
   }
 
   protected override handlerFor(affordanceId: string, opts: FireOptions): ActionHandler | undefined {
@@ -921,7 +976,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
   override sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult {
     const result = super.sync(observedNode, opts);
     if (result.changed) {
-      this.#focusPath = this.node; // router evidence resets focus to the page
+      // The world moved without an offered edge — a back button, a push, an
+      // expiry. A stimulus is exactly that, and the principal is whoever the
+      // caller attributed the sync to.
+      this.#moveFocus(this.node, { kind: 'stimulus', principal: opts?.principal ?? 'unknown' });
       // Dormant registrations under the now-confirmed page become native…
       for (const path of [...this.#foreignSeen.keys()]) {
         if (this.#map.nodes[path]?.page === this.node) this.#foreignSeen.delete(path);

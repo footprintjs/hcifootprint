@@ -3231,3 +3231,17 @@ export interface GroundTruth {
   version: number;
   text: string;
 }
+
+/**
+ * One move of a navigation session's focus, and who moved it.
+ *
+ * `moved: false` is kept on purpose — "the agent fired and the focus stayed
+ * where it was" is a fact about initiative, and a log that dropped it would make
+ * a stationary cursor look like one nobody touched.
+ */
+export interface FocusMove {
+  readonly from: string;
+  readonly to: string;
+  readonly moved: boolean;
+  readonly cause: Cause;
+}
