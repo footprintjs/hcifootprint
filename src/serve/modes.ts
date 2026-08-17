@@ -38,6 +38,7 @@
  * an authored description or a fixed authored-constant sentence. Runtime
  * values (state, payloads, instance keys, evidence) are structured DATA fields.
  */
+import { encodeToolName } from './tool-name.js';
 import type { MCPToolDescription } from 'footprintjs';
 import type {
   AskStatus,
@@ -2608,5 +2609,5 @@ export function serveToAgent(
 }
 
 function sanitizeName(name: string): string {
-  return name.replace(/[^A-Za-z0-9_.-]/g, '_');
+  return encodeToolName(name);
 }

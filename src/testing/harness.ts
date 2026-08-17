@@ -24,6 +24,7 @@
  * Layer note: imports the real Session (via graph.createSession) + the Mode B
  * port. Kept OUT of the lint path so a pure CI lint stays engine-free.
  */
+import { encodeToolName } from '../serve/tool-name.js';
 import { serveToAgent } from '../serve/modes.js';
 import type { DoActionArgs, ServeResult, JourneyCallArgs, JourneyToolsPort } from '../serve/modes.js';
 import type { NavigationGraph } from '../tree/types.js';
@@ -239,7 +240,7 @@ export function testApp<State extends Record<string, unknown> = Record<string, u
 
   const port: JourneyToolsPort = serveToAgent(session, { source: 'agent' });
   const graphId = session.graphId;
-  const sanitize = (name: string): string => name.replace(/[^A-Za-z0-9_.-]/g, '_');
+  const sanitize = (name: string): string => encodeToolName(name);
 
   // --- resolver → handler wrapper -------------------------------------------
 

@@ -56,6 +56,7 @@
  * expectConformance((fixture) => fromLiveStore(fixture.store));
  * ```
  */
+import { toolNameFrom } from '../serve/tool-name.js';
 import { serveToAgent } from '../serve/modes.js';
 import { buildNavigationGraph } from '../tree/appmap.js';
 import type {
@@ -828,5 +829,7 @@ function conformRoutes(
 
 /** The port's tool name for one generic, sanitized exactly as the real serving layer does. */
 function toolName(graphId: string, generic: string): string {
-  return `${graphId}.${generic}`.replace(/[^A-Za-z0-9_.-]/g, '_');
+  // The REAL encoder, imported rather than mirrored. Copying it is how this
+  // checker came to reproduce the fold it was meant to catch.
+  return toolNameFrom(graphId, generic);
 }

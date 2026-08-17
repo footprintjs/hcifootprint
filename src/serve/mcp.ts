@@ -12,6 +12,7 @@
  * they never reach a descriptor, so attacker-controlled page text cannot
  * inject instructions into the planner's action space.
  */
+import { encodeToolName } from './tool-name.js';
 import { detectSchema } from 'footprintjs';
 import type { MCPToolDescription } from 'footprintjs';
 import { normalizeSchema } from 'footprintjs/advanced';
@@ -74,5 +75,5 @@ function gateSchema(affordanceId: string, schema: unknown, lossy: boolean): obje
 }
 
 function sanitizeMCPName(name: string): string {
-  return name.replace(/[^A-Za-z0-9_.-]/g, '_');
+  return encodeToolName(name);
 }

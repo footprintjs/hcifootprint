@@ -51,8 +51,28 @@ describe('the model is handed exactly what it can reach from where it stands', (
       },
     });
     const [tool] = g.createSession({ node: 'a' }).toMCPTools();
-    expect(tool.name).toBe('my_shop_.do_it');
+    // This used to pin 'my_shop_.do_it' — the output of a FOLD, where every
+    // character the protocol cannot spell became '_'. That made 'my shop!',
+    // 'my shop?' and 'my_shop_' one tool name, so a model asking for one got
+    // another. The name is now ENCODED: still legal, still not renamed by hand,
+    // and reversible rather than lossy.
+    expect(tool.name).toBe('_enc_my_u0020shop_u0021.do_u0020it');
     expect(tool.name).toMatch(/^[A-Za-z0-9_.-]+$/);
+  });
+
+  it('two graph ids the protocol cannot spell stay two tool names', () => {
+    // The assertion the old pin could not make. Both of these folded onto
+    // 'my_shop_' before, which is the whole defect in one line.
+    const named = (graphId: string): string => {
+      const g = buildNavigationGraph(graphId, {
+        pages: { a: {} },
+        actions: { 'do it': { on: 'a', does: 'Do it', binding } },
+      });
+      return g.createSession({ node: 'a' }).toMCPTools()[0]!.name;
+    };
+    const names = ['my shop!', 'my shop?', 'my_shop_', 'my/shop/'].map(named);
+    expect(new Set(names).size).toBe(names.length);
+    for (const n of names) expect(n).toMatch(/^[A-Za-z0-9_.-]+$/);
   });
 });
 
