@@ -43,7 +43,8 @@ export type LintCode =
   | 'journey-step-cycle'
   | 'unreachable-page'
   | 'dead-end-page'
-  | 'unconsumed-write';
+  | 'unconsumed-write'
+  | 'waypoint-page';
 
 export interface LintFinding {
   code: LintCode;
@@ -238,6 +239,12 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
   const startPage = opts?.startPage ?? pageIds[0];
   const navTargets = new Set<string>();
   for (const aff of affList) if (aff.effect?.navigatesTo) navTargets.add(aff.effect.navigatesTo);
+  // Collected here, judged ONCE below against a floor.
+  const waypoints = pageIds.filter((id) => {
+    const onPage = affList.filter((a) => a.on.includes(id));
+    return onPage.length > 0 && onPage.every((a) => a.effect?.navigatesTo !== undefined);
+  });
+
   for (const pageId of pageIds) {
     if (pageId !== startPage && !navTargets.has(pageId)) {
       findings.push({
@@ -282,6 +289,33 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
         remedy: REMEDY_WRITE,
       });
     }
+  }
+
+  // ── Layers are evidence; capabilities are where the work stops ──────────
+  //
+  // A page whose every action only moves somewhere else is a WAYPOINT: a step in
+  // a route, not a place a person gets an answer. ONE of those is a hub — a menu,
+  // a landing page — and entirely correct, which is why this says nothing about a
+  // single one. Several, and most of the map, is the shape of a graph partitioned
+  // by structure rather than by what somebody came to do: the map grows, every
+  // question crosses more of it, and none of the extra nodes is where anything is
+  // decided.
+  //
+  // The floor is the whole design. An advisory that fires on an ordinary graph is
+  // one people learn to scroll past, which costs more than not having it.
+  if (waypoints.length >= 3 && waypoints.length * 2 >= pageIds.length) {
+    findings.push({
+      code: 'waypoint-page',
+      severity: 'info',
+      message:
+        `${waypoints.length} of ${pageIds.length} pages (${waypoints.join(', ')}) have ` +
+        `actions that ONLY navigate elsewhere — nothing on them does anything a person ` +
+        `came for.`,
+      remedy:
+        'A hub or a menu is legitimately this shape. When most of the map is, the graph ' +
+        'may be partitioned by structure rather than by intent — the places where work ' +
+        'STOPS with an answer are the ones worth being nodes.',
+    });
   }
 
   return findings;
