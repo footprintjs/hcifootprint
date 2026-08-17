@@ -44,7 +44,8 @@ export type LintCode =
   | 'unreachable-page'
   | 'dead-end-page'
   | 'unconsumed-write'
-  | 'waypoint-page';
+  | 'waypoint-page'
+  | 'ambiguous-binding';
 
 export interface LintFinding {
   code: LintCode;
@@ -315,6 +316,51 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
         'A hub or a menu is legitimately this shape. When most of the map is, the graph ' +
         'may be partitioned by structure rather than by intent — the places where work ' +
         'STOPS with an answer are the ones worth being nodes.',
+    });
+  }
+
+  // ── An address that names two things is not an address ──────────────────
+  //
+  // An element binding is a (role, name) pair — the SAME pair an agent reads out
+  // of the accessibility tree and a screen reader announces. That is the point of
+  // binding this way: one identity serves the person, the agent, the test and the
+  // graph.
+  //
+  // It is also the oldest defect in this library's family. Two affordances on one
+  // page bound to the same role and name is a FOLD: the sensor keys them
+  // identically, and whichever the resolver reaches first wins — silently, and
+  // differently between renders. Two "Delete" buttons on one screen is not exotic,
+  // it is Tuesday.
+  //
+  // Error, not advisory. A collision check belongs in the same change as the
+  // address it guards, and this one arrives late: the binding shape has been
+  // (role, name) all along.
+  const seen = new Map<string, string[]>();
+  for (const aff of affList) {
+    const b = aff.binding;
+    if (b?.kind !== 'element') continue;
+    for (const page of aff.on) {
+      const key = `${page}\u0000${b.locator.role}\u0000${b.locator.name.trim().toLowerCase()}`;
+      const bucket = seen.get(key);
+      if (bucket) bucket.push(aff.id);
+      else seen.set(key, [aff.id]);
+    }
+  }
+  for (const [key, ids] of seen) {
+    if (ids.length < 2) continue;
+    const [page, role, name] = key.split('\u0000');
+    findings.push({
+      code: 'ambiguous-binding',
+      severity: 'error',
+      page,
+      message:
+        `On page “${page}”, ${ids.length} actions (${ids.join(', ')}) all bind to the same ` +
+        `control — role “${role}”, name “${name}”. One address cannot name two things: the ` +
+        `sensor keys them identically and whichever resolves first wins, silently.`,
+      remedy:
+        'Give the controls distinct accessible names — which also makes them distinguishable ' +
+        'to a screen reader and to an agent reading the accessibility tree — or bind the ' +
+        'ambiguous one through a different gesture.',
     });
   }
 

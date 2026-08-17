@@ -64,6 +64,7 @@ const TYPE_OF: Record<LintCode, DriftType> = {
   'journey-step-cycle': 'flow',
   'unconsumed-write': 'note',
   'waypoint-page': 'note',
+  'ambiguous-binding': 'control',
 };
 
 const TYPE_LABEL: Record<DriftType, string> = {

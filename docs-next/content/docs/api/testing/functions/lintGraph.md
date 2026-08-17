@@ -6,7 +6,7 @@ title: lintGraph
 
 > **lintGraph**(`graph`, `opts?`): [`LintFinding`](/api/testing/interfaces/LintFinding)[]
 
-Defined in: [src/testing/model/lint.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L106)
+Defined in: [src/testing/model/lint.ts:107](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L107)
 
 Report every stale-logic drift provable from the graph alone. Returns an
 empty array for a clean graph. Advisory by default; pass initialState +

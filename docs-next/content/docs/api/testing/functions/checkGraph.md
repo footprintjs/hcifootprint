@@ -6,7 +6,7 @@ title: checkGraph
 
 > **checkGraph**(`graph`, `opts?`): [`GraphHealth`](/api/testing/interfaces/GraphHealth)
 
-Defined in: [src/testing/model/check.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/check.ts#L77)
+Defined in: [src/testing/model/check.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/check.ts#L78)
 
 One-call health check: lint + group by drift type + per-journey rollup + a printable summary.
 
