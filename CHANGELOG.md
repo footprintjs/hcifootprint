@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.8.0] - 2026-08-17
+
+**Two things a recording could not tell you, and one name that was two names.**
+
+### Fixed — a tool name is ENCODED, not folded
+
+`name.replace(/[^A-Za-z0-9_.-]/g, '_')` lived in four places: `src/serve/mcp.ts`,
+`src/serve/modes.ts`, `src/testing/harness.ts`, and `src/testing/conform.ts` — the
+last describing itself as "sanitized exactly as the real serving layer does", which
+was true and was the problem. Four copies is how a fix lands in one place and leaves
+three, and it is how a conformance checker comes to reproduce the defect it exists to
+catch faithfully enough to pass.
+
+It is a FOLD. `my shop!`, `my shop?` and `my_shop_` all became `my_shop_`, so two
+graphs addressed one tool and a model asking for one got the other. Composition made
+it worse: `checkout.v2` + `submit` and `checkout` + `v2.submit` composed the same
+name, because the dot separator was never escaped in the fields.
+
+Now one encoder in two arms whose outputs cannot meet: a name already legal — and not
+claiming to be an encoded one — is returned BYTE FOR BYTE, and anything else becomes
+`_enc_` plus an escaped form.
+
+**BREAKING for anyone who hard-coded a folded name.** Only names containing a
+character the protocol cannot spell change; every legal name, snake_case included, is
+byte-identical to 1.7.1. The first attempt at this escaped inline with `_` — the
+commonest character in a tool name — and renamed every `add_to_cart` to
+`add__to__cart`, which is a rename nobody needed and is why the pass-through arm
+exists.
+
+### Added — a focus move records WHO moved it
+
+The cursor has always moved and nothing recorded why. In a library whose subject is
+mixed initiative that is the question worth answering: the dress-shop journey is
+"user finds a dress → agent purchases → user asks about the order", and it is two
+different stories depending on which of them moved the cursor at each step.
+
+`InteractionSession.focusHistory` answers it, on the vocabulary that already
+existed — `Cause { kind: 'fired' | 'stimulus', principal, affordanceId }` and
+`Principal`. A second vocabulary for the same fact is how two answers to one
+question start disagreeing.
+
+A move is recorded even when the focus does not change: "the agent fired and focus
+stayed" is a fact about initiative, and dropping it would make a stationary cursor
+indistinguishable from one nobody touched. Construction records nothing — beginning
+somewhere is not a move. A guard-refused fire credits nobody.
+
 ## [1.7.1] - 2026-08-07
 
 **Your own write is not the world moving under you.**
