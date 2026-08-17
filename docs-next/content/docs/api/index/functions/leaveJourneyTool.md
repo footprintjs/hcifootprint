@@ -6,7 +6,7 @@ title: leaveJourneyTool
 
 > **leaveJourneyTool**(`spec`, `journeyId`): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)
 
-Defined in: [src/serve/mcp.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp.ts#L34)
+Defined in: [src/serve/mcp.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp.ts#L35)
 
 Synthetic escape tool served whenever a journey frame is open — the acting
 agent must always be able to collapse back to journey-level planning. The

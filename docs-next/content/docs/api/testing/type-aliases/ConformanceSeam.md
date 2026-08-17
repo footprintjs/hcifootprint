@@ -6,6 +6,6 @@ title: ConformanceSeam
 
 > **ConformanceSeam** = `"compile"` \| `"serve"`
 
-Defined in: [src/testing/conform.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L154)
+Defined in: [src/testing/conform.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L155)
 
 Where a declaration is read: the compiled affordance, or an agent-visible surface.

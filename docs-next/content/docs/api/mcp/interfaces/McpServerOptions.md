@@ -16,7 +16,7 @@ Defined in: [src/serve/mcp-server.ts:34](https://github.com/footprintjs/hcifootp
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L58)
+Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
@@ -30,7 +30,7 @@ Require confirm:true before firing high-effect steps/actions. Default true.
 
 > `optional` **journeyTools?**: `"per-journey"` \| `"single"`
 
-Defined in: [src/serve/modes.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L100)
+Defined in: [src/serve/modes.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L101)
 
 How journeys are offered in the TOOL channel. Default `'per-journey'` —
 today's behaviour, byte for byte.
@@ -108,7 +108,7 @@ is already holding would be the only thing dishonest here.
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L68)
+Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L69)
 
 Principal stamped on fires made through this port. Default 'agent'.
 

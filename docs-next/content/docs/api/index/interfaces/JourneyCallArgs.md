@@ -4,7 +4,7 @@ title: JourneyCallArgs
 
 # Interface: JourneyCallArgs
 
-Defined in: [src/serve/modes.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L103)
+Defined in: [src/serve/modes.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L104)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/serve/modes.ts:103](https://github.com/footprintjs/hcifootprint
 
 > `optional` **acknowledgementId?**: `string`
 
-Defined in: [src/serve/modes.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L118)
+Defined in: [src/serve/modes.ts:119](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L119)
 
 The acknowledgement this step performs — see [DoActionArgs.acknowledgementId](/api/index/interfaces/DoActionArgs#acknowledgementid).
 
@@ -22,7 +22,7 @@ The acknowledgement this step performs — see [DoActionArgs.acknowledgementId](
 
 > `optional` **confirm?**: `boolean`
 
-Defined in: [src/serve/modes.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L106)
+Defined in: [src/serve/modes.ts:107](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L107)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/serve/modes.ts:106](https://github.com/footprintjs/hcifootprint
 
 > `optional` **decline?**: `boolean`
 
-Defined in: [src/serve/modes.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L112)
+Defined in: [src/serve/modes.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L113)
 
 Record the human's refusal of a high-effect step (they said no) — closes the
 ask, does not fire. Under `requireHumanApproval` it is recorded as the
@@ -42,7 +42,7 @@ caller's REPORT and closes nothing, so the person's card stays live.
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/serve/modes.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L105)
+Defined in: [src/serve/modes.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L106)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [src/serve/modes.ts:105](https://github.com/footprintjs/hcifootprint
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/serve/modes.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L114)
+Defined in: [src/serve/modes.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L115)
 
 Instance key for steps on repeats containers (from `instances` in results).
 
@@ -60,7 +60,7 @@ Instance key for steps on repeats containers (from `instances` in results).
 
 > `optional` **offerId?**: `string`
 
-Defined in: [src/serve/modes.ts:116](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L116)
+Defined in: [src/serve/modes.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L117)
 
 The served row this step was planned against — see [DoActionArgs.offerId](/api/index/interfaces/DoActionArgs#offerid).
 
@@ -70,4 +70,4 @@ The served row this step was planned against — see [DoActionArgs.offerId](/api
 
 > `optional` **step?**: `string`
 
-Defined in: [src/serve/modes.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L104)
+Defined in: [src/serve/modes.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L105)

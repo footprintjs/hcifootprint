@@ -4,7 +4,7 @@ title: ActionGroupHandle
 
 # Interface: ActionGroupHandle
 
-Defined in: [src/traverse/nav-session.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L123)
+Defined in: [src/traverse/nav-session.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L125)
 
 The handle returned by registerActions — the group's IDENTITY (see
 ActionGroup). Hold it and call `unregister()` on unmount; `setEnabled(id, …)`
@@ -34,7 +34,7 @@ Generated identity of this registration (for telemetry/debug — not caller-supp
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: [src/traverse/nav-session.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L125)
+Defined in: [src/traverse/nav-session.ts:127](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L127)
 
 Instance key, when this group registered one card of a repeats container.
 

@@ -4,7 +4,7 @@ title: JourneyToolsOptions
 
 # Interface: JourneyToolsOptions
 
-Defined in: [src/serve/modes.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L56)
+Defined in: [src/serve/modes.ts:57](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L57)
 
 ## Extended by
 
@@ -16,7 +16,7 @@ Defined in: [src/serve/modes.ts:56](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L58)
+Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
@@ -26,7 +26,7 @@ Require confirm:true before firing high-effect steps/actions. Default true.
 
 > `optional` **journeyTools?**: `"per-journey"` \| `"single"`
 
-Defined in: [src/serve/modes.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L100)
+Defined in: [src/serve/modes.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L101)
 
 How journeys are offered in the TOOL channel. Default `'per-journey'` —
 today's behaviour, byte for byte.
@@ -64,7 +64,7 @@ tool names sees one tool instead. Names that no longer exist are answered
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L68)
+Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L69)
 
 Principal stamped on fires made through this port. Default 'agent'.
 

@@ -4,7 +4,7 @@ title: InteractionSessionOptions
 
 # Interface: InteractionSessionOptions
 
-Defined in: [src/traverse/nav-session.ts:54](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L54)
+Defined in: [src/traverse/nav-session.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L56)
 
 ## Extends
 
@@ -121,7 +121,7 @@ Commit-log value encoding (footprintjs dial). Default 'delta'.
 
 > `optional` **dormantGraceMs?**: `number`
 
-Defined in: [src/traverse/nav-session.ts:63](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L63)
+Defined in: [src/traverse/nav-session.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L65)
 
 How long a registration outside the router-confirmed page may persist
 before drift telemetry fires (a dev warning + one sensor-drift gap row).
@@ -298,7 +298,7 @@ Without this option nothing changes — fail-closed, byte-identical.
 
 > `optional` **node?**: `string`
 
-Defined in: [src/traverse/nav-session.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L56)
+Defined in: [src/traverse/nav-session.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L58)
 
 Starting page id. Default: the first declared page.
 
@@ -308,7 +308,7 @@ Starting page id. Default: the first declared page.
 
 > `optional` **now?**: () => `number`
 
-Defined in: [src/traverse/nav-session.ts:70](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L70)
+Defined in: [src/traverse/nav-session.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L72)
 
 The clock the dormancy / overlay-grace timers read (epoch ms). Defaults to
 `Date.now`. Inject a controllable clock to test time-dependent staleness

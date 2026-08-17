@@ -4,7 +4,7 @@ title: JourneyToolsPortWithSettlement
 
 # Interface: JourneyToolsPortWithSettlement
 
-Defined in: [src/serve/modes.ts:221](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L221)
+Defined in: [src/serve/modes.ts:222](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L222)
 
 What [serveToAgent](/api/index/functions/serveToAgent) returns: a port whose settlement doors are always
 there. Name the type only if you are storing the port somewhere typed — the
@@ -20,7 +20,7 @@ factory's inferred return already has them.
 
 > **call**(`name`, `args?`): [`ServeResult`](/api/index/type-aliases/ServeResult)
 
-Defined in: [src/serve/modes.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L155)
+Defined in: [src/serve/modes.ts:156](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L156)
 
 Route a tool_use by name. Unknown names return a structured error result.
 
@@ -48,7 +48,7 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 > **settledAnswer**(`transitionId`): [`ServeResult`](/api/index/type-aliases/ServeResult) \| `undefined`
 
-Defined in: [src/serve/modes.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L223)
+Defined in: [src/serve/modes.ts:224](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L224)
 
 What `did_it_work` would ANSWER about a fire that has come to rest — the
 same facts, in the same words, minus that tool's own envelope. For the
@@ -103,7 +103,7 @@ written against an earlier release must keep compiling.
 
 > **tools**(): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
-Defined in: [src/serve/modes.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L153)
+Defined in: [src/serve/modes.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L154)
 
 The STATIC tool array — identical bytes for the life of the conversation.
 
@@ -121,7 +121,7 @@ The STATIC tool array — identical bytes for the life of the conversation.
 
 > **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
 
-Defined in: [src/serve/modes.ts:222](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L222)
+Defined in: [src/serve/modes.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L223)
 
 How a fire came to rest — the ASYNC door, for the caller that holds this
 port and nothing else (a relay, a transport wrapper). `call()` is

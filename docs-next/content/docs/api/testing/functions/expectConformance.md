@@ -6,7 +6,7 @@ title: expectConformance
 
 > **expectConformance**(`source`, `opts?`): `void`
 
-Defined in: [src/testing/conform.ts:713](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L713)
+Defined in: [src/testing/conform.ts:714](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L714)
 
 conformSource as a gate: throws naming EVERY dropped field and the seam that
 lost it. Nothing is summarised away — a message that named one of four would

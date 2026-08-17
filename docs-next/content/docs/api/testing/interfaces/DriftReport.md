@@ -4,7 +4,7 @@ title: DriftReport
 
 # Interface: DriftReport
 
-Defined in: [src/testing/harness.ts:79](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L79)
+Defined in: [src/testing/harness.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L80)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/testing/harness.ts:79](https://github.com/footprintjs/hcifootpr
 
 > **effectDrift**: `object`[]
 
-Defined in: [src/testing/harness.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L83)
+Defined in: [src/testing/harness.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L84)
 
 Actions whose settled delta did not cover their declared writes — the graph drifted from the handler.
 
@@ -34,7 +34,7 @@ Actions whose settled delta did not cover their declared writes — the graph dr
 
 > **gaps**: [`GapRecord`](/api/index/interfaces/GapRecord)[]
 
-Defined in: [src/testing/harness.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L87)
+Defined in: [src/testing/harness.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L88)
 
 The unmet-demand ledger: refused fires + reported gaps.
 
@@ -44,7 +44,7 @@ The unmet-demand ledger: refused fires + reported gaps.
 
 > **ok**: `boolean`
 
-Defined in: [src/testing/harness.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L81)
+Defined in: [src/testing/harness.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L82)
 
 True when no declared-effect drift was observed (the release-readiness signal).
 
@@ -54,7 +54,7 @@ True when no declared-effect drift was observed (the release-readiness signal).
 
 > **unevaluatedGuards**: `object`[]
 
-Defined in: [src/testing/harness.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L85)
+Defined in: [src/testing/harness.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L86)
 
 Guard keys taken on faith because the state view never held them (honesty, not failure).
 

@@ -4,7 +4,7 @@ title: InteractionSession<Paths>
 
 # Class: InteractionSession\<Paths\>
 
-Defined in: [src/traverse/nav-session.ts:133](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L133)
+Defined in: [src/traverse/nav-session.ts:135](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L135)
 
 ## Extends
 
@@ -22,7 +22,7 @@ Defined in: [src/traverse/nav-session.ts:133](https://github.com/footprintjs/hci
 
 > **new InteractionSession**\<`Paths`\>(`map`, `opts?`, `liveSources?`): `InteractionSession`\<`Paths`\>
 
-Defined in: [src/traverse/nav-session.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L157)
+Defined in: [src/traverse/nav-session.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L174)
 
 #### Parameters
 
@@ -56,11 +56,30 @@ Live graph sources to attach to THIS session (createSession passes the graph's).
 
 > **get** **focus**(): `string`
 
-Defined in: [src/traverse/nav-session.ts:600](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L600)
+Defined in: [src/traverse/nav-session.ts:617](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L617)
 
 ##### Returns
 
 `string`
+
+***
+
+### focusHistory
+
+#### Get Signature
+
+> **get** **focusHistory**(): readonly `FocusMove`[]
+
+Defined in: [src/traverse/nav-session.ts:830](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L830)
+
+The focus moves of this session, oldest first.
+
+Read-only and complete: this is evidence, so it is not filtered by whether
+the cursor actually changed. See FocusMove.moved.
+
+##### Returns
+
+readonly `FocusMove`[]
 
 ***
 
@@ -579,7 +598,7 @@ The same door, speaking as the app itself.
 
 > **available**(): [`AvailableSlice`](/api/index/interfaces/AvailableSlice)
 
-Defined in: [src/traverse/nav-session.ts:761](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L761)
+Defined in: [src/traverse/nav-session.ts:778](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L778)
 
 #### Returns
 
@@ -952,7 +971,7 @@ audit sink like gaps(); it grows for the session's life.
 
 > **contextBrief**(`opts?`): [`ContextBrief`](/api/index/interfaces/ContextBrief)
 
-Defined in: [src/traverse/nav-session.ts:955](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L955)
+Defined in: [src/traverse/nav-session.ts:1013](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1013)
 
 Token-lean, prompt-ready session context for the next chat turn: current
 position, the open frame, and who did what since `sinceVersion` (the
@@ -1158,7 +1177,7 @@ with no principal argument to lie with.
 
 > **detachSources**(): `void`
 
-Defined in: [src/traverse/nav-session.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L188)
+Defined in: [src/traverse/nav-session.ts:205](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L205)
 
 Release every live-source binding this session's graph attached (the
 counterpart of `sources: [fromLiveStore(...)]`). Idempotent: the ledger is
@@ -1199,12 +1218,34 @@ Why an affordance is (or is not) available right now — per-condition evidence.
 
 > **fire**(`affordanceId`, `opts?`): [`FireResult`](/api/index/type-aliases/FireResult)
 
-Defined in: [src/traverse/nav-session.ts:797](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L797)
+Defined in: [src/traverse/nav-session.ts:834](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L834)
 
-The tree gates (visibility, overlay masking, instance keys, mounting) run
-BEFORE the base fire, so the same runtime-optional/type-required contract
-has to hold here too — otherwise `session.fire('page.action')` from JS would
-still crash in this override, one frame before the one it was fixed in.
+Returned transition records are LIVE views — settlement updates them in
+place. `effectStatus` is the opposite: a reading taken at return time, and
+because the handler is always deferred it can never say 'performed' here.
+`whenSettled` carries the later truth, once, as a snapshot.
+
+`opts` is optional at RUNTIME and required in TypeScript: a JS caller's
+`fire('page.tool')` is answered instead of crashing on `opts.source`,
+while a typed caller is still made to name the principal. An omitted
+source reads as 'agent' — never 'user', which would file a machine's
+action in the ledger under a human and disarm the never-trap gate below.
+
+THE CONFIRM BOUNDARY, stated here because this is the signature an
+integrator reads. There is no `confirm` field on [FireOptions](/api/index/interfaces/FireOptions) and
+there never will be: a boolean the caller controls is not evidence, so the
+door has no slot for one. `confirm` is a MODE B TOOL ARGUMENT
+(serve/modes.ts), which means a fire arriving here directly is not gated by
+`confirm` at any layer — the app's own code owns its session, and 'user' /
+'system' / `invoke: false` are the app reporting motion that really
+happened.
+
+What [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) adds is keyed on the
+PRINCIPAL rather than the door, so an AGENT-sourced high-effect fire is held
+wherever it comes from — the Mode B port, the MCP server, the testing
+harness, or this method called directly — and the proof it must present is
+[FireOptions.askId](/api/index/interfaces/FireOptions#askid), a pointer to a row a human-side door recorded.
+See THE APPROVAL GATE below.
 
 #### Parameters
 
@@ -1951,7 +1992,7 @@ runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup).
 
 > **registerAction**(`path`, `actionId`, `def`): [`ActionHandle`](/api/index/interfaces/ActionHandle)
 
-Defined in: [src/traverse/nav-session.ts:335](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L335)
+Defined in: [src/traverse/nav-session.ts:352](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L352)
 
 Register ONE action on a node (convenience over registerActions). `def`
 either binds an existing declared action (`{ handler }`) or declares a new
@@ -1981,7 +2022,7 @@ leaf here (`{ does, handler }`). Returns a single-action handle.
 
 > **registerActions**(`path`, `opts?`): [`ActionGroupHandle`](/api/index/interfaces/ActionGroupHandle)
 
-Defined in: [src/traverse/nav-session.ts:231](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L231)
+Defined in: [src/traverse/nav-session.ts:248](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L248)
 
 Register a component's handlers/actions ON a node when it renders. You never
 name a group — this RETURNS an ActionGroupHandle that is the identity (with a
@@ -2393,7 +2434,7 @@ it) held the id and had no way to learn the truth.
 
 > **setVisible**(`path`, `visible`): `void`
 
-Defined in: [src/traverse/nav-session.ts:566](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L566)
+Defined in: [src/traverse/nav-session.ts:583](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L583)
 
 #### Parameters
 
@@ -2415,7 +2456,7 @@ Defined in: [src/traverse/nav-session.ts:566](https://github.com/footprintjs/hci
 
 > **show**(`path`): `void`
 
-Defined in: [src/traverse/nav-session.ts:573](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L573)
+Defined in: [src/traverse/nav-session.ts:590](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L590)
 
 Show a node; for a tab this also hides its tab siblings (at most one shown).
 
@@ -2453,7 +2494,7 @@ Detached snapshot of the projected state (live state is immutable-after-swap; ne
 
 > **sync**(`observedNode`, `opts?`): [`SyncResult`](/api/index/type-aliases/SyncResult)
 
-Defined in: [src/traverse/nav-session.ts:921](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L921)
+Defined in: [src/traverse/nav-session.ts:976](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L976)
 
 The observed node is runtime input from the world, so an unauthored page
 is NOT an error: the cursor follows reality (off-graph), available()

@@ -6,7 +6,7 @@ title: edgesToMCPTools
 
 > **edgesToMCPTools**(`spec`, `edges`, `opts?`): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
-Defined in: [src/serve/mcp.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp.ts#L42)
+Defined in: [src/serve/mcp.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/mcp.ts#L43)
 
 ## Parameters
 

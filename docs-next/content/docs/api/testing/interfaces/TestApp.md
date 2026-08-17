@@ -4,7 +4,7 @@ title: TestApp<State>
 
 # Interface: TestApp\<State\>
 
-Defined in: [src/testing/harness.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L113)
+Defined in: [src/testing/harness.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L114)
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Defined in: [src/testing/harness.ts:113](https://github.com/footprintjs/hcifootp
 
 > `readonly` **agent**: `object`
 
-Defined in: [src/testing/harness.ts:140](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L140)
+Defined in: [src/testing/harness.ts:141](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L141)
 
 Drive like the planning LLM, through the real Mode B port. Returns ServeResult (needs-confirm is data, never a throw).
 
@@ -88,7 +88,7 @@ Call whats_here.
 
 > `readonly` **clock**: [`TestClock`](/api/testing/interfaces/TestClock)
 
-Defined in: [src/testing/harness.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L125)
+Defined in: [src/testing/harness.ts:126](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L126)
 
 The controllable clock (deterministic dormancy/mount-grace tests).
 
@@ -98,7 +98,7 @@ The controllable clock (deterministic dormancy/mount-grace tests).
 
 > `readonly` **node**: `string`
 
-Defined in: [src/testing/harness.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L117)
+Defined in: [src/testing/harness.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L118)
 
 The current page id.
 
@@ -108,7 +108,7 @@ The current page id.
 
 > `readonly` **session**: [`InteractionSession`](/api/index/classes/InteractionSession)
 
-Defined in: [src/testing/harness.ts:115](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L115)
+Defined in: [src/testing/harness.ts:116](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L116)
 
 The real session under the hood — drop to it for anything the facade omits.
 
@@ -118,7 +118,7 @@ The real session under the hood — drop to it for anything the facade omits.
 
 > `readonly` **user**: `object`
 
-Defined in: [src/testing/harness.ts:130](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L130)
+Defined in: [src/testing/harness.ts:131](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L131)
 
 Drive like a human click. Throws on rejection (fail-fast).
 
@@ -206,7 +206,7 @@ Fire + auto-settle but NEVER throw — return the raw FireResult (inspect a reje
 
 > `readonly` **version**: `number`
 
-Defined in: [src/testing/harness.ts:119](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L119)
+Defined in: [src/testing/harness.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L120)
 
 The session cursor version.
 
@@ -216,7 +216,7 @@ The session cursor version.
 
 > **advanceTime**(`ms`): `void`
 
-Defined in: [src/testing/harness.ts:127](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L127)
+Defined in: [src/testing/harness.ts:128](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L128)
 
 Advance the injected clock (sugar for clock.advance).
 
@@ -236,7 +236,7 @@ Advance the injected clock (sugar for clock.advance).
 
 > **back**(`page`): `void`
 
-Defined in: [src/testing/harness.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L154)
+Defined in: [src/testing/harness.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L155)
 
 The browser back button (or any external navigation) — recorded as a stimulus sync.
 
@@ -256,7 +256,7 @@ The browser back button (or any external navigation) — recorded as a stimulus 
 
 > **close**(`path`): `void`
 
-Defined in: [src/testing/harness.ts:159](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L159)
+Defined in: [src/testing/harness.ts:160](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L160)
 
 Unmount a node opened with open().
 
@@ -276,7 +276,7 @@ Unmount a node opened with open().
 
 > **expectAvailable**(`affordanceId`): `void`
 
-Defined in: [src/testing/harness.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L173)
+Defined in: [src/testing/harness.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L174)
 
 Assert an action (by id or bare/leaf suffix) is available right now.
 
@@ -296,7 +296,7 @@ Assert an action (by id or bare/leaf suffix) is available right now.
 
 > **expectClean**(`opts?`): `void`
 
-Defined in: [src/testing/harness.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L179)
+Defined in: [src/testing/harness.ts:180](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L180)
 
 Assert no declared-effect drift (optionally also fail on any gaps). The opt-in release gate.
 
@@ -318,7 +318,7 @@ Assert no declared-effect drift (optionally also fail on any gaps). The opt-in r
 
 > **expectJourneyCompleted**(`journeyId`): `void`
 
-Defined in: [src/testing/harness.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L177)
+Defined in: [src/testing/harness.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L178)
 
 Assert a journey has a completed frame in the history.
 
@@ -338,7 +338,7 @@ Assert a journey has a completed frame in the history.
 
 > **expectOn**(`page`): `void`
 
-Defined in: [src/testing/harness.ts:169](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L169)
+Defined in: [src/testing/harness.ts:170](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L170)
 
 Assert the cursor is on `page`.
 
@@ -358,7 +358,7 @@ Assert the cursor is on `page`.
 
 > **expectRejected**(`result`, `reason?`): `void`
 
-Defined in: [src/testing/harness.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L175)
+Defined in: [src/testing/harness.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L176)
 
 Assert a FireResult was refused (optionally with a specific reason, e.g. 'GUARD_FAILED').
 
@@ -382,7 +382,7 @@ Assert a FireResult was refused (optionally with a specific reason, e.g. 'GUARD_
 
 > **expectState**(`partial`): `void`
 
-Defined in: [src/testing/harness.ts:171](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L171)
+Defined in: [src/testing/harness.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L172)
 
 Assert the projected state contains these key/value pairs (deep).
 
@@ -402,7 +402,7 @@ Assert the projected state contains these key/value pairs (deep).
 
 > **open**(`path`, `opts?`): [`ActionGroupHandle`](/api/index/interfaces/ActionGroupHandle)
 
-Defined in: [src/testing/harness.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L157)
+Defined in: [src/testing/harness.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L158)
 
 Mount + show a modal/tab node's tools (not auto-mounted). Returns its handle.
 
@@ -428,7 +428,7 @@ Mount + show a modal/tab node's tools (not auto-mounted). Returns its handle.
 
 > **report**(): [`DriftReport`](/api/testing/interfaces/DriftReport)
 
-Defined in: [src/testing/harness.ts:165](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L165)
+Defined in: [src/testing/harness.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L166)
 
 The honesty-marker drift report — the release-readiness signal.
 
@@ -442,7 +442,7 @@ The honesty-marker drift report — the release-readiness signal.
 
 > **settled**(): `Promise`\<`void`\>
 
-Defined in: [src/testing/harness.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L162)
+Defined in: [src/testing/harness.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L163)
 
 Drain to quiescence (auto-called by user.fire/agent.*; call it after fireRaw/stimulus).
 
@@ -456,7 +456,7 @@ Drain to quiescence (auto-called by user.fire/agent.*; call it after fireRaw/sti
 
 > **state**(): `State`
 
-Defined in: [src/testing/harness.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L121)
+Defined in: [src/testing/harness.ts:122](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L122)
 
 A detached snapshot of the projected state.
 
@@ -470,7 +470,7 @@ A detached snapshot of the projected state.
 
 > **stimulus**(`patch`, `opts?`): `void`
 
-Defined in: [src/testing/harness.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L152)
+Defined in: [src/testing/harness.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L153)
 
 A world-initiated state change (server push, background update) — never blamed on a pending fire.
 
@@ -496,7 +496,7 @@ A world-initiated state change (server push, background update) — never blamed
 
 > **warnings**(): `string`[]
 
-Defined in: [src/testing/harness.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L123)
+Defined in: [src/testing/harness.ts:124](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L124)
 
 Dev warnings the session emitted (StrictMode notes, handler errors, drift warnings).
 

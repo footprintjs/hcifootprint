@@ -50,7 +50,7 @@ describe('focusHistory attributes every move to a principal', () => {
     // The handover: the agent takes the cursor from here.
     s.fire('add-to-cart', { source: 'agent' });
 
-    const principals = s.focusHistory.map((m) => m.cause.principal);
+    const principals = s.focusHistory.map((m: { cause: { principal: string } }) => m.cause.principal);
     expect(principals).toContain('user');
     expect(principals).toContain('agent');
     // The claim this whole feature exists for: the LAST hand on the cursor is

@@ -4,7 +4,7 @@ title: ResolverContext<State>
 
 # Interface: ResolverContext\<State\>
 
-Defined in: [src/testing/harness.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L42)
+Defined in: [src/testing/harness.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L43)
 
 ## Type Parameters
 
@@ -18,6 +18,6 @@ Defined in: [src/testing/harness.ts:42](https://github.com/footprintjs/hcifootpr
 
 > **state**: `State`
 
-Defined in: [src/testing/harness.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L44)
+Defined in: [src/testing/harness.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L45)
 
 The current projected state, as the real handler would read it.

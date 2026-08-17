@@ -6,6 +6,6 @@ title: DeclarableActionField
 
 > **DeclarableActionField** = *typeof* [`DECLARABLE_ACTION_FIELDS`](/api/testing/variables/DECLARABLE_ACTION_FIELDS)\[`number`\]
 
-Defined in: [src/testing/conform.ts:129](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L129)
+Defined in: [src/testing/conform.ts:130](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/conform.ts#L130)
 
 One field name from [DECLARABLE\_ACTION\_FIELDS](/api/testing/variables/DECLARABLE_ACTION_FIELDS).

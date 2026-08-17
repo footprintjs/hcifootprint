@@ -8,7 +8,7 @@ title: testApp
 
 > **testApp**\<`State`\>(`graph`, `options?`): [`TestApp`](/api/testing/interfaces/TestApp)\<`State`\>
 
-Defined in: [src/testing/harness.ts:189](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L189)
+Defined in: [src/testing/harness.ts:190](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L190)
 
 Build a headless test harness over a navigation graph. Wires each resolver as
 a real handler, auto-mounts the current page's tools, and drives the real
@@ -38,7 +38,7 @@ session — so tests exercise production code, not a copy.
 
 > **testApp**\<`State`\>(`options`): [`TestApp`](/api/testing/interfaces/TestApp)\<`State`\>
 
-Defined in: [src/testing/harness.ts:193](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L193)
+Defined in: [src/testing/harness.ts:194](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/harness.ts#L194)
 
 Build a headless test harness over a navigation graph. Wires each resolver as
 a real handler, auto-mounts the current page's tools, and drives the real

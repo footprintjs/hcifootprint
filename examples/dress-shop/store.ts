@@ -5,12 +5,14 @@
  * HCIFootprint learns about it flows through the same three wires a real
  * integration would use: registerHandlers + sync + updateState.
  */
-import type { Session } from '../../src/index.js';
+import type { InteractionSession } from '../../src/index.js';
 import { dressShopGraph } from './graph.js';
 import { DRESSES, filterByColor, searchDresses } from './data.js';
 
 export interface DressShopApp {
-  session: Session;
+  // The runtime type createSession() actually returns. Annotating the base
+  // Session here threw away real API — focusHistory among it.
+  session: InteractionSession;
   /** Simulate the user/router navigating: unmount old page group, mount new, sync the cursor. */
   goto(page: string): void;
   /** The app's own state (source of truth — the session only sees the projected keys). */
