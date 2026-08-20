@@ -302,7 +302,11 @@ describe('the budgets — honest degradation, never silence', () => {
       shape: 'by-reference',
       count: INLINE_EVENTS + 1,
     });
-    expect(() => session.sensedTrail(rows[0]!.id)).toThrow(/no event trail for/);
+    // 1.13.0 — an evicted trail says EVICTED (with the surviving count), which
+    // a reader can finally tell apart from "this fire never sensed anything".
+    expect(() => session.sensedTrail(rows[0]!.id)).toThrow(/EVICTED/);
+    expect(() => session.sensedTrail(rows[0]!.id)).toThrow(/21 event\(s\)/);
+    expect(session.sensedTrailsDropped()).toBeGreaterThan(0);
     expect(session.sensedTrail(rows[20]!.id)).toHaveLength(INLINE_EVENTS + 1);
   });
 });

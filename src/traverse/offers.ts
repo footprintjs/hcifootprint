@@ -38,7 +38,7 @@
  * evicted-vs-unknown split are each one line to break and hard to see broken
  * from inside a 6,000-line session. Here every one of them is a three-line test.
  */
-import type { OfferRecord, OfferRef } from '../atom/types.js';
+import type { OfferRecord, OfferRef } from "../atom/types.js";
 
 /** How many records a session keeps before dropping the oldest. */
 export const DEFAULT_MAX_OFFERS = 500;
@@ -63,7 +63,25 @@ export interface OfferFacts {
  * let a full ledger report a caller's honest citation as a forged one, which is
  * the library blaming a caller for its own bound.
  */
-export type OfferStanding = 'retained' | 'evicted' | 'unknown';
+export type OfferStanding = "retained" | "evicted" | "unknown";
+
+/**
+ * The retention window of a bounded ledger, counted (1.13.0). A drop COUNT
+ * alone says how much is gone; the window says WHAT is still answerable —
+ * `firstRetained`..`lastRetained` of `minted`, with everything before
+ * `firstRetained` evicted-but-countable. Both ends are absent (never a
+ * fabricated placeholder) while the ledger is empty.
+ */
+export interface LedgerRetention {
+  /** Total records this session ever minted here. */
+  readonly minted: number;
+  /** Records dropped to stay inside the cap. */
+  readonly dropped: number;
+  /** Oldest retained id — absent when nothing is retained. */
+  readonly firstRetained?: string;
+  /** Newest retained id — absent when nothing is retained. */
+  readonly lastRetained?: string;
+}
 
 /** `offer#7` — a session-local counter, so standing can be answered for a dropped id. */
 const ID_SHAPE = /^offer#(\d+)$/;
@@ -128,7 +146,8 @@ export class OfferLedger {
   mint(facts: OfferFacts): OfferRef {
     const key = factsKey(facts);
     const already = this.#byFacts.get(key);
-    if (already !== undefined) return refOf(this.#byId.get(already) as OfferRecord);
+    if (already !== undefined)
+      return refOf(this.#byId.get(already) as OfferRecord);
     this.#minted += 1;
     const record: OfferRecord = {
       offerId: `offer#${this.#minted}`,
@@ -166,17 +185,30 @@ export class OfferLedger {
     return this.#dropped;
   }
 
+  /** The retention window, counted — see {@link LedgerRetention}. */
+  retention(): LedgerRetention {
+    const ids = [...this.#byId.keys()];
+    return {
+      minted: this.#minted,
+      dropped: this.#dropped,
+      ...(ids.length > 0 && {
+        firstRetained: ids[0],
+        lastRetained: ids[ids.length - 1],
+      }),
+    };
+  }
+
   /**
    * What became of an id. Retained, dropped by the cap, or never minted here —
    * answered from the id's own shape and this session's counter, so a caller is
    * never told "no such thing" about a citation this session really did write.
    */
   standing(offerId: string): OfferStanding {
-    if (this.#byId.has(offerId)) return 'retained';
+    if (this.#byId.has(offerId)) return "retained";
     const parsed = ID_SHAPE.exec(offerId);
-    if (parsed === null) return 'unknown';
+    if (parsed === null) return "unknown";
     const nth = Number(parsed[1]);
-    return nth >= 1 && nth <= this.#minted ? 'evicted' : 'unknown';
+    return nth >= 1 && nth <= this.#minted ? "evicted" : "unknown";
   }
 
   /** Oldest out first — insertion order IS serve order, so nothing has to be sorted. */

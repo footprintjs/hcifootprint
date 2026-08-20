@@ -22,23 +22,24 @@
  *   boundary. An uncooperative driver is indistinguishable from a human at
  *   the DOM; enforcement belongs server-side.
  */
-import type { WhereFilter } from 'footprintjs';
-import type { FilterCondition } from 'footprintjs/advanced';
+import type { WhereFilter } from "footprintjs";
+import type { FilterCondition } from "footprintjs/advanced";
 // TYPE-ONLY, and one direction only: contextful/ is a leaf that imports this
 // file's vocabulary, and the one thing that travels back is the shape of what a
 // contextful fire recorded (TransitionRecord.captured). No value crosses, so
 // neither module drags the other into a consumer's bundle.
-import type { ActionCapture } from '../contextful/types.js';
+import type { ActionCapture } from "../contextful/types.js";
 
 // ---------------------------------------------------------------------------
 // Provenance
 // ---------------------------------------------------------------------------
 
 /** Who initiated a transition. Open beyond user/agent by design. */
-export type Principal = 'user' | 'agent' | 'system' | 'unknown';
+export type Principal = "user" | "agent" | "system" | "unknown";
 
 /** What kind of world-initiated motion a stimulus transition records. */
-export type StimulusKind = 'navigation' | 'timeout' | 'push' | 'structure-swap' | 'unknown';
+export type StimulusKind =
+  "navigation" | "timeout" | "push" | "structure-swap" | "unknown";
 
 /**
  * Why a transition exists.
@@ -47,7 +48,7 @@ export type StimulusKind = 'navigation' | 'timeout' | 'push' | 'structure-swap' 
  *               push, session expiry). Recorded, never silent.
  */
 export interface Cause {
-  kind: 'fired' | 'stimulus';
+  kind: "fired" | "stimulus";
   principal: Principal;
   /** Set when kind === 'fired'. */
   affordanceId?: string;
@@ -121,16 +122,16 @@ export interface Cause {
  *   exists because state never moves silently.
  */
 export type AttributionBasis =
-  | 'caller-asserted'
-  | 'named-by-report'
-  | 'handler-window'
-  | 'direct-call'
-  | 'declared-stimulus'
-  | 'external-report'
-  | 'sensed-click'
-  | 'signature-match'
-  | 'queue-order'
-  | 'unknown';
+  | "caller-asserted"
+  | "named-by-report"
+  | "handler-window"
+  | "direct-call"
+  | "declared-stimulus"
+  | "external-report"
+  | "sensed-click"
+  | "signature-match"
+  | "queue-order"
+  | "unknown";
 
 /**
  * How strong the basis is. It grades THE ASSOCIATION between this record and the
@@ -140,7 +141,7 @@ export type AttributionBasis =
  * `'inferred'` means the library matched a shape or an order, and `'unknown'`
  * means nobody said and nothing matched.
  */
-export type AttributionCertainty = 'observed' | 'inferred' | 'unknown';
+export type AttributionCertainty = "observed" | "inferred" | "unknown";
 
 /**
  * WHO THIS TRANSITION IS FILED UNDER, HOW IT GOT THERE, AND WHAT THAT IS WORTH.
@@ -168,7 +169,8 @@ export interface Attribution {
  * real state delta via updateState() which settles to 'committed'. Async and
  * optimistic UI reject/rollback/supersede instead of lying in the record.
  */
-export type Settlement = 'pending' | 'committed' | 'rejected' | 'rolled-back' | 'superseded';
+export type Settlement =
+  "pending" | "committed" | "rejected" | "rolled-back" | "superseded";
 
 // ---------------------------------------------------------------------------
 // Binding — the ONLY layer that knows how to reach the app's surface
@@ -180,7 +182,8 @@ export interface ElementLocator {
   name: string;
 }
 
-export type Actuation = 'click' | 'type' | 'select' | 'hover' | 'drag' | 'press';
+export type Actuation =
+  "click" | "type" | "select" | "hover" | "drag" | "press";
 
 /**
  * Activation descriptor. Generalized past "element selector" because keyboard
@@ -190,16 +193,16 @@ export type Actuation = 'click' | 'type' | 'select' | 'hover' | 'drag' | 'press'
  * actually performs: url | click (element) | tab | programmatic.
  */
 export type Binding =
-  | { kind: 'element'; locator: ElementLocator; actuation?: Actuation }
-  | { kind: 'keychord'; chord: string }
-  | { kind: 'programmatic'; provider: string }
+  | { kind: "element"; locator: ElementLocator; actuation?: Actuation }
+  | { kind: "keychord"; chord: string }
+  | { kind: "programmatic"; provider: string }
   /**
    * A literal address the app's OWN router can be handed (see
    * `SessionOptions.navigate`). `href` must be FULLY literal — a ':param'
    * segment is refused loudly at authoring, because the library never guesses
    * params: an address either exists as bytes or the gesture does not exist.
    */
-  | { kind: 'url'; href: string }
+  | { kind: "url"; href: string }
   /**
    * A tab switch to a sibling node path. Its own gesture, DESCRIPTIVE in v1: it
    * materialises only via a registered handler, and the GESTURE never moves the
@@ -214,7 +217,7 @@ export type Binding =
    * declaration rather than second-guessing it by gesture. Such a fire claims its
    * destination ({@link TransitionRecord.arrival}) exactly like a link would.
    */
-  | { kind: 'tab'; target: string };
+  | { kind: "tab"; target: string };
 
 // ---------------------------------------------------------------------------
 // Effect — a checkable claim, never a truth
@@ -281,11 +284,7 @@ export interface Effect {
  * into an answer. An app that declares nothing behaves and serves identically.
  */
 export type Observability =
-  | 'state-delta'
-  | 'postcondition'
-  | 'navigation'
-  | 'external'
-  | 'unobservable';
+  "state-delta" | "postcondition" | "navigation" | "external" | "unobservable";
 
 /**
  * WHAT A HIGH-EFFECT ACTION MUST BE ABLE TO PROVE before this session will run
@@ -322,7 +321,7 @@ export interface ExternalObservation {
   /** WHO reported it, in the app's own words ('stripe-webhook'). App data, capped, never a sentence. */
   source: string;
   /** What they said happened. Two words, because a settlement has two answers. */
-  status: 'performed' | 'refused';
+  status: "performed" | "refused";
   /**
    * A POINTER at the evidence — a receipt id, a URL, a log key. Recorded
    * verbatim (capped) and never followed: the library cannot check it, so it
@@ -336,7 +335,7 @@ export interface ExternalObservation {
 /** What {@link Session.observeEffect} takes. `recordedAt` is stamped by the session, not the caller. */
 export interface ObserveEffectOptions {
   source: string;
-  status: 'performed' | 'refused';
+  status: "performed" | "refused";
   evidenceRef?: string;
 }
 
@@ -350,12 +349,12 @@ export type ObserveEffectResult =
   | { ok: true; transition: TransitionRecord; settled: boolean }
   | {
       ok: false;
-      reason: 'UNKNOWN_TRANSITION';
+      reason: "UNKNOWN_TRANSITION";
       /** The fires still awaiting a settlement — the ids this door can still answer for. */
       awaiting: string[];
     }
-  | { ok: false; reason: 'NOT_A_FIRE'; transitionId: string }
-  | { ok: false; reason: 'INVALID_OBSERVATION'; issues: string };
+  | { ok: false; reason: "NOT_A_FIRE"; transitionId: string }
+  | { ok: false; reason: "INVALID_OBSERVATION"; issues: string };
 
 // ---------------------------------------------------------------------------
 // Freshness — what a control does when the world moved under a served row
@@ -380,7 +379,7 @@ export type ObserveEffectResult =
  * a ceiling. A warning can be ignored; a required protocol step cannot be
  * skipped silently.
  */
-export type FreshnessResponse = 'disclose' | 'require-ack' | 'refuse';
+export type FreshnessResponse = "disclose" | "require-ack" | "refuse";
 
 /**
  * FOUR AXES, EACH ANSWERED SEPARATELY — declare it per action
@@ -446,7 +445,7 @@ export interface FreshnessPolicy {
  * ```
  */
 export interface ConcurrencyPolicy {
-  mode: 'parallel' | 'single-flight';
+  mode: "parallel" | "single-flight";
   /**
    * WHAT COUNTS AS "THE SAME FIRE AGAIN". Default `'action'`.
    *
@@ -460,7 +459,7 @@ export interface ConcurrencyPolicy {
    *   an unprovable difference is not a difference — the same stance
    *   `traverse/same-input.ts` takes, for the same reason.
    */
-  scope?: 'action' | 'instance' | 'payload';
+  scope?: "action" | "instance" | "payload";
 }
 
 /**
@@ -485,7 +484,8 @@ export interface ConcurrencyPolicy {
  * a wrong rejection blocks an action the app would have accepted, and the
  * caller has no appeal.
  */
-export type VerifyContract = WhereFilter | ((state: Record<string, unknown>) => boolean);
+export type VerifyContract =
+  WhereFilter | ((state: Record<string, unknown>) => boolean);
 
 /**
  * Why a settlement said 'refused' when the app's own verify contract found
@@ -494,7 +494,7 @@ export type VerifyContract = WhereFilter | ((state: Record<string, unknown>) => 
  * do the thing", and one branch should read both.
  */
 export interface VerifyFailure {
-  reason: 'VERIFY_FAILED';
+  reason: "VERIFY_FAILED";
   /** An authored constant naming the contract — safe to show a model verbatim. */
   explanation: string;
   /**
@@ -511,14 +511,7 @@ export interface VerifyFailure {
 
 /** Derived when omitted: effect.navigatesTo → 'next', otherwise 'action'. */
 export type CanonicalRole =
-  | 'next'
-  | 'prev'
-  | 'submit'
-  | 'cancel'
-  | 'back'
-  | 'open'
-  | 'close'
-  | 'action';
+  "next" | "prev" | "submit" | "cancel" | "back" | "open" | "close" | "action";
 
 export interface PageDef {
   route?: string;
@@ -579,7 +572,7 @@ export interface BlockedBecause {
   /** Registration-site app text — the same string class, and the same trust tier, as `does`. */
   says: string;
   /** Who clears it: 'app' → the agent waits; 'user' → interrupt the person; 'invalid' → report a validation problem. */
-  clearedBy: 'app' | 'user' | 'invalid';
+  clearedBy: "app" | "user" | "invalid";
 }
 
 /**
@@ -679,7 +672,7 @@ export interface HumanDecides {
  * fire whose principal this library never learned is refused by any declared
  * list, which is the fail-closed direction.
  */
-export type ActorKind = 'human' | 'agent' | 'system';
+export type ActorKind = "human" | "agent" | "system";
 
 /**
  * WHO MAY PERFORM THIS ACTION, WHOSE CHOICE IT IS, AND WHETHER A RECORDED YES IS
@@ -727,7 +720,7 @@ export interface PrincipalPolicy {
    *
    * `'either'` is a real answer, not a shrug: the app looked and says both may.
    */
-  decisionOwner?: 'human' | 'agent' | 'either';
+  decisionOwner?: "human" | "agent" | "either";
   /**
    * CONSENT STATUS — this action needs a recorded human approval, whether or not
    * it is marked `confirm`. Under enforcement it is held to the SAME gate
@@ -823,7 +816,7 @@ export interface Affordance {
    * developer-AUTHORED source-code literals (the firewall holds either way);
    * the marker keeps the origin auditable. Default 'declared'.
    */
-  descriptionSource?: 'declared' | 'registration';
+  descriptionSource?: "declared" | "registration";
 }
 
 /**
@@ -834,7 +827,8 @@ export interface Affordance {
  * 'shown'      — an explicit visibility signal says it is visible.
  * 'hidden'     — an explicit visibility signal says it is NOT visible.
  */
-export type ActivationLevel = 'synced' | 'assumed' | 'registered' | 'shown' | 'hidden';
+export type ActivationLevel =
+  "synced" | "assumed" | "registered" | "shown" | "hidden";
 
 /** One compiled journey: {@link JourneySpec} with the id it is filed under. */
 export interface Journey extends JourneySpec {
@@ -931,7 +925,7 @@ export interface SessionOptions {
    */
   redactedFields?: RedactedFields;
   /** Commit-log value encoding (footprintjs dial). Default 'delta'. */
-  commitValues?: 'full' | 'delta';
+  commitValues?: "full" | "delta";
   /** Dev-warning sink (StrictMode re-registrations, handler errors). Default console.warn. */
   onWarn?: (message: string) => void;
   /**
@@ -1117,7 +1111,7 @@ export interface SessionOptions {
  * {@link SessionOptions.attributionPolicy} — `'default'` is today's ladder,
  * `'strict'` refuses the two rungs that are guesses.
  */
-export type AttributionPolicy = 'default' | 'strict';
+export type AttributionPolicy = "default" | "strict";
 
 /**
  * How strict {@link SessionOptions.requireHumanApproval} is about a yes given a
@@ -1251,7 +1245,7 @@ export interface TransitionRecord {
    * 'unobservable' when the affordance declared no writes. This checks key
    * presence only — not values, extra writes, or navigation claims.
    */
-  effectVerified?: boolean | 'unobservable';
+  effectVerified?: boolean | "unobservable";
   /** Guard evidence captured at fire time (why this edge was passable). */
   evidence?: FilterCondition[];
   fromNode: string;
@@ -1288,7 +1282,7 @@ export interface TransitionRecord {
    * settlement receipt taken at rest is never rewritten (the upgrade lands on the
    * live record and rides ALONGSIDE the receipt — see docs/design/answer-grammar.md).
    */
-  arrival?: 'claimed' | 'observed';
+  arrival?: "claimed" | "observed";
   /**
    * True on sync()-recorded hops: the cursor moved without passing any guard.
    * Backward slices must treat the hop as inferred, not authorized.
@@ -1518,9 +1512,9 @@ export interface StaleAcknowledgement {
  */
 export interface FreshnessMovement {
   /** Which declaration this movement is about. */
-  axis: 'guard' | 'reads' | 'writes' | 'position';
+  axis: "guard" | "reads" | "writes" | "position";
   /** What this session's policy does about it — the reason the fire was refused. */
-  response: 'require-ack' | 'refuse';
+  response: "require-ack" | "refuse";
   /** The state keys that moved, by name. Absent on the `'position'` axis, which has none. */
   keys?: string[];
   /** `'position'` only: the page the row was served on. */
@@ -1662,7 +1656,7 @@ export interface AvailableEdge {
   writes?: string[];
   binding?: Binding;
   /** See Affordance.descriptionSource. */
-  descriptionSource?: 'declared' | 'registration';
+  descriptionSource?: "declared" | "registration";
   // --- D18 tree stamps (NavSession only) ---------------------------------
   /** Owning node path in the navigation tree (e.g. 'catalog.filter-rail'). */
   node?: string;
@@ -1672,7 +1666,7 @@ export interface AvailableEdge {
    * 'unknown' when several exclusive-tab siblings are mounted and no
    * visibility wire exists — a flagged union, never a guessed winner.
    */
-  presence?: 'unknown';
+  presence?: "unknown";
   /**
    * False when the app says the control is currently DISABLED (a grey button:
    * on screen, not clickable). Served honestly with the marker — like a human
@@ -1834,15 +1828,24 @@ export interface AvailableEdge {
    * permission, in any session: see {@link PrincipalPolicy}. Served beside
    * `mayInvoke` and deliberately not folded into it.
    */
-  decisionOwner?: 'human' | 'agent' | 'either';
+  decisionOwner?: "human" | "agent" | "either";
   /** Live instance keys for a repeats-container tool (runtime DATA, never schema). */
   instances?: string[];
+  /**
+   * How many keys EXIST in the enumerated set (1.13.0), before the 50-key
+   * render cap trimmed `instances`. Present exactly when `instances` is.
+   * `instancesTotal > instances.length` is the honest sentence the cap owed:
+   * a 200-key selector set used to serve 50 keys wearing the word the
+   * enumeration doc defines as complete. Fireability was always uncapped —
+   * this makes the SERVED row say so.
+   */
+  instancesTotal?: number;
   /**
    * Where `instances` came from: 'selector' = the declared existence source
    * (complete), 'mounted-window' = only what is mounted right now (partial —
    * stated, not silently presented as complete).
    */
-  enumeration?: 'selector' | 'mounted-window';
+  enumeration?: "selector" | "mounted-window";
 }
 
 export interface AvailableSlice {
@@ -1969,12 +1972,12 @@ export interface FireOptions {
  *                    ('superseded'). The library cannot know, so it says so
  *                    rather than guessing 'performed'.
  */
-export type EffectStatus = 'pending' | 'performed' | 'refused' | 'unobservable';
+export type EffectStatus = "pending" | "performed" | "refused" | "unobservable";
 
 /** The final truth about one fire, delivered once through `FireResult.whenSettled`. */
 export interface FireSettlement {
   /** 'pending' is excluded by construction — a final answer is never "not yet". */
-  effectStatus: Exclude<EffectStatus, 'pending'>;
+  effectStatus: Exclude<EffectStatus, "pending">;
   /** The record's outcome at the moment it came to rest. */
   outcome: Settlement;
   /** A snapshot — never the live record, which may keep moving afterwards. */
@@ -2009,7 +2012,7 @@ export interface FireSettlement {
    * `verified` alone: this one says which contract held, and the state axis
    * crosses the wire as `writesObserved`.
    */
-  verifyHeld?: boolean | 'unevaluable';
+  verifyHeld?: boolean | "unevaluable";
   /** The handler's return value, sanitized (parity with `Session.producedFor()`). */
   produced?: unknown;
 }
@@ -2032,7 +2035,7 @@ export type FireResult =
       ok: true;
       transition: TransitionRecord;
       version: number;
-      settlement: 'settled' | 'awaiting-state';
+      settlement: "settled" | "awaiting-state";
       /**
        * Whether the app's side has run — the truth AT RETURN TIME. The handler
        * is always deferred, so this can never be 'performed' here: a fire with
@@ -2072,24 +2075,34 @@ export type FireResult =
        */
       alreadyTrue?: FilterCondition[];
     }
-  | { ok: false; reason: 'UNKNOWN_AFFORDANCE'; available: string[] }
-  | { ok: false; reason: 'STALE_CURSOR'; version: number }
-  | { ok: false; reason: 'NOT_ON_NODE'; node: string }
-  | { ok: false; reason: 'GUARD_FAILED'; evidence: FilterCondition[] }
-  | { ok: false; reason: 'PAYLOAD_INVALID'; issues: string }
+  | { ok: false; reason: "UNKNOWN_AFFORDANCE"; available: string[] }
+  | { ok: false; reason: "STALE_CURSOR"; version: number }
+  | { ok: false; reason: "NOT_ON_NODE"; node: string }
+  | { ok: false; reason: "GUARD_FAILED"; evidence: FilterCondition[] }
+  | { ok: false; reason: "PAYLOAD_INVALID"; issues: string }
   // --- D18 tree rejections (NavSession) — all typed, all gap-ledger rows ---
   /** A shown blocking modal masks this tool's node. Close the modal first. */
-  | { ok: false; reason: 'BLOCKED_BY_OVERLAY'; overlay: string }
+  | { ok: false; reason: "BLOCKED_BY_OVERLAY"; overlay: string }
   /** The tool's node carries an explicit not-visible signal (hidden tab, closed modal). */
-  | { ok: false; reason: 'NODE_NOT_VISIBLE'; node: string }
+  | { ok: false; reason: "NODE_NOT_VISIBLE"; node: string }
   /** RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link). */
-  | { ok: false; reason: 'STILL_MOUNTING'; node: string }
-  | { ok: false; reason: 'INSTANCE_REQUIRED'; instances: string[] }
-  | { ok: false; reason: 'INSTANCE_UNKNOWN'; instances: string[] }
+  | { ok: false; reason: "STILL_MOUNTING"; node: string }
+  | {
+      ok: false;
+      reason: "INSTANCE_REQUIRED";
+      instances: string[];
+      instancesTotal: number;
+    }
+  | {
+      ok: false;
+      reason: "INSTANCE_UNKNOWN";
+      instances: string[];
+      instancesTotal: number;
+    }
   /** RETRIABLE: the control is registered but currently greyed out (disabled). */
   | {
       ok: false;
-      reason: 'TOOL_DISABLED';
+      reason: "TOOL_DISABLED";
       affordanceId: string;
       /**
        * The `enabledWhen` conjuncts that did NOT hold — the machine proof of this
@@ -2109,7 +2122,7 @@ export type FireResult =
    *  or invoke:false) is never gated — that motion really happened. */
   | {
       ok: false;
-      reason: 'NOT_MATERIALIZED';
+      reason: "NOT_MATERIALIZED";
       affordanceId: string;
       /**
        * The DECLARED gesture nothing is wired to perform — so the refusal says
@@ -2122,29 +2135,44 @@ export type FireResult =
   // --- requireHumanApproval refusals (opt-in; see SessionOptions) -----------
   /** No recorded human approval authorizes this high-effect fire. `askId` echoes
    *  the pointer that was presented, when one was and it named nothing usable. */
-  | { ok: false; reason: 'APPROVAL_REQUIRED'; affordanceId: string; askId?: string }
+  | {
+      ok: false;
+      reason: "APPROVAL_REQUIRED";
+      affordanceId: string;
+      askId?: string;
+    }
   /** That approval was already spent by an earlier fire. One yes, one action. */
-  | { ok: false; reason: 'APPROVAL_SPENT'; affordanceId: string; askId: string }
+  | { ok: false; reason: "APPROVAL_SPENT"; affordanceId: string; askId: string }
   /** The human approved something else — `differs` names which join failed. */
   | {
       ok: false;
-      reason: 'APPROVAL_MISMATCH';
+      reason: "APPROVAL_MISMATCH";
       affordanceId: string;
       askId: string;
-      differs: 'action' | 'input' | 'instance' | 'both' | 'cannot-judge';
+      differs: "action" | "input" | "instance" | "both" | "cannot-judge";
     }
   /** The yes is older than this session's rules allow, or predates a state change. */
-  | { ok: false; reason: 'APPROVAL_STALE'; affordanceId: string; askId: string }
+  | { ok: false; reason: "APPROVAL_STALE"; affordanceId: string; askId: string }
   /** The human said no to this ask. Terminal for that askId, for the session's life. */
-  | { ok: false; reason: 'APPROVAL_DECLINED'; affordanceId: string; askId: string }
+  | {
+      ok: false;
+      reason: "APPROVAL_DECLINED";
+      affordanceId: string;
+      askId: string;
+    }
   /** The human gave a yes and took it back before it was spent ({@link Session.revokeAsk}).
    *  The withdrawn pointer authorizes nothing; a fresh ask mints a new card. */
-  | { ok: false; reason: 'APPROVAL_REVOKED'; affordanceId: string; askId: string }
+  | {
+      ok: false;
+      reason: "APPROVAL_REVOKED";
+      affordanceId: string;
+      askId: string;
+    }
   // --- freshness refusals (opt-in; see SessionOptions.freshness) ------------
   /** A freshness axis enforces, and this fire cited no offer. Look again
    *  (`available()` / `whats_here`) and cite the row you plan against — there is
    *  nothing to compare a fire to otherwise. */
-  | { ok: false; reason: 'OFFER_REQUIRED'; affordanceId: string }
+  | { ok: false; reason: "OFFER_REQUIRED"; affordanceId: string }
   /** The cited offer is not one this session can answer THIS fire with, and
    *  `why` says which of the three things happened. `'unknown'` — no such id was
    *  ever minted here; `'evicted'` — it was, and the bounded ledger has since
@@ -2155,10 +2183,10 @@ export type FireResult =
    *  forged citation. */
   | {
       ok: false;
-      reason: 'OFFER_NOT_ON_RECORD';
+      reason: "OFFER_NOT_ON_RECORD";
       affordanceId: string;
       offerId: string;
-      why: 'unknown' | 'evicted' | 'other-action';
+      why: "unknown" | "evicted" | "other-action";
       /** The control that offer WAS minted for — present only under
        *  `'other-action'`, where this session really does hold the row. An
        *  authored action id, never app data. */
@@ -2169,7 +2197,7 @@ export type FireResult =
    *  conclusion. Fix by looking again and citing the fresh offer. */
   | {
       ok: false;
-      reason: 'WORLD_MOVED';
+      reason: "WORLD_MOVED";
       affordanceId: string;
       offerId: string;
       moved: FreshnessMovement[];
@@ -2181,7 +2209,7 @@ export type FireResult =
    *  and cite what it hands back. */
   | {
       ok: false;
-      reason: 'ACKNOWLEDGEMENT_REQUIRED';
+      reason: "ACKNOWLEDGEMENT_REQUIRED";
       affordanceId: string;
       offerId: string;
       moved: FreshnessMovement[];
@@ -2194,13 +2222,13 @@ export type FireResult =
        * mistake: the fix is a bigger cap, or acknowledge again. Absent covers
        * every other unusable pointer, deliberately without a taxonomy of how.
        */
-      why?: 'evicted';
+      why?: "evicted";
     }
   /** That acknowledgement was made in a world that has since moved on. A step
    *  performed against different facts is not a step performed against these. */
   | {
       ok: false;
-      reason: 'ACKNOWLEDGEMENT_STALE';
+      reason: "ACKNOWLEDGEMENT_STALE";
       affordanceId: string;
       offerId: string;
       acknowledgementId: string;
@@ -2213,12 +2241,12 @@ export type FireResult =
    *  done. `howToSettle` names the doors that can. */
   | {
       ok: false;
-      reason: 'PRIOR_FIRE_PENDING';
+      reason: "PRIOR_FIRE_PENDING";
       affordanceId: string;
       /** The fire that is still out there — ask `session.settlementOf(id)` about it. */
       pendingTransitionId: string;
       /** Which scope matched: the action, this card, or this exact input. */
-      scope: 'action' | 'instance' | 'payload';
+      scope: "action" | "instance" | "payload";
       /** The authored sentence naming every door that can settle it. */
       howToSettle: string;
     }
@@ -2229,7 +2257,7 @@ export type FireResult =
    *  person. Never a retry: nothing about the world changes this one. */
   | {
       ok: false;
-      reason: 'PRINCIPAL_NOT_ALLOWED';
+      reason: "PRINCIPAL_NOT_ALLOWED";
       affordanceId: string;
       required: ActorKind[];
       /** The principal that tried, echoed so one row answers the whole question. */
@@ -2243,9 +2271,9 @@ export type FireResult =
    *  the APP, at the keyboard, not by the caller at run time. */
   | {
       ok: false;
-      reason: 'EFFECT_NOT_VERIFIABLE';
+      reason: "EFFECT_NOT_VERIFIABLE";
       affordanceId: string;
-      needs: 'observability' | 'postcondition';
+      needs: "observability" | "postcondition";
       /** What the app did declare, when it declared something. */
       observability?: Observability;
     };
@@ -2278,11 +2306,11 @@ export interface PrincipalPort {
   /** The principal its acts are FILED under ('human' files as 'user'). */
   readonly principal: Principal;
   /** Fire, as this principal. Every other {@link FireOptions} field still applies. */
-  fire(affordanceId: string, opts?: Omit<FireOptions, 'source'>): FireResult;
+  fire(affordanceId: string, opts?: Omit<FireOptions, "source">): FireResult;
   /** Report where the app now is, as this principal. */
   sync(observedNode: string, opts?: { stimulus?: StimulusKind }): SyncResult;
   /** Record unmet demand, as this principal. */
-  reportGap(opts: Omit<ReportGapOptions, 'principal'>): GapRecord;
+  reportGap(opts: Omit<ReportGapOptions, "principal">): GapRecord;
   /**
    * NO `updateState` HERE, and the absence is the design.
    *
@@ -2310,9 +2338,14 @@ export interface UpdateOptions {
 }
 
 export type UpdateResult =
-  | { ok: true; attributed: boolean; transition: TransitionRecord; version: number }
-  | { ok: false; reason: 'UNCLONEABLE_DELTA'; issues: string }
-  | { ok: false; reason: 'UNKNOWN_TRANSITION'; pending: string[] };
+  | {
+      ok: true;
+      attributed: boolean;
+      transition: TransitionRecord;
+      version: number;
+    }
+  | { ok: false; reason: "UNCLONEABLE_DELTA"; issues: string }
+  | { ok: false; reason: "UNKNOWN_TRANSITION"; pending: string[] };
 
 export type SyncResult =
   | { changed: false; node: string; version: number }
@@ -2474,12 +2507,12 @@ export interface WorkRow {
 // ---------------------------------------------------------------------------
 
 export type GapReason =
-  | 'no-journey-matched'
-  | 'guard-blocked'
-  | 'needs-backend-data'
+  | "no-journey-matched"
+  | "guard-blocked"
+  | "needs-backend-data"
   /** Sensor-health drift: e.g. a registration outside the router-confirmed page persisted past the grace window. */
-  | 'sensor-drift'
-  | 'other';
+  | "sensor-drift"
+  | "other";
 
 /**
  * One row of unmet demand. Four kinds:
@@ -2534,7 +2567,7 @@ export type GapReason =
  * export via onGap and drain, like the transition log.
  */
 export interface GapRecord {
-  kind: 'fire-rejected' | 'reported' | 'unmaterialized-fire' | 'dead-end';
+  kind: "fire-rejected" | "reported" | "unmaterialized-fire" | "dead-end";
   timestamp: number;
   node: string;
   version: number;
@@ -2580,41 +2613,41 @@ export interface GapRecord {
    * rather than missing capability.
    */
   rejectionReason?:
-    | 'UNKNOWN_AFFORDANCE'
-    | 'STALE_CURSOR'
-    | 'NOT_ON_NODE'
-    | 'GUARD_FAILED'
-    | 'PAYLOAD_INVALID'
-    | 'BLOCKED_BY_OVERLAY'
-    | 'NODE_NOT_VISIBLE'
-    | 'STILL_MOUNTING'
-    | 'INSTANCE_REQUIRED'
-    | 'INSTANCE_UNKNOWN'
-    | 'TOOL_DISABLED'
-    | 'NOT_MATERIALIZED'
+    | "UNKNOWN_AFFORDANCE"
+    | "STALE_CURSOR"
+    | "NOT_ON_NODE"
+    | "GUARD_FAILED"
+    | "PAYLOAD_INVALID"
+    | "BLOCKED_BY_OVERLAY"
+    | "NODE_NOT_VISIBLE"
+    | "STILL_MOUNTING"
+    | "INSTANCE_REQUIRED"
+    | "INSTANCE_UNKNOWN"
+    | "TOOL_DISABLED"
+    | "NOT_MATERIALIZED"
     /** commitJourney refused: the journey's ENTRY step could not materialise (never-trap gate). */
-    | 'ENTRY_NOT_MATERIALIZED'
+    | "ENTRY_NOT_MATERIALIZED"
     // requireHumanApproval refusals — SECURITY rows, not missing capability.
-    | 'APPROVAL_REQUIRED'
-    | 'APPROVAL_SPENT'
-    | 'APPROVAL_MISMATCH'
-    | 'APPROVAL_STALE'
-    | 'APPROVAL_DECLINED'
-    | 'APPROVAL_REVOKED'
+    | "APPROVAL_REQUIRED"
+    | "APPROVAL_SPENT"
+    | "APPROVAL_MISMATCH"
+    | "APPROVAL_STALE"
+    | "APPROVAL_DECLINED"
+    | "APPROVAL_REVOKED"
     // Freshness refusals — the row was planned against a world that has moved.
-    | 'OFFER_REQUIRED'
-    | 'OFFER_NOT_ON_RECORD'
-    | 'WORLD_MOVED'
-    | 'ACKNOWLEDGEMENT_REQUIRED'
-    | 'ACKNOWLEDGEMENT_STALE'
+    | "OFFER_REQUIRED"
+    | "OFFER_NOT_ON_RECORD"
+    | "WORLD_MOVED"
+    | "ACKNOWLEDGEMENT_REQUIRED"
+    | "ACKNOWLEDGEMENT_STALE"
     // Single-flight: one occurrence of this control is still unresolved.
-    | 'PRIOR_FIRE_PENDING'
+    | "PRIOR_FIRE_PENDING"
     // Principal policy — a SECURITY row like the APPROVAL_* family, never demand:
     // the capability exists and this principal is not allowed to use it.
-    | 'PRINCIPAL_NOT_ALLOWED'
+    | "PRINCIPAL_NOT_ALLOWED"
     // Effect policy — neither security nor demand: the APP has a declaration to
     // write. Route these to the team that owns the graph.
-    | 'EFFECT_NOT_VERIFIABLE';
+    | "EFFECT_NOT_VERIFIABLE";
   principal?: Principal;
   evidence?: FilterCondition[];
   /**
@@ -2623,7 +2656,7 @@ export interface GapRecord {
    * missing (a click handler vs a navigate fn). Token-lean by design: the kind
    * string only, never the binding object.
    */
-  gestureKind?: Binding['kind'];
+  gestureKind?: Binding["kind"];
   /**
    * The journey whose commit was refused (ENTRY_NOT_MATERIALIZED rows) —
    * `affordanceId` on those rows is the entry STEP; this names the journey the
@@ -2839,7 +2872,14 @@ export interface ConfirmRecord {
    *   ({@link Session.revokeAsk}). Always a NEW row referencing the askId —
    *   the answered row it withdraws is never rewritten.
    */
-  kind: 'ask' | 'approved' | 'always-approved' | 'declined' | 'used' | 'refused' | 'revoked';
+  kind:
+    | "ask"
+    | "approved"
+    | "always-approved"
+    | "declined"
+    | "used"
+    | "refused"
+    | "revoked";
   /**
    * Links the ask → decision → fire rows of one high-effect gate. On an
    * `'always-approved'` row it is that policy's own id ('grant#1'), carried by
@@ -2899,7 +2939,13 @@ export interface ConfirmRecord {
    */
   stateVersion?: number;
   /** Why a crossing attempt was refused (`'refused'` rows) — joins the gap ledger. */
-  rejectionReason?: 'APPROVAL_REQUIRED' | 'APPROVAL_SPENT' | 'APPROVAL_MISMATCH' | 'APPROVAL_STALE' | 'APPROVAL_DECLINED' | 'APPROVAL_REVOKED';
+  rejectionReason?:
+    | "APPROVAL_REQUIRED"
+    | "APPROVAL_SPENT"
+    | "APPROVAL_MISMATCH"
+    | "APPROVAL_STALE"
+    | "APPROVAL_DECLINED"
+    | "APPROVAL_REVOKED";
 }
 
 /**
@@ -2935,7 +2981,7 @@ export interface AskStatus {
    * under {@link SessionOptions.requireHumanApproval} leaves it absent, because
    * that report closes nothing.
    */
-  answer?: 'approved' | 'declined';
+  answer?: "approved" | "declined";
   /** True once a fire has spent this approval. One yes authorizes one fire. */
   spent?: boolean;
   /**
@@ -2993,7 +3039,7 @@ export interface DecisionStatus {
    * different questions, exactly as an unevaluable guard is served with a marker
    * rather than treated as failed.
    */
-  made: boolean | 'unknown';
+  made: boolean | "unknown";
   /**
    * WHO MADE IT — served beside `made: true` only, and minted from exactly the
    * identity-bearing rungs of `updateState`'s attribution ladder: a delta naming
@@ -3043,13 +3089,13 @@ export interface JourneyStanding {
    *   through their own door.
    */
   standing:
-    | 'done'
-    | 'in-progress'
-    | 'awaiting-human'
-    | 'with-the-human'
-    | 'blocked'
-    | 'failed'
-    | 'declined';
+    | "done"
+    | "in-progress"
+    | "awaiting-human"
+    | "with-the-human"
+    | "blocked"
+    | "failed"
+    | "declined";
   /** Why that word, in facts — POINTERS and structural evidence, never a receipts pack. */
   evidence: {
     /** The governing step (the first not-done step in chain order), where one exists. */
@@ -3059,7 +3105,7 @@ export interface JourneyStanding {
     /** `'with-the-human'` — the app's own words for what is being decided (DATA). */
     about?: string;
     /** `'with-the-human'` — whether the app's own `doneWhen` holds (see {@link DecisionStatus.made}). */
-    made?: boolean | 'unknown';
+    made?: boolean | "unknown";
     /** `'with-the-human'` — who made it, from the decisions book. Absent unless identity carried it. */
     madeBy?: Principal;
     /** `'blocked'` — the conditions that did not hold. */
@@ -3105,13 +3151,13 @@ export type ApprovalResult =
        *   requireHumanApproval, so this row would authorize nothing.
        */
       reason:
-        | 'UNKNOWN_ASK'
-        | 'ASK_ALREADY_ANSWERED'
-        | 'ASK_ALREADY_SPENT'
-        | 'REVOKE_UNANSWERED'
-        | 'WRONG_PRINCIPAL'
-        | 'NEEDS_DECIDER'
-        | 'NOT_ENFORCED';
+        | "UNKNOWN_ASK"
+        | "ASK_ALREADY_ANSWERED"
+        | "ASK_ALREADY_SPENT"
+        | "REVOKE_UNANSWERED"
+        | "WRONG_PRINCIPAL"
+        | "NEEDS_DECIDER"
+        | "NOT_ENFORCED";
       /** One authored sentence naming the cure. */
       explanation: string;
     };
@@ -3120,7 +3166,8 @@ export type ApprovalResult =
 // Journey frames — on-demand disclosure (serve journeys; expand tools on commit)
 // ---------------------------------------------------------------------------
 
-export type StepStatus = 'done' | 'inferred-done' | 'ready' | 'blocked' | 'off-node';
+export type StepStatus =
+  "done" | "inferred-done" | "ready" | "blocked" | "off-node";
 
 /** B depends on A when A's declared writes overlap B's guard keys — DERIVED, never authored. */
 export interface DependencyEdge {
@@ -3163,7 +3210,7 @@ export interface JourneyPlan {
   steps: JourneyPlanStep[];
 }
 
-export type FrameStatus = 'open' | 'completed' | 'cancelled' | 'demoted';
+export type FrameStatus = "open" | "completed" | "cancelled" | "demoted";
 
 /** One committed pass at a journey. 'demoted' = the journey's precondition broke mid-flow. */
 export interface JourneyFrame {
@@ -3194,14 +3241,14 @@ export interface JourneyFrame {
  */
 export type TryJourneyPlanResult =
   | { ok: true; plan: JourneyPlan }
-  | { ok: false; reason: 'UNKNOWN_JOURNEY'; known: string[] };
+  | { ok: false; reason: "UNKNOWN_JOURNEY"; known: string[] };
 
 export type CommitJourneyResult =
   | { ok: true; frame: JourneyFrame; plan: JourneyPlan; version: number }
-  | { ok: false; reason: 'UNKNOWN_JOURNEY'; known: string[] }
-  | { ok: false; reason: 'STALE_CURSOR'; version: number }
-  | { ok: false; reason: 'PRECONDITION_FAILED'; evidence: FilterCondition[] }
-  | { ok: false; reason: 'FRAME_ALREADY_OPEN'; journeyId: string }
+  | { ok: false; reason: "UNKNOWN_JOURNEY"; known: string[] }
+  | { ok: false; reason: "STALE_CURSOR"; version: number }
+  | { ok: false; reason: "PRECONDITION_FAILED"; evidence: FilterCondition[] }
+  | { ok: false; reason: "FRAME_ALREADY_OPEN"; journeyId: string }
   /**
    * The never-trap commit gate: the journey's ENTRY step would answer an agent
    * fire NOT_MATERIALIZED right now, so the frame that could never act is
@@ -3211,7 +3258,12 @@ export type CommitJourneyResult =
    * carries the entry step's declared binding, when it has one — the refusal
    * names the wiring that is missing.
    */
-  | { ok: false; reason: 'ENTRY_NOT_MATERIALIZED'; affordanceId: string; gesture?: Binding };
+  | {
+      ok: false;
+      reason: "ENTRY_NOT_MATERIALIZED";
+      affordanceId: string;
+      gesture?: Binding;
+    };
 
 // ---------------------------------------------------------------------------
 // Context brief — the traverse-path delta served to the LLM each chat turn

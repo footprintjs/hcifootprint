@@ -89,7 +89,10 @@ describe('produced data — handler return surfaced on the record', () => {
     const produced = session.producedFor(fired.transition.id) as { long: string; fn?: unknown; many: number[] };
     expect(produced.long.length).toBeLessThanOrEqual(201);
     expect(produced.fn).toBeUndefined(); // functions dropped
-    expect(produced.many).toHaveLength(30); // arrays capped
+    // 1.13.0 — the cap SAYS its size: 30 kept + one trailing marker element,
+    // the same "…" grammar the string cap has always used.
+    expect(produced.many).toHaveLength(31);
+    expect(produced.many[30]).toMatch(/more omitted/);
   });
 
   it('captureProduced:false opts a session out entirely', async () => {

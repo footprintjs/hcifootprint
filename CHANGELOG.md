@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Bounded ledgers state their retention window, and every silent cut now
+  speaks** (Context Integrity, phase 0). `session.offersRetention()` /
+  `session.acknowledgementsRetention()` answer `{ minted, dropped,
+  firstRetained, lastRetained }` — the window that is still answerable, not
+  only the loss — and `session.offerStanding(id)` asks the three-way
+  retained/evicted/unknown question without firing anything. Oversized
+  sensing trails join the house standard: evictions are counted
+  (`sensedTrailsDropped()`), and `sensedTrail()` on an evicted trail says
+  EVICTED with the surviving count instead of an answer indistinguishable
+  from "never sensed". The data channel's silent caps now announce
+  themselves the way its string cap always has: an array cut at 30 appends
+  `… N more omitted`, an object cut at 40 keys carries `"…": "N more
+  key(s) omitted"`. And a repeats row's render cap states its size:
+  `instancesTotal` rides the served row and both instance refusals, so 50
+  keys of 200 can never read as 50 of 50 (fireability was always uncapped;
+  now the served row says so).
+
 ## [1.12.0] - 2026-08-19
 
 **An effect that is already true is not a pending one. When an action's declarative verify contract

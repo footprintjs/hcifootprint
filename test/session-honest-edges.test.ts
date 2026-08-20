@@ -190,7 +190,10 @@ describe('a value the record cannot carry as data', () => {
     // Depth: four levels down the answer is null rather than the app's object.
     expect((produced['deep']['a'] as Record<string, Record<string, unknown>>)['b']['c']).toBeNull();
     // Breadth: forty keys, not sixty — a search result cannot flood a tool call.
-    expect(Object.keys(produced['wide'])).toHaveLength(40);
+    // 1.13.0 — plus the cut NAMES its size under the one key no app object can
+    // silently collide with, instead of hiding twenty keys without a word.
+    expect(Object.keys(produced['wide'])).toHaveLength(41);
+    expect(produced['wide']['…']).toMatch(/more key\(s\) omitted/);
     // A cycle terminates instead of recursing forever, and what survives is JSON.
     expect(() => JSON.stringify(produced)).not.toThrow();
   });

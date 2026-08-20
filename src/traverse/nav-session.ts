@@ -37,23 +37,40 @@ import type {
   ActionHandle,
   Cause,
   FocusMove,
-} from '../atom/types.js';
-import { detectSchema } from 'footprintjs';
-import type { WhereFilter } from 'footprintjs';
-import { GraphValidationError, checkLiteralHref, composeGuards, validateBlockedBecause, validateGuardShape, validateHumanDecides, validateObservability, validatePrincipalPolicy } from '../graph/guards.js';
-import { noInputFlag, schemaOf, takesNoInput } from './expects.js';
+} from "../atom/types.js";
+import { detectSchema } from "footprintjs";
+import type { WhereFilter } from "footprintjs";
+import {
+  GraphValidationError,
+  checkLiteralHref,
+  composeGuards,
+  validateBlockedBecause,
+  validateGuardShape,
+  validateHumanDecides,
+  validateObservability,
+  validatePrincipalPolicy,
+} from "../graph/guards.js";
+import { noInputFlag, schemaOf, takesNoInput } from "./expects.js";
 // The two enforcement vocabularies, judged by the modules that own them — so
 // this door and the compiler's door cannot come to accept different words.
-import { validateFreshness } from './freshness.js';
-import { validateConcurrency } from './single-flight.js';
-import type { LiveSource } from '../graph/sources/types.js';
-import { PresenceIndex } from '../presence/presence.js';
-import { actionsOf } from '../tree/authoring-keys.js';
-import type { NavigationGraph, MapNode, ActionDef } from '../tree/types.js';
-import { Session, UNATTRIBUTED_FIRE, principalOf, registrationMark } from './session.js';
-import type { ActionHandler } from '../registry/registry.js';
+import { validateFreshness } from "./freshness.js";
+import { validateConcurrency } from "./single-flight.js";
+import type { LiveSource } from "../graph/sources/types.js";
+import { PresenceIndex } from "../presence/presence.js";
+import { actionsOf } from "../tree/authoring-keys.js";
+import type { NavigationGraph, MapNode, ActionDef } from "../tree/types.js";
+import {
+  Session,
+  UNATTRIBUTED_FIRE,
+  principalOf,
+  registrationMark,
+} from "./session.js";
+import type { ActionHandler } from "../registry/registry.js";
 
-export interface InteractionSessionOptions extends Omit<SessionOptions, 'node'> {
+export interface InteractionSessionOptions extends Omit<
+  SessionOptions,
+  "node"
+> {
   /** Starting page id. Default: the first declared page. */
   node?: string;
   /**
@@ -129,8 +146,8 @@ export interface ActionGroupHandle extends ActionGroup {
 
 type NodeGate =
   | { served: true; activation: ActivationLevel; presenceUnknown?: boolean }
-  | { served: false; reason: 'BLOCKED_BY_OVERLAY'; overlay: string }
-  | { served: false; reason: 'NODE_NOT_VISIBLE'; node: string };
+  | { served: false; reason: "BLOCKED_BY_OVERLAY"; overlay: string }
+  | { served: false; reason: "NODE_NOT_VISIBLE"; node: string };
 
 export class InteractionSession<Paths extends string = string> extends Session {
   readonly #map: NavigationGraph;
@@ -158,7 +175,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * declare the same action (StrictMode, list twins); releasing one must never
    * delete the action out from under the other — the newest survivor serves.
    */
-  readonly #dynamic = new Map<string, Array<{ owner: symbol; affordance: Affordance }>>();
+  readonly #dynamic = new Map<
+    string,
+    Array<{ owner: symbol; affordance: Affordance }>
+  >();
   #mergedSpec: NavigationGraphSpec | null = null;
   /** Foreign (off-router-page) registrations: node path → first seen (ms). */
   readonly #foreignSeen = new Map<string, number>();
@@ -192,7 +212,9 @@ export class InteractionSession<Paths extends string = string> extends Session {
     // The session's own warn sink rides along so a post-attach reconcile
     // failure surfaces where every other dev warning does.
     for (const source of liveSources ?? []) {
-      this.#sourceDetachers.push(source.attach(this, (message) => this.warn(message)));
+      this.#sourceDetachers.push(
+        source.attach(this, (message) => this.warn(message)),
+      );
     }
   }
 
@@ -207,7 +229,9 @@ export class InteractionSession<Paths extends string = string> extends Session {
       try {
         detach();
       } catch (error) {
-        this.warn(`hcifootprint: a live source's detach threw: ${String(error)}`);
+        this.warn(
+          `hcifootprint: a live source's detach threw: ${String(error)}`,
+        );
       }
     }
   }
@@ -230,7 +254,8 @@ export class InteractionSession<Paths extends string = string> extends Session {
       /* v8 ignore next -- unreachable: #declareMountAction never files an id into #dynamic while super.spec.affordances already holds it (declared-wins, warned at the mount door and returning early), so the two maps cannot both claim one id. The check states that precedence where the merge happens rather than only where it is enforced. */
       if (Object.hasOwn(base.affordances, qualifiedId)) continue; // declared-wins (warned at mount)
       /* v8 ignore else -- the empty-stack arm is unreachable: a declaration stack is created with its first entry and DELETED the moment its last one is released, so #dynamic never holds an empty one. The check is what makes "newest declaration serves" safe to read off the tail. */
-      if (stack.length > 0) affordances[qualifiedId] = stack[stack.length - 1].affordance;
+      if (stack.length > 0)
+        affordances[qualifiedId] = stack[stack.length - 1].affordance;
     }
     return { ...base, affordances };
   }
@@ -245,11 +270,14 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * generated `id`). Hold it in a ref; call `handle.unregister()` on unmount.
    * `handle.setEnabled(actionId, false)` greys one action out (a disabled button).
    */
-  registerActions(path: Paths, opts?: RegisterActionGroupOptions): ActionGroupHandle {
+  registerActions(
+    path: Paths,
+    opts?: RegisterActionGroupOptions,
+  ): ActionGroupHandle {
     const node = this.#map.nodes[path];
     if (!node) {
       throw new Error(
-        `hcifootprint: unknown node '${path}'. Known nodes: ${Object.keys(this.#map.nodes).join(', ')}.`,
+        `hcifootprint: unknown node '${path}'. Known nodes: ${Object.keys(this.#map.nodes).join(", ")}.`,
       );
     }
     if (opts?.instance !== undefined && !node.repeats) {
@@ -266,21 +294,39 @@ export class InteractionSession<Paths extends string = string> extends Session {
     //    resolution below (and every later lookup) sees them — read through the
     //    ONE door that knows the authoring key.
     for (const [name, actionDef] of Object.entries(actionsOf(opts) ?? {})) {
-      const qualifiedId = this.#declareMountAction(path, node, name, actionDef, owner, group, opts?.instance);
+      const qualifiedId = this.#declareMountAction(
+        path,
+        node,
+        name,
+        actionDef,
+        owner,
+        group,
+        opts?.instance,
+      );
       if (qualifiedId) declaredHere.push(qualifiedId);
     }
 
     // 2. Bind existing app handlers (by reference) to declared actions.
     for (const [name, handler] of Object.entries(opts?.handlers ?? {})) {
       const qualifiedId = this.#resolveActionOnNode(path, name);
-      const enabled = opts?.enabled?.[name] ?? opts?.enabled?.[qualifiedId] ?? true;
+      const enabled =
+        opts?.enabled?.[name] ?? opts?.enabled?.[qualifiedId] ?? true;
       // Through the SAME door a later flip takes, so a label that mounts and a
       // label that arrives are normalised (and refused) identically.
-      const busy = this.busyLabel(qualifiedId, opts?.busy?.[name] ?? opts?.busy?.[qualifiedId]);
+      const busy = this.busyLabel(
+        qualifiedId,
+        opts?.busy?.[name] ?? opts?.busy?.[qualifiedId],
+      );
       // Through the SESSION's binding door, not the registry's: that is where a
       // contextful wrapper is recognised (D21), so every mount door gets the
       // capture envelope without four call sites each remembering to ask.
-      this.bindHandler(group, this.#registryKey(qualifiedId, opts?.instance), handler, enabled, busy);
+      this.bindHandler(
+        group,
+        this.#registryKey(qualifiedId, opts?.instance),
+        handler,
+        enabled,
+        busy,
+      );
     }
 
     // 3. Value readers, AFTER the overlay above so an action declared here-and-now
@@ -293,7 +339,8 @@ export class InteractionSession<Paths extends string = string> extends Session {
 
     // 4. Presence + optional initial visibility signal.
     const presenceHandle = this.#presence.open(path, opts?.instance);
-    if (opts?.visible !== undefined) this.#presence.setVisible(path, opts.visible);
+    if (opts?.visible !== undefined)
+      this.#presence.setVisible(path, opts.visible);
 
     // 5. Dormancy bookkeeping: a mount outside the router-confirmed page is
     //    held, not offered — its clock starts now.
@@ -331,14 +378,20 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // Map a leaf/qualified actionId to its registry key (instance-aware).
       setEnabled: (actionId: string, enabled: boolean) => {
         const qualifiedId = this.#resolveActionOnNode(path, actionId);
-        this.setActionEnabled(this.#registryKey(qualifiedId, opts?.instance), enabled);
+        this.setActionEnabled(
+          this.#registryKey(qualifiedId, opts?.instance),
+          enabled,
+        );
       },
       // The same key mapping, deliberately: a card of a repeats container says
       // busy about ITSELF, and it must land on that card's registration rather
       // than on the base id every other card shares.
       setBusy: (actionId: string, busy: string | undefined) => {
         const qualifiedId = this.#resolveActionOnNode(path, actionId);
-        this.setActionBusy(this.#registryKey(qualifiedId, opts?.instance), busy);
+        this.setActionBusy(
+          this.#registryKey(qualifiedId, opts?.instance),
+          busy,
+        );
       },
       unregister,
     };
@@ -349,7 +402,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * either binds an existing declared action (`{ handler }`) or declares a new
    * leaf here (`{ does, handler }`). Returns a single-action handle.
    */
-  registerAction(path: Paths, actionId: string, def: RegisteredActionDef & { handler: ActionHandler }): ActionHandle {
+  registerAction(
+    path: Paths,
+    actionId: string,
+    def: RegisteredActionDef & { handler: ActionHandler },
+  ): ActionHandle {
     // 'declared' covers BOTH node-scoped actions ('path.actionId') and root/
     // multi-attach actions (bare 'actionId' offered on this page) — bind the handler
     // to the existing action; only declare a NEW leaf when neither exists.
@@ -370,7 +427,6 @@ export class InteractionSession<Paths extends string = string> extends Session {
     };
   }
 
-
   #declareMountAction(
     path: string,
     node: MapNode,
@@ -386,8 +442,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
       );
     }
     const qualifiedId = `${path}.${name}`;
-    if (name === 'leave-journey') {
-      throw new GraphValidationError(`action name 'leave-journey' is reserved.`);
+    if (name === "leave-journey") {
+      throw new GraphValidationError(
+        `action name 'leave-journey' is reserved.`,
+      );
     }
     if (super.spec.affordances[qualifiedId]) {
       // Declared-wins precedence: the central declaration is the audited one.
@@ -395,17 +453,29 @@ export class InteractionSession<Paths extends string = string> extends Session {
         `hcifootprint: mount('${path}') re-declares '${qualifiedId}' — the declared action wins; ` +
           `only the handler was bound.`,
       );
-      if (actionDef.handler) this.bindHandler(group, this.#registryKey(qualifiedId, instance), actionDef.handler);
+      if (actionDef.handler)
+        this.bindHandler(
+          group,
+          this.#registryKey(qualifiedId, instance),
+          actionDef.handler,
+        );
       return null;
     }
     if (!actionDef.does || !actionDef.does.trim()) {
-      throw new GraphValidationError(`mount-declared action '${qualifiedId}' needs a 'does'.`);
+      throw new GraphValidationError(
+        `mount-declared action '${qualifiedId}' needs a 'does'.`,
+      );
     }
     if (actionDef.when) {
       if (Object.keys(actionDef.when).length === 0) {
-        throw new GraphValidationError(`mount-declared action '${qualifiedId}' has an empty when {} — omit it.`);
+        throw new GraphValidationError(
+          `mount-declared action '${qualifiedId}' has an empty when {} — omit it.`,
+        );
       }
-      validateGuardShape(`mount-declared action '${qualifiedId}' when`, actionDef.when as Record<string, unknown>);
+      validateGuardShape(
+        `mount-declared action '${qualifiedId}' when`,
+        actionDef.when as Record<string, unknown>,
+      );
     }
     if (actionDef.goTo && !super.spec.pages[actionDef.goTo]) {
       throw new GraphValidationError(
@@ -414,7 +484,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
     }
     // The sentinel is read BEFORE detectSchema, which would otherwise judge the
     // author's explicit "no input" an unrecognized schema and refuse it.
-    if (actionDef.input !== undefined && !takesNoInput(actionDef.input) && detectSchema(actionDef.input) === 'none') {
+    if (
+      actionDef.input !== undefined &&
+      !takesNoInput(actionDef.input) &&
+      detectSchema(actionDef.input) === "none"
+    ) {
       throw new GraphValidationError(
         `mount-declared action '${qualifiedId}' has an unrecognized input schema — pass a Zod schema, a ` +
           `JSON Schema object, a validator with .safeParse/.parse, or the string 'none' for an action that ` +
@@ -432,7 +506,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
         actionDef.enabledWhen as Record<string, unknown>,
       );
     }
-    if (actionDef.verify && typeof actionDef.verify !== 'function') {
+    if (actionDef.verify && typeof actionDef.verify !== "function") {
       if (Object.keys(actionDef.verify).length === 0) {
         throw new GraphValidationError(
           `mount-declared action '${qualifiedId}' has an empty verify {} — it could only ever refuse. Omit it.`,
@@ -446,39 +520,64 @@ export class InteractionSession<Paths extends string = string> extends Session {
     // Authoring is authoring, at either door: the object form is judged here in
     // the compiler's own words (one shared sentence, one owner apiece), and the
     // function form is a reader, refused at READ time instead.
-    if (actionDef.blockedBecause !== undefined && typeof actionDef.blockedBecause !== 'function') {
-      validateBlockedBecause(`mount-declared action '${qualifiedId}'`, actionDef.blockedBecause);
+    if (
+      actionDef.blockedBecause !== undefined &&
+      typeof actionDef.blockedBecause !== "function"
+    ) {
+      validateBlockedBecause(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.blockedBecause,
+      );
     }
     // The same law in the same words at this door too — a decision that belongs
     // to a person is a declaration, and authoring is authoring wherever it
     // happens.
     if (actionDef.humanDecides !== undefined) {
-      validateHumanDecides(`mount-declared action '${qualifiedId}'`, actionDef.humanDecides);
+      validateHumanDecides(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.humanDecides,
+      );
     }
     // And the two enforceable declarations, in the compiler's own words: a
     // policy about who may act, and the app's answer to how the effect is seen.
     if (actionDef.principalPolicy !== undefined) {
-      validatePrincipalPolicy(`mount-declared action '${qualifiedId}'`, actionDef.principalPolicy);
+      validatePrincipalPolicy(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.principalPolicy,
+      );
     }
     if (actionDef.observability !== undefined) {
-      validateObservability(`mount-declared action '${qualifiedId}'`, actionDef.observability, {
-        verify: actionDef.verify !== undefined,
-        destination: actionDef.goTo !== undefined,
-      });
+      validateObservability(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.observability,
+        {
+          verify: actionDef.verify !== undefined,
+          destination: actionDef.goTo !== undefined,
+        },
+      );
     }
     // And the freshness/concurrency vocabulary, judged by the modules that own
     // it — so a misspelled axis or mode cannot be refused at one authoring door
     // and quietly accepted at the other.
     if (actionDef.freshness !== undefined) {
-      validateFreshness(`mount-declared action '${qualifiedId}'`, actionDef.freshness);
+      validateFreshness(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.freshness,
+      );
     }
     if (actionDef.concurrency !== undefined) {
-      validateConcurrency(`mount-declared action '${qualifiedId}'`, actionDef.concurrency);
+      validateConcurrency(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.concurrency,
+      );
     }
     // Never-trap BUILD gate at the mount door too: authoring is authoring
     // whether it happens in the def or at registration — same law, same words.
-    if (actionDef.binding?.kind === 'url') {
-      checkLiteralHref(`mount-declared action '${qualifiedId}'`, actionDef.binding.href);
+    if (actionDef.binding?.kind === "url") {
+      checkLiteralHref(
+        `mount-declared action '${qualifiedId}'`,
+        actionDef.binding.href,
+      );
     }
     const existing = this.#dynamic.get(qualifiedId);
     if (existing && existing.length > 0) {
@@ -495,7 +594,9 @@ export class InteractionSession<Paths extends string = string> extends Session {
       id: qualifiedId,
       on: [node.page],
       description: actionDef.does,
-      binding: actionDef.binding ? structuredClone(actionDef.binding) : undefined,
+      binding: actionDef.binding
+        ? structuredClone(actionDef.binding)
+        : undefined,
       guard,
       effect:
         actionDef.writes || actionDef.reads || actionDef.goTo
@@ -507,13 +608,15 @@ export class InteractionSession<Paths extends string = string> extends Session {
           : undefined,
       schema: schemaOf(actionDef.input),
       ...noInputFlag(actionDef.input),
-      ...(actionDef.enabledWhen ? { enabledWhen: structuredClone(actionDef.enabledWhen) } : {}),
+      ...(actionDef.enabledWhen
+        ? { enabledWhen: structuredClone(actionDef.enabledWhen) }
+        : {}),
       // Same split the compile door takes: a reader by reference, a written
       // sentence cloned so the overlay owns its bytes.
       ...(actionDef.blockedBecause !== undefined
         ? {
             blockedBecause:
-              typeof actionDef.blockedBecause === 'function'
+              typeof actionDef.blockedBecause === "function"
                 ? actionDef.blockedBecause
                 : structuredClone(actionDef.blockedBecause),
           }
@@ -521,7 +624,12 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // A predicate stays by reference (it is code, like a validator); a
       // declarative contract is cloned, so the overlay owns its bytes.
       ...(actionDef.verify
-        ? { verify: typeof actionDef.verify === 'function' ? actionDef.verify : structuredClone(actionDef.verify) }
+        ? {
+            verify:
+              typeof actionDef.verify === "function"
+                ? actionDef.verify
+                : structuredClone(actionDef.verify),
+          }
         : {}),
       // Carried verbatim onto the overlay affordance, cloned so it owns its
       // bytes — the compile door's own line, one door over.
@@ -533,21 +641,33 @@ export class InteractionSession<Paths extends string = string> extends Session {
       ...(actionDef.principalPolicy !== undefined
         ? { principalPolicy: structuredClone(actionDef.principalPolicy) }
         : {}),
-      ...(actionDef.observability !== undefined ? { observability: actionDef.observability } : {}),
+      ...(actionDef.observability !== undefined
+        ? { observability: actionDef.observability }
+        : {}),
       // Cloned onto the overlay, the compile door's own line one door over: an
       // enforcement rule the overlay owns cannot be widened by an app editing
       // the declaration object it registered with.
-      ...(actionDef.freshness !== undefined ? { freshness: structuredClone(actionDef.freshness) } : {}),
+      ...(actionDef.freshness !== undefined
+        ? { freshness: structuredClone(actionDef.freshness) }
+        : {}),
       ...(actionDef.concurrency !== undefined
         ? { concurrency: structuredClone(actionDef.concurrency) }
         : {}),
       highEffect: actionDef.confirm ?? false,
-      role: actionDef.role ?? (actionDef.goTo ? 'next' : 'action'),
-      descriptionSource: 'registration',
+      role: actionDef.role ?? (actionDef.goTo ? "next" : "action"),
+      descriptionSource: "registration",
     }) as Affordance;
-    this.#dynamic.set(qualifiedId, [...(existing ?? []), { owner, affordance }]);
+    this.#dynamic.set(qualifiedId, [
+      ...(existing ?? []),
+      { owner, affordance },
+    ]);
     this.#mergedSpec = null;
-    if (actionDef.handler) this.bindHandler(group, this.#registryKey(qualifiedId, instance), actionDef.handler);
+    if (actionDef.handler)
+      this.bindHandler(
+        group,
+        this.#registryKey(qualifiedId, instance),
+        actionDef.handler,
+      );
     return qualifiedId;
   }
 
@@ -557,9 +677,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
     if (this.spec.affordances[name]) return name; // already-qualified id or root action
     throw new Error(
       `hcifootprint: mount('${path}') binds unknown action '${name}' — declare it in the navigation ` +
-        `graph (or pass it in registerActions({actions})). Known here: ${Object.keys(this.spec.affordances)
-          .filter((id) => id.startsWith(`${path}.`) || !id.includes('.'))
-          .join(', ')}.`,
+        `graph (or pass it in registerActions({actions})). Known here: ${Object.keys(
+          this.spec.affordances,
+        )
+          .filter((id) => id.startsWith(`${path}.`) || !id.includes("."))
+          .join(", ")}.`,
     );
   }
 
@@ -569,7 +691,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
 
   #guardChain(path: string): Record<string, unknown>[] {
     const chain: Record<string, unknown>[] = [];
-    for (let cursor: MapNode | undefined = this.#map.nodes[path]; cursor; ) {
+    for (let cursor: MapNode | undefined = this.#map.nodes[path]; cursor;) {
       if (cursor.guard) chain.unshift(cursor.guard as Record<string, unknown>);
       cursor = cursor.parent ? this.#map.nodes[cursor.parent] : undefined;
     }
@@ -589,10 +711,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
   /** Show a node; for a tab this also hides its tab siblings (at most one shown). */
   show(path: Paths): void {
     const node = this.#requireNode(path);
-    if (node.kind === 'tab' && node.parent) {
+    if (node.kind === "tab" && node.parent) {
       for (const siblingPath of this.#map.nodes[node.parent].children) {
         const sibling = this.#map.nodes[siblingPath];
-        if (sibling.kind === 'tab') this.#presence.setVisible(siblingPath, siblingPath === path);
+        if (sibling.kind === "tab")
+          this.#presence.setVisible(siblingPath, siblingPath === path);
       }
     } else {
       this.#presence.setVisible(path, true);
@@ -604,7 +727,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
     const node = this.#map.nodes[path];
     if (!node) {
       throw new Error(
-        `hcifootprint: unknown node '${path}'. Known nodes: ${Object.keys(this.#map.nodes).join(', ')}.`,
+        `hcifootprint: unknown node '${path}'. Known nodes: ${Object.keys(this.#map.nodes).join(", ")}.`,
       );
     }
     return node;
@@ -619,7 +742,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
     while (true) {
       const node = this.#map.nodes[cursor];
       if (!node || node.page !== this.node) return this.node; // stale/off-graph focus → page floor
-      if (node.kind === 'page') return cursor;
+      if (node.kind === "page") return cursor;
       const gate = this.#gateNode(cursor);
       if (gate.served) return cursor;
       /* v8 ignore next -- the `?? this.node` arm is unreachable: walkNode passes a null parent exactly once per PAGE, and the `kind === 'page'` return above has already taken every page. It names the floor this walk falls to, so no rootless node can spin the loop. */
@@ -642,8 +765,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
       if (!node.overlay || node.page !== this.node) continue;
       const visibility = this.#presence.visibility(node.path);
       const present = this.#presence.isPresent(node.path);
-      const selfShown = visibility === true || (visibility === undefined && present);
-      const ancestorsAllow = node.parent === null || this.#gateChain(node.parent).served;
+      const selfShown =
+        visibility === true || (visibility === undefined && present);
+      const ancestorsAllow =
+        node.parent === null || this.#gateChain(node.parent).served;
       if (selfShown && ancestorsAllow) {
         shown.push(node.path);
         if (visibility === undefined) this.#overlayGraceCheck(node.path);
@@ -663,7 +788,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
       return;
     }
     const warnKey = `overlay:${path}`;
-    if (this.#now() - firstSeen >= this.#graceMs && !this.#warnedOnce.has(warnKey)) {
+    if (
+      this.#now() - firstSeen >= this.#graceMs &&
+      !this.#warnedOnce.has(warnKey)
+    ) {
       this.#warnedOnce.add(warnKey);
       this.warn(
         `hcifootprint: modal '${path}' has been masking its page on mount-presence alone for over ` +
@@ -680,8 +808,15 @@ export class InteractionSession<Paths extends string = string> extends Session {
     // deadlock, both modals' own close buttons included).
     const overlays = this.#shownOverlays();
     if (overlays.length > 0) {
-      const inside = overlays.some((overlay) => path === overlay || path.startsWith(`${overlay}.`));
-      if (!inside) return { served: false, reason: 'BLOCKED_BY_OVERLAY', overlay: overlays[0] };
+      const inside = overlays.some(
+        (overlay) => path === overlay || path.startsWith(`${overlay}.`),
+      );
+      if (!inside)
+        return {
+          served: false,
+          reason: "BLOCKED_BY_OVERLAY",
+          overlay: overlays[0],
+        };
     }
     return this.#gateChain(path);
   }
@@ -690,30 +825,31 @@ export class InteractionSession<Paths extends string = string> extends Session {
   #gateChain(path: string): NodeGate {
     // Walk root → node; containers can only reject or degrade certainty.
     const chain: MapNode[] = [];
-    for (let cursor: MapNode | undefined = this.#map.nodes[path]; cursor; ) {
+    for (let cursor: MapNode | undefined = this.#map.nodes[path]; cursor;) {
       chain.unshift(cursor);
       cursor = cursor.parent ? this.#map.nodes[cursor.parent] : undefined;
     }
     let presenceUnknown = false;
-    let activation: ActivationLevel = 'assumed';
+    let activation: ActivationLevel = "assumed";
     for (const node of chain) {
       const visibility = this.#presence.visibility(node.path);
-      if (visibility === false) return { served: false, reason: 'NODE_NOT_VISIBLE', node: node.path };
+      if (visibility === false)
+        return { served: false, reason: "NODE_NOT_VISIBLE", node: node.path };
       const present = this.#presence.isPresent(node.path);
 
-      if (node.kind === 'page') {
-        activation = 'synced'; // router-confirmed
+      if (node.kind === "page") {
+        activation = "synced"; // router-confirmed
         continue;
       }
-      if (node.kind === 'modal') {
+      if (node.kind === "modal") {
         // NEVER assumed: closed until registered or shown.
         if (visibility !== true && !present) {
-          return { served: false, reason: 'NODE_NOT_VISIBLE', node: node.path };
+          return { served: false, reason: "NODE_NOT_VISIBLE", node: node.path };
         }
-        activation = visibility === true ? 'shown' : 'registered';
+        activation = visibility === true ? "shown" : "registered";
         continue;
       }
-      if (node.kind === 'tab') {
+      if (node.kind === "tab") {
         const gate = this.#gateTab(node, visibility, present);
         if (!gate.served) return gate;
         activation = gate.activation;
@@ -721,38 +857,57 @@ export class InteractionSession<Paths extends string = string> extends Session {
         continue;
       }
       // areas / plain containers: mounted sharpens, signals decide, absence stays assumed
-      activation = visibility === true ? 'shown' : present ? 'registered' : 'assumed';
+      activation =
+        visibility === true ? "shown" : present ? "registered" : "assumed";
     }
-    return { served: true, activation, ...(presenceUnknown ? { presenceUnknown: true } : {}) };
+    return {
+      served: true,
+      activation,
+      ...(presenceUnknown ? { presenceUnknown: true } : {}),
+    };
   }
 
-  #gateTab(tab: MapNode, visibility: boolean | undefined, present: boolean): NodeGate {
-    if (visibility === true) return { served: true, activation: 'shown' };
+  #gateTab(
+    tab: MapNode,
+    visibility: boolean | undefined,
+    present: boolean,
+  ): NodeGate {
+    if (visibility === true) return { served: true, activation: "shown" };
     const siblings = tab.parent
       ? this.#map.nodes[tab.parent].children
           .map((childPath) => this.#map.nodes[childPath])
-          .filter((child) => child.kind === 'tab')
-      : /* v8 ignore next -- the parentless arm is unreachable: only a page is walked with a null parent, so a node of kind 'tab' always has the container that declared it. It says the true thing about a lone tab — it is its own only sibling — rather than reading `children` off nothing. */ [tab];
+          .filter((child) => child.kind === "tab")
+      : /* v8 ignore next -- the parentless arm is unreachable: only a page is walked with a null parent, so a node of kind 'tab' always has the container that declared it. It says the true thing about a lone tab — it is its own only sibling — rather than reading `children` off nothing. */ [
+          tab,
+        ];
     // The exclusivity PRIOR: a sibling explicitly shown means this one is not.
     const siblingShown = siblings.some(
-      (sibling) => sibling.path !== tab.path && this.#presence.visibility(sibling.path) === true,
+      (sibling) =>
+        sibling.path !== tab.path &&
+        this.#presence.visibility(sibling.path) === true,
     );
-    if (siblingShown) return { served: false, reason: 'NODE_NOT_VISIBLE', node: tab.path };
+    if (siblingShown)
+      return { served: false, reason: "NODE_NOT_VISIBLE", node: tab.path };
 
     // Explicitly-hidden siblings are not candidates: with tab A mounted-but-
     // signaled-hidden and tab B unmounted, B is the plausibly-shown one — a
     // hidden mount must not make its siblings unreachable.
     const mountedSiblings = siblings.filter(
       (sibling) =>
-        this.#presence.isPresent(sibling.path) && this.#presence.visibility(sibling.path) !== false,
+        this.#presence.isPresent(sibling.path) &&
+        this.#presence.visibility(sibling.path) !== false,
     );
     if (mountedSiblings.length === 0) {
       // L0: nothing registers → the flagged union (assumed), never a guessed winner.
-      return { served: true, activation: 'assumed', presenceUnknown: siblings.length > 1 };
+      return {
+        served: true,
+        activation: "assumed",
+        presenceUnknown: siblings.length > 1,
+      };
     }
     if (!present) {
       // Mounts exist and none of them is this tab: it is really not there (yet).
-      return { served: false, reason: 'NODE_NOT_VISIBLE', node: tab.path };
+      return { served: false, reason: "NODE_NOT_VISIBLE", node: tab.path };
     }
     if (mountedSiblings.length > 1) {
       // Keep-mounted panels with no wire: serve the union, flagged, and say the one-line upgrade once.
@@ -766,9 +921,9 @@ export class InteractionSession<Paths extends string = string> extends Session {
             `it: session.show('<the visible tab>') on tab change (or pass visible: at mount).`,
         );
       }
-      return { served: true, activation: 'registered', presenceUnknown: true };
+      return { served: true, activation: "registered", presenceUnknown: true };
     }
-    return { served: true, activation: 'registered' };
+    return { served: true, activation: "registered" };
   }
 
   // -------------------------------------------------------------------------
@@ -793,11 +948,14 @@ export class InteractionSession<Paths extends string = string> extends Session {
         ...edge,
         node: path,
         activation: gate.activation,
-        ...(gate.presenceUnknown ? { presence: 'unknown' as const } : {}),
+        ...(gate.presenceUnknown ? { presence: "unknown" as const } : {}),
       };
       if (node.repeats) {
         const existence = this.#instanceExistence(node);
         stamped.instances = existence.keys.slice(0, 50); // render cap only — fireability is uncapped
+        // The cap SAYS its size (1.13.0): total states the full enumerated
+        // set, so 50-of-200 can never read as 50-of-50.
+        stamped.instancesTotal = existence.keys.length;
         stamped.enumeration = existence.enumeration;
       }
       edges.push(stamped);
@@ -831,7 +989,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
     return this.#focusMoves;
   }
 
-  override fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
+  override fire(
+    affordanceId: string,
+    opts: FireOptions = UNATTRIBUTED_FIRE,
+  ): FireResult {
     const source = principalOf(opts);
     const affordance = this.spec.affordances[affordanceId];
     if (affordance) {
@@ -840,39 +1001,49 @@ export class InteractionSession<Paths extends string = string> extends Session {
         const gate = this.#gateNode(path);
         if (!gate.served) {
           this.recordRejection(affordanceId, gate.reason, source);
-          return gate.reason === 'BLOCKED_BY_OVERLAY'
-            ? { ok: false, reason: 'BLOCKED_BY_OVERLAY', overlay: gate.overlay }
-            : { ok: false, reason: 'NODE_NOT_VISIBLE', node: gate.node };
+          return gate.reason === "BLOCKED_BY_OVERLAY"
+            ? { ok: false, reason: "BLOCKED_BY_OVERLAY", overlay: gate.overlay }
+            : { ok: false, reason: "NODE_NOT_VISIBLE", node: gate.node };
         }
         const node = this.#map.nodes[path];
         if (node.repeats) {
           const existence = this.#instanceExistence(node);
           if (opts.instance === undefined) {
-            this.recordRejection(affordanceId, 'INSTANCE_REQUIRED', source);
-            return { ok: false, reason: 'INSTANCE_REQUIRED', instances: existence.keys.slice(0, 50) };
+            this.recordRejection(affordanceId, "INSTANCE_REQUIRED", source);
+            return {
+              ok: false,
+              reason: "INSTANCE_REQUIRED",
+              instances: existence.keys.slice(0, 50),
+              instancesTotal: existence.keys.length,
+            };
           }
           // Membership against the FULL set — the render cap must never make
           // instance #51 unfireable.
           if (!existence.keys.includes(opts.instance)) {
-            this.recordRejection(affordanceId, 'INSTANCE_UNKNOWN', source);
-            return { ok: false, reason: 'INSTANCE_UNKNOWN', instances: existence.keys.slice(0, 50) };
+            this.recordRejection(affordanceId, "INSTANCE_UNKNOWN", source);
+            return {
+              ok: false,
+              reason: "INSTANCE_UNKNOWN",
+              instances: existence.keys.slice(0, 50),
+              instancesTotal: existence.keys.length,
+            };
           }
         }
         if (
-          gate.activation === 'assumed' &&
+          gate.activation === "assumed" &&
           opts.invoke !== false &&
           this.#presence.hasAny() &&
           this.handlerFor(affordanceId, opts) === undefined
         ) {
           // The session runs on mounts, this node's have not arrived, and the
           // caller wanted execution: retriable, and never a fake GUARD_FAILED.
-          this.recordRejection(affordanceId, 'STILL_MOUNTING', source);
-          return { ok: false, reason: 'STILL_MOUNTING', node: path };
+          this.recordRejection(affordanceId, "STILL_MOUNTING", source);
+          return { ok: false, reason: "STILL_MOUNTING", node: path };
         }
         const result = super.fire(affordanceId, opts);
         if (result.ok) {
           this.#moveFocus(path, {
-            kind: 'fired',
+            kind: "fired",
             principal: principalOf(opts),
             affordanceId,
           });
@@ -887,7 +1058,7 @@ export class InteractionSession<Paths extends string = string> extends Session {
     const plain = super.fire(affordanceId, opts);
     if (plain.ok) {
       this.#moveFocus(this.#focusPath, {
-        kind: 'fired',
+        kind: "fired",
         principal: principalOf(opts),
         affordanceId,
       });
@@ -895,14 +1066,18 @@ export class InteractionSession<Paths extends string = string> extends Session {
     return plain;
   }
 
-  protected override handlerFor(affordanceId: string, opts: FireOptions): ActionHandler | undefined {
+  protected override handlerFor(
+    affordanceId: string,
+    opts: FireOptions,
+  ): ActionHandler | undefined {
     if (opts.instance !== undefined) {
       // Instance-keyed registration first, then the base resolution — which is
       // registry-then-url-synthesis, so the resolution ORDER stays one story
       // everywhere: keyed handler > base handler > navigate-derived gesture.
       return (
-        this.registry.handlerFor(this.#registryKey(affordanceId, opts.instance)) ??
-        super.handlerFor(affordanceId, opts)
+        this.registry.handlerFor(
+          this.#registryKey(affordanceId, opts.instance),
+        ) ?? super.handlerFor(affordanceId, opts)
       );
     }
     return super.handlerFor(affordanceId, opts);
@@ -920,7 +1095,9 @@ export class InteractionSession<Paths extends string = string> extends Session {
   protected override couldMaterialise(affordanceId: string): boolean {
     if (super.couldMaterialise(affordanceId)) return true;
     const prefix = `${affordanceId}[`;
-    return this.registry.registrations().some((r) => r.affordanceId.startsWith(prefix));
+    return this.registry
+      .registrations()
+      .some((r) => r.affordanceId.startsWith(prefix));
   }
 
   /**
@@ -964,10 +1141,15 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * container at once — an instance registered enabled cannot re-open a door
    * the app has said is shut.
    */
-  protected override isActionDisabled(affordanceId: string, opts: FireOptions): boolean {
+  protected override isActionDisabled(
+    affordanceId: string,
+    opts: FireOptions,
+  ): boolean {
     if (this.declaredDisabled(affordanceId)) return true;
     if (opts.instance !== undefined) {
-      const keyed = this.registry.isEnabled(this.#registryKey(affordanceId, opts.instance));
+      const keyed = this.registry.isEnabled(
+        this.#registryKey(affordanceId, opts.instance),
+      );
       if (keyed !== undefined) return keyed === false;
     }
     return this.registry.isEnabled(affordanceId) === false;
@@ -998,13 +1180,17 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * An UNDECLARED path is still runtime input from the world and still honest:
    * the cursor follows reality off-graph, as it always has.
    */
-  override sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult {
+  override sync(
+    observedNode: string,
+    opts?: { stimulus?: StimulusKind; principal?: Principal },
+  ): SyncResult {
     // A DECLARED non-page path is a name from this map used at the wrong door.
     // Not an error — this door takes runtime input from the world — but never
     // silent either: the page it belongs to is what gets synced, and the
     // warning says so and names `observeFocus`.
     const declared = this.#map.nodes[observedNode];
-    const container = declared && declared.kind !== 'page' ? declared : undefined;
+    const container =
+      declared && declared.kind !== "page" ? declared : undefined;
     if (container) {
       const warnKey = `sync-container:${container.path}`;
       if (!this.#warnedOnce.has(warnKey)) {
@@ -1023,10 +1209,14 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // The world moved without an offered edge — a back button, a push, an
       // expiry. A stimulus is exactly that, and the principal is whoever the
       // caller attributed the sync to.
-      this.#moveFocus(this.node, { kind: 'stimulus', principal: opts?.principal ?? 'unknown' });
+      this.#moveFocus(this.node, {
+        kind: "stimulus",
+        principal: opts?.principal ?? "unknown",
+      });
       // Dormant registrations under the now-confirmed page become native…
       for (const path of [...this.#foreignSeen.keys()]) {
-        if (this.#map.nodes[path]?.page === this.node) this.#foreignSeen.delete(path);
+        if (this.#map.nodes[path]?.page === this.node)
+          this.#foreignSeen.delete(path);
       }
       // …and still-mounted nodes elsewhere start (or keep) their drift clocks.
       for (const path of this.#presence.presentNodes()) {
@@ -1092,7 +1282,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
           `page really changed, sync('${node.page}') first, then observe.`,
       );
     }
-    this.#moveFocus(node.path, { kind: 'stimulus', principal: opts?.principal ?? 'unknown' });
+    this.#moveFocus(node.path, {
+      kind: "stimulus",
+      principal: opts?.principal ?? "unknown",
+    });
   }
 
   /**
@@ -1102,7 +1295,9 @@ export class InteractionSession<Paths extends string = string> extends Session {
    */
   protected override positionLines(): string[] {
     const focus = this.#focusLine();
-    return focus === null ? super.positionLines() : [...super.positionLines(), focus];
+    return focus === null
+      ? super.positionLines()
+      : [...super.positionLines(), focus];
   }
 
   /**
@@ -1130,8 +1325,11 @@ export class InteractionSession<Paths extends string = string> extends Session {
       .presentNodes()
       .filter((path) => this.#map.nodes[path]?.page === this.node)
       .sort();
-    if (frontier.length > 0) lines.push(`Mounted here: ${frontier.join(', ')}.`);
-    return lines.length > 0 ? { ...brief, text: `${brief.text}\n${lines.join('\n')}` } : brief;
+    if (frontier.length > 0)
+      lines.push(`Mounted here: ${frontier.join(", ")}.`);
+    return lines.length > 0
+      ? { ...brief, text: `${brief.text}\n${lines.join("\n")}` }
+      : brief;
   }
 
   // -------------------------------------------------------------------------
@@ -1142,11 +1340,14 @@ export class InteractionSession<Paths extends string = string> extends Session {
   #pathOnCurrentPage(affordanceId: string): string | null {
     const declared = this.#map.actionNodes[affordanceId];
     if (declared) {
-      return declared.find((path) => this.#map.nodes[path]?.page === this.node) ?? null;
+      return (
+        declared.find((path) => this.#map.nodes[path]?.page === this.node) ??
+        null
+      );
     }
     /* v8 ignore else -- the fall-through arm is unreachable for the same reason as the `return null` it leads to: every id that gets this far came out of this.spec.affordances, which is exactly actionNodes ∪ #dynamic. */
     if (this.#dynamic.has(affordanceId)) {
-      const path = affordanceId.split('.').slice(0, -1).join('.');
+      const path = affordanceId.split(".").slice(0, -1).join(".");
       return this.#map.nodes[path]?.page === this.node ? path : null;
     }
     /* v8 ignore next -- unreachable for the same reason as the `!path` arm in available(): every id that gets this far came out of this.spec.affordances, and that set is exactly actionNodes ∪ #dynamic. It is the honest answer for an id from neither — no node, rather than a guessed one. */
@@ -1158,21 +1359,28 @@ export class InteractionSession<Paths extends string = string> extends Session {
    * run against ALL of it — instance #51 is real. Serving layers cap what they
    * RENDER (50 keys on an edge), never what is fireable.
    */
-  #instanceExistence(node: MapNode): { keys: string[]; enumeration: 'selector' | 'mounted-window' } {
+  #instanceExistence(node: MapNode): {
+    keys: string[];
+    enumeration: "selector" | "mounted-window";
+  } {
     if (node.instances) {
       try {
         const keys = node.instances(this.state());
         if (Array.isArray(keys)) {
-          return { keys: keys.map(sanitizeKey), enumeration: 'selector' };
+          return { keys: keys.map(sanitizeKey), enumeration: "selector" };
         }
-        this.warn(`hcifootprint: instances source for '${node.path}' returned a non-array — using the mounted window.`);
+        this.warn(
+          `hcifootprint: instances source for '${node.path}' returned a non-array — using the mounted window.`,
+        );
       } catch (error) {
-        this.warn(`hcifootprint: instances source for '${node.path}' threw: ${String(error)} — using the mounted window.`);
+        this.warn(
+          `hcifootprint: instances source for '${node.path}' threw: ${String(error)} — using the mounted window.`,
+        );
       }
     }
     return {
       keys: this.#presence.instancesOf(node.path).map(sanitizeKey),
-      enumeration: 'mounted-window',
+      enumeration: "mounted-window",
     };
   }
 
@@ -1180,7 +1388,10 @@ export class InteractionSession<Paths extends string = string> extends Session {
   #driftCheck(): void {
     const now = this.#now();
     for (const [path, firstSeen] of [...this.#foreignSeen]) {
-      if (!this.#presence.isPresent(path) || this.#map.nodes[path]?.page === this.node) {
+      if (
+        !this.#presence.isPresent(path) ||
+        this.#map.nodes[path]?.page === this.node
+      ) {
         this.#foreignSeen.delete(path);
         continue;
       }
@@ -1194,8 +1405,8 @@ export class InteractionSession<Paths extends string = string> extends Session {
         );
         this.reportGap({
           request: `dormant registration: node '${path}' mounted while router-confirmed page is '${this.node}'`,
-          reason: 'sensor-drift',
-          principal: 'system',
+          reason: "sensor-drift",
+          principal: "system",
         });
       }
     }
@@ -1214,18 +1425,20 @@ export class InteractionSession<Paths extends string = string> extends Session {
       // the app said something about that card, and saying it is not scrolling.
       .filter(
         (registration) =>
-          !registration.affordanceId.includes('[') ||
+          !registration.affordanceId.includes("[") ||
           !registration.enabled ||
           registration.busy !== undefined,
       )
       .map(registrationMark)
       .sort()
-      .join('|');
-    return `${handlers}::${this.#presence.fingerprint()}::dyn=${[...this.#dynamic.keys()].sort().join('|')}`;
+      .join("|");
+    return `${handlers}::${this.#presence.fingerprint()}::dyn=${[...this.#dynamic.keys()].sort().join("|")}`;
   }
 }
 
 function sanitizeKey(key: unknown): string {
   // eslint-disable-next-line no-control-regex
-  return String(key).replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 120);
+  return String(key)
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .slice(0, 120);
 }

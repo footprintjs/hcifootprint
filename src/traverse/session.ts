@@ -30,12 +30,20 @@ import {
   buildRuntimeStageId,
   createExecutionCounter,
   evaluateFilter,
-} from 'footprintjs/advanced';
-import type { CommitBundle, ExecutionCounter, FilterCondition } from 'footprintjs/advanced';
-import { detectSchema } from 'footprintjs';
-import type { MCPToolDescription, ScopeRecorder, WhereFilter } from 'footprintjs';
-import { formatSlice, keysReadFromMap, sliceForKey } from 'footprintjs/trace';
-import { isParam, matchRoute, segmentsOf } from '../graph/route-match.js';
+} from "footprintjs/advanced";
+import type {
+  CommitBundle,
+  ExecutionCounter,
+  FilterCondition,
+} from "footprintjs/advanced";
+import { detectSchema } from "footprintjs";
+import type {
+  MCPToolDescription,
+  ScopeRecorder,
+  WhereFilter,
+} from "footprintjs";
+import { formatSlice, keysReadFromMap, sliceForKey } from "footprintjs/trace";
+import { isParam, matchRoute, segmentsOf } from "../graph/route-match.js";
 import type {
   ActorKind,
   Affordance,
@@ -99,31 +107,35 @@ import type {
   UpdateResult,
   WorkHandle,
   WorkRow,
-} from '../atom/types.js';
-import { edgesToMCPTools, leaveJourneyTool } from '../serve/mcp.js';
-import { sanitizeProduced } from './data-channel.js';
-import { failureOf, guardReads, projectInput } from '../contextful/capture.js';
-import { readContextful } from '../contextful/contextful.js';
-import type { ContextfulSite } from '../contextful/contextful.js';
-import { watchAnchor } from '../contextful/anchor.js';
-import type { AnchorWatch } from '../contextful/anchor.js';
-import { resolveAnchor } from '../contextful/anchor-port.js';
-import type { AnchorElement } from '../contextful/anchor-port.js';
+} from "../atom/types.js";
+import { edgesToMCPTools, leaveJourneyTool } from "../serve/mcp.js";
+import { sanitizeProduced } from "./data-channel.js";
+import { failureOf, guardReads, projectInput } from "../contextful/capture.js";
+import { readContextful } from "../contextful/contextful.js";
+import type { ContextfulSite } from "../contextful/contextful.js";
+import { watchAnchor } from "../contextful/anchor.js";
+import type { AnchorWatch } from "../contextful/anchor.js";
+import { resolveAnchor } from "../contextful/anchor-port.js";
+import type { AnchorElement } from "../contextful/anchor-port.js";
 import type {
   ActionCapture,
   ContextfulOptions,
   SenseDeclaration,
   SensedEvent,
   SensedSummary,
-} from '../contextful/types.js';
-import { createSettlementLatch, settledNow } from './settlement.js';
-import type { SettlementLatch } from './settlement.js';
-import { checkApproval, stale } from './approval-gate.js';
-import type { ApprovalVerdict, OpenAsk } from './approval-gate.js';
-import { normalizeInput, sameInput } from './same-input.js';
-import { UNCOPYABLE_INPUT, boundInput } from './bound-input.js';
-import { OfferLedger } from './offers.js';
-import { AcknowledgementLedger } from './ack-ledger.js';
+} from "../contextful/types.js";
+import { createSettlementLatch, settledNow } from "./settlement.js";
+import type { SettlementLatch } from "./settlement.js";
+import { checkApproval, stale } from "./approval-gate.js";
+import type { ApprovalVerdict, OpenAsk } from "./approval-gate.js";
+import { normalizeInput, sameInput } from "./same-input.js";
+import { UNCOPYABLE_INPUT, boundInput } from "./bound-input.js";
+import {
+  OfferLedger,
+  type LedgerRetention,
+  type OfferStanding,
+} from "./offers.js";
+import { AcknowledgementLedger } from "./ack-ledger.js";
 import {
   DISCLOSE_EVERYTHING,
   demandOf,
@@ -132,33 +144,45 @@ import {
   keysOf,
   resolveFreshness,
   whatMoved,
-} from './freshness.js';
-import { HOW_TO_SETTLE, flightRender, priorFlight, scopeOf } from './single-flight.js';
-import type { Flight } from './single-flight.js';
-import { failureReason, isReturnedFailure } from './handler-result.js';
-import { redactFields } from './redact-fields.js';
-import { checkJsonShape, checkNoInput } from './payload-shape.js';
-import { NO_INPUT, expectsOf } from './expects.js';
-import { checkVerify, filterVerdict } from './verify.js';
-import { alreadyTrueNow } from './already-true.js';
-import { CERTAINTY_RANK, attributionOf, soleSignatureMatch } from './attribution.js';
+} from "./freshness.js";
+import {
+  HOW_TO_SETTLE,
+  flightRender,
+  priorFlight,
+  scopeOf,
+} from "./single-flight.js";
+import type { Flight } from "./single-flight.js";
+import { failureReason, isReturnedFailure } from "./handler-result.js";
+import { redactFields } from "./redact-fields.js";
+import { checkJsonShape, checkNoInput } from "./payload-shape.js";
+import { NO_INPUT, expectsOf } from "./expects.js";
+import { checkVerify, filterVerdict } from "./verify.js";
+import { alreadyTrueNow } from "./already-true.js";
+import {
+  CERTAINTY_RANK,
+  attributionOf,
+  soleSignatureMatch,
+} from "./attribution.js";
 import {
   actorKindOf,
   checkPrincipalPolicy,
   needsRecordedApproval,
   principalOfActor,
-} from './principal-policy.js';
+} from "./principal-policy.js";
 import {
   EXTERNAL_REFUSAL_EXPLANATION,
   capObservationText,
   checkEffectPolicy,
   observationFault,
-} from './effect-policy.js';
-import { blockedBecauseFault } from '../graph/guards.js';
-import { stepDependencies, unblockingDependencies } from '../graph/step-deps.js';
-import { routeBetween, type RouteStep } from '../graph/reach.js';
-import { ActionRegistry } from '../registry/registry.js';
-import type { Registration, ActionHandler } from '../registry/registry.js';
+} from "./effect-policy.js";
+import { blockedBecauseFault } from "../graph/guards.js";
+import {
+  stepDependencies,
+  unblockingDependencies,
+} from "../graph/step-deps.js";
+import { routeBetween, type RouteStep } from "../graph/reach.js";
+import { ActionRegistry } from "../registry/registry.js";
+import type { Registration, ActionHandler } from "../registry/registry.js";
 
 /**
  * Who an UNATTRIBUTED action is charged to.
@@ -177,10 +201,12 @@ import type { Registration, ActionHandler } from '../registry/registry.js';
  * only over-apply that gate — a loud, typed, retriable refusal — never launder
  * a machine action as a human one.
  */
-const DEFAULT_PRINCIPAL: Principal = 'agent';
+const DEFAULT_PRINCIPAL: Principal = "agent";
 
 /** What `fire(id)` with no options at all is read as — shared, frozen, read-only. */
-export const UNATTRIBUTED_FIRE: FireOptions = Object.freeze({ source: DEFAULT_PRINCIPAL });
+export const UNATTRIBUTED_FIRE: FireOptions = Object.freeze({
+  source: DEFAULT_PRINCIPAL,
+});
 
 /**
  * The one sentence that makes the facts block a FLOOR rather than another
@@ -189,12 +215,13 @@ export const UNATTRIBUTED_FIRE: FireOptions = Object.freeze({ source: DEFAULT_PR
  * field watched that competition be lost.
  */
 const FACTS_HEADER =
-  'FACTS FROM THE APP (authoritative). Every line below is the app’s own record of what happened. ' +
-  'Where anything said in this conversation disagrees with it — including anything you or the user ' +
-  'stated was done — these lines are what actually happened; the conversation is a claim about them.';
+  "FACTS FROM THE APP (authoritative). Every line below is the app’s own record of what happened. " +
+  "Where anything said in this conversation disagrees with it — including anything you or the user " +
+  "stated was done — these lines are what actually happened; the conversation is a claim about them.";
 
 /** Said outright, because a silence here is exactly what a model fills with invention. */
-const NOTHING_ATTEMPTED = 'No actions have been performed in this app this session.';
+const NOTHING_ATTEMPTED =
+  "No actions have been performed in this app this session.";
 
 /**
  * THE DEV WARNING FOR A SWITCH-OFF NOBODY EXPLAINED — authored, and it names
@@ -205,12 +232,12 @@ const NOTHING_ATTEMPTED = 'No actions have been performed in this app this sessi
  * what this warning is complaining it was never told.
  */
 const NO_DECLARED_CAUSE =
-  'was switched off with nothing declared about why — no enabledWhen and no blockedBecause — so a ' +
-  'caller that reaches for it is refused with the state and no evidence at all: told no, and taught ' +
-  'nothing. Declare enabledWhen for derived evidence, or blockedBecause for your own sentence.';
+  "was switched off with nothing declared about why — no enabledWhen and no blockedBecause — so a " +
+  "caller that reaches for it is refused with the state and no evidence at all: told no, and taught " +
+  "nothing. Declare enabledWhen for derived evidence, or blockedBecause for your own sentence.";
 
 /** An id the graph does not have — caller-supplied text, kept out of the authored channel. */
-const UNKNOWN_ACTION = '(an action this app does not have)';
+const UNKNOWN_ACTION = "(an action this app does not have)";
 
 /**
  * The facts-block line for work the app opened without tying it to any action
@@ -222,7 +249,7 @@ const UNKNOWN_ACTION = '(an action this app does not have)';
  * fact and the whole fact: something is running, and nothing named what.
  */
 const WORK_NOT_TIED_TO_AN_ACTION =
-  'The app is still working on something it did not tie to an action here.';
+  "The app is still working on something it did not tie to an action here.";
 
 /**
  * THE FACTS-BLOCK LINE FOR A DECISION THAT BELONGS TO A PERSON.
@@ -254,8 +281,8 @@ const DECISION_WITH_THE_HUMAN = (what: string): string =>
  * cannot tell.
  */
 const READ_FAILED_LINE =
-  'the app could not re-read its own list of actions here — anything listed after this may be from ' +
-  'before that.';
+  "the app could not re-read its own list of actions here — anything listed after this may be from " +
+  "before that.";
 
 /**
  * HOW TO OPEN A CARD — the second half of the refused-crossing warning.
@@ -271,9 +298,9 @@ const READ_FAILED_LINE =
  * the same bytes in every app.
  */
 const HOW_TO_OPEN_A_CARD =
-  ' To put the decision in front of a person, call session.confirmAsk(affordanceId): it hands back the ' +
-  'receipts to show them, their yes goes in through session.approveAsk(askId, { by }) (their no through ' +
-  'session.declineAsk), and the fire then carries that askId.';
+  " To put the decision in front of a person, call session.confirmAsk(affordanceId): it hands back the " +
+  "receipts to show them, their yes goes in through session.approveAsk(askId, { by }) (their no through " +
+  "session.declineAsk), and the fire then carries that askId.";
 
 /**
  * How many times a page-change broadcast will run again for a listener that
@@ -310,9 +337,9 @@ function carriedDoes(does: string | undefined): { does?: string } {
  * that a future one cannot quietly launder itself.)
  */
 function fireBasis(assist: ContextAssist | null): AttributionBasis {
-  if (assist?.inferred === true) return 'sensed-click';
-  if (assist?.direct === true) return 'direct-call';
-  return 'caller-asserted';
+  if (assist?.inferred === true) return "sensed-click";
+  if (assist?.direct === true) return "direct-call";
+  return "caller-asserted";
 }
 
 /** The principal of a fire, tolerating a caller who omitted `source` entirely. */
@@ -329,7 +356,7 @@ export function principalOf(opts: FireOptions): Principal {
  */
 interface SettlementExtra {
   error?: unknown;
-  verifyHeld?: boolean | 'unevaluable';
+  verifyHeld?: boolean | "unevaluable";
 }
 
 /**
@@ -351,9 +378,9 @@ type AttemptRow =
  */
 type CursorRest =
   /** sync() reported where the cursor now is. Carries the observation. */
-  | { kind: 'observed'; node: string }
+  | { kind: "observed"; node: string }
   /** Nobody reported anything: a claimed navigation, or the coalesced structure flush. */
-  | { kind: 'unreported' };
+  | { kind: "unreported" };
 
 /**
  * One row of the work ledger, as it is HELD (what {@link Session.openWork}
@@ -439,7 +466,7 @@ const NOTHING_TO_RELEASE = (): void => {};
 
 /** A value the app returned that a later turn will answer for. */
 function isThenable(value: unknown): value is Promise<unknown> {
-  return typeof (value as { then?: unknown })?.then === 'function';
+  return typeof (value as { then?: unknown })?.then === "function";
 }
 
 /** registerHandlers() input: one group per component/section, existing handlers by reference. */
@@ -528,7 +555,7 @@ export class Session {
   readonly #requireVerifiableEffects: boolean;
   readonly #now: () => number;
   /** Fingerprint of the served structure at the last coalesced flush. */
-  #structureFingerprint = '';
+  #structureFingerprint = "";
   #structureFlushScheduled = false;
   readonly #heap: SharedMemory;
   readonly #log: EventLog;
@@ -553,7 +580,7 @@ export class Session {
    * gate comparing real values while the rendered copies carry markers.
    */
   readonly #redactedFields: RedactedFields;
-  readonly #commitValues: 'full' | 'delta';
+  readonly #commitValues: "full" | "delta";
   readonly #transitions: TransitionRecord[] = [];
   readonly #pending: PendingTransition[] = [];
   /**
@@ -706,7 +733,10 @@ export class Session {
   /** Sense-only declarations, by action — {@link Session.sense}'s ledger. */
   readonly #senses = new Map<string, ContextfulOptions>();
   /** What each open capture needs at settlement: the options that opened it, and its anchor. */
-  readonly #captures = new Map<string, { options: ContextfulOptions; actionId: string }>();
+  readonly #captures = new Map<
+    string,
+    { options: ContextfulOptions; actionId: string }
+  >();
   /**
    * Event trails too long to ride the record inline, by transition id — what
    * {@link Session.sensedTrail} answers with. Bounded (the newest
@@ -715,6 +745,8 @@ export class Session {
    * there were.
    */
   readonly #trails = new Map<string, SensedEvent[]>();
+  /** Oversized trails evicted by the {@link TRAILS_RETAINED} cap (1.13.0). */
+  #trailsDropped = 0;
   /** Contextful teardowns owned by a mount group — released with its handlers. */
   readonly #contextReleases = new Map<string, Array<() => void>>();
   /** Contextful complaints already made (the #warnedOnce discipline). */
@@ -768,7 +800,10 @@ export class Session {
    * fourth pillar" — declined).
    */
   readonly #holdsDeclared = new Map<string, Array<() => unknown>>();
-  readonly #holdsRegistered = new Map<string, { group: string; read: () => unknown }>();
+  readonly #holdsRegistered = new Map<
+    string,
+    { group: string; read: () => unknown }
+  >();
   /** Value-reader complaints already made, keyed `reason:affordanceId` (the #warnedOnce discipline). */
   readonly #holdsWarned = new Set<string>();
   /** Busy-label complaints already made, keyed `busy:affordanceId` (same discipline). */
@@ -851,7 +886,10 @@ export class Session {
   /** Monotonic counter behind every generated confirm id (never caller-supplied). */
   #askSeq = 0;
   /** Passive observer listeners, by event name (the recorder category, session grain). */
-  readonly #listeners = new Map<SessionEventName, Set<(payload: unknown) => void>>();
+  readonly #listeners = new Map<
+    SessionEventName,
+    Set<(payload: unknown) => void>
+  >();
   /**
    * Page-change listeners — a SEPARATE surface from `on()` on purpose. These run
    * inside a write path and are EXPECTED to change the session (a live source
@@ -891,7 +929,7 @@ export class Session {
     // page is a real decision, so the refusal stays; only its voice changes.
     if (!spec.pages[opts?.node]) {
       throw new Error(
-        `hcifootprint: unknown starting node '${opts?.node}'. Known pages: ${Object.keys(spec.pages).join(', ')}.`,
+        `hcifootprint: unknown starting node '${opts?.node}'. Known pages: ${Object.keys(spec.pages).join(", ")}.`,
       );
     }
     this.#spec = spec;
@@ -904,7 +942,8 @@ export class Session {
     // `true` is the plain policy (no staleness rules); an object is the policy
     // itself. Absent stays absent — the presence of the field is the opt-in.
     this.#humanApproval =
-      opts.requireHumanApproval === undefined || opts.requireHumanApproval === false
+      opts.requireHumanApproval === undefined ||
+      opts.requireHumanApproval === false
         ? undefined
         : opts.requireHumanApproval === true
           ? {}
@@ -921,9 +960,10 @@ export class Session {
     // nothing. Read with `=== ` rather than truthiness so a caller who writes the
     // word gets the policy and everything else gets the default — a typo must not
     // silently arm an enforcement.
-    this.#attributionStrict = opts.attributionPolicy === 'strict';
+    this.#attributionStrict = opts.attributionPolicy === "strict";
     this.#enforcePrincipals = opts.enforcePrincipalPolicy === true;
-    this.#requireVerifiableEffects = opts.effectPolicy?.highEffectRequiresVerify === true;
+    this.#requireVerifiableEffects =
+      opts.effectPolicy?.highEffectRequiresVerify === true;
     this.#now = opts.now ?? Date.now;
     const initial = structuredClone(opts.state ?? {});
     this.#log = new EventLog(initial);
@@ -941,13 +981,14 @@ export class Session {
         ? { produced: [...opts.redactedFields.produced] }
         : {}),
     };
-    this.#commitValues = opts.commitValues ?? 'delta';
+    this.#commitValues = opts.commitValues ?? "delta";
     this.#warn = opts.onWarn ?? ((message) => console.warn(message));
     this.#registry = new ActionRegistry(this.#warn);
     // Detached at construction, exactly as `redactedFields` above is and for the
     // same reason: an enforcement rule is read ONCE, so a consumer mutating the
     // object they passed cannot switch a session's refusals off after the fact.
-    this.#freshness = opts.freshness === undefined ? undefined : { ...opts.freshness };
+    this.#freshness =
+      opts.freshness === undefined ? undefined : { ...opts.freshness };
     this.#offers = new OfferLedger({
       max: opts.maxOffers,
       now: this.#now,
@@ -966,7 +1007,7 @@ export class Session {
       warn: (message) => this.warn(message),
     });
     this.#recorder = {
-      id: 'hcifootprint-session',
+      id: "hcifootprint-session",
       onRead: (event) => {
         /* v8 ignore next -- unreachable: footprintjs stamps both a key and a runtimeStageId on every read it reports, so this tap never sees a half-formed event. The guard is what keeps a malformed one out of the reads index instead of filing it under 'undefined'. */
         if (!event.key || !event.runtimeStageId) return;
@@ -1031,7 +1072,7 @@ export class Session {
    * changes what the app is TOLD and can never change what the gate DOES.
    */
   #holdsFiresFrom(principal: Principal): boolean {
-    return this.#humanApproval !== undefined && principal === 'agent';
+    return this.#humanApproval !== undefined && principal === "agent";
   }
 
   /**
@@ -1078,12 +1119,18 @@ export class Session {
   // -------------------------------------------------------------------------
 
   /** Subscribe to a session event. Returns an unsubscribe function. */
-  on<N extends SessionEventName>(event: N, listener: (payload: SessionEvents[N]) => void): () => void {
-    const set = this.#listeners.get(event) ?? new Set<(payload: unknown) => void>();
+  on<N extends SessionEventName>(
+    event: N,
+    listener: (payload: SessionEvents[N]) => void,
+  ): () => void {
+    const set =
+      this.#listeners.get(event) ?? new Set<(payload: unknown) => void>();
     set.add(listener as (payload: unknown) => void);
     this.#listeners.set(event, set);
     return () => {
-      this.#listeners.get(event)?.delete(listener as (payload: unknown) => void);
+      this.#listeners
+        .get(event)
+        ?.delete(listener as (payload: unknown) => void);
     };
   }
 
@@ -1118,9 +1165,13 @@ export class Session {
       // Append-only in the log, and a fresh array per copy so a reader that
       // sorts or splices its own list cannot rewrite the trail. The rows inside
       // are plain scalars.
-      ...(t.observations ? { observations: t.observations.map((row) => ({ ...row })) } : {}),
+      ...(t.observations
+        ? { observations: t.observations.map((row) => ({ ...row })) }
+        : {}),
       evidence: t.evidence ? t.evidence.map((c) => ({ ...c })) : undefined,
-      ...(t.guardUnevaluated ? { guardUnevaluated: [...t.guardUnevaluated] } : {}),
+      ...(t.guardUnevaluated
+        ? { guardUnevaluated: [...t.guardUnevaluated] }
+        : {}),
       ...(t.askId !== undefined ? { askId: t.askId } : {}),
       ...(t.offerId !== undefined ? { offerId: t.offerId } : {}),
       ...(t.payload !== undefined ? { payload: cloneSafe(t.payload) } : {}),
@@ -1129,12 +1180,14 @@ export class Session {
       // whatever the app's own allowlist let through the data-channel bound), so
       // it clones — and it MUST, or a 'transition' listener holds the live
       // record's own event trail and can rewrite the evidence.
-      ...(t.captured !== undefined ? { captured: cloneSafe(t.captured) as ActionCapture } : {}),
+      ...(t.captured !== undefined
+        ? { captured: cloneSafe(t.captured) as ActionCapture }
+        : {}),
     };
   }
 
   #emitTransition(record: TransitionRecord): void {
-    this.#emit('transition', this.#copyRecord(record));
+    this.#emit("transition", this.#copyRecord(record));
   }
 
   /**
@@ -1176,17 +1229,23 @@ export class Session {
   /** Increment the state axis and notify observers. (`+= 1` so global bump-replaces skip this.) */
   #bumpState(): void {
     this.#stateVersion += 1;
-    this.#emit('state', { version: this.#version, stateVersion: this.#stateVersion });
+    this.#emit("state", {
+      version: this.#version,
+      stateVersion: this.#stateVersion,
+    });
   }
 
   /** Increment the structure axis and notify observers. */
   #bumpStructure(): void {
     this.#structureVersion += 1;
-    this.#emit('structure', { version: this.#version, structureVersion: this.#structureVersion });
+    this.#emit("structure", {
+      version: this.#version,
+      structureVersion: this.#structureVersion,
+    });
   }
 
   /** Generate an opaque group identity (never caller-supplied — see ActionGroup). */
-  protected nextGroupId(prefix = 'group'): string {
+  protected nextGroupId(prefix = "group"): string {
     return `${prefix}#${(this.#groupSeq += 1)}`;
   }
 
@@ -1229,7 +1288,8 @@ export class Session {
   #warnNoDeclaredCause(registryKey: string): void {
     const affordanceId = baseActionId(registryKey);
     const aff = this.spec.affordances[affordanceId];
-    if (aff?.enabledWhen !== undefined || aff?.blockedBecause !== undefined) return;
+    if (aff?.enabledWhen !== undefined || aff?.blockedBecause !== undefined)
+      return;
     if (this.#noCauseWarned.has(affordanceId)) return;
     this.#noCauseWarned.add(affordanceId);
     this.#warn(`hcifootprint: '${affordanceId}' ${NO_DECLARED_CAUSE}`);
@@ -1247,7 +1307,10 @@ export class Session {
    * {@link AvailableEdge.busy}: a clock is not evidence, and the ceiling on
    * waiting belongs to whoever is waiting.
    */
-  protected setActionBusy(affordanceId: string, busy: string | undefined): void {
+  protected setActionBusy(
+    affordanceId: string,
+    busy: string | undefined,
+  ): void {
     const label = this.busyLabel(affordanceId, busy);
     // A REFUSED label is not a CLEAR. `undefined` in means "stop saying it";
     // anything else that failed the door leaves the standing word exactly where
@@ -1279,8 +1342,9 @@ export class Session {
    */
   protected busyLabel(affordanceId: string, busy: unknown): string | undefined {
     if (busy === undefined) return undefined;
-    if (typeof busy !== 'string' || busy.trim() === '') {
-      const said = typeof busy === 'string' ? 'an empty label' : `a ${describeKind(busy)}`;
+    if (typeof busy !== "string" || busy.trim() === "") {
+      const said =
+        typeof busy === "string" ? "an empty label" : `a ${describeKind(busy)}`;
       this.#warnBusyOnce(
         affordanceId,
         `hcifootprint: busy for '${affordanceId}' was ${said}, not a label — so the row says ` +
@@ -1311,8 +1375,14 @@ export class Session {
    * flip, a live store row, or the authored `enabledWhen` — should reach the
    * agent as the same retriable refusal.
    */
-  protected isActionDisabled(affordanceId: string, _opts: FireOptions): boolean {
-    return this.declaredDisabled(affordanceId) || this.#registry.isEnabled(affordanceId) === false;
+  protected isActionDisabled(
+    affordanceId: string,
+    _opts: FireOptions,
+  ): boolean {
+    return (
+      this.declaredDisabled(affordanceId) ||
+      this.#registry.isEnabled(affordanceId) === false
+    );
   }
 
   /**
@@ -1334,7 +1404,7 @@ export class Session {
    */
   #disabledByDeclaration(aff: Affordance | undefined): boolean {
     if (!aff?.enabledWhen) return false;
-    return filterVerdict(this.#evalGuard(aff.enabledWhen)) === 'failed';
+    return filterVerdict(this.#evalGuard(aff.enabledWhen)) === "failed";
   }
 
   /**
@@ -1366,7 +1436,7 @@ export class Session {
     const enabledWhen = this.spec.affordances[affordanceId]?.enabledWhen;
     if (!enabledWhen) return undefined;
     const evaluation = this.#evalGuard(enabledWhen);
-    if (filterVerdict(evaluation) !== 'failed') return undefined;
+    if (filterVerdict(evaluation) !== "failed") return undefined;
     // Copy the condition objects: the same shapes ride the gap ledger, and a
     // consumer annotating a refusal must never rewrite the trace.
     const failing = evaluation.conditions
@@ -1404,7 +1474,9 @@ export class Session {
     // a navigate fn arms the flag for the same reason — materialisation is a
     // meaningful question there even before any handler mounts.
     const flagMaterialized =
-      this.#registry.hasAny() || this.#allowUnmaterialized || this.#navigate !== undefined;
+      this.#registry.hasAny() ||
+      this.#allowUnmaterialized ||
+      this.#navigate !== undefined;
     const edges: AvailableEdge[] = [];
     for (const aff of Object.values(this.spec.affordances)) {
       if (!aff.on.includes(this.#node)) continue;
@@ -1417,13 +1489,17 @@ export class Session {
       // Read ONCE, used twice: the marker below and the app's own reason beside
       // it must answer the same question in the same breath, or a row could
       // carry a reason for a control it also calls clickable.
-      const switchedOff = this.#registry.isEnabled(aff.id) === false || this.#disabledByDeclaration(aff);
+      const switchedOff =
+        this.#registry.isEnabled(aff.id) === false ||
+        this.#disabledByDeclaration(aff);
       // WOULD A FIRE OF THIS ROW HAVE TO CITE IT — answered ONCE, by the layer
       // that can resolve an action's policy against the session default, so no
       // projection has to re-derive library law and none of them can disagree.
       // Read twice below: the stamp on the row, and (through `#offerFor`) the
       // ledger's own test for whether its bound can cost this session anything.
-      const mustCiteOffer = enforcesAnything(resolveFreshness(this.#freshness, aff.freshness));
+      const mustCiteOffer = enforcesAnything(
+        resolveFreshness(this.#freshness, aff.freshness),
+      );
       edges.push({
         affordanceId: aff.id,
         description: aff.description,
@@ -1431,7 +1507,11 @@ export class Session {
         // The stamp mirrors the ONE materialisation question handlerFor
         // answers: registered, OR url-materialisable through navigate.
         ...(flagMaterialized
-          ? { materialized: this.#registry.isRegistered(aff.id) || this.#urlMaterialisable(aff) }
+          ? {
+              materialized:
+                this.#registry.isRegistered(aff.id) ||
+                this.#urlMaterialisable(aff),
+            }
           : {}),
         // A disabled tool is served WITH the marker (a greyed button the agent
         // can see), never silently hidden — whether the registration site said
@@ -1462,24 +1542,32 @@ export class Session {
         highEffect: aff.highEffect,
         // The declared destination, served BEFORE the fire — the same claim the
         // human's confirm receipt has always carried (ConfirmWillDo.navigatesTo).
-        ...(aff.effect?.navigatesTo !== undefined ? { navigatesTo: aff.effect.navigatesTo } : {}),
+        ...(aff.effect?.navigatesTo !== undefined
+          ? { navigatesTo: aff.effect.navigatesTo }
+          : {}),
         // WHAT THIS CONTROL'S OUTCOME DEPENDS ON, as the app declared it. Copied,
         // not shared: the affordance is frozen, but an edge is a fresh row per
         // call and a consumer that sorts this list in place must not reach the
         // spec. Presence-only — an app that declares no reads serves the row it
         // always served.
-        ...(aff.effect?.reads !== undefined ? { reads: [...aff.effect.reads] } : {}),
+        ...(aff.effect?.reads !== undefined
+          ? { reads: [...aff.effect.reads] }
+          : {}),
         // AND WHAT IT CLAIMS IT WILL CHANGE, copied under the same law. The
         // write side has always been on the spec and on the human's confirm
         // receipt; the agent's row is where it was missing, and it is the only
         // place the serving layer can reach it to say "someone has already
         // written what you are about to write".
-        ...(aff.effect?.writes !== undefined ? { writes: [...aff.effect.writes] } : {}),
+        ...(aff.effect?.writes !== undefined
+          ? { writes: [...aff.effect.writes] }
+          : {}),
         // THE DECISION HERE IS A PERSON'S, said on the row a model reads BEFORE
         // it reaches for anything. Presence is the whole claim, and the filter
         // behind it never rides: a served row carries verdicts and stamps, not
         // conditions — the same reason `enabledWhen` itself is not here.
-        ...(aff.humanDecides !== undefined ? { humanDecides: true as const } : {}),
+        ...(aff.humanDecides !== undefined
+          ? { humanDecides: true as const }
+          : {}),
         // WHO MAY PERFORM IT, AND WHOSE CHOICE IT IS — copied, never shared: the
         // affordance is frozen, but an edge is a fresh row per call and a
         // consumer that sorts this list in place must not reach the spec (the
@@ -1497,7 +1585,9 @@ export class Session {
           ? { decisionOwner: aff.principalPolicy.decisionOwner }
           : {}),
         binding: aff.binding,
-        ...(aff.descriptionSource === 'registration' ? { descriptionSource: 'registration' as const } : {}),
+        ...(aff.descriptionSource === "registration"
+          ? { descriptionSource: "registration" as const }
+          : {}),
         // THE NAME OF THIS ROW, minted from the very facts assembled above, so a
         // fire can cite what it was planned against. Last, because it is about
         // the row rather than about the control.
@@ -1509,7 +1599,9 @@ export class Session {
         // the verdict, so a serving layer never sends a person to approve an
         // action this session is about to refuse. Only for the scope a ROW can
         // answer for (see AvailableEdge.heldByPriorFire).
-        ...(this.#heldByPriorFire(aff) ? { heldByPriorFire: true as const } : {}),
+        ...(this.#heldByPriorFire(aff)
+          ? { heldByPriorFire: true as const }
+          : {}),
       });
     }
     return { version: this.#version, node: this.#node, edges };
@@ -1610,10 +1702,15 @@ export class Session {
    * a single app closure would take down `available()` and, through the gap
    * context, every refused fire.
    */
-  #blockedBecauseFor(aff: Affordance): { blockedBecause: BlockedBecause } | Record<string, never> {
+  #blockedBecauseFor(
+    aff: Affordance,
+  ): { blockedBecause: BlockedBecause } | Record<string, never> {
     const declared = aff.blockedBecause;
     if (declared === undefined) return {};
-    if (typeof declared !== 'function') return { blockedBecause: { says: declared.says, clearedBy: declared.clearedBy } };
+    if (typeof declared !== "function")
+      return {
+        blockedBecause: { says: declared.says, clearedBy: declared.clearedBy },
+      };
     try {
       const answered = declared();
       if (answered === undefined) return {};
@@ -1630,7 +1727,9 @@ export class Session {
         );
         return {};
       }
-      return { blockedBecause: { says: answered.says, clearedBy: answered.clearedBy } };
+      return {
+        blockedBecause: { says: answered.says, clearedBy: answered.clearedBy },
+      };
     } catch (error) {
       this.#warnBlockedOnce(
         aff.id,
@@ -1702,7 +1801,11 @@ export class Session {
    * registration doors live on the tree layer, which resolves a leaf name to its
    * qualified id first.
    */
-  protected registerHolds(affordanceId: string, group: string, read: () => unknown): void {
+  protected registerHolds(
+    affordanceId: string,
+    group: string,
+    read: () => unknown,
+  ): void {
     const key = canonicalHoldsKey(affordanceId);
     const existing = this.#holdsRegistered.get(key);
     // The same sentence the handler registry says about the same event, because
@@ -1766,7 +1869,10 @@ export class Session {
    *   `redactedFields.payload` — REDACTION POINT 4 of 4, because what a control
    *   holds IS the future fire's payload one turn early.
    */
-  #holdsFor(aff: Affordance, expects: unknown): { holds: unknown } | Record<string, never> {
+  #holdsFor(
+    aff: Affordance,
+    expects: unknown,
+  ): { holds: unknown } | Record<string, never> {
     // The SERVED contract, not the compiled flag: `'none'` is the author's word
     // and this is the one place both spellings of it arrive as the same value.
     // An ABSENT contract is not 'none' — it neither demands a value nor refuses
@@ -1775,7 +1881,8 @@ export class Session {
     if (expects === NO_INPUT) return {};
     const key = canonicalHoldsKey(aff.id);
     const declared = this.#holdsDeclared.get(key);
-    const read = declared?.[declared.length - 1] ?? this.#holdsRegistered.get(key)?.read;
+    const read =
+      declared?.[declared.length - 1] ?? this.#holdsRegistered.get(key)?.read;
     if (read === undefined) return {};
     if (!this.servesHolds(aff.id)) return {};
     try {
@@ -1841,8 +1948,14 @@ export class Session {
     return {
       id: group,
       ...(node !== undefined ? { node } : {}),
-      setEnabled: setEnabled ?? ((actionId: string, enabled: boolean) => this.setActionEnabled(actionId, enabled)),
-      setBusy: setBusy ?? ((actionId: string, busy: string | undefined) => this.setActionBusy(actionId, busy)),
+      setEnabled:
+        setEnabled ??
+        ((actionId: string, enabled: boolean) =>
+          this.setActionEnabled(actionId, enabled)),
+      setBusy:
+        setBusy ??
+        ((actionId: string, busy: string | undefined) =>
+          this.setActionBusy(actionId, busy)),
       unregister: () => this.unregisterGroup(group),
     };
   }
@@ -1854,19 +1967,21 @@ export class Session {
    * path — it returns a handle so you never invent a group name.
    */
   registerHandlers(opts: RegisterHandlersOptions): RegisteredHandlers {
-    const unknown = Object.keys(opts.handlers).filter((id) => !this.spec.affordances[id]);
+    const unknown = Object.keys(opts.handlers).filter(
+      (id) => !this.spec.affordances[id],
+    );
     if (unknown.length > 0) {
       throw new Error(
         `hcifootprint: registerHandlers group '${opts.group}' includes undeclared affordance(s) ` +
-          `${unknown.map((u) => `'${u}'`).join(', ')} — declare them in the navigation graph first ` +
-          `(known: ${Object.keys(this.spec.affordances).join(', ')}).`,
+          `${unknown.map((u) => `'${u}'`).join(", ")} — declare them in the navigation graph first ` +
+          `(known: ${Object.keys(this.spec.affordances).join(", ")}).`,
       );
     }
     const triggers: Record<string, (payload?: unknown) => FireResult> = {};
     for (const [affordanceId, handler] of Object.entries(opts.handlers)) {
       this.bindHandler(opts.group, affordanceId, handler);
       triggers[affordanceId] = (payload?: unknown) =>
-        this.fire(affordanceId, { source: 'user', payload });
+        this.fire(affordanceId, { source: "user", payload });
     }
     this.noteStructureChange();
     const registered = new Set(Object.keys(opts.handlers));
@@ -1882,7 +1997,12 @@ export class Session {
       // control, and a caller reaching past that would be switching off someone
       // else's button.
       setEnabled: (actionId: string, enabled: boolean) => {
-        this.#assertGroupGoverns(opts.group, registered, actionId, 'enable/disable');
+        this.#assertGroupGoverns(
+          opts.group,
+          registered,
+          actionId,
+          "enable/disable",
+        );
         this.setActionEnabled(actionId, enabled);
       },
       // THE THIRD STATE, through the same door and under the same scope. A
@@ -1891,7 +2011,12 @@ export class Session {
       // decision — and one with a consequence, since `useWorking` takes handles
       // by their `setBusy`.
       setBusy: (actionId: string, label: string | undefined) => {
-        this.#assertGroupGoverns(opts.group, registered, actionId, 'set busy on');
+        this.#assertGroupGoverns(
+          opts.group,
+          registered,
+          actionId,
+          "set busy on",
+        );
         this.setActionBusy(actionId, label);
       },
       unregister: () => this.unregisterGroup(opts.group),
@@ -1913,7 +2038,7 @@ export class Session {
     if (registered.has(actionId)) return;
     throw new Error(
       `hcifootprint: group '${group}' cannot ${verb} '${actionId}' — it registered ` +
-        `${[...registered].map((id) => `'${id}'`).join(', ')}. A group governs only what it mounted.`,
+        `${[...registered].map((id) => `'${id}'`).join(", ")}. A group governs only what it mounted.`,
     );
   }
 
@@ -1941,7 +2066,7 @@ export class Session {
     const aff = this.spec.affordances[affordanceId];
     if (!aff) {
       throw new Error(
-        `hcifootprint: unknown affordance '${affordanceId}'. Known: ${Object.keys(this.spec.affordances).join(', ')}.`,
+        `hcifootprint: unknown affordance '${affordanceId}'. Known: ${Object.keys(this.spec.affordances).join(", ")}.`,
       );
     }
     const offeredOnThisNode = aff.on.includes(this.#node);
@@ -1958,7 +2083,11 @@ export class Session {
   }
 
   /** Journey-level disclosure for the planning LLM (descriptions + feasibility, no tool detail). */
-  availableJourneys(): { version: number; node: string; journeys: AvailableJourney[] } {
+  availableJourneys(): {
+    version: number;
+    node: string;
+    journeys: AvailableJourney[];
+  } {
     const journeys: AvailableJourney[] = [];
     for (const journey of Object.values(this.spec.journeys)) {
       const pre = this.#evalGuard(journey.precondition);
@@ -1970,7 +2099,9 @@ export class Session {
         steps: [...journey.steps],
         preconditionPassed: pre.matched,
         evidence: pre.conditions,
-        ...(pre.unevaluable.length > 0 ? { preconditionUnevaluable: pre.unevaluable } : {}),
+        ...(pre.unevaluable.length > 0
+          ? { preconditionUnevaluable: pre.unevaluable }
+          : {}),
         entryAvailable: entry.on.includes(this.#node) && entryGuard.matched,
       });
     }
@@ -1996,19 +2127,34 @@ export class Session {
   ): CommitJourneyResult {
     const journey = this.spec.journeys[journeyId];
     if (!journey) {
-      return { ok: false, reason: 'UNKNOWN_JOURNEY', known: Object.keys(this.spec.journeys) };
+      return {
+        ok: false,
+        reason: "UNKNOWN_JOURNEY",
+        known: Object.keys(this.spec.journeys),
+      };
     }
-    if (opts?.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
-      return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
+    if (
+      opts?.expectedVersion !== undefined &&
+      opts.expectedVersion !== this.#version
+    ) {
+      return { ok: false, reason: "STALE_CURSOR", version: this.#version };
     }
     if (this.#frame) {
-      return { ok: false, reason: 'FRAME_ALREADY_OPEN', journeyId: this.#frame.journeyId };
+      return {
+        ok: false,
+        reason: "FRAME_ALREADY_OPEN",
+        journeyId: this.#frame.journeyId,
+      };
     }
     const pre = this.#evalGuard(journey.precondition);
     if (!pre.matched) {
-      return { ok: false, reason: 'PRECONDITION_FAILED', evidence: pre.conditions };
+      return {
+        ok: false,
+        reason: "PRECONDITION_FAILED",
+        evidence: pre.conditions,
+      };
     }
-    const principal = opts?.source ?? 'agent';
+    const principal = opts?.source ?? "agent";
     // THE NEVER-TRAP COMMIT GATE (fifth refusal, after the existing four): a
     // journey whose ENTRY step could not act right now must never open its frame
     // — the agent would stand in a narrowed room where the first thing it was
@@ -2021,17 +2167,24 @@ export class Session {
     // honest no-ops. Registered-but-disabled entries pass (TOOL_DISABLED is
     // retriable, not missing wiring). The refusal lands ONE gap row and
     // touches no state — no transition, no commit bundle.
-    if (principal === 'agent' && !this.#allowUnmaterialized) {
+    if (principal === "agent" && !this.#allowUnmaterialized) {
       const entryId = journey.steps[0];
       const entry = this.spec.affordances[entryId];
       if (!this.couldMaterialise(entryId)) {
-        this.recordRejection(entryId, 'ENTRY_NOT_MATERIALIZED', principal, undefined, undefined, {
-          gestureKind: entry?.binding?.kind,
-          journeyId,
-        });
+        this.recordRejection(
+          entryId,
+          "ENTRY_NOT_MATERIALIZED",
+          principal,
+          undefined,
+          undefined,
+          {
+            gestureKind: entry?.binding?.kind,
+            journeyId,
+          },
+        );
         return {
           ok: false,
-          reason: 'ENTRY_NOT_MATERIALIZED',
+          reason: "ENTRY_NOT_MATERIALIZED",
           affordanceId: entryId,
           ...(entry?.binding ? { gesture: entry.binding } : {}),
         };
@@ -2039,7 +2192,7 @@ export class Session {
     }
     this.#frame = {
       journeyId,
-      status: 'open',
+      status: "open",
       principal,
       openedAt: Date.now(),
       openedAtVersion: this.#version,
@@ -2048,7 +2201,12 @@ export class Session {
     };
     this.#version++; // the served action space just changed
     this.#bumpStructure();
-    return { ok: true, frame: this.#frameCopy()!, plan: this.journeyPlan(journeyId), version: this.#version };
+    return {
+      ok: true,
+      frame: this.#frameCopy()!,
+      plan: this.journeyPlan(journeyId),
+      version: this.#version,
+    };
   }
 
   /**
@@ -2056,15 +2214,19 @@ export class Session {
    * committed while the frame was open, else 'cancelled'. Returns the closed
    * frame, or null when none was open.
    */
-  leaveJourney(opts?: { reason?: 'completed' | 'cancelled' }): JourneyFrame | null {
+  leaveJourney(opts?: {
+    reason?: "completed" | "cancelled";
+  }): JourneyFrame | null {
     if (!this.#frame) return null;
     const journey = this.spec.journeys[this.#frame.journeyId];
     // Completion counts observed AND inferred steps; inferredSteps on the
     // returned frame says which of them were guesses.
     const allDone = journey.steps.every(
-      (step) => this.#frame!.firedSteps.includes(step) || this.#frame!.inferredSteps.includes(step),
+      (step) =>
+        this.#frame!.firedSteps.includes(step) ||
+        this.#frame!.inferredSteps.includes(step),
     );
-    this.#frame.status = opts?.reason ?? (allDone ? 'completed' : 'cancelled');
+    this.#frame.status = opts?.reason ?? (allDone ? "completed" : "cancelled");
     this.#frame.closedAtVersion = this.#version;
     this.#frames.push(this.#frame);
     const closed = this.#frameCopy(this.#frame);
@@ -2114,7 +2276,7 @@ export class Session {
     // here, so the refusal teaches instead of misinforming.
     if (!Object.hasOwn(this.spec.pages, pageId)) {
       throw new Error(
-        `hcifootprint: unknown page '${pageId}'. Known: ${Object.keys(this.spec.pages).join(', ')}.`,
+        `hcifootprint: unknown page '${pageId}'. Known: ${Object.keys(this.spec.pages).join(", ")}.`,
       );
     }
     return routeBetween(this.spec.affordances, this.#node, pageId);
@@ -2189,37 +2351,46 @@ export class Session {
     const journey = this.spec.journeys[journeyId];
     if (!journey) {
       throw new Error(
-        `hcifootprint: unknown journey '${journeyId}'. Known: ${Object.keys(this.spec.journeys).join(', ')}.`,
+        `hcifootprint: unknown journey '${journeyId}'. Known: ${Object.keys(this.spec.journeys).join(", ")}.`,
       );
     }
     const steps: JourneyPlanStep[] = journey.steps.map((stepId) => {
       const aff = this.spec.affordances[stepId];
-      const dependsOn = stepDependencies(this.spec.affordances, journey.steps, stepId);
+      const dependsOn = stepDependencies(
+        this.spec.affordances,
+        journey.steps,
+        stepId,
+      );
 
       const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
-      const frameForJourney = this.#frame?.journeyId === journeyId ? this.#frame : null;
+      const frameForJourney =
+        this.#frame?.journeyId === journeyId ? this.#frame : null;
       const status = frameForJourney?.firedSteps.includes(stepId)
-        ? 'done'
+        ? "done"
         : frameForJourney?.inferredSteps.includes(stepId)
-          ? 'inferred-done'
+          ? "inferred-done"
           : !matched
-            ? 'blocked'
+            ? "blocked"
             : aff.on.includes(this.#node)
-              ? 'ready'
-              : 'off-node';
+              ? "ready"
+              : "off-node";
       return {
         affordanceId: stepId,
         description: aff.description,
         status,
         dependsOn,
         onNodes: [...aff.on],
-        ...(status === 'blocked' ? { blockedOn: conditions.filter((c) => !c.result) } : {}),
+        ...(status === "blocked"
+          ? { blockedOn: conditions.filter((c) => !c.result) }
+          : {}),
         ...(unevaluable.length > 0 ? { guardUnevaluated: unevaluable } : {}),
         // The per-step conditional facts already ride this row; ownership is
         // one more, so the serving layer reads it off the plan instead of
         // re-deriving it per rendering and risking two lists that disagree
         // about one control's owner.
-        ...(aff.humanDecides !== undefined ? { humanDecides: true as const } : {}),
+        ...(aff.humanDecides !== undefined
+          ? { humanDecides: true as const }
+          : {}),
       } as JourneyPlanStep;
     });
     return { journeyId, description: journey.description, steps };
@@ -2244,7 +2415,11 @@ export class Session {
    */
   tryJourneyPlan(journeyId: string): TryJourneyPlanResult {
     if (!Object.hasOwn(this.spec.journeys, journeyId)) {
-      return { ok: false, reason: 'UNKNOWN_JOURNEY', known: Object.keys(this.spec.journeys) };
+      return {
+        ok: false,
+        reason: "UNKNOWN_JOURNEY",
+        known: Object.keys(this.spec.journeys),
+      };
     }
     return { ok: true, plan: this.journeyPlan(journeyId) };
   }
@@ -2301,23 +2476,35 @@ export class Session {
     const plan = this.journeyPlan(journeyId);
     const stepsTotal = plan.steps.length;
     const isDone = (step: JourneyPlanStep): boolean =>
-      step.status === 'done' || step.status === 'inferred-done';
+      step.status === "done" || step.status === "inferred-done";
 
     if (this.#frame?.journeyId !== journeyId) {
-      const closed = this.#frames.filter((frame) => frame.journeyId === journeyId).pop();
-      if (closed?.status === 'completed') {
+      const closed = this.#frames
+        .filter((frame) => frame.journeyId === journeyId)
+        .pop();
+      if (closed?.status === "completed") {
         const journeySteps = this.spec.journeys[journeyId].steps;
         const stepsDone = journeySteps.filter(
-          (step) => closed.firedSteps.includes(step) || closed.inferredSteps.includes(step),
+          (step) =>
+            closed.firedSteps.includes(step) ||
+            closed.inferredSteps.includes(step),
         ).length;
-        return { journeyId, standing: 'done', evidence: { stepsDone, stepsTotal } };
+        return {
+          journeyId,
+          standing: "done",
+          evidence: { stepsDone, stepsTotal },
+        };
       }
     }
 
     const stepsDone = plan.steps.filter(isDone).length;
     const governing = plan.steps.find((step) => !isDone(step));
     if (governing === undefined) {
-      return { journeyId, standing: 'done', evidence: { stepsDone, stepsTotal } };
+      return {
+        journeyId,
+        standing: "done",
+        evidence: { stepsDone, stepsTotal },
+      };
     }
     const step = governing.affordanceId;
     const counts = { step, stepsDone, stepsTotal };
@@ -2326,23 +2513,31 @@ export class Session {
     // it: while a person is looking at a question, that is where the chain is.
     const card = this.#latestAskFor(step);
     if (card !== undefined && card.answer === undefined) {
-      return { journeyId, standing: 'awaiting-human', evidence: { ...counts, askId: card.askId } };
+      return {
+        journeyId,
+        standing: "awaiting-human",
+        evidence: { ...counts, askId: card.askId },
+      };
     }
     // …and their NO closes it. Only the human's own door writes this answer: a
     // relayed decline records a report and closes nothing, so the card above is
     // still open and the standing is still 'awaiting-human'.
-    if (card?.answer === 'declined') {
-      return { journeyId, standing: 'declined', evidence: { ...counts, askId: card.askId } };
+    if (card?.answer === "declined") {
+      return {
+        journeyId,
+        standing: "declined",
+        evidence: { ...counts, askId: card.askId },
+      };
     }
 
     // THE DECISION IS THEIRS. `made: true` stays here rather than moving the
     // chain on by itself — that is the resumption cue, said in data, and acting
     // on it is the caller's move.
     const decision = this.#decisionFor(step);
-    if (decision !== undefined && governing.status === 'ready') {
+    if (decision !== undefined && governing.status === "ready") {
       return {
         journeyId,
-        standing: 'with-the-human',
+        standing: "with-the-human",
         evidence: {
           ...counts,
           ...(decision.about !== undefined ? { about: decision.about } : {}),
@@ -2354,7 +2549,11 @@ export class Session {
 
     const failedAt = this.#lastAttemptCameToRestBadly(step);
     if (failedAt !== undefined) {
-      return { journeyId, standing: 'failed', evidence: { ...counts, transitionId: failedAt } };
+      return {
+        journeyId,
+        standing: "failed",
+        evidence: { ...counts, transitionId: failedAt },
+      };
     }
     // EVALUATED failing conditions, and the plan already answers exactly that:
     // it carries `blockedOn` on a step whose guard was evaluated and failed, and
@@ -2363,7 +2562,7 @@ export class Session {
     if (governing.blockedOn !== undefined) {
       return {
         journeyId,
-        standing: 'blocked',
+        standing: "blocked",
         evidence: { ...counts, blockedOn: governing.blockedOn },
       };
     }
@@ -2371,10 +2570,12 @@ export class Session {
     // so the marker is carried rather than resolved into a verdict.
     return {
       journeyId,
-      standing: 'in-progress',
+      standing: "in-progress",
       evidence: {
         ...counts,
-        ...(governing.guardUnevaluated ? { guardUnevaluated: governing.guardUnevaluated } : {}),
+        ...(governing.guardUnevaluated
+          ? { guardUnevaluated: governing.guardUnevaluated }
+          : {}),
       },
     };
   }
@@ -2382,7 +2583,8 @@ export class Session {
   /** The NEWEST card this session minted for one action, whatever became of it. */
   #latestAskFor(affordanceId: string): OpenAsk | undefined {
     let latest: OpenAsk | undefined;
-    for (const ask of this.#openAsks.values()) if (ask.affordanceId === affordanceId) latest = ask;
+    for (const ask of this.#openAsks.values())
+      if (ask.affordanceId === affordanceId) latest = ask;
     return latest;
   }
 
@@ -2403,11 +2605,12 @@ export class Session {
   #lastAttemptCameToRestBadly(affordanceId: string): string | undefined {
     for (let i = this.#transitions.length - 1; i >= 0; i--) {
       const row = this.#transitions[i];
-      if (row.cause.kind !== 'fired' || row.cause.affordanceId !== affordanceId) continue;
+      if (row.cause.kind !== "fired" || row.cause.affordanceId !== affordanceId)
+        continue;
       const badly =
-        this.#settlements.get(row.id)?.effectStatus === 'refused' ||
-        row.outcome === 'rejected' ||
-        row.outcome === 'rolled-back';
+        this.#settlements.get(row.id)?.effectStatus === "refused" ||
+        row.outcome === "rejected" ||
+        row.outcome === "rolled-back";
       return badly ? row.id : undefined;
     }
     return undefined;
@@ -2445,17 +2648,17 @@ export class Session {
    * not a replacement for it.
    */
   asAgent(): PrincipalPort {
-    return this.#portFor('agent');
+    return this.#portFor("agent");
   }
 
   /** The same door, speaking as a person. Files its acts under `'user'`. */
   asHuman(): PrincipalPort {
-    return this.#portFor('human');
+    return this.#portFor("human");
   }
 
   /** The same door, speaking as the app itself. */
   asSystem(): PrincipalPort {
-    return this.#portFor('system');
+    return this.#portFor("system");
   }
 
   /**
@@ -2473,8 +2676,10 @@ export class Session {
       // `source` (the type forbids it) and a plain-JS caller who tries cannot
       // win — a port that could be talked out of its own principal would be
       // worse than no port at all.
-      fire: (affordanceId, opts) => this.fire(affordanceId, { ...opts, source: principal }),
-      sync: (observedNode, opts) => this.sync(observedNode, { ...opts, principal }),
+      fire: (affordanceId, opts) =>
+        this.fire(affordanceId, { ...opts, source: principal }),
+      sync: (observedNode, opts) =>
+        this.sync(observedNode, { ...opts, principal }),
       reportGap: (opts) => this.reportGap({ ...opts, principal }),
     };
   }
@@ -2511,7 +2716,10 @@ export class Session {
    * {@link FireOptions.askId}, a pointer to a row a human-side door recorded.
    * See THE APPROVAL GATE below.
    */
-  fire(affordanceId: string, opts: FireOptions = UNATTRIBUTED_FIRE): FireResult {
+  fire(
+    affordanceId: string,
+    opts: FireOptions = UNATTRIBUTED_FIRE,
+  ): FireResult {
     // READ AND CLEARED ON THE FIRST LINE. The contextful channel is one-shot by
     // construction (see #contextFire): a fire that never reached this line —
     // refused by a tree gate in the InteractionSession override — cannot leave
@@ -2526,22 +2734,31 @@ export class Session {
     const aff = this.spec.affordances[affordanceId];
     if (!aff) {
       const available = this.available().edges.map((e) => e.affordanceId);
-      this.recordRejection(affordanceId, 'UNKNOWN_AFFORDANCE', source, undefined, available);
-      return { ok: false, reason: 'UNKNOWN_AFFORDANCE', available };
+      this.recordRejection(
+        affordanceId,
+        "UNKNOWN_AFFORDANCE",
+        source,
+        undefined,
+        available,
+      );
+      return { ok: false, reason: "UNKNOWN_AFFORDANCE", available };
     }
-    if (opts.expectedVersion !== undefined && opts.expectedVersion !== this.#version) {
-      this.recordRejection(affordanceId, 'STALE_CURSOR', source);
-      return { ok: false, reason: 'STALE_CURSOR', version: this.#version };
+    if (
+      opts.expectedVersion !== undefined &&
+      opts.expectedVersion !== this.#version
+    ) {
+      this.recordRejection(affordanceId, "STALE_CURSOR", source);
+      return { ok: false, reason: "STALE_CURSOR", version: this.#version };
     }
     if (!aff.on.includes(this.#node)) {
-      this.recordRejection(affordanceId, 'NOT_ON_NODE', source);
-      return { ok: false, reason: 'NOT_ON_NODE', node: this.#node };
+      this.recordRejection(affordanceId, "NOT_ON_NODE", source);
+      return { ok: false, reason: "NOT_ON_NODE", node: this.#node };
     }
     // Guards are re-evaluated at fire time — plan-time guards are advisory.
     const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
     if (!matched) {
-      this.recordRejection(affordanceId, 'GUARD_FAILED', source, conditions);
-      return { ok: false, reason: 'GUARD_FAILED', evidence: conditions };
+      this.recordRejection(affordanceId, "GUARD_FAILED", source, conditions);
+      return { ok: false, reason: "GUARD_FAILED", evidence: conditions };
     }
     // The input-less action's door, and the ONE place its law applies. An
     // action the author declared `'none'` on takes nothing: a real payload is
@@ -2561,8 +2778,8 @@ export class Session {
     if (aff.noInput) {
       const check = checkNoInput(opts.payload);
       if (!check.ok) {
-        this.recordRejection(affordanceId, 'PAYLOAD_INVALID', source);
-        return { ok: false, reason: 'PAYLOAD_INVALID', issues: check.issues };
+        this.recordRejection(affordanceId, "PAYLOAD_INVALID", source);
+        return { ok: false, reason: "PAYLOAD_INVALID", issues: check.issues };
       }
       // Every downstream reader — the record, the handler — sees one normalized
       // truth, because there is one object to read it from.
@@ -2576,10 +2793,18 @@ export class Session {
     // where zod ran in 0.3.0, unchanged. Exempting a source here would quietly
     // change what a published zod consumer already gets.
     if (aff.schema !== undefined) {
-      const validation = validatePayload(aff.schema, opts.payload, this.#checkPayloadShape);
+      const validation = validatePayload(
+        aff.schema,
+        opts.payload,
+        this.#checkPayloadShape,
+      );
       if (!validation.ok) {
-        this.recordRejection(affordanceId, 'PAYLOAD_INVALID', source);
-        return { ok: false, reason: 'PAYLOAD_INVALID', issues: validation.issues };
+        this.recordRejection(affordanceId, "PAYLOAD_INVALID", source);
+        return {
+          ok: false,
+          reason: "PAYLOAD_INVALID",
+          issues: validation.issues,
+        };
       }
     }
     // A greyed-out button: registered but not clickable. Only blocks EXECUTION
@@ -2593,8 +2818,13 @@ export class Session {
     // told a conclusion. Absent for the imperative wires — see #disabledEvidence.
     if (opts.invoke !== false && this.isActionDisabled(affordanceId, opts)) {
       const evidence = this.#disabledEvidence(affordanceId);
-      this.recordRejection(affordanceId, 'TOOL_DISABLED', source, evidence);
-      return { ok: false, reason: 'TOOL_DISABLED', affordanceId, ...(evidence ? { evidence } : {}) };
+      this.recordRejection(affordanceId, "TOOL_DISABLED", source, evidence);
+      return {
+        ok: false,
+        reason: "TOOL_DISABLED",
+        affordanceId,
+        ...(evidence ? { evidence } : {}),
+      };
     }
     // The session is an AGENT's only actuator: with nothing bound and invoke
     // wanted, firing would execute nothing — a success-shaped no-op. Fail closed
@@ -2606,8 +2836,9 @@ export class Session {
     // question: never send a human to approve an action that is guard-closed,
     // mis-shaped, greyed out or wired to nothing.
     const unmaterialized =
-      opts.invoke !== false && this.handlerFor(affordanceId, opts) === undefined;
-    const honestNoOp = unmaterialized && source === 'agent';
+      opts.invoke !== false &&
+      this.handlerFor(affordanceId, opts) === undefined;
+    const honestNoOp = unmaterialized && source === "agent";
     // The one question every settlement arm below asks: will OUR side actually
     // execute anything? (`unmaterialized` already answered "invoke wanted but
     // nothing bound" — this is the same lookup, not a second one.)
@@ -2619,17 +2850,25 @@ export class Session {
     // open until that somebody reports, exactly as it does for a handler this
     // session ran itself. Without it a human's click on a no-writes action
     // settles 'unobservable' before the app's own function has even started.
-    const handlerWillRun = (opts.invoke !== false && !unmaterialized) || assist?.direct === true;
+    const handlerWillRun =
+      (opts.invoke !== false && !unmaterialized) || assist?.direct === true;
     if (honestNoOp && !this.#allowUnmaterialized) {
-      this.recordRejection(affordanceId, 'NOT_MATERIALIZED', source, undefined, undefined, {
-        gestureKind: aff.binding?.kind,
-      });
+      this.recordRejection(
+        affordanceId,
+        "NOT_MATERIALIZED",
+        source,
+        undefined,
+        undefined,
+        {
+          gestureKind: aff.binding?.kind,
+        },
+      );
       // The declared gesture rides the refusal: "this is a click on the
       // checkout button", not "nothing is bound". The binding is deep-frozen
       // spec data (the same object available() already serves) — safe to share.
       return {
         ok: false,
-        reason: 'NOT_MATERIALIZED',
+        reason: "NOT_MATERIALIZED",
         affordanceId,
         ...(aff.binding ? { gesture: aff.binding } : {}),
       };
@@ -2649,10 +2888,10 @@ export class Session {
     // will run the handler, a repeat is a repeat whoever asked for it.
     const inFlight = this.#priorFire(aff, opts);
     if (inFlight !== undefined) {
-      this.recordRejection(affordanceId, 'PRIOR_FIRE_PENDING', source);
+      this.recordRejection(affordanceId, "PRIOR_FIRE_PENDING", source);
       return {
         ok: false,
-        reason: 'PRIOR_FIRE_PENDING',
+        reason: "PRIOR_FIRE_PENDING",
         affordanceId,
         pendingTransitionId: inFlight.transitionId,
         scope: inFlight.scope,
@@ -2697,10 +2936,10 @@ export class Session {
       // The ledger row, and no dev warning: enforcement here is something the
       // integrator switched on deliberately, so the refusal is the disclosure —
       // and a gap row of a SECURITY kind is already the auditable record of it.
-      this.recordRejection(affordanceId, 'PRINCIPAL_NOT_ALLOWED', source);
+      this.recordRejection(affordanceId, "PRINCIPAL_NOT_ALLOWED", source);
       return {
         ok: false,
-        reason: 'PRINCIPAL_NOT_ALLOWED',
+        reason: "PRINCIPAL_NOT_ALLOWED",
         affordanceId,
         // The kinds the app NAMED — an agent told only "no" tries again, an
         // agent told "a human must do this" asks the person.
@@ -2721,10 +2960,10 @@ export class Session {
       requiresVerify: this.#requireVerifiableEffects && opts.invoke !== false,
     });
     if (!effectVerdict.ok) {
-      this.recordRejection(affordanceId, 'EFFECT_NOT_VERIFIABLE', source);
+      this.recordRejection(affordanceId, "EFFECT_NOT_VERIFIABLE", source);
       return {
         ok: false,
-        reason: 'EFFECT_NOT_VERIFIABLE',
+        reason: "EFFECT_NOT_VERIFIABLE",
         affordanceId,
         needs: effectVerdict.needs,
         ...(effectVerdict.observability !== undefined
@@ -2766,8 +3005,13 @@ export class Session {
     // built out of two true statements. One switch owns the gate; a declaration
     // widens what it covers.
     const needsApproval =
-      aff.highEffect || needsRecordedApproval(aff.principalPolicy, this.#enforcePrincipals);
-    if (this.#holdsFiresFrom(source) && needsApproval && opts.invoke !== false) {
+      aff.highEffect ||
+      needsRecordedApproval(aff.principalPolicy, this.#enforcePrincipals);
+    if (
+      this.#holdsFiresFrom(source) &&
+      needsApproval &&
+      opts.invoke !== false
+    ) {
       // THE PAYLOAD THE GATE PROVED IS THE PAYLOAD THAT EXECUTES.
       //
       // `confirmAsk` detaches the ask's input (bound-input.ts) so the human's yes
@@ -2805,13 +3049,20 @@ export class Session {
       // 999999. Drop the UNCOPYABLE arm and the Proxy test goes green the same
       // way.
       const bound = boundInput(opts.payload);
-      const proven = bound === UNCOPYABLE_INPUT ? opts : { ...opts, payload: bound };
+      const proven =
+        bound === UNCOPYABLE_INPUT ? opts : { ...opts, payload: bound };
       const verdict = this.#approvalVerdict(affordanceId, aff, proven);
-      if (!verdict.ok) return this.#refuseApproval(affordanceId, verdict, source);
+      if (!verdict.ok)
+        return this.#refuseApproval(affordanceId, verdict, source);
       if (bound === UNCOPYABLE_INPUT) {
         return this.#refuseApproval(
           affordanceId,
-          { ok: false, reason: 'APPROVAL_MISMATCH', askId: verdict.askId, differs: 'cannot-judge' },
+          {
+            ok: false,
+            reason: "APPROVAL_MISMATCH",
+            askId: verdict.askId,
+            differs: "cannot-judge",
+          },
           source,
         );
       }
@@ -2823,7 +3074,9 @@ export class Session {
       this.#recordUnmaterializedFire(affordanceId, source, aff.binding?.kind);
     }
     // Only ever present on the allowed-no-op path — absence means normal.
-    const noOpMarks = honestNoOp ? ({ executed: false, materialized: false } as const) : {};
+    const noOpMarks = honestNoOp
+      ? ({ executed: false, materialized: false } as const)
+      : {};
     // IS THE EFFECT ALREADY TRUE? Asked HERE, before the record is minted, which
     // is the only moment the answer is about the world this fire arrived into —
     // one line later the handler has been invoked and any answer is about a
@@ -2845,7 +3098,7 @@ export class Session {
       // spec has this action right now — the gate above proved it — and nothing
       // guarantees it still will when someone reads this row back.
       cause: {
-        kind: 'fired',
+        kind: "fired",
         affordanceId,
         principal: source,
         ...this.#captureDoes(affordanceId),
@@ -2888,7 +3141,7 @@ export class Session {
         assist?.direct === true ? assist.recordPayload : opts.payload,
         this.#redactedFields.payload,
       ),
-      outcome: 'pending',
+      outcome: "pending",
       evidence: conditions,
       // Unevaluated conditions are taken on faith (the app is the enforcer at
       // L0/L1) — the record says so instead of pretending the guard passed.
@@ -2920,8 +3173,10 @@ export class Session {
     // behaviour, untouched. Under enforcement nothing else may write an approving
     // row: `#resolveOpenAsk` would stamp the FIRING principal on a row named
     // 'approved', which is the forgery this option exists to refuse.
-    if (approval !== undefined) this.#spendApproval(record, affordanceId, approval, source);
-    else if (this.#humanApproval === undefined) this.#resolveOpenAsk(record, affordanceId, source);
+    if (approval !== undefined)
+      this.#spendApproval(record, affordanceId, approval, source);
+    else if (this.#humanApproval === undefined)
+      this.#resolveOpenAsk(record, affordanceId, source);
     // AND IF NOBODY APPROVED IT, SAY SO — once, to the integrator, never to the
     // model. Read AFTER the two lines above because they are what decides
     // whether this fire has an approval on record at all.
@@ -2948,7 +3203,8 @@ export class Session {
     // D21 — the capture envelope opens BEFORE the first emit, so the very first
     // observer of this row already sees what was true the moment before it ran.
     this.#openCapture(record, aff, conditions, unevaluable, opts);
-    this.#transitions.push(record); this.#emitTransition(record);
+    this.#transitions.push(record);
+    this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
 
     /**
@@ -2969,7 +3225,7 @@ export class Session {
      * A REFUSED FIRE CLEARS NOTHING: it is returned long before this line, and
      * an act the app turned away is not an act the caller got to make.
      */
-    if (source === 'agent') this.#staleCarried.delete(affordanceId);
+    if (source === "agent") this.#staleCarried.delete(affordanceId);
 
     // WHAT A LATER REPEAT WOULD BE COMPARED AGAINST, built ONCE and handed to
     // whichever arm below opens a latch — the card this fire named, and a
@@ -2979,7 +3235,10 @@ export class Session {
     const flight: Flight = {
       actionId: affordanceId,
       instance: opts.instance,
-      render: scopeOf(aff.concurrency) === 'payload' ? flightRender(opts.payload) : undefined,
+      render:
+        scopeOf(aff.concurrency) === "payload"
+          ? flightRender(opts.payload)
+          : undefined,
     };
     const declaredWrites = aff.effect?.writes ?? [];
     // An allowed no-op never pends on the state tap: nothing ran, so no report
@@ -2991,7 +3250,12 @@ export class Session {
     // is what this arm waits on, and an effect the world already holds has no
     // report coming down it. Such a fire falls through to the block below, which
     // waits on the HANDLER rail instead — the one that always answers.
-    if (declaredWrites.length > 0 && this.#stateTap && !honestNoOp && alreadyTrue === undefined) {
+    if (
+      declaredWrites.length > 0 &&
+      this.#stateTap &&
+      !honestNoOp &&
+      alreadyTrue === undefined
+    ) {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
       const latch = this.#openEffectLatch(record, flight);
@@ -3000,9 +3264,9 @@ export class Session {
         ok: true,
         transition: record,
         version: this.#version,
-        settlement: 'awaiting-state',
+        settlement: "awaiting-state",
         // A report and/or the handler will decide; neither has happened yet.
-        effectStatus: 'pending',
+        effectStatus: "pending",
         whenSettled: latch.promise,
         ...noOpMarks,
         ...alreadyTrueMark,
@@ -3014,15 +3278,19 @@ export class Session {
       // registered handler settles on ITS completion; with nothing to execute,
       // settle now. Either way effectVerified is honestly 'unobservable'.
       if (handlerWillRun) {
-        this.#pending.push({ record, affordance: aff, settleOnCompletion: true });
+        this.#pending.push({
+          record,
+          affordance: aff,
+          settleOnCompletion: true,
+        });
         const latch = this.#openEffectLatch(record, flight);
         this.#invokeHandler(record, affordanceId, opts);
         return {
           ok: true,
           transition: record,
           version: this.#version,
-          settlement: 'awaiting-state',
-          effectStatus: 'pending',
+          settlement: "awaiting-state",
+          effectStatus: "pending",
           whenSettled: latch.promise,
           ...noOpMarks,
           ...alreadyTrueMark,
@@ -3034,11 +3302,11 @@ export class Session {
         ok: true,
         transition: record,
         version: this.#version,
-        settlement: 'settled',
+        settlement: "settled",
         // Nothing ran and nothing ever will: this fire is already at rest, and
         // 'unobservable' is the whole truth about an effect no one performed.
-        effectStatus: 'unobservable',
-        whenSettled: this.#settledEffect(record, 'unobservable').promise,
+        effectStatus: "unobservable",
+        whenSettled: this.#settledEffect(record, "unobservable").promise,
         ...noOpMarks,
         ...alreadyTrueMark,
       };
@@ -3050,14 +3318,14 @@ export class Session {
     // says a commit bundle exists; effectStatus says whether anyone did it.
     const latch = handlerWillRun
       ? this.#openEffectLatch(record, flight)
-      : this.#settledEffect(record, 'unobservable');
+      : this.#settledEffect(record, "unobservable");
     this.#invokeHandler(record, affordanceId, opts);
     return {
       ok: true,
       transition: record,
       version: this.#version,
-      settlement: 'settled',
-      effectStatus: handlerWillRun ? 'pending' : 'unobservable',
+      settlement: "settled",
+      effectStatus: handlerWillRun ? "pending" : "unobservable",
       whenSettled: latch.promise,
       ...noOpMarks,
       ...alreadyTrueMark,
@@ -3080,8 +3348,10 @@ export class Session {
   #priorFire(
     aff: Affordance,
     opts: FireOptions,
-  ): { transitionId: string; scope: NonNullable<ConcurrencyPolicy['scope']> } | undefined {
-    if (aff.concurrency?.mode !== 'single-flight') return undefined;
+  ):
+    | { transitionId: string; scope: NonNullable<ConcurrencyPolicy["scope"]> }
+    | undefined {
+    if (aff.concurrency?.mode !== "single-flight") return undefined;
     // The app reporting motion it already performed is not this session firing
     // twice — see the gate's own comment in fire().
     if (opts.invoke === false) return undefined;
@@ -3090,7 +3360,7 @@ export class Session {
       actionId: aff.id,
       scope,
       instance: opts.instance,
-      render: scope === 'payload' ? flightRender(opts.payload) : undefined,
+      render: scope === "payload" ? flightRender(opts.payload) : undefined,
     });
     return transitionId === undefined ? undefined : { transitionId, scope };
   }
@@ -3119,20 +3389,23 @@ export class Session {
     const policy = resolveFreshness(this.#freshness, aff.freshness);
     if (!enforcesAnything(policy)) return undefined;
     if (opts.offerId === undefined) {
-      this.recordRejection(aff.id, 'OFFER_REQUIRED', source);
-      return { ok: false, reason: 'OFFER_REQUIRED', affordanceId: aff.id };
+      this.recordRejection(aff.id, "OFFER_REQUIRED", source);
+      return { ok: false, reason: "OFFER_REQUIRED", affordanceId: aff.id };
     }
     const offer = this.#offers.get(opts.offerId);
     if (offer === undefined) {
-      this.recordRejection(aff.id, 'OFFER_NOT_ON_RECORD', source);
+      this.recordRejection(aff.id, "OFFER_NOT_ON_RECORD", source);
       return {
         ok: false,
-        reason: 'OFFER_NOT_ON_RECORD',
+        reason: "OFFER_NOT_ON_RECORD",
         affordanceId: aff.id,
         offerId: opts.offerId,
         // 'evicted' and 'unknown' are kept apart because the fixes differ: raise
         // the cap, versus stop citing something this session never said.
-        why: this.#offers.standing(opts.offerId) === 'evicted' ? 'evicted' : 'unknown',
+        why:
+          this.#offers.standing(opts.offerId) === "evicted"
+            ? "evicted"
+            : "unknown",
       };
     }
     // AN OFFER IS ABOUT ONE CONTROL. Citing another control's row is not a
@@ -3146,13 +3419,13 @@ export class Session {
     // lie the `'evicted'`/`'unknown'` split exists to prevent one file over
     // (offers.ts). So the answer says what is actually true: real id, wrong row.
     if (offer.actionId !== aff.id) {
-      this.recordRejection(aff.id, 'OFFER_NOT_ON_RECORD', source);
+      this.recordRejection(aff.id, "OFFER_NOT_ON_RECORD", source);
       return {
         ok: false,
-        reason: 'OFFER_NOT_ON_RECORD',
+        reason: "OFFER_NOT_ON_RECORD",
         affordanceId: aff.id,
         offerId: opts.offerId,
-        why: 'other-action',
+        why: "other-action",
         offeredFor: offer.actionId,
       };
     }
@@ -3172,9 +3445,15 @@ export class Session {
     });
     const demand = demandOf(moved);
     if (demand === undefined) return undefined;
-    if (demand === 'refuse') {
-      this.recordRejection(aff.id, 'WORLD_MOVED', source);
-      return { ok: false, reason: 'WORLD_MOVED', affordanceId: aff.id, offerId: opts.offerId, moved };
+    if (demand === "refuse") {
+      this.recordRejection(aff.id, "WORLD_MOVED", source);
+      return {
+        ok: false,
+        reason: "WORLD_MOVED",
+        affordanceId: aff.id,
+        offerId: opts.offerId,
+        moved,
+      };
     }
     const cited = this.#acknowledgementFor(opts.acknowledgementId);
     const verdict = judgeAcknowledgement(cited, {
@@ -3183,12 +3462,12 @@ export class Session {
       keys: keysOf(moved),
       stateVersion: this.#stateVersion,
     });
-    if (verdict === 'covers') return undefined;
-    if (verdict === 'stale') {
-      this.recordRejection(aff.id, 'ACKNOWLEDGEMENT_STALE', source);
+    if (verdict === "covers") return undefined;
+    if (verdict === "stale") {
+      this.recordRejection(aff.id, "ACKNOWLEDGEMENT_STALE", source);
       return {
         ok: false,
-        reason: 'ACKNOWLEDGEMENT_STALE',
+        reason: "ACKNOWLEDGEMENT_STALE",
         affordanceId: aff.id,
         offerId: opts.offerId,
         // Present by construction: 'stale' is only ever returned for a row that
@@ -3197,10 +3476,10 @@ export class Session {
         moved,
       };
     }
-    this.recordRejection(aff.id, 'ACKNOWLEDGEMENT_REQUIRED', source);
+    this.recordRejection(aff.id, "ACKNOWLEDGEMENT_REQUIRED", source);
     return {
       ok: false,
-      reason: 'ACKNOWLEDGEMENT_REQUIRED',
+      reason: "ACKNOWLEDGEMENT_REQUIRED",
       affordanceId: aff.id,
       offerId: opts.offerId,
       moved,
@@ -3219,8 +3498,8 @@ export class Session {
       // be told the pointer was wrong, not graded on how.
       ...(cited === undefined &&
       opts.acknowledgementId !== undefined &&
-      this.#acks.standing(opts.acknowledgementId) === 'evicted'
-        ? { why: 'evicted' as const }
+      this.#acks.standing(opts.acknowledgementId) === "evicted"
+        ? { why: "evicted" as const }
         : {}),
     };
   }
@@ -3232,12 +3511,12 @@ export class Session {
    * row cannot answer for those without naming a card nobody asked about.
    */
   #heldByPriorFire(aff: Affordance): boolean {
-    if (aff.concurrency?.mode !== 'single-flight') return false;
-    if (scopeOf(aff.concurrency) !== 'action') return false;
+    if (aff.concurrency?.mode !== "single-flight") return false;
+    if (scopeOf(aff.concurrency) !== "action") return false;
     return (
       priorFlight(this.#flights, {
         actionId: aff.id,
-        scope: 'action',
+        scope: "action",
         instance: undefined,
         render: undefined,
       }) !== undefined
@@ -3245,7 +3524,9 @@ export class Session {
   }
 
   /** One acknowledgement row by id, or nothing — a lookup, never a verdict. */
-  #acknowledgementFor(acknowledgementId: string | undefined): StaleAcknowledgement | undefined {
+  #acknowledgementFor(
+    acknowledgementId: string | undefined,
+  ): StaleAcknowledgement | undefined {
     if (acknowledgementId === undefined) return undefined;
     return this.#acks.get(acknowledgementId);
   }
@@ -3258,10 +3539,10 @@ export class Session {
   #recordUnmaterializedFire(
     affordanceId: string,
     principal: Principal,
-    gestureKind?: Binding['kind'],
+    gestureKind?: Binding["kind"],
   ): void {
     this.#pushGap({
-      kind: 'unmaterialized-fire',
+      kind: "unmaterialized-fire",
       timestamp: Date.now(),
       node: this.#node,
       version: this.#version,
@@ -3288,7 +3569,11 @@ export class Session {
    * flight (or failed), bare-FIFO skips this record so a neighbor's report
    * can never steal it.
    */
-  #invokeHandler(record: TransitionRecord, affordanceId: string, opts: FireOptions): void {
+  #invokeHandler(
+    record: TransitionRecord,
+    affordanceId: string,
+    opts: FireOptions,
+  ): void {
     if (opts.invoke === false) return; // record-only (the DOM sensor's mode)
     const handler = this.handlerFor(affordanceId, opts);
     if (!handler) return;
@@ -3306,7 +3591,9 @@ export class Session {
           this.#invokingActionId = null;
         }
       })
-      .then((returnValue) => this.#invocationSucceeded(record, affordanceId, returnValue))
+      .then((returnValue) =>
+        this.#invocationSucceeded(record, affordanceId, returnValue),
+      )
       .catch((error) => this.#invocationFailed(record, affordanceId, error));
   }
 
@@ -3344,7 +3631,9 @@ export class Session {
       this.#handleHandlerFailure(record, reason);
       // Distinct wording from "threw:" so a log reader can tell a protocol
       // refusal from an exception.
-      this.#warn(`hcifootprint: handler for '${affordanceId}' returned failure: ${String(reason)}`);
+      this.#warn(
+        `hcifootprint: handler for '${affordanceId}' returned failure: ${String(reason)}`,
+      );
       return;
     }
     // Act → get data back: whatever the handler returned (search results, a
@@ -3368,7 +3657,10 @@ export class Session {
       // MUTATION PROOF: drop the redactFields() call and the three tests under
       // "a handler's return value" (redacted-fields.test.ts) go red — the
       // model's door, the settlement, and the wire, one each.
-      record.produced = redactFields(sanitizeProduced(returnValue), this.#redactedFields.produced);
+      record.produced = redactFields(
+        sanitizeProduced(returnValue),
+        this.#redactedFields.produced,
+      );
     }
     const entry = this.#pending.find((p) => p.record.id === record.id);
     if (!entry) {
@@ -3386,7 +3678,12 @@ export class Session {
     if (entry.settleOnCompletion) {
       // Tapless session: the handler finishing IS the settlement signal.
       this.#pending.splice(this.#pending.indexOf(entry), 1);
-      this.#settle(entry.record, entry.affordance, {}, { forceUnobservable: true });
+      this.#settle(
+        entry.record,
+        entry.affordance,
+        {},
+        { forceUnobservable: true },
+      );
       // Our side ran to completion, which is what 'performed' claims —
       // orthogonal to effectVerified, which stays honestly 'unobservable'
       // because no report exists to check the declared writes against.
@@ -3397,9 +3694,15 @@ export class Session {
   }
 
   /** The other half of the same pair: an action that threw, whichever side ran it. */
-  #invocationFailed(record: TransitionRecord, affordanceId: string, error: unknown): void {
+  #invocationFailed(
+    record: TransitionRecord,
+    affordanceId: string,
+    error: unknown,
+  ): void {
     this.#handleHandlerFailure(record, error);
-    this.#warn(`hcifootprint: handler for '${affordanceId}' threw: ${String(error)}`);
+    this.#warn(
+      `hcifootprint: handler for '${affordanceId}' threw: ${String(error)}`,
+    );
   }
 
   /**
@@ -3426,28 +3729,38 @@ export class Session {
     if (index >= 0) {
       // Effect never landed: reject the pending so later deltas are not mis-attributed.
       this.#pending.splice(index, 1);
-      record.outcome = 'rejected';
+      record.outcome = "rejected";
       this.#version++;
       this.#emitTransition(record); // observers see the settled (rejected) occurrence
-    } else if (record.outcome === 'committed' && record.effectVerified === 'unobservable') {
+    } else if (
+      record.outcome === "committed" &&
+      record.effectVerified === "unobservable"
+    ) {
       // Immediate/tapless settle committed BEFORE the handler ran and the
       // handler failed: the commit was a claim about an action that never
       // happened. Roll it back and, if the settle moved the cursor on the
       // navigation CLAIM, walk the cursor back honestly. A commit backed by
       // REAL evidence (a state report settled it, effectVerified true) is
       // stronger than the handler's failure — that one stands.
-      record.outcome = 'rolled-back';
+      record.outcome = "rolled-back";
       this.#version++;
       this.#emitTransition(record); // observers see the rolled-back occurrence
-      if (record.toNodeClaimed && record.toNode === this.#node && record.fromNode !== this.#node) {
-        this.sync(record.fromNode, { stimulus: 'navigation', principal: 'system' });
+      if (
+        record.toNodeClaimed &&
+        record.toNode === this.#node &&
+        record.fromNode !== this.#node
+      ) {
+        this.sync(record.fromNode, {
+          stimulus: "navigation",
+          principal: "system",
+        });
       }
     }
     // 'refused' is the INVOCATION truth and stands even when the commit does
     // (the evidence-backed case above): the handler failed AND the effect
     // landed are both facts, and the settlement carries them side by side
     // rather than averaging them into one comfortable word.
-    this.#resolveEffect(record, 'refused', {
+    this.#resolveEffect(record, "refused", {
       error: reason,
       ...(verifyHeld !== undefined ? { verifyHeld } : {}),
     });
@@ -3482,14 +3795,16 @@ export class Session {
       () => this.state(), // DETACHED: a predicate must never hold live state
       (message) => this.#warn(message),
     );
-    if (check.verdict === 'failed') {
+    if (check.verdict === "failed") {
       this.#handleHandlerFailure(record, check.failure, false);
       return;
     }
     this.#resolveEffect(
       record,
-      'performed',
-      check.verdict === 'none' ? undefined : { verifyHeld: check.verdict === 'held' ? true : 'unevaluable' },
+      "performed",
+      check.verdict === "none"
+        ? undefined
+        : { verifyHeld: check.verdict === "held" ? true : "unevaluable" },
     );
   }
 
@@ -3526,7 +3841,8 @@ export class Session {
       releaseAnchor();
       // Token identity: a newer declaration for this action has already taken
       // the slot, and deleting it here is how a StrictMode remount goes blind.
-      if (this.#senses.get(affordanceId) === options) this.#senses.delete(affordanceId);
+      if (this.#senses.get(affordanceId) === options)
+        this.#senses.delete(affordanceId);
     };
   }
 
@@ -3547,13 +3863,37 @@ export class Session {
   sensedTrail(transitionId: string): readonly SensedEvent[] {
     const retained = this.#trails.get(transitionId);
     if (retained !== undefined) return retained.map((event) => ({ ...event }));
-    const trail = this.#transitions.find((t) => t.id === transitionId)?.captured?.sensed?.trail;
-    if (trail?.shape === 'inline') return trail.events.map((event) => ({ ...event }));
+    const trail = this.#transitions.find((t) => t.id === transitionId)?.captured
+      ?.sensed?.trail;
+    if (trail?.shape === "inline")
+      return trail.events.map((event) => ({ ...event }));
+    // EVICTED IS NOT NEVER-SENSED (1.13.0). The transition record is the
+    // standing oracle: a by-reference trail whose events are gone from the cap
+    // was real — say so, with the surviving count — instead of an answer a
+    // reader cannot tell from "this fire never sensed anything".
+    if (trail?.shape === "by-reference") {
+      throw new Error(
+        `hcifootprint: the event trail for '${transitionId}' was EVICTED — it held ` +
+          `${trail.count} event(s), and only the newest ${TRAILS_RETAINED} oversized trails are ` +
+          `kept (${this.#trailsDropped} evicted so far this session). The record's own ` +
+          `\`captured.sensed.trail.count\` survives; the events themselves are gone.`,
+      );
+    }
     throw new Error(
       `hcifootprint: no event trail for '${transitionId}'. A trail exists only for a contextful fire ` +
         `whose action was watching an anchor, and only the newest ${TRAILS_RETAINED} oversized trails are ` +
         `kept — the record's own \`captured.sensed.trail.count\` survives either way.`,
     );
+  }
+
+  /**
+   * HOW MANY OVERSIZED TRAILS the {@link TRAILS_RETAINED} cap has evicted
+   * (1.13.0) — the bound made visible, exactly as {@link Session.offersDropped}
+   * and {@link Session.acknowledgementsDropped} are. Nonzero here is why
+   * {@link Session.sensedTrail} said 'evicted' about a fire that really sensed.
+   */
+  sensedTrailsDropped(): number {
+    return this.#trailsDropped;
   }
 
   /**
@@ -3580,7 +3920,10 @@ export class Session {
     const brand = readContextful(handler);
     if (brand === undefined) return;
     const actionId = baseActionId(registryKey);
-    const instance = registryKey === actionId ? undefined : registryKey.slice(actionId.length + 1, -1);
+    const instance =
+      registryKey === actionId
+        ? undefined
+        : registryKey.slice(actionId.length + 1, -1);
     const site = this.#siteFor(actionId, instance, brand.options);
     brand.site = site;
     const releaseAnchor = this.#openAnchor(actionId, brand.options);
@@ -3596,7 +3939,10 @@ export class Session {
   }
 
   /** The contextful declaration behind one action: the handler's brand, or a sense-only one. */
-  #contextOptions(affordanceId: string, opts: FireOptions): ContextfulOptions | undefined {
+  #contextOptions(
+    affordanceId: string,
+    opts: FireOptions,
+  ): ContextfulOptions | undefined {
     const handler = this.handlerFor(affordanceId, opts);
     const brand = handler === undefined ? undefined : readContextful(handler);
     return brand?.options ?? this.#senses.get(affordanceId);
@@ -3624,7 +3970,11 @@ export class Session {
         at: record.timestamp,
         node: record.fromNode,
         cursorVersion: record.cursorVersion,
-        guard: guardReads(Object.keys(aff.guard ?? {}), conditions, unevaluable),
+        guard: guardReads(
+          Object.keys(aff.guard ?? {}),
+          conditions,
+          unevaluable,
+        ),
         ...(input !== undefined ? { input } : {}),
       },
     };
@@ -3643,7 +3993,10 @@ export class Session {
   }
 
   /** Close the envelope at rest, and ask the anchor for what it saw. */
-  #closeCapture(record: TransitionRecord, effectStatus: FireSettlement['effectStatus']): void {
+  #closeCapture(
+    record: TransitionRecord,
+    effectStatus: FireSettlement["effectStatus"],
+  ): void {
     const entry = this.#captures.get(record.id);
     if (entry === undefined || record.captured === undefined) return;
     /* v8 ignore next -- unreachable today: #effectSnapshot is reached only through the two latch doors, and both are guarded by first-settlement-wins before they get here. The guard states that law for the CAPTURE too, so a future third door cannot quietly re-time an action that already came to rest. */
@@ -3657,7 +4010,9 @@ export class Session {
     };
     this.#anchors
       .get(entry.actionId)
-      ?.watch.close((summary, events) => this.#stampSensed(record, summary, events));
+      ?.watch.close((summary, events) =>
+        this.#stampSensed(record, summary, events),
+      );
   }
 
   /**
@@ -3676,7 +4031,8 @@ export class Session {
     /* v8 ignore next -- unreachable: the only caller is #closeCapture, which has already proved this record HAS a capture, and nothing deletes one. The guard is what keeps a future caller from inventing a sensing block on a record that never opened an envelope. */
     if (record.captured === undefined) return;
     record.captured.sensed = summary;
-    if (summary.trail.shape === 'by-reference') this.#retainTrail(record.id, events);
+    if (summary.trail.shape === "by-reference")
+      this.#retainTrail(record.id, events);
     this.#emitTransition(record);
   }
 
@@ -3686,6 +4042,12 @@ export class Session {
     for (const oldest of this.#trails.keys()) {
       if (this.#trails.size <= TRAILS_RETAINED) break;
       this.#trails.delete(oldest);
+      // COUNTED (1.13.0) — this was the one bounded store in the session that
+      // evicted silently, below the standard its own offer and acknowledgement
+      // ledgers set. The record's `count` always survived; now the eviction
+      // itself is a number too, and sensedTrail() can say 'evicted' instead of
+      // an answer indistinguishable from 'never sensed'.
+      this.#trailsDropped += 1;
     }
   }
 
@@ -3699,7 +4061,11 @@ export class Session {
    * watch stops and the new one takes over (last registration wins, the
    * registry's own rule).
    */
-  #openAnchor(actionId: string, options: ContextfulOptions, onHumanClick?: () => void): () => void {
+  #openAnchor(
+    actionId: string,
+    options: ContextfulOptions,
+    onHumanClick?: () => void,
+  ): () => void {
     if (options.watch !== true) return NOTHING_TO_RELEASE;
     const element = resolveAnchor(options.anchor);
     if (element === undefined) {
@@ -3722,7 +4088,9 @@ export class Session {
       refs: 1,
       watch: watchAnchor(element, {
         ...(options.expect !== undefined ? { expect: options.expect } : {}),
-        ...(options.onStimulus !== undefined ? { onStimulus: options.onStimulus } : {}),
+        ...(options.onStimulus !== undefined
+          ? { onStimulus: options.onStimulus }
+          : {}),
         ...(onHumanClick !== undefined ? { onHumanClick } : {}),
         now: () => Date.now(),
         warn: (message) => this.#warn(message),
@@ -3759,13 +4127,18 @@ export class Session {
    * registration, and a second lookup at call time would have to guess a
    * registry key and could answer differently from the site that is calling it.
    */
-  #siteFor(actionId: string, instance: string | undefined, options: ContextfulOptions): ContextfulSite {
+  #siteFor(
+    actionId: string,
+    instance: string | undefined,
+    options: ContextfulOptions,
+  ): ContextfulSite {
     return {
       // Keyed on the ACTION: a wrapped handler called from inside ANOTHER
       // action's handler must answer no, or its call would attach itself to the
       // neighbour's fire and the ledger would name the wrong action.
       invoking: () => this.#invokingActionId === actionId,
-      direct: (payload, run) => this.#directRun(actionId, instance, options, payload, run),
+      direct: (payload, run) =>
+        this.#directRun(actionId, instance, options, payload, run),
     };
   }
 
@@ -3792,7 +4165,7 @@ export class Session {
     const result = this.#fireAssisted(
       actionId,
       {
-        source: options.principal ?? 'user',
+        source: options.principal ?? "user",
         // The one canonical door: RECORD, never perform (sensor/types.ts).
         invoke: false,
         payload,
@@ -3838,7 +4211,11 @@ export class Session {
   }
 
   /** Arm the one-shot contextful channel for exactly one fire. */
-  #fireAssisted(affordanceId: string, opts: FireOptions, assist: ContextAssist): FireResult {
+  #fireAssisted(
+    affordanceId: string,
+    opts: FireOptions,
+    assist: ContextAssist,
+  ): FireResult {
     this.#contextFire = assist;
     try {
       return this.fire(affordanceId, opts);
@@ -3851,7 +4228,11 @@ export class Session {
 
   /** A trusted click inside a sense-only anchor: evidence a person acted, never proof. */
   #senseClick(affordanceId: string): void {
-    this.#fireAssisted(affordanceId, { source: 'user', invoke: false }, { inferred: true });
+    this.#fireAssisted(
+      affordanceId,
+      { source: "user", invoke: false },
+      { inferred: true },
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -3886,7 +4267,7 @@ export class Session {
    */
   #settledEffect(
     record: TransitionRecord,
-    effectStatus: FireSettlement['effectStatus'],
+    effectStatus: FireSettlement["effectStatus"],
   ): SettlementLatch {
     const snapshot = this.#effectSnapshot(record, effectStatus);
     this.#settlements.set(record.id, snapshot);
@@ -3901,7 +4282,7 @@ export class Session {
    */
   #effectSnapshot(
     record: TransitionRecord,
-    effectStatus: FireSettlement['effectStatus'],
+    effectStatus: FireSettlement["effectStatus"],
     extra?: SettlementExtra,
   ): FireSettlement {
     // D21 — THE ONE PLACE A FIRE COMES TO REST, whichever arm brought it here,
@@ -3918,11 +4299,15 @@ export class Session {
       // object, and inventing one would be a guess. Membership, not truthiness:
       // a handler can genuinely fail with `undefined` as its reason, and the
       // field must still say a reason was given.
-      ...(extra && 'error' in extra ? { error: extra.error } : {}),
+      ...(extra && "error" in extra ? { error: extra.error } : {}),
       // Absent unless a verify contract was declared AND asked (see #comeToRest).
-      ...(extra?.verifyHeld !== undefined ? { verifyHeld: extra.verifyHeld } : {}),
+      ...(extra?.verifyHeld !== undefined
+        ? { verifyHeld: extra.verifyHeld }
+        : {}),
       // Parity with producedFor(): a fresh sanitized copy, never the record's own.
-      ...(record.produced !== undefined ? { produced: sanitizeProduced(record.produced) } : {}),
+      ...(record.produced !== undefined
+        ? { produced: sanitizeProduced(record.produced) }
+        : {}),
     };
   }
 
@@ -3933,7 +4318,7 @@ export class Session {
    */
   #resolveEffect(
     record: TransitionRecord,
-    effectStatus: FireSettlement['effectStatus'],
+    effectStatus: FireSettlement["effectStatus"],
     extra?: SettlementExtra,
   ): void {
     const latch = this.#effectLatches.get(record.id);
@@ -3981,7 +4366,10 @@ export class Session {
     // this door is the reason several callers can now be holding it at once —
     // so each asker gets its own copy rather than a shared thing any one of
     // them can edit under the others.
-    if (open) return open.promise.then((settlement) => this.#detachSettlement(settlement));
+    if (open)
+      return open.promise.then((settlement) =>
+        this.#detachSettlement(settlement),
+      );
     return Promise.resolve(this.#retainedSettlement(transitionId));
   }
 
@@ -4060,23 +4448,31 @@ export class Session {
    * the declared writes against, and that has not changed because somebody said
    * the work was done.
    */
-  observeEffect(transitionId: string, report: ObserveEffectOptions): ObserveEffectResult {
+  observeEffect(
+    transitionId: string,
+    report: ObserveEffectOptions,
+  ): ObserveEffectResult {
     const fault = observationFault(report);
-    if (fault !== undefined) return { ok: false, reason: 'INVALID_OBSERVATION', issues: fault };
+    if (fault !== undefined)
+      return { ok: false, reason: "INVALID_OBSERVATION", issues: fault };
     const record = this.#transitions.find((t) => t.id === transitionId);
     if (record === undefined) {
       // The ids this door can still ANSWER for, not every id it has ever seen: a
       // refusal that listed the whole log would spend a context window teaching
       // one typo.
-      return { ok: false, reason: 'UNKNOWN_TRANSITION', awaiting: this.awaitingSettlement() };
+      return {
+        ok: false,
+        reason: "UNKNOWN_TRANSITION",
+        awaiting: this.awaitingSettlement(),
+      };
     }
     const affordanceId = record.cause.affordanceId;
-    if (record.cause.kind !== 'fired' || affordanceId === undefined) {
+    if (record.cause.kind !== "fired" || affordanceId === undefined) {
       // A stimulus or sync row is the world moving with nobody performing
       // anything, so there is no effect for an outside source to have observed.
       // Refused rather than recorded, for `settlementOf`'s own reason: an answer
       // filed against a row that can never have a settlement is a lie in waiting.
-      return { ok: false, reason: 'NOT_A_FIRE', transitionId };
+      return { ok: false, reason: "NOT_A_FIRE", transitionId };
     }
     const observation: ExternalObservation = {
       source: capObservationText(report.source),
@@ -4104,14 +4500,14 @@ export class Session {
     // Rank-neutral: both bases are 'observed', so nothing is upgraded — and the
     // arm above is deliberately NOT folded, because a report landing on a record
     // already at rest closed nothing and must not describe itself as having.
-    this.#foldAttribution(record, 'external-report');
-    if (report.status === 'refused') {
+    this.#foldAttribution(record, "external-report");
+    if (report.status === "refused") {
       // The ordinary failure spine, so the rollback rules are the ones already
       // written and tested — including the honest cursor walk-back a claimed
       // navigation earned. The reason is a structured sentence, so `errorText`
       // renders it verbatim instead of '[object Object]'.
       this.#handleHandlerFailure(record, {
-        reason: 'EXTERNAL_REFUSAL',
+        reason: "EXTERNAL_REFUSAL",
         explanation: EXTERNAL_REFUSAL_EXPLANATION,
         source: observation.source,
       });
@@ -4124,7 +4520,12 @@ export class Session {
       // updateState keeps), and settled with NO delta: 'unobservable' is the
       // whole truth about writes nobody reported.
       const [pending] = this.#pending.splice(index, 1);
-      this.#settle(pending.record, pending.affordance, {}, { forceUnobservable: true });
+      this.#settle(
+        pending.record,
+        pending.affordance,
+        {},
+        { forceUnobservable: true },
+      );
     }
     // The same last question every other success arm asks: the app's own verify
     // contract, if it declared one. An `'external'` action usually declares
@@ -4168,12 +4569,12 @@ export class Session {
     const what =
       known === undefined
         ? `no transition '${transitionId}' in this session`
-        : known.cause.kind === 'fired'
+        : known.cause.kind === "fired"
           ? `fire '${transitionId}' opened no settlement`
-          : `'${transitionId}' is a '${known.cause.stimulus ?? 'stimulus'}' row — the world moved, nobody fired it`;
+          : `'${transitionId}' is a '${known.cause.stimulus ?? "stimulus"}' row — the world moved, nobody fired it`;
     return (
       `hcifootprint: ${what}. Only fire() opens a settlement. ` +
-      `Fires still awaiting one: ${open.length > 0 ? open.join(', ') : '(none)'}.`
+      `Fires still awaiting one: ${open.length > 0 ? open.join(", ") : "(none)"}.`
     );
   }
 
@@ -4218,7 +4619,10 @@ export class Session {
    * a declared write reported as undefined counts as missing
    * (`effectVerified: false`).
    */
-  updateState(delta: Record<string, unknown>, opts?: UpdateOptions): UpdateResult {
+  updateState(
+    delta: Record<string, unknown>,
+    opts?: UpdateOptions,
+  ): UpdateResult {
     // Uniform undefined semantics: entries whose value is undefined are
     // DROPPED from the report — new and existing keys alike, on every
     // attribution path. Before this rule, a NEW key with undefined was
@@ -4229,22 +4633,26 @@ export class Session {
     // undefined; from in-process handlers it is always an accident.
     // Consequence: a declared write reported as undefined is a MISSING
     // write — effectVerified flips false, the designed drift detector.
-    delta = Object.fromEntries(Object.entries(delta).filter(([, value]) => value !== undefined));
+    delta = Object.fromEntries(
+      Object.entries(delta).filter(([, value]) => value !== undefined),
+    );
 
     // Validate BEFORE consuming a pending: a non-cloneable value (function, DOM
     // node) must reject loudly without destroying the attribution queue.
     try {
       structuredClone(delta);
     } catch (error) {
-      return { ok: false, reason: 'UNCLONEABLE_DELTA', issues: String(error) };
+      return { ok: false, reason: "UNCLONEABLE_DELTA", issues: String(error) };
     }
 
     if (opts?.transitionId !== undefined) {
-      const index = this.#pending.findIndex((p) => p.record.id === opts.transitionId);
+      const index = this.#pending.findIndex(
+        (p) => p.record.id === opts.transitionId,
+      );
       if (index < 0) {
         return {
           ok: false,
-          reason: 'UNKNOWN_TRANSITION',
+          reason: "UNKNOWN_TRANSITION",
           pending: this.#pending.map((p) => p.record.id),
         };
       }
@@ -4252,25 +4660,41 @@ export class Session {
       // RUNG 1 — the report NAMES the fire, so the book takes that fire's own
       // recorded principal.
       this.#noteDecisionDelta(delta, this.#decisionPrincipalOf(pending.record));
-      this.#foldAttribution(pending.record, 'named-by-report');
+      this.#foldAttribution(pending.record, "named-by-report");
       this.#settleAttributed(pending, delta);
-      return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+      return {
+        ok: true,
+        attributed: true,
+        transition: pending.record,
+        version: this.#version,
+      };
     }
 
-    const explicitStimulus = opts?.stimulus !== undefined || opts?.principal !== undefined;
+    const explicitStimulus =
+      opts?.stimulus !== undefined || opts?.principal !== undefined;
 
     // A handler reporting synchronously from inside its own invocation settles
     // its OWN record — precise attribution, immune to the burst-fire race.
     if (!explicitStimulus && this.#invokingRecordId !== null) {
-      const index = this.#pending.findIndex((p) => p.record.id === this.#invokingRecordId);
+      const index = this.#pending.findIndex(
+        (p) => p.record.id === this.#invokingRecordId,
+      );
       if (index >= 0) {
         const [pending] = this.#pending.splice(index, 1);
         // RUNG 2 — the report IS that fire's, by construction: nothing is
         // matched, so nothing can be mismatched.
-        this.#noteDecisionDelta(delta, this.#decisionPrincipalOf(pending.record));
-        this.#foldAttribution(pending.record, 'handler-window');
+        this.#noteDecisionDelta(
+          delta,
+          this.#decisionPrincipalOf(pending.record),
+        );
+        this.#foldAttribution(pending.record, "handler-window");
         this.#settleAttributed(pending, delta);
-        return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+        return {
+          ok: true,
+          attributed: true,
+          transition: pending.record,
+          version: this.#version,
+        };
       }
     }
 
@@ -4297,9 +4721,14 @@ export class Session {
           // A MATCHING RUNG — FIFO computes a join and can mis-attribute
           // predictably, so any decision this delta touches loses its maker.
           this.#noteDecisionDelta(delta, null);
-          this.#foldAttribution(pending.record, 'queue-order');
+          this.#foldAttribution(pending.record, "queue-order");
           this.#settleAttributed(pending, delta);
-          return { ok: true, attributed: true, transition: pending.record, version: this.#version };
+          return {
+            ok: true,
+            attributed: true,
+            transition: pending.record,
+            version: this.#version,
+          };
         }
       }
       // THE SIGNATURE RUNG. Under the default policy this is reached only when
@@ -4326,9 +4755,14 @@ export class Session {
         this.#pending.splice(this.#pending.indexOf(match), 1);
         // A MATCHING RUNG — a signature match, not an identity. Cleared.
         this.#noteDecisionDelta(delta, null);
-        this.#foldAttribution(match.record, 'signature-match');
+        this.#foldAttribution(match.record, "signature-match");
         this.#settleAttributed(match, delta);
-        return { ok: true, attributed: true, transition: match.record, version: this.#version };
+        return {
+          ok: true,
+          attributed: true,
+          transition: match.record,
+          version: this.#version,
+        };
       }
       // Ambiguous or non-matching: fall through to stimulus (never inference —
       // guessing while fires are in flight fabricates duplicates).
@@ -4350,9 +4784,9 @@ export class Session {
         const record: TransitionRecord = {
           id: buildRuntimeStageId(inferred.id, this.#counter.value++),
           cause: {
-            kind: 'fired',
+            kind: "fired",
             affordanceId: inferred.id,
-            principal: 'unknown',
+            principal: "unknown",
             inferred: true,
             // A guessed ATTRIBUTION is still a real action: the match came out
             // of the spec, so the row captures its name like any other. What
@@ -4365,16 +4799,23 @@ export class Session {
           // this delta, which is the unambiguity strict asks of a signature —
           // and this rung closes no fire, because it only runs with none
           // pending. What it does is refuse to let state move silently.
-          attribution: attributionOf('signature-match', 'unknown'),
+          attribution: attributionOf("signature-match", "unknown"),
           timestamp: Date.now(),
-          outcome: 'pending',
+          outcome: "pending",
           evidence: guardEval.conditions,
-          ...(guardEval.unevaluable.length > 0 ? { guardUnevaluated: guardEval.unevaluable } : {}),
+          ...(guardEval.unevaluable.length > 0
+            ? { guardUnevaluated: guardEval.unevaluable }
+            : {}),
           fromNode: this.#node,
           cursorVersion: this.#version,
         };
-        this.#commitDelta(inferred.id, record.id, Object.keys(inferred.guard ?? {}), delta);
-        record.outcome = 'committed';
+        this.#commitDelta(
+          inferred.id,
+          record.id,
+          Object.keys(inferred.guard ?? {}),
+          delta,
+        );
+        record.outcome = "committed";
         record.toNode = this.#node; // inference never moves the cursor — that would be guessing twice
         record.effectVerified = true; // writes ⊆ delta by construction of the match
         // This row is a GUESS about who acted, and the library invoked nothing
@@ -4382,30 +4823,41 @@ export class Session {
         // settlement is 'unobservable' — 'performed' would launder the guess
         // into a fact for whoever asks settlementOf() later. The state axis is
         // separate and stays true above: the declared writes really did land.
-        this.#settlements.set(record.id, this.#effectSnapshot(record, 'unobservable'));
+        this.#settlements.set(
+          record.id,
+          this.#effectSnapshot(record, "unobservable"),
+        );
         // A guessed fire is still a fire: it closes an older claim's window, for
         // the same reason a real one does — two candidates, no way to tell which
         // moved the app, so nothing is corroborated.
         this.#closeArrivalWindow();
-        this.#transitions.push(record); this.#emitTransition(record);
+        this.#transitions.push(record);
+        this.#emitTransition(record);
         this.#version++;
         this.#bumpState();
         // A guessed completion never advances firedSteps, but it must be VISIBLE
         // to the plan — 'inferred-done' — or the agent blind-refires the step.
         if (
           this.#frame &&
-          this.spec.journeys[this.#frame.journeyId].steps.includes(inferred.id) &&
+          this.spec.journeys[this.#frame.journeyId].steps.includes(
+            inferred.id,
+          ) &&
           !this.#frame.firedSteps.includes(inferred.id) &&
           !this.#frame.inferredSteps.includes(inferred.id)
         ) {
           this.#frame.inferredSteps.push(inferred.id);
         }
         this.#checkFrameAfterWorldChange();
-        return { ok: true, attributed: false, transition: record, version: this.#version };
+        return {
+          ok: true,
+          attributed: false,
+          transition: record,
+          version: this.#version,
+        };
       }
     }
 
-    const stimulus = opts?.stimulus ?? 'unknown';
+    const stimulus = opts?.stimulus ?? "unknown";
     // RUNG 3 AND THE FLOOR, in one arm because the code has one. A caller that
     // STATED a principal is naming it outright, and it rides the book verbatim.
     // A report that stated none names nobody — the floor's `'system'` is this
@@ -4414,7 +4866,11 @@ export class Session {
     this.#noteDecisionDelta(delta, opts?.principal ?? null);
     const record: TransitionRecord = {
       id: buildRuntimeStageId(`stimulus:${stimulus}`, this.#counter.value++),
-      cause: { kind: 'stimulus', stimulus, principal: opts?.principal ?? 'system' },
+      cause: {
+        kind: "stimulus",
+        stimulus,
+        principal: opts?.principal ?? "system",
+      },
       // THE TWO ARMS THIS ONE BLOCK SERVES, told apart at last. A caller that
       // named a stimulus or a principal DECLARED this motion — the app is the
       // only one who can know a server pushed, and it said so. A caller that
@@ -4424,24 +4880,30 @@ export class Session {
       // claim to have acted. The old bytes are untouched one line up; the new
       // field is where the true thing goes.
       attribution: attributionOf(
-        explicitStimulus ? 'declared-stimulus' : 'unknown',
-        opts?.principal ?? 'unknown',
+        explicitStimulus ? "declared-stimulus" : "unknown",
+        opts?.principal ?? "unknown",
       ),
       timestamp: Date.now(),
-      outcome: 'pending',
+      outcome: "pending",
       fromNode: this.#node,
       cursorVersion: this.#version,
     };
     // No tracked reads: the causal layer will honestly flag untracked sources.
     this.#commitDelta(`stimulus:${stimulus}`, record.id, [], delta);
-    record.outcome = 'committed';
+    record.outcome = "committed";
     record.toNode = this.#node;
-    record.effectVerified = 'unobservable';
-    this.#transitions.push(record); this.#emitTransition(record);
+    record.effectVerified = "unobservable";
+    this.#transitions.push(record);
+    this.#emitTransition(record);
     this.#version++;
     if (Object.keys(delta).length > 0) this.#bumpState();
     this.#checkFrameAfterWorldChange();
-    return { ok: true, attributed: false, transition: record, version: this.#version };
+    return {
+      ok: true,
+      attributed: false,
+      transition: record,
+      version: this.#version,
+    };
   }
 
   /**
@@ -4481,7 +4943,11 @@ export class Session {
    */
   #foldAttribution(record: TransitionRecord, basis: AttributionBasis): void {
     const next = attributionOf(basis, record.attribution.principal);
-    if (CERTAINTY_RANK[next.certainty] > CERTAINTY_RANK[record.attribution.certainty]) return;
+    if (
+      CERTAINTY_RANK[next.certainty] >
+      CERTAINTY_RANK[record.attribution.certainty]
+    )
+      return;
     record.attribution = next;
   }
 
@@ -4500,13 +4966,17 @@ export class Session {
    * and a delta that misses every one of an action's `doneWhen` keys is not news
    * about that action.
    */
-  #noteDecisionDelta(delta: Record<string, unknown>, principal: Principal | null): void {
+  #noteDecisionDelta(
+    delta: Record<string, unknown>,
+    principal: Principal | null,
+  ): void {
     const deltaKeys = Object.keys(delta);
     if (deltaKeys.length === 0) return; // an empty commit is a cursor stop, not a touch
     for (const aff of Object.values(this.spec.affordances)) {
       const doneWhen = aff.humanDecides?.doneWhen;
       if (doneWhen === undefined) continue;
-      if (!Object.keys(doneWhen).some((key) => deltaKeys.includes(key))) continue;
+      if (!Object.keys(doneWhen).some((key) => deltaKeys.includes(key)))
+        continue;
       if (principal === null) this.#decisionsBook.delete(aff.id);
       else this.#decisionsBook.set(aff.id, principal);
     }
@@ -4556,7 +5026,8 @@ export class Session {
       const declared = aff.humanDecides;
       if (declared === undefined) continue;
       const made = this.#decisionMade(declared.doneWhen);
-      const madeBy = made === true ? this.#decisionsBook.get(aff.id) : undefined;
+      const madeBy =
+        made === true ? this.#decisionsBook.get(aff.id) : undefined;
       rows.push({
         affordanceId: aff.id,
         ...(declared.about !== undefined ? { about: declared.about } : {}),
@@ -4578,10 +5049,10 @@ export class Session {
    * and does not hold" and "nobody could tell" are answers to different
    * questions and only one of them says a person has not answered yet.
    */
-  #decisionMade(doneWhen: WhereFilter | undefined): boolean | 'unknown' {
-    if (doneWhen === undefined) return 'unknown';
+  #decisionMade(doneWhen: WhereFilter | undefined): boolean | "unknown" {
+    if (doneWhen === undefined) return "unknown";
     const { matched, unevaluable } = this.#evalGuard(doneWhen);
-    return unevaluable.length > 0 ? 'unknown' : matched;
+    return unevaluable.length > 0 ? "unknown" : matched;
   }
 
   /** Exactly-one match rule: ambiguity refuses to guess (falls through to stimulus). */
@@ -4704,8 +5175,12 @@ export class Session {
       rows.push({
         workId: entry.workId,
         ...(entry.label !== undefined ? { label: entry.label } : {}),
-        ...(entry.transitionId !== undefined ? { transitionId: entry.transitionId } : {}),
-        ...(entry.affordanceId !== undefined ? { affordanceId: entry.affordanceId } : {}),
+        ...(entry.transitionId !== undefined
+          ? { transitionId: entry.transitionId }
+          : {}),
+        ...(entry.affordanceId !== undefined
+          ? { affordanceId: entry.affordanceId }
+          : {}),
         ...carriedDoes(entry.does),
         startedAt: entry.startedAt,
         principal: entry.principal,
@@ -4751,7 +5226,7 @@ export class Session {
    * bad one costs a reader nothing.
    */
   #workLabel(label: unknown): { label: string } | Record<string, never> {
-    if (typeof label !== 'string' || label.trim() === '') return {};
+    if (typeof label !== "string" || label.trim() === "") return {};
     return { label: sanitizeProduced(label) as string };
   }
 
@@ -4771,13 +5246,18 @@ export class Session {
   #bindWork(
     label: string | undefined,
     transitionId: string | undefined,
-  ): { transitionId?: string; affordanceId?: string; does?: string; principal: Principal } {
+  ): {
+    transitionId?: string;
+    affordanceId?: string;
+    does?: string;
+    principal: Principal;
+  } {
     if (transitionId !== undefined) {
       const record = this.#transitions.find((t) => t.id === transitionId);
       // A FIRE, specifically. A stimulus row is the world moving with nobody
       // firing anything, so there is no work "for" it and no did_it_work answer
       // it could ride — the same line #noSettlementMessage draws, drawn once.
-      if (record !== undefined && record.cause.kind === 'fired') {
+      if (record !== undefined && record.cause.kind === "fired") {
         return {
           transitionId,
           /* v8 ignore next 3 -- the `{}` arm is unreachable: a record of kind 'fired' always names the action that was fired. It is written this way because TransitionRecord.cause types the field across BOTH kinds. */
@@ -4797,22 +5277,24 @@ export class Session {
         // transitionId: job.id })` in a loop is ONE place in the app getting one
         // thing wrong; keyed by id it warned on every pass and grew the warned
         // set by one caller-supplied string each time, for the session's life.
-        `unusable-id:${label ?? ''}`,
+        `unusable-id:${label ?? ""}`,
         // CAPPED, exactly as the label in this same feature is: the id is app
         // text too, and a templated one that came out as a whole response body
         // would cross to onWarn whole.
         `hcifootprint: beginWork({ transitionId: '${sanitizeProduced(transitionId) as string}' }) names ` +
-          `${record === undefined ? 'no transition in this session' : 'a row nobody fired (the world moved)'}, ` +
+          `${record === undefined ? "no transition in this session" : "a row nobody fired (the world moved)"}, ` +
           `so this work row is UNBOUND — it says the app is working and does not say which action. ` +
           `Pass a transitionId from a fire result. Fires still awaiting a settlement: ` +
-          `${this.awaitingSettlement().join(', ') || '(none)'}.`,
+          `${this.awaitingSettlement().join(", ") || "(none)"}.`,
       );
-      return { principal: 'system' };
+      return { principal: "system" };
     }
     if (this.#invokingRecordId !== null) {
-      const record = this.#transitions.find((t) => t.id === this.#invokingRecordId);
+      const record = this.#transitions.find(
+        (t) => t.id === this.#invokingRecordId,
+      );
       /* v8 ignore next 10 -- the else arm is unreachable: #invokingRecordId is set only while a FIRE's handler is running, and that fire's record is in the log under the action that made it. The `{}` inside is unreachable for the same reason the one above is — a fired record always names its action. */
-      if (record !== undefined && record.cause.kind === 'fired') {
+      if (record !== undefined && record.cause.kind === "fired") {
         return {
           transitionId: record.id,
           ...(record.cause.affordanceId !== undefined
@@ -4824,15 +5306,15 @@ export class Session {
       }
     }
     this.#warnWorkOnce(
-      `nothing-to-bind:${label ?? ''}`,
-      'hcifootprint: beginWork() had nothing to bind to, so this work row is UNBOUND — it says the ' +
-        'app is working, and does not say which action it belongs to. Bind it by calling beginWork() ' +
-        'inside a handler BEFORE its first await, or by passing { transitionId } from the fire result ' +
-        'you are working on (app code around fire() is outside that window — the handler has not run ' +
-        'yet). Nothing was dropped: the row is open, openWork() serves it, and the facts block says ' +
-        'the app is working on something it did not tie to an action.',
+      `nothing-to-bind:${label ?? ""}`,
+      "hcifootprint: beginWork() had nothing to bind to, so this work row is UNBOUND — it says the " +
+        "app is working, and does not say which action it belongs to. Bind it by calling beginWork() " +
+        "inside a handler BEFORE its first await, or by passing { transitionId } from the fire result " +
+        "you are working on (app code around fire() is outside that window — the handler has not run " +
+        "yet). Nothing was dropped: the row is open, openWork() serves it, and the facts block says " +
+        "the app is working on something it did not tie to an action.",
     );
-    return { principal: 'system' };
+    return { principal: "system" };
   }
 
   /**
@@ -4866,21 +5348,23 @@ export class Session {
    */
   reject(
     transitionId: string,
-    opts?: { outcome?: 'rejected' | 'rolled-back' | 'superseded' },
+    opts?: { outcome?: "rejected" | "rolled-back" | "superseded" },
   ): TransitionRecord {
     const index = this.#pending.findIndex((p) => p.record.id === transitionId);
     if (index >= 0) {
       const [pending] = this.#pending.splice(index, 1);
-      const outcome = opts?.outcome ?? 'rejected';
+      const outcome = opts?.outcome ?? "rejected";
       pending.record.outcome = outcome;
       this.#version++;
       this.#emitTransition(pending.record);
       this.#resolveEffect(pending.record, refusalStatus(outcome));
       return pending.record;
     }
-    const settled = this.#transitions.find((t) => t.id === transitionId && t.outcome === 'committed');
+    const settled = this.#transitions.find(
+      (t) => t.id === transitionId && t.outcome === "committed",
+    );
     if (settled) {
-      const outcome = opts?.outcome ?? 'rolled-back';
+      const outcome = opts?.outcome ?? "rolled-back";
       settled.outcome = outcome;
       this.#version++;
       this.#emitTransition(settled);
@@ -4901,7 +5385,10 @@ export class Session {
    * is NOT an error: the cursor follows reality (off-graph), available()
    * honestly serves zero edges there, and the hop is still recorded.
    */
-  sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult {
+  sync(
+    observedNode: string,
+    opts?: { stimulus?: StimulusKind; principal?: Principal },
+  ): SyncResult {
     if (observedNode === this.#node) {
       // An OBSERVATION, not a hop — and the one that matters most to a
       // navigation claim: a claimed nav moves the cursor optimistically, so the
@@ -4917,7 +5404,7 @@ export class Session {
       if (this.#positionReported) this.#joinArrival(observedNode);
       else {
         this.#positionReported = true;
-        this.#cursorCameToRest({ kind: 'observed', node: observedNode });
+        this.#cursorCameToRest({ kind: "observed", node: observedNode });
       }
       return { changed: false, node: this.#node, version: this.#version };
     }
@@ -4925,9 +5412,9 @@ export class Session {
     const record: TransitionRecord = {
       id: buildRuntimeStageId(`sync:${observedNode}`, this.#counter.value++),
       cause: {
-        kind: 'stimulus',
-        stimulus: opts?.stimulus ?? 'navigation',
-        principal: opts?.principal ?? 'system',
+        kind: "stimulus",
+        stimulus: opts?.stimulus ?? "navigation",
+        principal: opts?.principal ?? "system",
       },
       // DECLARED, even bare: this door MEANS "the app observed the world here",
       // which is a report about motion however little else was said. So the
@@ -4935,10 +5422,13 @@ export class Session {
       // named one — the two axes of one stamp answering two different questions,
       // and neither borrowing the other's confidence. (`unverifiedEdge` above is
       // untouched and still says no guard was passed.)
-      attribution: attributionOf('declared-stimulus', opts?.principal ?? 'unknown'),
+      attribution: attributionOf(
+        "declared-stimulus",
+        opts?.principal ?? "unknown",
+      ),
       timestamp: Date.now(),
-      outcome: 'committed',
-      effectVerified: 'unobservable',
+      outcome: "committed",
+      effectVerified: "unobservable",
       unverifiedEdge: true, // this hop passed no guard — slices treat it as inferred
       fromNode: this.#node,
       toNode: observedNode,
@@ -4948,17 +5438,29 @@ export class Session {
     this.#commitDelta(`sync:${observedNode}`, record.id, [], {});
     this.#node = observedNode;
     this.#positionReported = true; // this report is what established the new position
-    this.#transitions.push(record); this.#emitTransition(record);
+    this.#transitions.push(record);
+    this.#emitTransition(record);
     this.#version++;
     this.#checkFrameAfterWorldChange();
     // The cursor came to rest somewhere new and something REPORTED it — the one
     // rest that can corroborate a navigation claim, and the one that must re-read
     // the live action surface (an app's store has no reason to emit on a route
     // change). Both phases run here, in that order.
-    this.#cursorCameToRest({ kind: 'observed', node: observedNode });
+    this.#cursorCameToRest({ kind: "observed", node: observedNode });
     return offGraph
-      ? { changed: true, transition: record, node: this.#node, version: this.#version, offGraph: true }
-      : { changed: true, transition: record, node: this.#node, version: this.#version };
+      ? {
+          changed: true,
+          transition: record,
+          node: this.#node,
+          version: this.#version,
+          offGraph: true,
+        }
+      : {
+          changed: true,
+          transition: record,
+          node: this.#node,
+          version: this.#version,
+        };
   }
 
   // -------------------------------------------------------------------------
@@ -4982,7 +5484,11 @@ export class Session {
 
   /** "Why does this state key hold its value?" — footprint backward slice, formatted. */
   why(key: string): string {
-    const slice = sliceForKey(this.#log.list(), key, keysReadFromMap(this.#readsByStep));
+    const slice = sliceForKey(
+      this.#log.list(),
+      key,
+      keysReadFromMap(this.#readsByStep),
+    );
     return formatSlice(slice);
   }
 
@@ -5014,13 +5520,13 @@ export class Session {
    */
   reportGap(opts: ReportGapOptions): GapRecord {
     const row: GapRecord = {
-      kind: 'reported',
+      kind: "reported",
       timestamp: Date.now(),
       node: this.#node,
       version: this.#version,
       ...this.#gapContext(),
       request: opts.request.slice(0, 500),
-      reason: opts.reason ?? 'other',
+      reason: opts.reason ?? "other",
       ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
       ...(opts.principal !== undefined ? { principal: opts.principal } : {}),
       // The one mark that puts a 'reported' row in front of the model, as an
@@ -5038,25 +5544,26 @@ export class Session {
 
   /** Live export hook: fires once per new gap row. Sugar for `on('gap', …)`. */
   onGap(listener: (gap: GapRecord) => void): () => void {
-    return this.on('gap', listener);
+    return this.on("gap", listener);
   }
 
   /** Every refused fire becomes a gap-ledger row (protected: NavSession adds tree rejections). */
   protected recordRejection(
     affordanceId: string,
-    rejectionReason: NonNullable<GapRecord['rejectionReason']>,
+    rejectionReason: NonNullable<GapRecord["rejectionReason"]>,
     principal: Principal,
     evidence?: FilterCondition[],
     precomputedActions?: string[],
     /** Extra triage words for wiring-shaped refusals (which gesture; which journey asked). */
-    detail?: { gestureKind?: Binding['kind']; journeyId?: string },
+    detail?: { gestureKind?: Binding["kind"]; journeyId?: string },
   ): void {
     this.#pushGap({
-      kind: 'fire-rejected',
+      kind: "fire-rejected",
       timestamp: Date.now(),
       node: this.#node,
       version: this.#version,
-      availableActions: precomputedActions ?? this.available().edges.map((e) => e.affordanceId),
+      availableActions:
+        precomputedActions ?? this.available().edges.map((e) => e.affordanceId),
       availableJourneys: Object.keys(this.spec.journeys),
       affordanceId,
       // A refusal is history too, and it splits exactly where the truth does: a
@@ -5069,9 +5576,15 @@ export class Session {
       principal,
       // Copy the CONDITION OBJECTS too — the same objects ride FireResult.evidence,
       // and a caller annotating those must not rewrite the ledger.
-      ...(evidence !== undefined ? { evidence: evidence.map((c) => ({ ...c })) } : {}),
-      ...(detail?.gestureKind !== undefined ? { gestureKind: detail.gestureKind } : {}),
-      ...(detail?.journeyId !== undefined ? { journeyId: detail.journeyId } : {}),
+      ...(evidence !== undefined
+        ? { evidence: evidence.map((c) => ({ ...c })) }
+        : {}),
+      ...(detail?.gestureKind !== undefined
+        ? { gestureKind: detail.gestureKind }
+        : {}),
+      ...(detail?.journeyId !== undefined
+        ? { journeyId: detail.journeyId }
+        : {}),
     });
   }
 
@@ -5112,7 +5625,7 @@ export class Session {
    * listener's own mount coming back around.
    */
   #cursorCameToRest(rest: CursorRest): void {
-    if (rest.kind === 'observed') {
+    if (rest.kind === "observed") {
       this.#joinArrival(rest.node);
       this.#notifyPageChanged();
     }
@@ -5149,7 +5662,9 @@ export class Session {
           try {
             listener();
           } catch (error) {
-            this.#warn(`hcifootprint: a page-change listener threw: ${String(error)}`);
+            this.#warn(
+              `hcifootprint: a page-change listener threw: ${String(error)}`,
+            );
           }
         }
         if (!this.#pageChangeMissed) return;
@@ -5207,7 +5722,9 @@ export class Session {
     // An authored page id is compared exactly; only an off-graph observation
     // (a raw pathname — what watchLocation reports) is put to the route table.
     const landed =
-      this.spec.pages[observed] !== undefined ? observed : matchRoute(this.spec.pages, observed);
+      this.spec.pages[observed] !== undefined
+        ? observed
+        : matchRoute(this.spec.pages, observed);
     // One observation per claim, whichever way it goes: the window closes here.
     this.#navClaim = null;
     if (landed !== claim.target) return; // elsewhere, or unplaceable: no verdict either way
@@ -5216,8 +5733,8 @@ export class Session {
     // yet — a router that moves before its own promise resolves is the ordinary
     // case — so the stamp lands here and #settle's `??=` leaves it standing.
     /* v8 ignore next -- unreachable: the claim window is closed one line above, so no second observation can re-enter with the same claim, and the record a live claim points at is always still in the log. The guard is what makes 'one observation per claim' true of the STAMP and not just of the window. */
-    if (record === undefined || record.arrival === 'observed') return;
-    record.arrival = 'observed';
+    if (record === undefined || record.arrival === "observed") return;
+    record.arrival = "observed";
     this.#emitTransition(record);
   }
 
@@ -5298,7 +5815,7 @@ export class Session {
     this.#deadEndSeen.add(seenKey);
     const context = this.#gapContext();
     this.#pushGap({
-      kind: 'dead-end',
+      kind: "dead-end",
       timestamp: Date.now(),
       node: this.#node,
       version: this.#version,
@@ -5307,7 +5824,9 @@ export class Session {
     });
     if (this.#deadEndWarned.has(this.#node)) return;
     this.#deadEndWarned.add(this.#node);
-    this.#warn(this.#deadEndWarning(offGraph, context.availableActions.length, authored));
+    this.#warn(
+      this.#deadEndWarning(offGraph, context.availableActions.length, authored),
+    );
   }
 
   /**
@@ -5364,7 +5883,7 @@ export class Session {
     this.#gaps.push(row);
     // Per-listener deep copy: exporter mutation must never touch the ledger,
     // nor another listener's view. Routes through the 'gap' observer channel.
-    const set = this.#listeners.get('gap');
+    const set = this.#listeners.get("gap");
     if (!set) return;
     for (const listener of set) {
       try {
@@ -5414,7 +5933,7 @@ export class Session {
       instance?: string;
     },
   ): { askId: string; receipts: ConfirmReceipts } {
-    const principal: Principal = opts?.source ?? 'agent';
+    const principal: Principal = opts?.source ?? "agent";
     const aff = this.spec.affordances[affordanceId];
     // ONE normalization for both sides of the later comparison — the reason a
     // click-only control asked with input '' and fired with nothing still matches.
@@ -5424,7 +5943,10 @@ export class Session {
     // must not be the same object: a caller holding its own reference could
     // otherwise change the payload after the yes and still compare 'same'.
     const bound = boundInput(input);
-    const receipts = this.#assembleReceipts(affordanceId, this.#willUse(input, opts?.instance));
+    const receipts = this.#assembleReceipts(
+      affordanceId,
+      this.#willUse(input, opts?.instance),
+    );
     const askId = this.#reuseOrMintAsk(affordanceId, bound, opts?.instance);
     this.#openAsks.set(askId, {
       askId,
@@ -5439,7 +5961,7 @@ export class Session {
       askedAt: this.#now(),
     });
     this.#pushConfirm({
-      kind: 'ask',
+      kind: "ask",
       askId,
       affordanceId,
       timestamp: this.#now(),
@@ -5462,13 +5984,20 @@ export class Session {
    * clicks Approve on the card they are looking at — and B fires. A differing
    * input mints a NEW id, so the shown card can only ever authorize what it shows.
    */
-  #reuseOrMintAsk(affordanceId: string, input: unknown, instance: string | undefined): string {
+  #reuseOrMintAsk(
+    affordanceId: string,
+    input: unknown,
+    instance: string | undefined,
+  ): string {
     for (const ask of this.#openAsks.values()) {
       if (ask.affordanceId !== affordanceId) continue;
       // An answered ask is never re-opened: a decision is not a draft.
       if (ask.answer !== undefined) continue;
       if (this.#humanApproval === undefined) return ask.askId;
-      if (sameInput(input, ask.input) === 'same' && (instance ?? undefined) === (ask.instance ?? undefined)) {
+      if (
+        sameInput(input, ask.input) === "same" &&
+        (instance ?? undefined) === (ask.instance ?? undefined)
+      ) {
         return ask.askId; // an idempotent re-render of the same card
       }
     }
@@ -5501,7 +6030,10 @@ export class Session {
    * of the blank "nobody approved this", so the caller learns that the yes was
    * used, or that the person said no, rather than being sent to ask again.
    */
-  openAskFor(affordanceId: string, opts?: { input?: unknown; instance?: string }): string | undefined {
+  openAskFor(
+    affordanceId: string,
+    opts?: { input?: unknown; instance?: string },
+  ): string | undefined {
     const aff = this.spec.affordances[affordanceId];
     const input = normalizeInput(opts?.input, aff?.noInput === true);
     let unanswered: string | undefined;
@@ -5509,15 +6041,21 @@ export class Session {
     for (const ask of this.#openAsks.values()) {
       if (ask.affordanceId !== affordanceId) continue;
       if (this.#humanApproval !== undefined) {
-        if (sameInput(input, ask.input) !== 'same') continue;
-        if ((opts?.instance ?? undefined) !== (ask.instance ?? undefined)) continue;
+        if (sameInput(input, ask.input) !== "same") continue;
+        if ((opts?.instance ?? undefined) !== (ask.instance ?? undefined))
+          continue;
       }
       // A revoked yes is never presented as USABLE: the person withdrew it, and
       // handing it out as live would send the caller into the gate's refusal
       // believing it had an approval. It still lands on the answered fallback
       // below, so the refusal teaches APPROVAL_REVOKED instead of the blank
       // "nobody approved this".
-      if (ask.answer === 'approved' && ask.spent !== true && ask.revoked !== true) return ask.askId;
+      if (
+        ask.answer === "approved" &&
+        ask.spent !== true &&
+        ask.revoked !== true
+      )
+        return ask.askId;
       if (ask.answer === undefined) unanswered ??= ask.askId;
       else answered = ask.askId; // the LATEST answered one — the freshest news
     }
@@ -5544,7 +6082,7 @@ export class Session {
     affordanceId: string,
     opts?: { by?: string; note?: string; principal?: Principal },
   ): ConfirmRecord {
-    const principal: Principal = opts?.principal ?? 'user';
+    const principal: Principal = opts?.principal ?? "user";
     const open = this.#openAsksFor(affordanceId);
     if (this.#humanApproval === undefined) {
       const askId = open[0]?.askId ?? this.#mintAskId();
@@ -5569,13 +6107,13 @@ export class Session {
     // decision", the row is marked `relayed` so an auditor never has to infer it
     // from a principal the caller chose, and the card stays live.
     const askId = open[0]?.askId ?? this.#mintAskId();
-    if (principal === 'user') {
+    if (principal === "user") {
       // The caller believed it was closing a card — an app's own Decline button,
       // or a port constructed with source:'user'. Silence would leave a button
       // that no longer does what its owner thinks it does.
       this.#warnOnceAboutApproval(
         affordanceId,
-        'RELAYED_DECLINE',
+        "RELAYED_DECLINE",
         `hcifootprint: declineConfirm('${affordanceId}') recorded a REPORT, not the human's decision — the card is still open. Under requireHumanApproval a no that CLOSES a card comes from declineAsk(askId, { by }), the door with no principal argument to lie with.`,
       );
     }
@@ -5597,7 +6135,7 @@ export class Session {
     relayed?: true,
   ): ConfirmRecord {
     const row: ConfirmRecord = {
-      kind: 'declined',
+      kind: "declined",
       askId,
       affordanceId,
       timestamp: this.#now(),
@@ -5606,7 +6144,9 @@ export class Session {
       principal,
       ...(opts?.by !== undefined ? { by: opts.by } : {}),
       ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
-      ...(relayed ? { enforced: true as const, relayed, stateVersion: this.#stateVersion } : {}),
+      ...(relayed
+        ? { enforced: true as const, relayed, stateVersion: this.#stateVersion }
+        : {}),
     };
     this.#pushConfirm(row);
     return structuredClone(row);
@@ -5642,23 +6182,26 @@ export class Session {
    * proves a human-principal row exists, never that a particular person
    * authenticated.
    */
-  approveAsk(askId: string, opts: { by: string; note?: string }): ApprovalResult {
+  approveAsk(
+    askId: string,
+    opts: { by: string; note?: string },
+  ): ApprovalResult {
     const guard = this.#approvalDoorGuard(opts);
     if (guard) return guard;
     const ask = this.#openAsks.get(askId);
     if (!ask) {
       return this.#doorRefusal(
-        'UNKNOWN_ASK',
+        "UNKNOWN_ASK",
         `hcifootprint: no ask '${askId}' in this session. Ask ids are per-session — pass the id that came back from confirmAsk (or rode the needs-confirm result) in THIS session.`,
       );
     }
     if (ask.answer !== undefined) {
       return this.#doorRefusal(
-        'ASK_ALREADY_ANSWERED',
+        "ASK_ALREADY_ANSWERED",
         `hcifootprint: ask '${askId}' was already ${ask.answer}. A decision is never overwritten — ask again for a fresh one.`,
       );
     }
-    return { ok: true, record: this.#answerAsk(ask, 'approved', opts) };
+    return { ok: true, record: this.#answerAsk(ask, "approved", opts) };
   }
 
   /**
@@ -5671,20 +6214,26 @@ export class Session {
    * Nothing here ever deletes a row — a re-ask after a no mints a NEW askId, so
    * an agent grinding a person toward yes leaves a countable trail.
    */
-  declineAsk(askId: string, opts: { by: string; note?: string }): ApprovalResult {
+  declineAsk(
+    askId: string,
+    opts: { by: string; note?: string },
+  ): ApprovalResult {
     const guard = this.#approvalDoorGuard(opts);
     if (guard) return guard;
     const ask = this.#openAsks.get(askId);
     if (!ask) {
-      return this.#doorRefusal('UNKNOWN_ASK', `hcifootprint: no ask '${askId}' in this session.`);
+      return this.#doorRefusal(
+        "UNKNOWN_ASK",
+        `hcifootprint: no ask '${askId}' in this session.`,
+      );
     }
     if (ask.answer !== undefined) {
       return this.#doorRefusal(
-        'ASK_ALREADY_ANSWERED',
+        "ASK_ALREADY_ANSWERED",
         `hcifootprint: ask '${askId}' was already ${ask.answer}. A decision is never overwritten.`,
       );
     }
-    return { ok: true, record: this.#answerAsk(ask, 'declined', opts) };
+    return { ok: true, record: this.#answerAsk(ask, "declined", opts) };
   }
 
   /**
@@ -5726,33 +6275,36 @@ export class Session {
   ): ApprovalResult {
     const guard = this.#approvalDoorGuard(opts);
     if (guard) return guard;
-    if ((opts.principal ?? 'user') !== 'user') {
+    if ((opts.principal ?? "user") !== "user") {
       return this.#doorRefusal(
-        'WRONG_PRINCIPAL',
+        "WRONG_PRINCIPAL",
         `hcifootprint: revokeAsk is the human side's door — a '${opts.principal}' principal cannot withdraw a human's decision, in either direction. Relay the person's change of mind to the app, whose own control calls this without a principal to claim.`,
       );
     }
     const ask = this.#openAsks.get(askId);
     if (!ask) {
-      return this.#doorRefusal('UNKNOWN_ASK', `hcifootprint: no ask '${askId}' in this session.`);
+      return this.#doorRefusal(
+        "UNKNOWN_ASK",
+        `hcifootprint: no ask '${askId}' in this session.`,
+      );
     }
     if (ask.answer === undefined) {
       return this.#doorRefusal(
-        'REVOKE_UNANSWERED',
+        "REVOKE_UNANSWERED",
         `hcifootprint: ask '${askId}' has no answer to withdraw — the person has not decided. To answer no, declineAsk(askId, { by }) is the right verb; revoke exists for taking back a yes already given.`,
       );
     }
-    if (ask.answer === 'declined' || ask.revoked === true) {
+    if (ask.answer === "declined" || ask.revoked === true) {
       return this.#doorRefusal(
-        'ASK_ALREADY_ANSWERED',
-        ask.answer === 'declined'
+        "ASK_ALREADY_ANSWERED",
+        ask.answer === "declined"
           ? `hcifootprint: ask '${askId}' was declined — there is no yes to withdraw, and the no already refuses every fire. A decision is never overwritten.`
           : `hcifootprint: the yes on ask '${askId}' was already withdrawn. The revocation is recorded once — ask again for a fresh decision.`,
       );
     }
     if (ask.spent === true) {
       return this.#doorRefusal(
-        'ASK_ALREADY_SPENT',
+        "ASK_ALREADY_SPENT",
         `hcifootprint: the yes on ask '${askId}' was already spent by a fire — revoking cannot un-fire the past. The 'used' row keeps that honest; what remains withdrawable is the next yes, on a fresh card.`,
       );
     }
@@ -5763,14 +6315,14 @@ export class Session {
     // APPROVAL_REQUIRED.
     ask.revoked = true;
     const row: ConfirmRecord = {
-      kind: 'revoked',
+      kind: "revoked",
       askId,
       affordanceId: ask.affordanceId,
       timestamp: this.#now(),
       node: this.#node,
       version: this.#version,
       stateVersion: this.#stateVersion,
-      principal: 'user',
+      principal: "user",
       by: opts.by,
       ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
       enforced: true,
@@ -5796,12 +6348,17 @@ export class Session {
    */
   alwaysApprove(
     affordanceId: string,
-    opts: { by: string; note?: string; instance?: string; expiresInMs?: number },
+    opts: {
+      by: string;
+      note?: string;
+      instance?: string;
+      expiresInMs?: number;
+    },
   ): ApprovalResult {
     const guard = this.#approvalDoorGuard(opts);
     if (guard) return guard;
     const row: ConfirmRecord = {
-      kind: 'always-approved',
+      kind: "always-approved",
       // Its own id family, so an auditor reading a 'used' row can see at a glance
       // whether a standing policy or a single yes authorized the fire.
       askId: this.#mintGrantId(),
@@ -5810,11 +6367,13 @@ export class Session {
       node: this.#node,
       version: this.#version,
       stateVersion: this.#stateVersion,
-      principal: 'user',
+      principal: "user",
       by: opts.by,
       ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
       ...(opts.instance !== undefined ? { scopeInstance: opts.instance } : {}),
-      ...(opts.expiresInMs !== undefined ? { expiresAt: this.#now() + opts.expiresInMs } : {}),
+      ...(opts.expiresInMs !== undefined
+        ? { expiresAt: this.#now() + opts.expiresInMs }
+        : {}),
       enforced: true,
     };
     this.#standingGrants.push(row);
@@ -5845,7 +6404,7 @@ export class Session {
     );
     if (matching.length === 0) {
       return this.#doorRefusal(
-        'UNKNOWN_ASK',
+        "UNKNOWN_ASK",
         `hcifootprint: no standing approval for '${affordanceId}' in this session, so there is nothing to withdraw.`,
       );
     }
@@ -5854,17 +6413,19 @@ export class Session {
       this.#standingGrants.splice(this.#standingGrants.indexOf(grant), 1);
       this.#approvalRows.delete(grant.askId);
       last = {
-        kind: 'revoked',
+        kind: "revoked",
         askId: grant.askId,
         affordanceId,
         timestamp: this.#now(),
         node: this.#node,
         version: this.#version,
         stateVersion: this.#stateVersion,
-        principal: 'user',
+        principal: "user",
         by: opts.by,
         ...(opts.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
-        ...(grant.scopeInstance !== undefined ? { scopeInstance: grant.scopeInstance } : {}),
+        ...(grant.scopeInstance !== undefined
+          ? { scopeInstance: grant.scopeInstance }
+          : {}),
         enforced: true,
       };
       this.#pushConfirm(last);
@@ -5883,14 +6444,14 @@ export class Session {
   #approvalDoorGuard(opts: { by?: string }): ApprovalResult | undefined {
     if (this.#humanApproval === undefined) {
       return this.#doorRefusal(
-        'NOT_ENFORCED',
-        'hcifootprint: create the session with requireHumanApproval to make an approval enforceable. Without it fire() does not consult the confirm journal, so this row would authorize nothing.',
+        "NOT_ENFORCED",
+        "hcifootprint: create the session with requireHumanApproval to make an approval enforceable. Without it fire() does not consult the confirm journal, so this row would authorize nothing.",
       );
     }
-    if (typeof opts.by !== 'string' || opts.by.trim() === '') {
+    if (typeof opts.by !== "string" || opts.by.trim() === "") {
       return this.#doorRefusal(
-        'NEEDS_DECIDER',
-        'hcifootprint: pass by — who decided (an operator id, an email, your own label). An approval whose decider is unknown is the claim-as-fact this option refuses.',
+        "NEEDS_DECIDER",
+        "hcifootprint: pass by — who decided (an operator id, an email, your own label). An approval whose decider is unknown is the claim-as-fact this option refuses.",
       );
     }
     return undefined;
@@ -5898,13 +6459,13 @@ export class Session {
 
   #doorRefusal(
     reason:
-      | 'UNKNOWN_ASK'
-      | 'ASK_ALREADY_ANSWERED'
-      | 'ASK_ALREADY_SPENT'
-      | 'REVOKE_UNANSWERED'
-      | 'WRONG_PRINCIPAL'
-      | 'NEEDS_DECIDER'
-      | 'NOT_ENFORCED',
+      | "UNKNOWN_ASK"
+      | "ASK_ALREADY_ANSWERED"
+      | "ASK_ALREADY_SPENT"
+      | "REVOKE_UNANSWERED"
+      | "WRONG_PRINCIPAL"
+      | "NEEDS_DECIDER"
+      | "NOT_ENFORCED",
     explanation: string,
   ): ApprovalResult {
     return { ok: false, reason, explanation };
@@ -5913,7 +6474,7 @@ export class Session {
   /** Answer one ask and record the decision. The entry KEEPS the answer, forever. */
   #answerAsk(
     ask: OpenAsk,
-    answer: 'approved' | 'declined',
+    answer: "approved" | "declined",
     opts?: { by?: string; note?: string },
   ): ConfirmRecord {
     ask.answer = answer;
@@ -5933,7 +6494,7 @@ export class Session {
       stateVersion: this.#stateVersion,
       // The door has no principal argument, so this cannot be anything else. And
       // NO transitionId: nothing has fired yet, which is the whole point.
-      principal: 'user',
+      principal: "user",
       /* v8 ignore next -- the `{}` arm is unreachable for the same reason: `by` is required at both doors, so an answered row always carries the person it came from. */
       ...(opts?.by !== undefined ? { by: opts.by } : {}),
       ...(opts?.note !== undefined ? { note: opts.note.slice(0, 500) } : {}),
@@ -5956,7 +6517,7 @@ export class Session {
 
   /** Live export hook: fires once per new confirm row. Sugar for `on('confirm', …)`. */
   onConfirm(listener: (record: ConfirmRecord) => void): () => void {
-    return this.on('confirm', listener);
+    return this.on("confirm", listener);
   }
 
   /**
@@ -6013,7 +6574,8 @@ export class Session {
     // A withdrawn yes is finished the way a spent one is: the decision-fact is
     // the whole story, and reporting it stale would bury the person's own act
     // under a policy's.
-    if (ask.answer !== 'approved' || ask.spent === true || ask.revoked === true) return false;
+    if (ask.answer !== "approved" || ask.spent === true || ask.revoked === true)
+      return false;
     const row = this.#approvalRows.get(ask.askId);
     /* v8 ignore next -- unreachable: the two lines above have already proven a policy is in force and this ask is APPROVED, and under a policy the only thing that approves an ask (#answerAsk) files its row in the same breath. */
     if (row === undefined) return false;
@@ -6063,7 +6625,8 @@ export class Session {
     opts: FireOptions,
   ): void {
     if (this.#warnedUngatedFire || this.#approvalPolicyDeclared) return;
-    if (source !== 'agent' || aff.highEffect !== true || opts.invoke === false) return;
+    if (source !== "agent" || aff.highEffect !== true || opts.invoke === false)
+      return;
     if (record.askId !== undefined) return;
     this.#warnedUngatedFire = true;
     this.#warn(
@@ -6082,13 +6645,17 @@ export class Session {
    * this stamps the FIRING principal on a row named 'approved' — an audit trail,
    * never an authorization.
    */
-  #resolveOpenAsk(record: TransitionRecord, affordanceId: string, source: Principal): void {
+  #resolveOpenAsk(
+    record: TransitionRecord,
+    affordanceId: string,
+    source: Principal,
+  ): void {
     const askId = this.#openAsksFor(affordanceId)[0]?.askId;
     if (askId === undefined) return;
     this.#openAsks.delete(askId);
     record.askId = askId;
     this.#pushConfirm({
-      kind: 'approved',
+      kind: "approved",
       askId,
       affordanceId,
       timestamp: this.#now(),
@@ -6100,7 +6667,11 @@ export class Session {
   }
 
   /** Ask the gate whether a recorded human decision authorizes this fire. */
-  #approvalVerdict(affordanceId: string, aff: Affordance, opts: FireOptions): ApprovalVerdict {
+  #approvalVerdict(
+    affordanceId: string,
+    aff: Affordance,
+    opts: FireOptions,
+  ): ApprovalVerdict {
     return checkApproval({
       ...(opts.askId !== undefined ? { askId: opts.askId } : {}),
       affordanceId,
@@ -6139,7 +6710,7 @@ export class Session {
   ): FireResult {
     this.recordRejection(affordanceId, verdict.reason, source);
     this.#pushConfirm({
-      kind: 'refused',
+      kind: "refused",
       // The pointer the caller PRESENTED, so the row joins what it was trying to
       // use. With none presented the row gets its own id from the same counter —
       // never a recycled ask id, which would join a refusal to an innocent ask.
@@ -6160,9 +6731,15 @@ export class Session {
         HOW_TO_OPEN_A_CARD,
     );
     switch (verdict.reason) {
-      case 'APPROVAL_MISMATCH':
-        return { ok: false, reason: verdict.reason, affordanceId, askId: verdict.askId, differs: verdict.differs };
-      case 'APPROVAL_REQUIRED':
+      case "APPROVAL_MISMATCH":
+        return {
+          ok: false,
+          reason: verdict.reason,
+          affordanceId,
+          askId: verdict.askId,
+          differs: verdict.differs,
+        };
+      case "APPROVAL_REQUIRED":
         return {
           ok: false,
           reason: verdict.reason,
@@ -6170,12 +6747,21 @@ export class Session {
           ...(verdict.askId !== undefined ? { askId: verdict.askId } : {}),
         };
       default:
-        return { ok: false, reason: verdict.reason, affordanceId, askId: verdict.askId };
+        return {
+          ok: false,
+          reason: verdict.reason,
+          affordanceId,
+          askId: verdict.askId,
+        };
     }
   }
 
   /** One dev warning per (action, reason) for the session's life. */
-  #warnOnceAboutApproval(affordanceId: string, reason: string, message: string): void {
+  #warnOnceAboutApproval(
+    affordanceId: string,
+    reason: string,
+    message: string,
+  ): void {
     const key = `${affordanceId}@${reason}`;
     if (this.#approvalWarned.has(key)) return;
     this.#approvalWarned.add(key);
@@ -6202,13 +6788,13 @@ export class Session {
     record.askId = verdict.askId;
     // A standing grant is never consumed — that is what durable means. Only a
     // single ALLOW is spent, and the next fire under it refuses APPROVAL_SPENT.
-    if (verdict.via === 'approved') {
+    if (verdict.via === "approved") {
       const ask = this.#openAsks.get(verdict.askId);
       /* v8 ignore next -- the else arm is unreachable: a verdict of via 'approved' was reached by reading that very ask out of this map, so it is still there to spend. */
       if (ask) ask.spent = true;
     }
     this.#pushConfirm({
-      kind: 'used',
+      kind: "used",
       askId: verdict.askId,
       affordanceId,
       timestamp: this.#now(),
@@ -6246,7 +6832,12 @@ export class Session {
   #willUse(input: unknown, instance?: string): ConfirmWillUse | undefined {
     const shown: ConfirmWillUse = {
       ...(input !== undefined
-        ? { input: redactFields(sanitizeProduced(input), this.#redactedFields.payload) }
+        ? {
+            input: redactFields(
+              sanitizeProduced(input),
+              this.#redactedFields.payload,
+            ),
+          }
         : {}),
       ...(instance !== undefined ? { instance } : {}),
     };
@@ -6256,7 +6847,10 @@ export class Session {
   }
 
   /** Assemble the receipts pack from live state — no new capture, all reads. */
-  #assembleReceipts(affordanceId: string, willUse?: ConfirmWillUse): ConfirmReceipts {
+  #assembleReceipts(
+    affordanceId: string,
+    willUse?: ConfirmWillUse,
+  ): ConfirmReceipts {
     const aff = this.spec.affordances[affordanceId];
     const { conditions, unevaluable } = aff
       ? this.#evalGuard(aff.guard)
@@ -6271,18 +6865,24 @@ export class Session {
       // amount on the claim" is approving a number that will be looked up, and
       // the receipt that names only what will change tells half of that.
       ...((reads?.length ?? 0) > 0 ? { reads: [...reads!] } : {}),
-      ...(aff?.effect?.navigatesTo ? { navigatesTo: aff.effect.navigatesTo } : {}),
+      ...(aff?.effect?.navigatesTo
+        ? { navigatesTo: aff.effect.navigatesTo }
+        : {}),
       // A declared write with no state tap can never be verified (settlement is
       // effectVerified:'unobservable') — say so up front, don't show a claim we
       // cannot check.
-      ...(declaresWrites && !this.#stateTap ? { effectUnverifiable: true } : {}),
+      ...(declaresWrites && !this.#stateTap
+        ? { effectUnverifiable: true }
+        : {}),
     };
     return {
       willDo,
       // Copy the condition objects — the same objects ride available().evidence;
       // a consumer annotating a receipt must never rewrite the trace.
       because: conditions.map((c) => ({ ...c })),
-      ...(unevaluable.length > 0 ? { becauseUnevaluated: [...unevaluable] } : {}),
+      ...(unevaluable.length > 0
+        ? { becauseUnevaluated: [...unevaluable] }
+        : {}),
       // The one runtime value in the pack, and the reason the approval can bind to
       // an object rather than only to a verb.
       ...(willUse !== undefined ? { willUse } : {}),
@@ -6297,9 +6897,9 @@ export class Session {
     return this.#transitions.slice(-max).map((t) => ({
       /* v8 ignore next 4 -- neither `?? 'unknown'` is reachable, and v8 can only exempt the property they live in: a 'fired' row always names its action, and a stimulus row's name is defaulted where the row is recorded. They keep this trail printable rather than spelling 'undefined' at a human if either invariant is relaxed. */
       what:
-        t.cause.kind === 'fired'
-          ? t.cause.affordanceId ?? 'unknown'
-          : `stimulus:${t.cause.stimulus ?? 'unknown'}`,
+        t.cause.kind === "fired"
+          ? (t.cause.affordanceId ?? "unknown")
+          : `stimulus:${t.cause.stimulus ?? "unknown"}`,
       principal: t.cause.principal,
       outcome: t.outcome,
     }));
@@ -6321,19 +6921,22 @@ export class Session {
    * second thing to reason about.
    */
   #mintAskId(): string {
-    return this.#mintedConfirmId('ask');
+    return this.#mintedConfirmId("ask");
   }
 
   #mintGrantId(): string {
-    return this.#mintedConfirmId('grant');
+    return this.#mintedConfirmId("grant");
   }
 
   #mintRefusalId(): string {
-    return this.#mintedConfirmId('refusal');
+    return this.#mintedConfirmId("refusal");
   }
 
-  #mintedConfirmId(prefix: 'ask' | 'grant' | 'refusal'): string {
-    if (this.spec.affordances[prefix] !== undefined && !this.#approvalWarned.has(`id:${prefix}`)) {
+  #mintedConfirmId(prefix: "ask" | "grant" | "refusal"): string {
+    if (
+      this.spec.affordances[prefix] !== undefined &&
+      !this.#approvalWarned.has(`id:${prefix}`)
+    ) {
       this.#approvalWarned.add(`id:${prefix}`);
       this.#warn(
         `hcifootprint: this graph has an action named '${prefix}', and approval cards are numbered ` +
@@ -6349,7 +6952,7 @@ export class Session {
     this.#confirms.push(row);
     // Per-listener deep copy (the gap-ledger discipline): exporter mutation must
     // never touch the journal, nor another listener's view.
-    const set = this.#listeners.get('confirm');
+    const set = this.#listeners.get("confirm");
     if (!set) return;
     for (const listener of set) {
       try {
@@ -6370,7 +6973,8 @@ export class Session {
   toMCPTools(opts?: { lossySchemas?: boolean }): MCPToolDescription[] {
     const served = this.#servedEdges();
     const tools = edgesToMCPTools(this.spec, served.edges, opts);
-    if (served.escape) tools.push(leaveJourneyTool(this.spec, this.#frame!.journeyId));
+    if (served.escape)
+      tools.push(leaveJourneyTool(this.spec, this.#frame!.journeyId));
     return tools;
   }
 
@@ -6389,7 +6993,10 @@ export class Session {
     return new Map(
       this.#log
         .list()
-        .map((b) => [b.runtimeStageId, Object.keys({ ...(b.overwrite ?? {}), ...(b.updates ?? {}) })]),
+        .map((b) => [
+          b.runtimeStageId,
+          Object.keys({ ...(b.overwrite ?? {}), ...(b.updates ?? {}) }),
+        ]),
     );
   }
 
@@ -6446,7 +7053,10 @@ export class Session {
    * transition record, beside the {@link Attribution} that grades how the
    * library came to believe it.
    */
-  keysChangedSince(sinceVersion?: number, opts?: { for?: Principal }): string[] {
+  keysChangedSince(
+    sinceVersion?: number,
+    opts?: { for?: Principal },
+  ): string[] {
     const byId = this.#changedKeysById();
     const caller = opts?.for;
     const keys = new Set<string>();
@@ -6455,7 +7065,8 @@ export class Session {
       // key somebody else moved BEFORE this caller wrote it has, by the time
       // the caller wrote it, not moved since the caller last acted on it.
       const mine = caller !== undefined && t.cause.principal === caller;
-      const inWindow = sinceVersion === undefined || t.cursorVersion >= sinceVersion;
+      const inWindow =
+        sinceVersion === undefined || t.cursorVersion >= sinceVersion;
       for (const key of byId.get(t.id) ?? []) {
         if (mine) keys.delete(key);
         else if (inWindow) keys.add(key);
@@ -6573,7 +7184,7 @@ export class Session {
     const row = this.#acks.append({
       actionId,
       ...(opts?.offerId !== undefined ? { offerId: opts.offerId } : {}),
-      principal: opts?.by ?? 'agent',
+      principal: opts?.by ?? "agent",
       // WHAT THE CALLER SAID, not what happened to be on the ledger. A row that
       // named three keys answers those three whether or not any of them was
       // outstanding; a row that named none is the larger statement ("this
@@ -6629,12 +7240,33 @@ export class Session {
   }
 
   /**
+   * THE ACKNOWLEDGEMENT LEDGER'S RETENTION WINDOW, counted (1.13.0) — what is
+   * still answerable, not only how much is gone: `firstRetained`..`lastRetained`
+   * of `minted`, with everything earlier evicted-but-countable. The window is
+   * what lets a reader align a citation against the bound instead of guessing.
+   */
+  acknowledgementsRetention(): LedgerRetention {
+    return this.#acks.retention();
+  }
+
+  /**
    * WHAT WAS TRUE WHEN THAT ROW WENT OUT — one {@link OfferRecord} by id, or
    * nothing where this session is not holding it (see
    * {@link Session.offersDropped}).
    *
    * A copy: a caller sorting a key list in place must not reach the ledger.
    */
+  /**
+   * WHAT BECAME OF AN OFFER ID (1.13.0): `'retained'` (answerable now),
+   * `'evicted'` (this session really minted it; the cap dropped it — see
+   * {@link Session.offersRetention}), or `'unknown'` (never minted here).
+   * The three-way answer the OFFER_NOT_ON_RECORD refusal has always used,
+   * now askable without firing anything.
+   */
+  offerStanding(offerId: string): OfferStanding {
+    return this.#offers.standing(offerId);
+  }
+
   offerFor(offerId: string): OfferRecord | undefined {
     return this.#offers.get(offerId);
   }
@@ -6655,6 +7287,17 @@ export class Session {
    */
   offersDropped(): number {
     return this.#offers.dropped;
+  }
+
+  /**
+   * THE OFFER LEDGER'S RETENTION WINDOW, counted (1.13.0) — the same window
+   * {@link Session.acknowledgementsRetention} states for receipts. Nonzero
+   * `dropped` with a stated `firstRetained` is how a reader knows an
+   * `OFFER_NOT_ON_RECORD why:'evicted'` refusal points BEFORE the window, not
+   * at a citation that never existed.
+   */
+  offersRetention(): LedgerRetention {
+    return this.#offers.retention();
   }
 
   /**
@@ -6682,19 +7325,23 @@ export class Session {
       );
     }
     for (const f of this.#frames) {
-      if (f.status !== 'demoted') continue;
+      if (f.status !== "demoted") continue;
       /* v8 ignore next -- the `?? 0` arm is unreachable (only DEMOTED frames get here, and a demotion stamps closedAtVersion in the same breath), and v8 cannot exempt part of a line — the version comparison itself IS exercised, both ways, in context-brief.test.ts. */
-      if (sinceVersion !== undefined && (f.closedAtVersion ?? 0) < sinceVersion) continue;
-      lines.push(`Note: journey ${f.journeyId} was demoted — its precondition no longer holds.`);
+      if (sinceVersion !== undefined && (f.closedAtVersion ?? 0) < sinceVersion)
+        continue;
+      lines.push(
+        `Note: journey ${f.journeyId} was demoted — its precondition no longer holds.`,
+      );
     }
     lines.push(
       sinceVersion !== undefined
         ? `Since version ${sinceVersion} (now ${this.#version}):`
         : `Session so far (version ${this.#version}):`,
     );
-    if (shown.length === 0) lines.push('  (no actions)');
+    if (shown.length === 0) lines.push("  (no actions)");
     if (omitted > 0) lines.push(`  … ${omitted} earlier action(s) omitted.`);
-    for (const t of shown) lines.push(`  • ${this.#briefLine(t, changedKeysById)}`);
+    for (const t of shown)
+      lines.push(`  • ${this.#briefLine(t, changedKeysById)}`);
 
     const pend = this.pending();
     lines.push(
@@ -6703,15 +7350,24 @@ export class Session {
           // raw id before, which made it the one line here that could not tell a
           // real action from a string — and the row's captured name is what lets
           // it keep saying the real one after the mount that declared it is gone.
-          `Pending (awaiting app state): ${pend.map((p) => this.#actionLabel(p.affordanceId, p.does)).join(', ')}.`
-        : 'Pending: none.',
+          `Pending (awaiting app state): ${pend.map((p) => this.#actionLabel(p.affordanceId, p.does)).join(", ")}.`
+        : "Pending: none.",
     );
     const served = this.#servedEdges();
-    const names = served.edges.map((e) => e.affordanceId + (e.highEffect ? ' [high-effect]' : ''));
-    if (served.escape) names.push('leave-journey');
-    lines.push(`Available now: ${names.length > 0 ? names.join(', ') : '(nothing on this page)'}.`);
+    const names = served.edges.map(
+      (e) => e.affordanceId + (e.highEffect ? " [high-effect]" : ""),
+    );
+    if (served.escape) names.push("leave-journey");
+    lines.push(
+      `Available now: ${names.length > 0 ? names.join(", ") : "(nothing on this page)"}.`,
+    );
 
-    return { node: this.#node, version: this.#version, frame: this.#frameCopy(), text: lines.join('\n') };
+    return {
+      node: this.#node,
+      version: this.#version,
+      frame: this.#frameCopy(),
+      text: lines.join("\n"),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -6743,7 +7399,10 @@ export class Session {
     // are strings, and a long session must not build five thousand of them to
     // print twenty.
     const all = this.#attemptRows();
-    const attempts = sinceVersion === undefined ? all : all.filter((row) => row.at >= sinceVersion);
+    const attempts =
+      sinceVersion === undefined
+        ? all
+        : all.filter((row) => row.at >= sinceVersion);
     const omitted = Math.max(0, attempts.length - max);
     const shown = attempts.slice(-max);
 
@@ -6802,15 +7461,21 @@ export class Session {
         // The third word, in the same status plumbing as its two siblings — a
         // block that kept saying "approved, not yet done" about a withdrawn yes
         // would be instructing the model to fire into APPROVAL_REVOKED forever.
-        lines.push(`The human withdrew their approval: ${what} (${ask.askId}).`);
-      } else if (ask.answer === 'approved' && ask.spent !== true) {
-        lines.push(`Approved by the human, not yet done: ${what} (${ask.askId}).`);
-      } else if (ask.answer === 'declined') {
+        lines.push(
+          `The human withdrew their approval: ${what} (${ask.askId}).`,
+        );
+      } else if (ask.answer === "approved" && ask.spent !== true) {
+        lines.push(
+          `Approved by the human, not yet done: ${what} (${ask.askId}).`,
+        );
+      } else if (ask.answer === "declined") {
         lines.push(`The human declined: ${what} (${ask.askId}).`);
       }
     }
     if (awaitingOmitted > 0) {
-      lines.push(`  … ${awaitingOmitted} more await the human's decision, not listed.`);
+      lines.push(
+        `  … ${awaitingOmitted} more await the human's decision, not listed.`,
+      );
     }
     // A DECISION THAT IS A PERSON'S, for every such control OFFERED HERE and not
     // known made — one authored line apiece, beside the cards above because both
@@ -6830,21 +7495,29 @@ export class Session {
     const declared = this.decisions();
     if (declared.length > 0) {
       const unmade = new Set(
-        declared.filter((row) => row.made !== true).map((row) => row.affordanceId),
+        declared
+          .filter((row) => row.made !== true)
+          .map((row) => row.affordanceId),
       );
-      const here = this.available().edges.filter((edge) => unmade.has(edge.affordanceId));
+      const here = this.available().edges.filter((edge) =>
+        unmade.has(edge.affordanceId),
+      );
       for (const edge of here.slice(0, max)) {
-        lines.push(DECISION_WITH_THE_HUMAN(this.#actionLabel(edge.affordanceId)));
+        lines.push(
+          DECISION_WITH_THE_HUMAN(this.#actionLabel(edge.affordanceId)),
+        );
       }
       const decisionsOmitted = here.length - max;
       if (decisionsOmitted > 0) {
-        lines.push(`  … ${decisionsOmitted} more decisions here are the human's, not listed.`);
+        lines.push(
+          `  … ${decisionsOmitted} more decisions here are the human's, not listed.`,
+        );
       }
     }
     const pend = this.pending();
     if (pend.length > 0) {
       lines.push(
-        `Awaiting the app's report: ${pend.map((p) => this.#actionLabel(p.affordanceId, p.does)).join(', ')}.`,
+        `Awaiting the app's report: ${pend.map((p) => this.#actionLabel(p.affordanceId, p.does)).join(", ")}.`,
       );
     }
     // WORK THE APP SAYS IT IS STILL DOING — the same shape as the line above,
@@ -6870,12 +7543,18 @@ export class Session {
       ),
     ];
     if (workNames.length > 0) {
-      lines.push(`The app is still working on: ${workNames.slice(0, max).join(', ')}.`);
+      lines.push(
+        `The app is still working on: ${workNames.slice(0, max).join(", ")}.`,
+      );
       const moreWork = workNames.length - max;
-      if (moreWork > 0) lines.push(`  … ${moreWork} more the app says it is working on, not listed.`);
+      if (moreWork > 0)
+        lines.push(
+          `  … ${moreWork} more the app says it is working on, not listed.`,
+        );
     }
-    if (work.some((row) => row.transitionId === undefined)) lines.push(WORK_NOT_TIED_TO_AN_ACTION);
-    return { node: this.#node, version: this.#version, text: lines.join('\n') };
+    if (work.some((row) => row.transitionId === undefined))
+      lines.push(WORK_NOT_TIED_TO_AN_ACTION);
+    return { node: this.#node, version: this.#version, text: lines.join("\n") };
   }
 
   /**
@@ -6925,13 +7604,15 @@ export class Session {
   #attemptRows(): AttemptRow[] {
     const rows: AttemptRow[] = [];
     for (const gap of this.#gaps) {
-      if (gap.kind === 'fire-rejected') rows.push({ at: gap.version, rank: 0, gap });
-      else if (gap.kind === 'reported' && gap.actionsMayBeStale === true) {
+      if (gap.kind === "fire-rejected")
+        rows.push({ at: gap.version, rank: 0, gap });
+      else if (gap.kind === "reported" && gap.actionsMayBeStale === true) {
         rows.push({ at: gap.version, rank: 0, gap });
       }
     }
     for (const t of this.#transitions) {
-      if (t.cause.kind === 'fired') rows.push({ at: t.cursorVersion, rank: 1, fired: t });
+      if (t.cause.kind === "fired")
+        rows.push({ at: t.cursorVersion, rank: 1, fired: t });
     }
     rows.sort((a, b) => a.at - b.at || a.rank - b.rank);
     return rows;
@@ -6940,13 +7621,15 @@ export class Session {
   /** One row in plain words — a refused fire, a recorded one, or a failed re-read. */
   #attemptLine(row: AttemptRow): string {
     if (row.rank === 1) return this.#firedLine(row.fired);
-    return row.gap.kind === 'reported' ? READ_FAILED_LINE : this.#refusedLine(row.gap);
+    return row.gap.kind === "reported"
+      ? READ_FAILED_LINE
+      : this.#refusedLine(row.gap);
   }
 
   /** A fire this session refused: it did not happen, and the reason is the typed one. */
   #refusedLine(gap: GapRecord): string {
     /* v8 ignore next -- the `?? 'someone'` arm is unreachable: every refusal row is written by recordRejection, which stamps the principal that reached for the action. It exists so a row from an older release still reads as a sentence. */
-    const who = gap.principal ?? 'someone';
+    const who = gap.principal ?? "someone";
     const what = this.#actionLabel(gap.affordanceId, gap.does);
     // A commit gate's refusal, not a fire's — the ONE row that carries a journey.
     // Saying "fired" about it would report an attempt that never happened,
@@ -6965,36 +7648,60 @@ export class Session {
    */
   #firedLine(t: TransitionRecord): string {
     const { lead, note } = this.#attemptVerdict(t);
-    const notes = [note, ...(t.cause.inferred ? ['attributed by inference, not observed'] : [])];
-    return `${lead} — ${t.cause.principal} fired ${this.#actionLabel(t.cause.affordanceId, t.cause.does)} (${notes.join('; ')})`;
+    const notes = [
+      note,
+      ...(t.cause.inferred ? ["attributed by inference, not observed"] : []),
+    ];
+    return `${lead} — ${t.cause.principal} fired ${this.#actionLabel(t.cause.affordanceId, t.cause.does)} (${notes.join("; ")})`;
   }
 
   #attemptVerdict(t: TransitionRecord): { lead: string; note: string } {
     if (t.materialized === false) {
-      return { lead: 'did NOT happen', note: 'nothing in this app is wired to perform it, so nothing ran' };
+      return {
+        lead: "did NOT happen",
+        note: "nothing in this app is wired to perform it, so nothing ran",
+      };
     }
-    if (t.outcome === 'pending') {
-      return { lead: 'not yet known', note: 'the app has not reported back yet' };
+    if (t.outcome === "pending") {
+      return {
+        lead: "not yet known",
+        note: "the app has not reported back yet",
+      };
     }
     // The app's OWN check said no. It reads over the record's outcome because
     // it can disagree with it: a commit backed by a real state report STANDS
     // while the settlement refuses, and without this the facts block would say
     // "DID happen" about an action the app itself had just denied.
     if (this.#settlements.get(t.id)?.verifyHeld === false) {
-      return { lead: 'did NOT happen', note: "the app's own verify contract did not hold afterwards" };
+      return {
+        lead: "did NOT happen",
+        note: "the app's own verify contract did not hold afterwards",
+      };
     }
-    if (t.outcome === 'rejected') return { lead: 'did NOT happen', note: 'the app refused it' };
-    if (t.outcome === 'rolled-back') return { lead: 'did NOT happen', note: 'it was rolled back' };
-    if (t.outcome === 'superseded') {
-      return { lead: 'ran, but the outcome was never observed', note: 'tracking of it stopped (superseded)' };
+    if (t.outcome === "rejected")
+      return { lead: "did NOT happen", note: "the app refused it" };
+    if (t.outcome === "rolled-back")
+      return { lead: "did NOT happen", note: "it was rolled back" };
+    if (t.outcome === "superseded") {
+      return {
+        lead: "ran, but the outcome was never observed",
+        note: "tracking of it stopped (superseded)",
+      };
     }
-    if (t.effectVerified === true) return { lead: 'DID happen', note: 'committed; declared effect observed' };
+    if (t.effectVerified === true)
+      return {
+        lead: "DID happen",
+        note: "committed; declared effect observed",
+      };
     if (t.effectVerified === false) {
-      return { lead: 'ran, but the declared effect was NOT observed', note: 'committed' };
+      return {
+        lead: "ran, but the declared effect was NOT observed",
+        note: "committed",
+      };
     }
     return {
-      lead: 'ran, but the effect was unobservable',
-      note: 'committed; nothing reported an effect to check it against',
+      lead: "ran, but the effect was unobservable",
+      note: "committed; nothing reported an effect to check it against",
     };
   }
 
@@ -7024,7 +7731,10 @@ export class Session {
    * click/tab/programmatic gestures NEVER synthesize — they are not addresses;
    * for them navigate changes only the WORDS of the refusal (FireResult.gesture).
    */
-  protected handlerFor(affordanceId: string, _opts: FireOptions): ActionHandler | undefined {
+  protected handlerFor(
+    affordanceId: string,
+    _opts: FireOptions,
+  ): ActionHandler | undefined {
     const registered = this.#registry.handlerFor(affordanceId);
     if (registered) return registered;
     const navigate = this.#navigate;
@@ -7039,7 +7749,10 @@ export class Session {
 
   /** Whether navigate could materialise this edge right now (the available() stamp's half of the question). */
   #urlMaterialisable(aff: Affordance): boolean {
-    return this.#navigate !== undefined && gestureHref(aff, this.spec.pages) !== undefined;
+    return (
+      this.#navigate !== undefined &&
+      gestureHref(aff, this.spec.pages) !== undefined
+    );
   }
 
   /**
@@ -7052,7 +7765,7 @@ export class Session {
    * with its instance-keyed registrations ('cancel-order[o-123]').
    */
   protected couldMaterialise(affordanceId: string): boolean {
-    return this.handlerFor(affordanceId, { source: 'agent' }) !== undefined;
+    return this.handlerFor(affordanceId, { source: "agent" }) !== undefined;
   }
 
   /**
@@ -7072,32 +7785,40 @@ export class Session {
       if (now === this.#structureFingerprint) return; // net-zero churn: no row, no bump
       this.#structureFingerprint = now;
       const record: TransitionRecord = {
-        id: buildRuntimeStageId('stimulus:structure-swap', this.#counter.value++),
-        cause: { kind: 'stimulus', stimulus: 'structure-swap', principal: 'system' },
+        id: buildRuntimeStageId(
+          "stimulus:structure-swap",
+          this.#counter.value++,
+        ),
+        cause: {
+          kind: "stimulus",
+          stimulus: "structure-swap",
+          principal: "system",
+        },
         // DECLARED, in the only sense that matters here: the app called a mount
         // door and this row is the library reporting the change the app itself
         // made through its own API. Nothing was matched and nothing was guessed
         // — the registry is the library's own book — so the actor really is the
         // system, and this is the one row where saying so is not a claim about
         // anybody.
-        attribution: attributionOf('declared-stimulus', 'system'),
+        attribution: attributionOf("declared-stimulus", "system"),
         timestamp: Date.now(),
-        outcome: 'committed',
-        effectVerified: 'unobservable',
+        outcome: "committed",
+        effectVerified: "unobservable",
         fromNode: this.#node,
         toNode: this.#node,
         cursorVersion: this.#version,
       };
       // Empty commit — footprint's deliberate-cursor-stop idiom.
-      this.#commitDelta('stimulus:structure-swap', record.id, [], {});
-      this.#transitions.push(record); this.#emitTransition(record);
+      this.#commitDelta("stimulus:structure-swap", record.id, [], {});
+      this.#transitions.push(record);
+      this.#emitTransition(record);
       this.#version++;
       this.#bumpStructure();
       this.#checkFrameAfterWorldChange();
       // The served structure just changed under a stationary cursor — the one
       // moment a page can become (or stop being) a room with no doors. Nobody
       // reported a position, so only the never-trap question runs.
-      this.#cursorCameToRest({ kind: 'unreported' });
+      this.#cursorCameToRest({ kind: "unreported" });
     });
   }
 
@@ -7111,7 +7832,11 @@ export class Session {
     // surface changed), just like a mount/unmount. Busy joins it for the same
     // reason and on the same terms: the row a planner read now says something
     // else, whether the app started working, stopped, or reworded the label.
-    return this.#registry.registrations().map(registrationMark).sort().join('|');
+    return this.#registry
+      .registrations()
+      .map(registrationMark)
+      .sort()
+      .join("|");
   }
 
   /**
@@ -7149,7 +7874,8 @@ export class Session {
     ) as WhereFilter;
     // evaluateFilter deliberately never matches {} — an all-unevaluable guard
     // must not fall into that anti-vacuous-truth rule, so short-circuit.
-    if (Object.keys(evaluable).length === 0) return { matched: true, conditions: [], unevaluable };
+    if (Object.keys(evaluable).length === 0)
+      return { matched: true, conditions: [], unevaluable };
     const { matched, conditions } = evaluateFilter(
       (key) => state[key],
       (key) => this.#redacted.has(key),
@@ -7168,7 +7894,10 @@ export class Session {
    * ("committed" read as "the app did it"). Only these attributed paths, plus
    * a handler running to completion, are evidence that anyone performed it.
    */
-  #settleAttributed(pending: PendingTransition, delta: Record<string, unknown>): void {
+  #settleAttributed(
+    pending: PendingTransition,
+    delta: Record<string, unknown>,
+  ): void {
     this.#settle(pending.record, pending.affordance, delta);
     // AFTER the delta has landed, never before: a verify contract asks about
     // the world the report just created.
@@ -7187,10 +7916,10 @@ export class Session {
     const deltaKeys = Object.keys(delta);
     const declared = aff.effect?.writes;
     record.effectVerified = settleOpts?.forceUnobservable
-      ? 'unobservable' // tapless settlement: no report will ever exist to check against
+      ? "unobservable" // tapless settlement: no report will ever exist to check against
       : declared && declared.length > 0
         ? declared.every((key) => deltaKeys.includes(key))
-        : 'unobservable';
+        : "unobservable";
     let cursorHopped = false;
     if (aff.effect?.navigatesTo) {
       // Declared target = expectation, flagged as a CLAIM; sync() records reality.
@@ -7206,11 +7935,14 @@ export class Session {
       // already written 'observed', and a claim written over it would forget the
       // corroboration between a router that moves first and a promise that
       // resolves second — the ordinary shape of a real navigation.
-      record.arrival ??= 'claimed';
+      record.arrival ??= "claimed";
       // The claim moves the LIVE cursor only if nothing else moved it since
       // this transition fired — a weaker claim must never clobber a newer
       // sync() observation that interleaved while the fire was pending.
-      if (this.#node === record.fromNode && this.#node !== aff.effect.navigatesTo) {
+      if (
+        this.#node === record.fromNode &&
+        this.#node !== aff.effect.navigatesTo
+      ) {
         this.#node = aff.effect.navigatesTo;
         // Moved on the app's WORD. Nothing has reported this position, so the
         // router's confirmation — a sync that changes no node — still counts as
@@ -7223,7 +7955,7 @@ export class Session {
       // an interleaved sync() moved the session's.
       record.toNode = record.fromNode;
     }
-    record.outcome = 'committed';
+    record.outcome = "committed";
     this.#version++;
     if (deltaKeys.length > 0) this.#bumpState(); // empty settles are cursor stops, not state motion
 
@@ -7239,7 +7971,7 @@ export class Session {
     // A claimed navigation just moved the cursor: the same rest sync() takes,
     // minus the observation — nothing has confirmed this hop, and the app's own
     // handler has not even run yet.
-    if (cursorHopped) this.#cursorCameToRest({ kind: 'unreported' });
+    if (cursorHopped) this.#cursorCameToRest({ kind: "unreported" });
   }
 
   /** The disclosure filter: full slice normally; frame steps + escape roles when a frame is open. */
@@ -7249,7 +7981,10 @@ export class Session {
     const steps = this.spec.journeys[this.#frame.journeyId].steps;
     return {
       edges: edges.filter(
-        (e) => steps.includes(e.affordanceId) || e.role === 'cancel' || e.role === 'back',
+        (e) =>
+          steps.includes(e.affordanceId) ||
+          e.role === "cancel" ||
+          e.role === "back",
       ),
       escape: true,
     };
@@ -7266,7 +8001,7 @@ export class Session {
     const journey = this.spec.journeys[this.#frame.journeyId];
     if (!journey.precondition) return;
     if (this.#evalGuard(journey.precondition).matched) return;
-    this.#frame.status = 'demoted';
+    this.#frame.status = "demoted";
     this.#frame.closedAtVersion = this.#version;
     this.#frames.push(this.#frame);
     this.#frame = null;
@@ -7276,7 +8011,11 @@ export class Session {
 
   #frameCopy(frame: JourneyFrame | null = this.#frame): JourneyFrame | null {
     return frame
-      ? { ...frame, firedSteps: [...frame.firedSteps], inferredSteps: [...frame.inferredSteps] }
+      ? {
+          ...frame,
+          firedSteps: [...frame.firedSteps],
+          inferredSteps: [...frame.inferredSteps],
+        }
       : null;
   }
 
@@ -7287,7 +8026,9 @@ export class Session {
    * and stays available verbatim only in structured data fields.
    */
   #nodeLabel(name: string): string {
-    return Object.hasOwn(this.spec.pages, name) ? name : '(an unmapped location, off the authored graph)';
+    return Object.hasOwn(this.spec.pages, name)
+      ? name
+      : "(an unmapped location, off the authored graph)";
   }
 
   /**
@@ -7307,7 +8048,9 @@ export class Session {
    * straight through a lookup — the same reason `#actionLabel` below uses it.
    */
   #captureDoes(id: string): { does?: string } {
-    return Object.hasOwn(this.spec.affordances, id) ? { does: this.spec.affordances[id].description } : {};
+    return Object.hasOwn(this.spec.affordances, id)
+      ? { does: this.spec.affordances[id].description }
+      : {};
   }
 
   /**
@@ -7330,14 +8073,18 @@ export class Session {
    * never authored reads exactly as it always has.
    */
   #actionLabel(id: string | undefined, captured?: string): string {
-    return id !== undefined && (captured !== undefined || Object.hasOwn(this.spec.affordances, id))
+    return id !== undefined &&
+      (captured !== undefined || Object.hasOwn(this.spec.affordances, id))
       ? id
       : UNKNOWN_ACTION;
   }
 
   /** One authored-strings-only line per transition for contextBrief(). */
-  #briefLine(t: TransitionRecord, changedKeysById: Map<string, string[]>): string {
-    if (t.cause.kind === 'fired') {
+  #briefLine(
+    t: TransitionRecord,
+    changedKeysById: Map<string, string[]>,
+  ): string {
+    if (t.cause.kind === "fired") {
       // THIS LINE USED TO BYPASS THE GUARD ENTIRELY — it printed the raw id and
       // looked the description up in the spec as it stands right now, so after
       // an unmount it rendered a real action's sentence as ''. Both halves come
@@ -7347,38 +8094,46 @@ export class Session {
       // Still a live read, and deliberately: the flags below are facts about the
       // action AS IT STANDS, not about the moment. An action nothing declares
       // any more contributes none of them, which is the honest floor.
-      const aff = Object.hasOwn(this.spec.affordances, what) ? this.spec.affordances[what] : undefined;
+      const aff = Object.hasOwn(this.spec.affordances, what)
+        ? this.spec.affordances[what]
+        : undefined;
       const moved =
         t.toNode && t.toNode !== t.fromNode
           ? ` (${this.#nodeLabel(t.fromNode)} → ${this.#nodeLabel(t.toNode)})`
-          : '';
+          : "";
       const flags: string[] = [];
-      if (t.cause.inferred) flags.push('inferred, not observed');
-      if (aff?.highEffect) flags.push('high-effect');
-      if (t.materialized === false) flags.push('not materialized — nothing executed');
-      if (t.toNodeClaimed) flags.push('navigation claimed, unconfirmed');
-      if (t.outcome === 'pending') flags.push('awaiting app state');
-      if (t.outcome === 'rejected' || t.outcome === 'rolled-back' || t.outcome === 'superseded') {
+      if (t.cause.inferred) flags.push("inferred, not observed");
+      if (aff?.highEffect) flags.push("high-effect");
+      if (t.materialized === false)
+        flags.push("not materialized — nothing executed");
+      if (t.toNodeClaimed) flags.push("navigation claimed, unconfirmed");
+      if (t.outcome === "pending") flags.push("awaiting app state");
+      if (
+        t.outcome === "rejected" ||
+        t.outcome === "rolled-back" ||
+        t.outcome === "superseded"
+      ) {
         flags.push(t.outcome);
       }
-      if (t.effectVerified === false) flags.push('declared effect not observed');
-      const suffix = flags.length > 0 ? ` [${flags.join('; ')}]` : '';
+      if (t.effectVerified === false)
+        flags.push("declared effect not observed");
+      const suffix = flags.length > 0 ? ` [${flags.join("; ")}]` : "";
       /* v8 ignore next -- both fallbacks are unreachable: every fired row captures its `does` at fire time, and there is no door that mints one for an id the spec did not have (an unknown id is refused into the gap ledger instead). They keep this line printable, in today's bytes, if a future mint path forgets to capture. */
-      const does = t.cause.does ?? aff?.description ?? '';
+      const does = t.cause.does ?? aff?.description ?? "";
       return `${t.cause.principal} fired ${what} — ${does}${moved}${suffix}`;
     }
     if (t.toNode && t.toNode !== t.fromNode) {
       return `${t.cause.principal} ${t.cause.stimulus}: cursor moved ${this.#nodeLabel(t.fromNode)} → ${this.#nodeLabel(t.toNode)} (unverified edge)`;
     }
-    if (t.cause.stimulus === 'structure-swap') {
-      return 'the served tool surface changed (something mounted, unmounted, or changed visibility)';
+    if (t.cause.stimulus === "structure-swap") {
+      return "the served tool surface changed (something mounted, unmounted, or changed visibility)";
     }
     // Key NAMES are the designed disclosure (values never enter text) — but a
     // tap could relay hostile keys, so they are hardened before rendering.
     /* v8 ignore next -- the `?? []` arm is unreachable: every stimulus row that reaches this line committed a bundle under its own id (an empty one still counts — that is the cursor stop the sentence below is about). */
     const keys = (changedKeysById.get(t.id) ?? []).map(
       // eslint-disable-next-line no-control-regex
-      (key) => key.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60),
+      (key) => key.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 60),
     );
     // An empty key list is not a lost report, and '(nothing)' read like one —
     // a reader (human or model) sees a row that changed nothing and goes
@@ -7392,8 +8147,8 @@ export class Session {
     // send the reader to the wrong knob — this brief is read to be believed.
     const changed =
       keys.length > 0
-        ? keys.join(', ')
-        : '(no observable change — same-value writes and undefined-valued keys net out before the commit)';
+        ? keys.join(", ")
+        : "(no observable change — same-value writes and undefined-valued keys net out before the commit)";
     return `${t.cause.principal} ${t.cause.stimulus} changed: ${changed}`;
   }
 
@@ -7404,10 +8159,17 @@ export class Session {
     readKeys: string[],
     delta: Record<string, unknown>,
   ): void {
-    const ctx = new StageContext('', stageName, stageName, this.#heap, '', this.#log);
+    const ctx = new StageContext(
+      "",
+      stageName,
+      stageName,
+      this.#heap,
+      "",
+      this.#log,
+    );
     ctx.runtimeStageId = runtimeStageId;
     ctx.useCommitValues(this.#commitValues);
-    ctx.useWriteProvenance('reads-prefix');
+    ctx.useWriteProvenance("reads-prefix");
     const scope = new ScopeFacade(ctx, stageName);
     scope.attachScopeRecorder(this.#recorder);
     for (const key of readKeys) scope.getValue(key);
@@ -7433,15 +8195,18 @@ export class Session {
  * Literal-ness is judged by the matcher's own segment law (segmentsOf/isParam)
  * so routing, matching and materialisation can never disagree.
  */
-function gestureHref(aff: Affordance, pages: NavigationGraphSpec['pages']): string | undefined {
+function gestureHref(
+  aff: Affordance,
+  pages: NavigationGraphSpec["pages"],
+): string | undefined {
   if (aff.binding) {
-    if (aff.binding.kind !== 'url') return undefined;
+    if (aff.binding.kind !== "url") return undefined;
     return fullyLiteral(aff.binding.href) ? aff.binding.href : undefined;
   }
   const target = aff.effect?.navigatesTo;
   if (!target) return undefined;
   const route = pages[target]?.route;
-  if (typeof route !== 'string') return undefined;
+  if (typeof route !== "string") return undefined;
   return fullyLiteral(route) ? route : undefined;
 }
 
@@ -7459,7 +8224,7 @@ function fullyLiteral(routeOrHref: string): boolean {
  * is always the instance suffix and never part of a name.
  */
 function baseActionId(registryKey: string): string {
-  const at = registryKey.indexOf('[');
+  const at = registryKey.indexOf("[");
   return at === -1 ? registryKey : registryKey.slice(0, at);
 }
 
@@ -7484,7 +8249,7 @@ function canonicalHoldsKey(affordanceId: string): string {
  * there the empty box is the truth.
  */
 function emptyBoxFor(raw: unknown, bounded: unknown): boolean {
-  if (typeof bounded !== 'object' || bounded === null) return false;
+  if (typeof bounded !== "object" || bounded === null) return false;
   if (Array.isArray(bounded) || Object.keys(bounded).length > 0) return false;
   const proto: unknown = Object.getPrototypeOf(raw as object);
   return proto !== Object.prototype && proto !== null;
@@ -7506,20 +8271,21 @@ function emptyBoxFor(raw: unknown, bounded: unknown): boolean {
 export function registrationMark(registration: Registration): string {
   return (
     encodeURIComponent(registration.affordanceId) +
-    (registration.enabled ? '' : ':off') +
+    (registration.enabled ? "" : ":off") +
     busyMark(registration.busy)
   );
 }
 
 /** The busy half of {@link registrationMark}, escaped for the same reason. */
 export function busyMark(busy: string | undefined): string {
-  return busy === undefined ? '' : `:busy=${encodeURIComponent(busy)}`;
+  return busy === undefined ? "" : `:busy=${encodeURIComponent(busy)}`;
 }
 
 /** What kind of thing the app handed back, for the warning only — never served. */
 function describeKind(raw: unknown): string {
-  const name: unknown = (raw as { constructor?: { name?: unknown } })?.constructor?.name;
-  return typeof name === 'string' && name.length > 0 ? name : 'value';
+  const name: unknown = (raw as { constructor?: { name?: unknown } })
+    ?.constructor?.name;
+  return typeof name === "string" && name.length > 0 ? name : "value";
 }
 
 /**
@@ -7528,9 +8294,9 @@ function describeKind(raw: unknown): string {
  * calling it 'refused' would dress a guess up as a fact.
  */
 function refusalStatus(
-  outcome: 'rejected' | 'rolled-back' | 'superseded',
-): FireSettlement['effectStatus'] {
-  return outcome === 'superseded' ? 'unobservable' : 'refused';
+  outcome: "rejected" | "rolled-back" | "superseded",
+): FireSettlement["effectStatus"] {
+  return outcome === "superseded" ? "unobservable" : "refused";
 }
 
 /** Detach a value defensively — structuredClone, or the ref if it can't be cloned. */
@@ -7556,15 +8322,17 @@ function validatePayload(
     safeParse?: (value: unknown) => { success: boolean; error?: unknown };
     parse?: (value: unknown) => unknown;
   };
-  if (typeof validator.safeParse === 'function') {
+  if (typeof validator.safeParse === "function") {
     try {
       const result = validator.safeParse(payload);
-      return result.success ? { ok: true } : { ok: false, issues: String(result.error) };
+      return result.success
+        ? { ok: true }
+        : { ok: false, issues: String(result.error) };
     } catch (error) {
       return { ok: false, issues: String(error) };
     }
   }
-  if (typeof validator.parse === 'function') {
+  if (typeof validator.parse === "function") {
     try {
       validator.parse(payload);
       return { ok: true };
@@ -7578,7 +8346,7 @@ function validatePayload(
   // structural subset a planner actually gets wrong and passes the rest;
   // detectSchema gates the branch so the duck-typing above stays the only path
   // a zod/parseable validator ever takes.
-  if (checkShape && detectSchema(schema) === 'json-schema') {
+  if (checkShape && detectSchema(schema) === "json-schema") {
     return checkJsonShape(schema, payload);
   }
   return { ok: true };

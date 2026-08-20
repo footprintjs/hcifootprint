@@ -453,3 +453,42 @@ describe('the offer is not a capability', () => {
     expect(fired).toMatchObject({ ok: false, reason: 'NOT_ON_NODE' });
   });
 });
+
+describe('the retention window, counted (1.13.0)', () => {
+  it('states minted / dropped / firstRetained / lastRetained — the window, not only the loss', () => {
+    const map = buildNavigationGraph('board', {
+      pages: { trip: { actions: { look: { does: 'Look' } } } },
+    });
+    const session = map.createSession({
+      node: 'trip',
+      state: { n: 0 },
+      maxOffers: 2,
+      onWarn: () => undefined,
+    });
+    for (let n = 1; n <= 5; n++) {
+      session.available();
+      session.updateState({ n }, { stimulus: 'push' });
+    }
+    session.available();
+    const window = session.offersRetention();
+    expect(window.minted).toBeGreaterThan(2);
+    expect(window.dropped).toBe(window.minted - 2);
+    // The window's ends are real retained ids, oldest and newest.
+    expect(session.offerFor(window.firstRetained!)).toBeDefined();
+    expect(session.offerFor(window.lastRetained!)).toBeDefined();
+    // Everything BEFORE the window answers 'evicted', never 'unknown'.
+    expect(session.offerStanding('offer#1')).toBe('evicted');
+  });
+
+  it('is honestly end-less while nothing is retained', () => {
+    const map = buildNavigationGraph('board', {
+      pages: { trip: { actions: { look: { does: 'Look' } } } },
+    });
+    const session = map.createSession({ node: 'trip', state: {}, onWarn: () => undefined });
+    const window = session.offersRetention();
+    expect(window.minted).toBe(0);
+    expect(window.dropped).toBe(0);
+    expect('firstRetained' in window).toBe(false);
+    expect('lastRetained' in window).toBe(false);
+  });
+});

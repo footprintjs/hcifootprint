@@ -491,3 +491,22 @@ function isOk(result: FireResult): result is Extract<FireResult, { ok: true }> {
   return result.ok;
 }
 void isOk;
+
+describe('the render cap says its size (1.13.0)', () => {
+  it('serves instancesTotal beside the 50-key slice, so 50-of-200 never reads as complete', () => {
+    const many = Array.from({ length: 200 }, (_, i) => `row-${i}`);
+    const map = rowList(() => many);
+    const session = map.createSession({ node: 'inbox', state: {}, allowUnmaterializedFires: true });
+    const edge = session
+      .available()
+      .edges.find((e) => e.affordanceId.endsWith('archive'))!;
+    expect(edge.instances).toHaveLength(50);
+    expect(edge.instancesTotal).toBe(200);
+    expect(edge.enumeration).toBe('selector');
+    // Fireability stays uncapped — instance #51 fires.
+    expect(session.fire(edge.affordanceId, { source: 'agent', instance: 'row-150' }).ok).toBe(true);
+    // And both instance refusals state the same total.
+    const refused = session.fire(edge.affordanceId, { source: 'agent', instance: 'ghost' });
+    expect(refused).toMatchObject({ ok: false, reason: 'INSTANCE_UNKNOWN', instancesTotal: 200 });
+  });
+});

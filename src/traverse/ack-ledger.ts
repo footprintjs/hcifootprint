@@ -43,13 +43,16 @@
  * and hard to see broken from inside a 7,000-line session. Here each is a
  * three-line test.
  */
-import type { StaleAcknowledgement } from '../atom/types.js';
+import type { StaleAcknowledgement } from "../atom/types.js";
 
 /** How many receipts a session keeps before dropping the oldest. */
 export const DEFAULT_MAX_ACKNOWLEDGEMENTS = 500;
 
 /** Everything a receipt holds except the id this ledger mints for it. */
-export type AcknowledgementFacts = Omit<StaleAcknowledgement, 'acknowledgementId'>;
+export type AcknowledgementFacts = Omit<
+  StaleAcknowledgement,
+  "acknowledgementId"
+>;
 
 /**
  * What this session can say about an acknowledgement id it was handed.
@@ -58,7 +61,7 @@ export type AcknowledgementFacts = Omit<StaleAcknowledgement, 'acknowledgementId
  * for an offer: collapsing them would let a full ledger report a caller's honest
  * citation of its own receipt as a made-up one.
  */
-export type AcknowledgementStanding = 'retained' | 'evicted' | 'unknown';
+export type AcknowledgementStanding = "retained" | "evicted" | "unknown";
 
 /** `ack#7` — a session-local counter, so standing can be answered for a dropped id. */
 const ID_SHAPE = /^ack#(\d+)$/;
@@ -132,17 +135,30 @@ export class AcknowledgementLedger {
     return this.#dropped;
   }
 
+  /** The retention window, counted — see {@link LedgerRetention} in offers.ts. */
+  retention(): import("./offers.js").LedgerRetention {
+    const ids = [...this.#byId.keys()];
+    return {
+      minted: this.#minted,
+      dropped: this.#dropped,
+      ...(ids.length > 0 && {
+        firstRetained: ids[0],
+        lastRetained: ids[ids.length - 1],
+      }),
+    };
+  }
+
   /**
    * What became of an id. Retained, dropped by the cap, or never written here —
    * answered from the id's own shape and this session's counter, so a caller is
    * never told "no such thing" about a receipt this session really did write.
    */
   standing(acknowledgementId: string): AcknowledgementStanding {
-    if (this.#byId.has(acknowledgementId)) return 'retained';
+    if (this.#byId.has(acknowledgementId)) return "retained";
     const parsed = ID_SHAPE.exec(acknowledgementId);
-    if (parsed === null) return 'unknown';
+    if (parsed === null) return "unknown";
     const nth = Number(parsed[1]);
-    return nth >= 1 && nth <= this.#minted ? 'evicted' : 'unknown';
+    return nth >= 1 && nth <= this.#minted ? "evicted" : "unknown";
   }
 
   /** Oldest out first — insertion order IS the order the acts happened. */
