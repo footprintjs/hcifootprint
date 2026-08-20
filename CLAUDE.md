@@ -53,7 +53,7 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | grading what a "who did this" is actually worth — watched, matched, or nobody said | `Attribution` + `AttributionBasis` + `AttributionCertainty` | `src/atom/types.ts` | 1.7.0 |
 | recording who moved the cursor, including when it did not move | `InteractionSession.focusHistory` + `FocusMove` | `src/traverse/nav-session.ts` | 1.8.0 |
 | tracking which tab is active — telling the agent WHERE INSIDE the page the person is, without moving what is served | `InteractionSession.observeFocus` + `lookingAt` (the deepest-node rule: sync pages, observe the deeper place) | `src/traverse/nav-session.ts` | 1.11.0 |
-| working out why the ledger says “system unknown changed: …” instead of naming what happened | `updateState` + `sync` (an unattributed state report has no stimulus and no principal to print — name them, or report position AS position; state-key labels are not built) | `src/traverse/session.ts` | 1.11.0 |
+| working out why the ledger says “system unknown changed: …” instead of naming what happened | `updateState` + `observeFocus` (an unattributed state report has no stimulus and no principal to print — and labelling it costs its attribution, a named known limit; if what moved is POSITION, report it as position instead) | `src/traverse/session.ts` | 1.11.0 |
 | walking the fewest declared hops from here to some page | `Session.howToReach` / `routeBetween` + `RouteStep` | `src/graph/reach.ts` | 1.0.0 |
 | deriving which action would unblock another one | `Session.whatUnblocks` / `unblockingDependencies` | `src/graph/step-deps.ts` | 1.0.0 |
 | turning a URL your router already owns back into a page id | `matchRoute` | `src/graph/route-match.ts` | 0.4.0 |
