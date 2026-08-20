@@ -511,8 +511,11 @@ describe('the authoring door refuses a declaration nobody could have meant', () 
     });
 
   it('an unknown mode dies here rather than leaving suppression switched off', () => {
-    expect(() => build({ mode: 'once' })).toThrow(GraphValidationError);
-    expect(() => build({ mode: 'once' })).toThrow(/Known modes/);
+    // 'twice' stays unclaimed on purpose; 'once' graduated to a real mode
+    // (once.test.ts owns it), which is exactly why the trap word must not be
+    // one a future release might mean.
+    expect(() => build({ mode: 'twice' })).toThrow(GraphValidationError);
+    expect(() => build({ mode: 'twice' })).toThrow(/Known modes/);
   });
 
   it('and an unknown scope', () => {
@@ -528,8 +531,8 @@ describe('the authoring door refuses a declaration nobody could have meant', () 
     const session = map.createSession({ node: 'counter', onWarn: () => undefined });
     expect(() =>
       session.registerActions('counter', {
-        actions: { pay: { does: 'Pay', concurrency: { mode: 'once' } as unknown as ConcurrencyPolicy } },
+        actions: { pay: { does: 'Pay', concurrency: { mode: 'twice' } as unknown as ConcurrencyPolicy } },
       }),
-    ).toThrow(/mount-declared action 'counter.pay' declares concurrency mode 'once'/);
+    ).toThrow(/mount-declared action 'counter.pay' declares concurrency mode 'twice'/);
   });
 });

@@ -121,6 +121,29 @@ record-only sensor fire all answer for the payload. That is where zod already
 sat in 0.3.0 — a schema is the app's statement about its own door, and a fire
 that disagrees with it is drift worth a ledger row whoever made it.
 
+## single-flight.ts + once.ts — one law at two ranges
+
+Both answer "what counts as the same fire again", through ONE shared matcher
+(`sameFire`) and one declaration door (`ActionDef.concurrency`), so the two
+suppressions can never disagree about identity. They differ only in window:
+
+- **`mode: 'single-flight'`** refuses a repeat while the first occurrence is
+  UNRESOLVED (`PRIOR_FIRE_PENDING`); the window closes on real settlement,
+  through any of four doors, and on nothing else — no clock, no look.
+- **`mode: 'once'`** keeps the window open PAST settlement: one EXECUTED
+  occurrence per scope for the session (`DUPLICATE_EXECUTION`, receipt in
+  hand). It reopens only when a **person acts on the screen** after the
+  receipt — and the repeat then FIRES carrying `FireResult.repeated` (report,
+  don't refuse: the field lesson a consumer's hand-rolled version paid for).
+  A REFUSED first occurrence minted nothing; an `'unobservable'` one counts,
+  because on a repeat-suppression boundary an unprovable non-execution is not
+  a non-execution — the same decline-toward-refuse stance as the payload rule.
+
+Scopes are shared words (`action` | `instance` | `payload`), the payload
+identity is the approval gate's own canonical rendering, and both verdicts ride
+the served row (`heldByPriorFire` / `alreadyPerformed`, action scope only) so a
+serving layer never sends a person to approve a fire about to be turned away.
+
 ## Answering with a value: `tryJourneyPlan()`
 
 `commitJourney()` returns `{ok:false, reason:'UNKNOWN_JOURNEY', known}` while

@@ -112,26 +112,35 @@ export function priorFlight(
   q: FlightQuestion,
 ): string | undefined {
   for (const [transitionId, flight] of open) {
-    if (flight.actionId !== q.actionId) continue;
-    if (q.scope !== 'action' && flight.instance !== q.instance) continue;
-    if (
-      q.scope === 'payload' &&
-      flight.render !== undefined &&
-      q.render !== undefined &&
-      flight.render !== q.render
-    ) {
-      continue;
-    }
-    return transitionId;
+    if (sameFire(flight, q)) return transitionId;
   }
   return undefined;
+}
+
+/**
+ * ONE MATCHER owns "what counts as the same fire again" — the in-flight scan
+ * above and the settled-receipt scan (`traverse/once.ts`) both judge through
+ * this predicate, so the two suppressions can never disagree about identity.
+ */
+export function sameFire(flight: Flight, q: FlightQuestion): boolean {
+  if (flight.actionId !== q.actionId) return false;
+  if (q.scope !== 'action' && flight.instance !== q.instance) return false;
+  if (
+    q.scope === 'payload' &&
+    flight.render !== undefined &&
+    q.render !== undefined &&
+    flight.render !== q.render
+  ) {
+    return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
 // The authoring door — one law, and both doors throw through it
 // ---------------------------------------------------------------------------
 
-const CONCURRENCY_MODES = ['parallel', 'single-flight'] as const;
+const CONCURRENCY_MODES = ['parallel', 'single-flight', 'once'] as const;
 const CONCURRENCY_SCOPES = ['action', 'instance', 'payload'] as const;
 
 /**
@@ -161,7 +170,7 @@ export function validateConcurrency(owner: string, policy: ConcurrencyPolicy): v
   if (policy.scope !== undefined && policy.mode === 'parallel') {
     throw new GraphValidationError(
       `${owner} declares a concurrency scope '${policy.scope}' with mode 'parallel', which scopes nothing — ` +
-        `parallel fires never wait for each other. Set mode: 'single-flight' to suppress repeats, or drop the scope.`,
+        `parallel fires never wait for each other. Set mode: 'single-flight' or 'once' to suppress repeats, or drop the scope.`,
     );
   }
 }

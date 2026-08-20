@@ -4,6 +4,27 @@
 
 ### Added
 
+- **`concurrency: { mode: 'once' }` — the receipt survives settlement**
+  (Context Integrity, the choice seam). `single-flight` suppresses a repeat
+  while the first occurrence is unresolved; the measured duplicate-execution
+  failure happened after it settled. `'once'` is a third mode at the same
+  declaration door: one EXECUTED occurrence per scope for the session, refused
+  `DUPLICATE_EXECUTION` with the receipt (`priorTransitionId`) and the authored
+  `howToRepeat` sentence. Two field lessons are the law's shape: only a person
+  acting on the screen (a user-attributed transition after the receipt) reopens
+  the action, and the reopened repeat FIRES carrying `repeated` on the result
+  AND the transition record — report, don't refuse. A refused first occurrence
+  minted no receipt; an `'unobservable'` one counts (unprovable non-execution
+  is not non-execution). While the first is unsettled, `'once'` answers exactly
+  as single-flight (`PRIOR_FIRE_PENDING`). The served row carries the verdict
+  (`alreadyPerformed`, action scope only) and Mode B greys the control out —
+  never send a person to approve a fire about to be turned away. Scopes,
+  payload identity and the matcher are single-flight's own (`sameFire`, one
+  owner of "what counts as the same fire again").
+- **`TransitionRecord.instance`** — the repeats-container card a fire named now
+  rides its receipt. A record that says what was pressed but not which row
+  cannot answer "did we already cancel order #57?".
+
 - **Bounded ledgers state their retention window, and every silent cut now
   speaks** (Context Integrity, phase 0). `session.offersRetention()` /
   `session.acknowledgementsRetention()` answer `{ minted, dropped,

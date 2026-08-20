@@ -1250,7 +1250,14 @@ export function serveToAgent(
     // authorize a payment that is then refused as a repeat has been asked for
     // nothing, and the app's own two sentences would disagree on one screen —
     // exactly the inversion the greyed-out arm was written to fix.
-    return edge.enabled === false || edge.heldByPriorFire === true;
+    return (
+      edge.enabled === false ||
+      edge.heldByPriorFire === true ||
+      // The once verdict is the same inversion with a longer window: a person
+      // asked to authorize an action the session will refuse as already
+      // performed has been asked for nothing.
+      edge.alreadyPerformed === true
+    );
   }
 
   function callDoAction(args: DoActionArgs): ServeResult {

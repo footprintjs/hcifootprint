@@ -152,6 +152,7 @@ import {
   scopeOf,
 } from "./single-flight.js";
 import type { Flight } from "./single-flight.js";
+import { HOW_TO_REPEAT, OnceLedger, personActedSince } from "./once.js";
 import { failureReason, isReturnedFailure } from "./handler-result.js";
 import { redactFields } from "./redact-fields.js";
 import { checkJsonShape, checkNoInput } from "./payload-shape.js";
@@ -678,6 +679,13 @@ export class Session {
    * dropped in `#resolveEffect`, the ONE place a latch closes.
    */
   readonly #flights = new Map<string, Flight>();
+  /**
+   * The receipts that SURVIVE settlement — one per executed occurrence of a
+   * `mode: 'once'` action, erased only by a REFUSED settlement (the one fact
+   * that proves nothing executed). Populated exclusively for once-actions, so
+   * a session that declared none holds an empty ledger and pays nothing.
+   */
+  readonly #onceReceipts = new OnceLedger();
   readonly #recorder: ScopeRecorder;
   /** The one open journey frame (v0: one at a time). */
   #frame: JourneyFrame | null = null;
@@ -1601,6 +1609,11 @@ export class Session {
         // answer for (see AvailableEdge.heldByPriorFire).
         ...(this.#heldByPriorFire(aff)
           ? { heldByPriorFire: true as const }
+          : {}),
+        // AND WHETHER IT ALREADY EXECUTED under mode 'once' with no person
+        // acting since — the same verdict-not-fact contract, same scope limit.
+        ...(this.#alreadyPerformed(aff)
+          ? { alreadyPerformed: true as const }
           : {}),
       });
     }
@@ -2898,6 +2911,53 @@ export class Session {
         howToSettle: HOW_TO_SETTLE,
       };
     }
+    // ONCE (ActionDef.concurrency mode 'once' — opt-in, absent by default).
+    //
+    // HERE for the single-flight gate's own reasons — after every capability
+    // refusal, before anything a person could be asked to approve — and right
+    // BEHIND it, because the two are one law at two ranges: single-flight
+    // suppresses the repeat while the first occurrence is unresolved, this
+    // suppresses it AFTER the first occurrence settled. Same actuator line too:
+    // execution fires only, because the app reporting its own motion is reality
+    // arriving.
+    //
+    // REPORT, DON'T REFUSE, when a person acted since — the field lesson the
+    // consumer's hand-rolled version of this check paid for. A user-attributed
+    // transition after the receipt makes the repeat legitimately theirs: it
+    // FIRES, and `repeated` on the result says out loud that it was a knowing
+    // second occurrence, with the evidence row and its attribution basis.
+    let repeatMark: {
+      repeated?: NonNullable<Extract<FireResult, { ok: true }>["repeated"]>;
+    } = {};
+    if (aff.concurrency?.mode === "once" && opts.invoke !== false) {
+      const onceScope = scopeOf(aff.concurrency);
+      const receipt = this.#onceReceipts.prior({
+        actionId: aff.id,
+        scope: onceScope,
+        instance: opts.instance,
+        render: onceScope === "payload" ? flightRender(opts.payload) : undefined,
+      });
+      if (receipt !== undefined) {
+        const reopened = personActedSince(this.#transitions, receipt.asOfIndex);
+        if (reopened === undefined) {
+          this.recordRejection(affordanceId, "DUPLICATE_EXECUTION", source);
+          return {
+            ok: false,
+            reason: "DUPLICATE_EXECUTION",
+            affordanceId,
+            priorTransitionId: receipt.transitionId,
+            scope: onceScope,
+            howToRepeat: HOW_TO_REPEAT,
+          };
+        }
+        repeatMark = {
+          repeated: {
+            priorTransitionId: receipt.transitionId,
+            personActedSince: reopened,
+          },
+        };
+      }
+    }
     // FRESHNESS (SessionOptions.freshness / ActionDef.freshness — opt-in, and
     // every axis unanswered means 'disclose', which is what this door always did).
     //
@@ -3141,6 +3201,10 @@ export class Session {
         assist?.direct === true ? assist.recordPayload : opts.payload,
         this.#redactedFields.payload,
       ),
+      // WHICH CARD, on the receipt itself. A record that says what was pressed
+      // but not which row cannot answer "did we already cancel order #57?" —
+      // recorded for every fire that named one, not only under a policy.
+      ...(opts.instance !== undefined ? { instance: opts.instance } : {}),
       outcome: "pending",
       evidence: conditions,
       // Unevaluated conditions are taken on faith (the app is the enforcer at
@@ -3163,6 +3227,10 @@ export class Session {
       // is something the record can show — without looking like a move that
       // happened.
       ...alreadyTrueMark,
+      // A knowing second occurrence says so on the ROW too (the alreadyTrue
+      // precedent one line up): the trace must show this fire re-performed a
+      // once-action because a person acted, not that the gate missed it.
+      ...repeatMark,
     };
     // Link the fire to the decision that authorized it, BEFORE the first emit, so
     // every observer sees the record already joined to its receipts.
@@ -3240,6 +3308,20 @@ export class Session {
           ? flightRender(opts.payload)
           : undefined,
     };
+    // THE RECEIPT THAT SURVIVES SETTLEMENT (mode 'once'). Minted at fire time —
+    // including `invoke: false`, because the app reporting the person performed
+    // it is the occurrence arriving, not a repeat to gate — and erased later
+    // only by a REFUSED settlement, the one fact that proves nothing executed.
+    // `asOfIndex` is the ledger length WITH this fire's own row already pushed:
+    // person-acted evidence must sit strictly after the occurrence, so the
+    // occurrence's own row (at asOfIndex - 1) never reopens itself.
+    if (aff.concurrency?.mode === "once") {
+      this.#onceReceipts.note({
+        ...flight,
+        transitionId: record.id,
+        asOfIndex: this.#transitions.length,
+      });
+    }
     const declaredWrites = aff.effect?.writes ?? [];
     // An allowed no-op never pends on the state tap: nothing ran, so no report
     // is coming for it. Pending here would (a) hang 'awaiting-state' forever and
@@ -3270,6 +3352,7 @@ export class Session {
         whenSettled: latch.promise,
         ...noOpMarks,
         ...alreadyTrueMark,
+        ...repeatMark,
       };
     }
     if (declaredWrites.length > 0) {
@@ -3294,6 +3377,7 @@ export class Session {
           whenSettled: latch.promise,
           ...noOpMarks,
           ...alreadyTrueMark,
+          ...repeatMark,
         };
       }
       this.#settle(record, aff, {}, { forceUnobservable: true });
@@ -3309,6 +3393,7 @@ export class Session {
         whenSettled: this.#settledEffect(record, "unobservable").promise,
         ...noOpMarks,
         ...alreadyTrueMark,
+        ...repeatMark,
       };
     }
     this.#settle(record, aff, {});
@@ -3329,6 +3414,7 @@ export class Session {
       whenSettled: latch.promise,
       ...noOpMarks,
       ...alreadyTrueMark,
+      ...repeatMark,
     };
   }
 
@@ -3351,7 +3437,10 @@ export class Session {
   ):
     | { transitionId: string; scope: NonNullable<ConcurrencyPolicy["scope"]> }
     | undefined {
-    if (aff.concurrency?.mode !== "single-flight") return undefined;
+    // 'once' implies single-flight while the first occurrence is unresolved:
+    // a pending occurrence is the stronger fact, and it keeps its own word.
+    const mode = aff.concurrency?.mode;
+    if (mode !== "single-flight" && mode !== "once") return undefined;
     // The app reporting motion it already performed is not this session firing
     // twice — see the gate's own comment in fire().
     if (opts.invoke === false) return undefined;
@@ -3521,6 +3610,27 @@ export class Session {
         render: undefined,
       }) !== undefined
     );
+  }
+
+  /**
+   * Would a fire of this `mode: 'once'` control, right now, be turned away as a
+   * duplicate? The verdict twin of {@link Session.available}'s
+   * `heldByPriorFire`, with its scope limit and one addition: the SAME
+   * person-acted question the gate itself asks — a row saying "already
+   * performed" about a fire the gate would let through (carrying `repeated`)
+   * would be the served surface and the gate disagreeing on one screen.
+   */
+  #alreadyPerformed(aff: Affordance): boolean {
+    if (aff.concurrency?.mode !== "once") return false;
+    if (scopeOf(aff.concurrency) !== "action") return false;
+    const receipt = this.#onceReceipts.prior({
+      actionId: aff.id,
+      scope: "action",
+      instance: undefined,
+      render: undefined,
+    });
+    if (receipt === undefined) return false;
+    return personActedSince(this.#transitions, receipt.asOfIndex) === undefined;
   }
 
   /** One acknowledgement row by id, or nothing — a lookup, never a verdict. */
@@ -4335,6 +4445,11 @@ export class Session {
     // A settlement is what clears it: nothing here reads a clock, and no other
     // door writes this map.
     this.#flights.delete(record.id);
+    // A REFUSED settlement is the one fact that proves nothing executed — the
+    // only erasure the once-receipt honors, at the only place a fire comes to
+    // rest through a latch. 'unobservable' keeps its receipt on purpose: an
+    // unprovable non-execution is not a non-execution (traverse/once.ts).
+    if (effectStatus === "refused") this.#onceReceipts.erase(record.id);
     latch.settle(snapshot);
   }
 

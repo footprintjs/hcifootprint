@@ -187,6 +187,41 @@ the same one: on a repeat-suppression boundary an unprovable difference is not a
 And it never refuses reality — the app self-reporting motion it already performed (`invoke: false`,
 the record-only DOM sensor) passes untouched.
 
+## Step 5 — once, and the receipt survives settlement
+
+`single-flight`'s window closes the moment the fire settles — by design. The duplicate-execution
+failure happens after that: the first fire settled, a later turn planned from a context that still
+showed the button, and the second press executed. `mode: 'once'` keeps the window open — one
+**executed** occurrence per scope for the session.
+
+```ts
+'pay-invoice': {
+  does: 'Pay the invoice',
+  writes: ['invoice.paid'],
+  concurrency: { mode: 'once' },   // same scopes: 'action' | 'instance' | 'payload'
+}
+```
+
+```ts
+session.fire('counter.pay', { source: 'agent' });          // ok — and it SETTLES
+session.fire('counter.pay', { source: 'agent' });
+// { ok: false, reason: 'DUPLICATE_EXECUTION', affordanceId: 'counter.pay',
+//   priorTransitionId: 'counter.pay#0', scope: 'action', howToRepeat: '…' }
+```
+
+**Only a person reopens it** — a user-attributed transition after the receipt. And the repeat is then
+**reported, not refused**: it fires, and both the result and the transition record carry
+`repeated: { priorTransitionId, personActedSince: { transitionId, basis } }`, so the trace shows a
+knowing second occurrence, never a gate that missed one. The `basis` is on the evidence because a
+person the library sensed and a person a caller asserted are not worth the same.
+
+Two more edges of the law: a **refused** first occurrence minted no receipt (it provably did not
+execute — the retry is clean), while an **unobservable** one counts, because on a repeat-suppression
+boundary an unprovable non-execution is not a non-execution. While the first occurrence is still
+unresolved, `'once'` answers exactly as `single-flight` does: `PRIOR_FIRE_PENDING`, the stronger
+fact. The served row carries this verdict too (`alreadyPerformed`, action scope only), and it clears
+the moment a person acts.
+
 ## Where the gates sit
 
 ```

@@ -445,7 +445,18 @@ export interface FreshnessPolicy {
  * ```
  */
 export interface ConcurrencyPolicy {
-  mode: "parallel" | "single-flight";
+  /**
+   * `'once'` extends `'single-flight'` past settlement: one EXECUTED occurrence
+   * per scope for the life of the session, reopened only by a person acting on
+   * the screen (a user-attributed transition after the occurrence's receipt) —
+   * and the reopened repeat FIRES, carrying `FireResult.repeated`, rather than
+   * being refused. While the first occurrence is still unresolved, `'once'`
+   * refuses exactly as `'single-flight'` does (`PRIOR_FIRE_PENDING`); once it
+   * settles, the repeat is refused `DUPLICATE_EXECUTION` with the receipt in
+   * hand. A REFUSED occurrence never counts — it provably did not execute.
+   * See `traverse/once.ts` for the whole of the law.
+   */
+  mode: "parallel" | "single-flight" | "once";
   /**
    * WHAT COUNTS AS "THE SAME FIRE AGAIN". Default `'action'`.
    *
@@ -1239,6 +1250,14 @@ export interface TransitionRecord {
   /** Epoch milliseconds when the transition was created. */
   timestamp: number;
   payload?: unknown;
+  /**
+   * The repeats-container card this fire named (`FireOptions.instance`), when
+   * it named one. Recorded because a receipt that says WHAT was pressed but
+   * not WHICH ROW cannot answer "did we already cancel order #57?" — the
+   * blindness the duplicate-execution corpus row turned on. Absent on a fire
+   * that named no card, and on every non-fire row.
+   */
+  instance?: string;
   outcome: Settlement;
   /**
    * Whether every DECLARED write key was present in the settled delta.
@@ -1361,6 +1380,17 @@ export interface TransitionRecord {
    * and a consumer annotating a row must never rewrite the trace.
    */
   alreadyTrue?: FilterCondition[];
+  /**
+   * THIS FIRE WAS A KNOWING SECOND OCCURRENCE of a `mode: 'once'` action, let
+   * through because a person acted on the screen after the first occurrence's
+   * receipt. The same object rides `FireResult.repeated` (see there for the
+   * fields' law); on the ROW so the trace shows the repeat was judged
+   * legitimate, never that the gate missed it.
+   */
+  repeated?: {
+    priorTransitionId: string;
+    personActedSince: { transitionId: string; basis: AttributionBasis };
+  };
   /**
    * D21 — THE CAPTURE ENVELOPE, present only on a fire of a `contextful()`
    * action: what was true the moment before it ran, how it came to rest, what
@@ -1572,6 +1602,19 @@ export interface AvailableEdge {
    * name a card nobody asked about (the same limit `busy` states).
    */
   heldByPriorFire?: true;
+  /**
+   * THIS ACTION ALREADY EXECUTED, THE RECEIPT STANDS, AND THIS CONTROL DECLARES
+   * `mode: 'once'` — so a fire right now would be refused `DUPLICATE_EXECUTION`.
+   * Presence-only; it CLEARS when a person acts on the screen (the repeat is
+   * then legitimate and fires carrying `repeated`), and it is absent on every
+   * control that declared no {@link ConcurrencyPolicy}.
+   *
+   * The same limits as {@link AvailableEdge.heldByPriorFire}, for the same
+   * reasons: a VERDICT this session will enforce, answered only where the
+   * declaration's scope is the whole ACTION — a narrower scope is decided by
+   * the card or the input a future fire will carry.
+   */
+  alreadyPerformed?: true;
   /**
    * Present only when the session has live registrations: true = a handler is
    * mounted right now (fireable-with-execution), false = declared here but
@@ -2074,6 +2117,19 @@ export type FireResult =
        * five conditions.
        */
       alreadyTrue?: FilterCondition[];
+      /**
+       * THIS FIRE IS A KNOWING SECOND OCCURRENCE of a `mode: 'once'` action —
+       * present exactly when a settled receipt matched and a person acting on
+       * the screen since made the repeat legitimate (see `traverse/once.ts`:
+       * report, don't refuse). `personActedSince` carries the motion row and
+       * its attribution BASIS, because a person the library sensed and a
+       * person a caller asserted are not worth the same — recorded, not
+       * verified, here as everywhere.
+       */
+      repeated?: {
+        priorTransitionId: string;
+        personActedSince: { transitionId: string; basis: AttributionBasis };
+      };
     }
   | { ok: false; reason: "UNKNOWN_AFFORDANCE"; available: string[] }
   | { ok: false; reason: "STALE_CURSOR"; version: number }
@@ -2249,6 +2305,23 @@ export type FireResult =
       scope: "action" | "instance" | "payload";
       /** The authored sentence naming every door that can settle it. */
       howToSettle: string;
+    }
+  // --- once refusal (opt-in; see ConcurrencyPolicy mode 'once') -------------
+  /** This action already EXECUTED in this session and declares
+   *  `concurrency: { mode: 'once' }`. The receipt survives settlement; only a
+   *  person acting on the screen after it reopens the action — and the repeat
+   *  then fires carrying `repeated` instead of being refused. A refused first
+   *  occurrence never minted a receipt, so a clean retry is never caught here. */
+  | {
+      ok: false;
+      reason: "DUPLICATE_EXECUTION";
+      affordanceId: string;
+      /** The occurrence already on the record — ask `session.settlementOf(id)`. */
+      priorTransitionId: string;
+      /** Which scope matched: the action, this card, or this exact input. */
+      scope: "action" | "instance" | "payload";
+      /** The authored sentence naming the one door that reopens it. */
+      howToRepeat: string;
     }
   // --- principal policy (opt-in; see SessionOptions.enforcePrincipalPolicy) --
   /** This principal may not perform this action — the app declared who may, and
@@ -2642,6 +2715,8 @@ export interface GapRecord {
     | "ACKNOWLEDGEMENT_STALE"
     // Single-flight: one occurrence of this control is still unresolved.
     | "PRIOR_FIRE_PENDING"
+    // Once: this action already executed, and no person has acted since.
+    | "DUPLICATE_EXECUTION"
     // Principal policy — a SECURITY row like the APPROVAL_* family, never demand:
     // the capability exists and this principal is not allowed to use it.
     | "PRINCIPAL_NOT_ALLOWED"
