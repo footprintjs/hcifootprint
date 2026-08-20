@@ -6,7 +6,7 @@ title: FreshnessResponse
 
 > **FreshnessResponse** = `"disclose"` \| `"require-ack"` \| `"refuse"`
 
-Defined in: [src/atom/types.ts:383](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L383)
+Defined in: [src/atom/types.ts:382](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L382)
 
 WHAT THIS CONTROL DOES WHEN SOMETHING IT WAS OFFERED UNDER HAS SINCE MOVED.
 

@@ -4,7 +4,7 @@ title: ActionGroupHandle
 
 # Interface: ActionGroupHandle
 
-Defined in: [src/traverse/nav-session.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L125)
+Defined in: [src/traverse/nav-session.ts:142](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L142)
 
 The handle returned by registerActions — the group's IDENTITY (see
 ActionGroup). Hold it and call `unregister()` on unmount; `setEnabled(id, …)`
@@ -20,7 +20,7 @@ greys one action out.
 
 > `readonly` **id**: `string`
 
-Defined in: [src/atom/types.ts:1181](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1181)
+Defined in: [src/atom/types.ts:1186](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1186)
 
 Generated identity of this registration (for telemetry/debug — not caller-supplied).
 
@@ -34,7 +34,7 @@ Generated identity of this registration (for telemetry/debug — not caller-supp
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: [src/traverse/nav-session.ts:127](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L127)
+Defined in: [src/traverse/nav-session.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L144)
 
 Instance key, when this group registered one card of a repeats container.
 
@@ -44,7 +44,7 @@ Instance key, when this group registered one card of a repeats container.
 
 > `readonly` `optional` **node?**: `string`
 
-Defined in: [src/atom/types.ts:1183](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1183)
+Defined in: [src/atom/types.ts:1188](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1188)
 
 The node path this group is registered on (tree API); undefined for the flat API.
 
@@ -58,7 +58,7 @@ The node path this group is registered on (tree API); undefined for the flat API
 
 > **setBusy**(`actionId`, `busy`): `void`
 
-Defined in: [src/atom/types.ts:1195](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1195)
+Defined in: [src/atom/types.ts:1200](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1200)
 
 Say that one action in this group is WORKING RIGHT NOW, in your own words —
 or hand `undefined` to stop saying it. See [AvailableEdge.busy](/api/index/interfaces/AvailableEdge#busy): the
@@ -92,7 +92,7 @@ can say the third state rather than some of them.
 
 > **setEnabled**(`actionId`, `enabled`): `void`
 
-Defined in: [src/atom/types.ts:1185](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1185)
+Defined in: [src/atom/types.ts:1190](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1190)
 
 Grey out / re-enable one action in this group (a disabled button).
 
@@ -120,7 +120,7 @@ Grey out / re-enable one action in this group (a disabled button).
 
 > **unregister**(): `void`
 
-Defined in: [src/atom/types.ts:1197](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1197)
+Defined in: [src/atom/types.ts:1202](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1202)
 
 Remove this group's registrations (call on unmount). Idempotent.
 

@@ -4,7 +4,7 @@ title: Effect
 
 # Interface: Effect
 
-Defined in: [src/atom/types.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L223)
+Defined in: [src/atom/types.ts:226](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L226)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:223](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **navigatesTo?**: `string`
 
-Defined in: [src/atom/types.ts:254](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L254)
+Defined in: [src/atom/types.ts:257](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L257)
 
 Page this affordance claims to move to. Reconciled by sync().
 
@@ -22,7 +22,7 @@ Page this affordance claims to move to. Reconciled by sync().
 
 > `optional` **reads?**: `string`[]
 
-Defined in: [src/atom/types.ts:252](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L252)
+Defined in: [src/atom/types.ts:255](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L255)
 
 State keys this affordance's OUTCOME DEPENDS ON — the read side of the same
 declaration, and the half that was missing.
@@ -55,6 +55,6 @@ last look, not that the value is wrong or that firing would be a mistake.
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/atom/types.ts:225](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L225)
+Defined in: [src/atom/types.ts:228](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L228)
 
 State keys this affordance claims to change. Verified at settlement.

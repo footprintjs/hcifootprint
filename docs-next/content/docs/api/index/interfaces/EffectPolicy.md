@@ -4,7 +4,7 @@ title: EffectPolicy
 
 # Interface: EffectPolicy
 
-Defined in: [src/atom/types.ts:303](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L303)
+Defined in: [src/atom/types.ts:302](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L302)
 
 WHAT A HIGH-EFFECT ACTION MUST BE ABLE TO PROVE before this session will run
 it. Opt-in, absent by default, and it refuses nothing else.
@@ -24,4 +24,4 @@ mark it high-effect.
 
 > `optional` **highEffectRequiresVerify?**: `boolean`
 
-Defined in: [src/atom/types.ts:304](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L304)
+Defined in: [src/atom/types.ts:303](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L303)

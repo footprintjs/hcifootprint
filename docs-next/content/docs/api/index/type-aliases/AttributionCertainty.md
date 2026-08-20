@@ -6,7 +6,7 @@ title: AttributionCertainty
 
 > **AttributionCertainty** = `"observed"` \| `"inferred"` \| `"unknown"`
 
-Defined in: [src/atom/types.ts:143](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L143)
+Defined in: [src/atom/types.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L144)
 
 How strong the basis is. It grades THE ASSOCIATION between this record and the
 motion — never an identity, and never a value. See traverse/attribution.ts for

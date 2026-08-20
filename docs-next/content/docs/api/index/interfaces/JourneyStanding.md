@@ -4,7 +4,7 @@ title: JourneyStanding
 
 # Interface: JourneyStanding
 
-Defined in: [src/atom/types.ts:3027](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3027)
+Defined in: [src/atom/types.ts:3148](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3148)
 
 WHERE ONE JOURNEY STANDS — [Session.journeyStanding](/api/index/classes/Session#journeystanding)'s answer, folded
 fresh from the plan, the ask book, the decisions book, retained settlements
@@ -21,7 +21,7 @@ no existing union grows for it. `EffectStatus`, `Settlement`, `StepStatus`,
 
 > **evidence**: `object`
 
-Defined in: [src/atom/types.ts:3054](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3054)
+Defined in: [src/atom/types.ts:3175](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3175)
 
 Why that word, in facts — POINTERS and structural evidence, never a receipts pack.
 
@@ -87,7 +87,7 @@ The governing step (the first not-done step in chain order), where one exists.
 
 > **journeyId**: `string`
 
-Defined in: [src/atom/types.ts:3028](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3028)
+Defined in: [src/atom/types.ts:3149](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3149)
 
 ***
 
@@ -95,7 +95,7 @@ Defined in: [src/atom/types.ts:3028](https://github.com/footprintjs/hcifootprint
 
 > **standing**: `"declined"` \| `"done"` \| `"blocked"` \| `"in-progress"` \| `"awaiting-human"` \| `"with-the-human"` \| `"failed"`
 
-Defined in: [src/atom/types.ts:3045](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3045)
+Defined in: [src/atom/types.ts:3166](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3166)
 
 - `'done'` — every step is done, or a completed frame closed it.
 - `'in-progress'` — open, and nothing is holding it (including a journey

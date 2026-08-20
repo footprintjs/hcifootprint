@@ -4,7 +4,7 @@ title: ExternalObservation
 
 # Interface: ExternalObservation
 
-Defined in: [src/atom/types.ts:321](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L321)
+Defined in: [src/atom/types.ts:320](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L320)
 
 WHAT SOMEBODY ELSE SAW — one report about an effect this client cannot
 observe, handed in through [Session.observeEffect](/api/index/classes/Session#observeeffect).
@@ -25,7 +25,7 @@ exactly as an `arrival: 'observed'` upgrade rides beside its receipt.
 
 > `optional` **evidenceRef?**: `string`
 
-Defined in: [src/atom/types.ts:331](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L331)
+Defined in: [src/atom/types.ts:330](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L330)
 
 A POINTER at the evidence — a receipt id, a URL, a log key. Recorded
 verbatim (capped) and never followed: the library cannot check it, so it
@@ -37,7 +37,7 @@ does not pretend to have.
 
 > **recordedAt**: `number`
 
-Defined in: [src/atom/types.ts:333](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L333)
+Defined in: [src/atom/types.ts:332](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L332)
 
 When this session recorded the report (epoch ms). Never when the effect happened — nobody here knows that.
 
@@ -47,7 +47,7 @@ When this session recorded the report (epoch ms). Never when the effect happened
 
 > **source**: `string`
 
-Defined in: [src/atom/types.ts:323](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L323)
+Defined in: [src/atom/types.ts:322](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L322)
 
 WHO reported it, in the app's own words ('stripe-webhook'). App data, capped, never a sentence.
 
@@ -57,6 +57,6 @@ WHO reported it, in the app's own words ('stripe-webhook'). App data, capped, ne
 
 > **status**: `"performed"` \| `"refused"`
 
-Defined in: [src/atom/types.ts:325](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L325)
+Defined in: [src/atom/types.ts:324](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L324)
 
 What they said happened. Two words, because a settlement has two answers.

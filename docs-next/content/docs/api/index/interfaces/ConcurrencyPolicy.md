@@ -4,7 +4,7 @@ title: ConcurrencyPolicy
 
 # Interface: ConcurrencyPolicy
 
-Defined in: [src/atom/types.ts:448](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L448)
+Defined in: [src/atom/types.ts:447](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L447)
 
 ONE OCCURRENCE AT A TIME, OR AS MANY AS THE CALLER MAKES — the declaration
 behind the `PRIOR_FIRE_PENDING` refusal.
@@ -28,9 +28,19 @@ the first one is finished is not the first one finishing.
 
 ### mode
 
-> **mode**: `"parallel"` \| `"single-flight"`
+> **mode**: `"parallel"` \| `"single-flight"` \| `"once"`
 
-Defined in: [src/atom/types.ts:449](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L449)
+Defined in: [src/atom/types.ts:459](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L459)
+
+`'once'` extends `'single-flight'` past settlement: one EXECUTED occurrence
+per scope for the life of the session, reopened only by a person acting on
+the screen (a user-attributed transition after the occurrence's receipt) —
+and the reopened repeat FIRES, carrying `FireResult.repeated`, rather than
+being refused. While the first occurrence is still unresolved, `'once'`
+refuses exactly as `'single-flight'` does (`PRIOR_FIRE_PENDING`); once it
+settles, the repeat is refused `DUPLICATE_EXECUTION` with the receipt in
+hand. A REFUSED occurrence never counts — it provably did not execute.
+See `traverse/once.ts` for the whole of the law.
 
 ***
 
@@ -38,7 +48,7 @@ Defined in: [src/atom/types.ts:449](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **scope?**: `"action"` \| `"instance"` \| `"payload"`
 
-Defined in: [src/atom/types.ts:463](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L463)
+Defined in: [src/atom/types.ts:473](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L473)
 
 WHAT COUNTS AS "THE SAME FIRE AGAIN". Default `'action'`.
 

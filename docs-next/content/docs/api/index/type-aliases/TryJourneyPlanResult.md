@@ -6,7 +6,7 @@ title: TryJourneyPlanResult
 
 > **TryJourneyPlanResult** = \{ `ok`: `true`; `plan`: [`JourneyPlan`](/api/index/interfaces/JourneyPlan); \} \| \{ `known`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_JOURNEY"`; \}
 
-Defined in: [src/atom/types.ts:3195](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3195)
+Defined in: [src/atom/types.ts:3317](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3317)
 
 tryJourneyPlan()'s answer: the plan, or the unknown-id refusal as a VALUE.
 

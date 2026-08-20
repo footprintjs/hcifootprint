@@ -6,7 +6,7 @@ title: ActorKind
 
 > **ActorKind** = `"human"` \| `"agent"` \| `"system"`
 
-Defined in: [src/atom/types.ts:682](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L682)
+Defined in: [src/atom/types.ts:686](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L686)
 
 A KIND OF ACTOR a policy may name — deliberately NOT [Principal](/api/index/type-aliases/Principal).
 

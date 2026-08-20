@@ -226,7 +226,7 @@ Page this action claims to navigate to (a top-level page id).
 
 > `optional` **handler?**: [`ActionHandler`](/api/index/type-aliases/ActionHandler)
 
-Defined in: [src/traverse/nav-session.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L77)
+Defined in: [src/traverse/nav-session.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L94)
 
 #### Inherited from
 

@@ -4,7 +4,7 @@ title: Affordance
 
 # Interface: Affordance
 
-Defined in: [src/atom/types.ts:740](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L740)
+Defined in: [src/atom/types.ts:744](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L744)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:740](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **binding?**: [`Binding`](/api/index/type-aliases/Binding)
 
-Defined in: [src/atom/types.ts:749](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L749)
+Defined in: [src/atom/types.ts:753](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L753)
 
 Optional since D18: a spine tool may exist with only its description
 (plannable/tour-able) and gain a binding or handler at mount time.
@@ -24,7 +24,7 @@ The v1 fluent builder still requires it at authoring.
 
 > `optional` **blockedBecause?**: [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| (() => [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| `undefined`)
 
-Defined in: [src/atom/types.ts:784](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L784)
+Defined in: [src/atom/types.ts:788](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L788)
 
 The app's own reason this control is off, compiled from
 `ActionDef.blockedBecause` at either authoring door. The OBJECT form is
@@ -42,7 +42,7 @@ live control.
 
 > `optional` **concurrency?**: [`ConcurrencyPolicy`](/api/index/interfaces/ConcurrencyPolicy)
 
-Defined in: [src/atom/types.ts:818](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L818)
+Defined in: [src/atom/types.ts:822](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L822)
 
 Whether a second fire may overlap an unresolved first, compiled verbatim
 from `ActionDef.concurrency`. Absent means `'parallel'` — what every release
@@ -54,7 +54,7 @@ before this one did. See [ConcurrencyPolicy](/api/index/interfaces/ConcurrencyPo
 
 > **description**: `string`
 
-Defined in: [src/atom/types.ts:743](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L743)
+Defined in: [src/atom/types.ts:747](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L747)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [src/atom/types.ts:743](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **descriptionSource?**: `"declared"` \| `"registration"`
 
-Defined in: [src/atom/types.ts:826](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L826)
+Defined in: [src/atom/types.ts:830](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L830)
 
 Where the planner-facing description came from. Both classes are
 developer-AUTHORED source-code literals (the firewall holds either way);
@@ -74,7 +74,7 @@ the marker keeps the origin auditable. Default 'declared'.
 
 > `optional` **effect?**: [`Effect`](/api/index/interfaces/Effect)
 
-Defined in: [src/atom/types.ts:751](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L751)
+Defined in: [src/atom/types.ts:755](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L755)
 
 ***
 
@@ -82,7 +82,7 @@ Defined in: [src/atom/types.ts:751](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **enabledWhen?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:772](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L772)
+Defined in: [src/atom/types.ts:776](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L776)
 
 Declarative DISABLEDNESS — distinct from `guard`, which decides whether the
 edge exists here at all. A failed guard HIDES the edge; a false
@@ -98,7 +98,7 @@ the library does not guess a control greyed out.
 
 > `optional` **freshness?**: [`FreshnessPolicy`](/api/index/interfaces/FreshnessPolicy)
 
-Defined in: [src/atom/types.ts:812](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L812)
+Defined in: [src/atom/types.ts:816](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L816)
 
 This control's own freshness answers, compiled verbatim from
 `ActionDef.freshness`. Absent means the session default answers for it, and
@@ -111,7 +111,7 @@ an unanswered axis is `'disclose'` — today's behaviour. See
 
 > `optional` **guard?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/atom/types.ts:750](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L750)
+Defined in: [src/atom/types.ts:754](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L754)
 
 ***
 
@@ -119,7 +119,7 @@ Defined in: [src/atom/types.ts:750](https://github.com/footprintjs/hcifootprint/
 
 > **highEffect**: `boolean`
 
-Defined in: [src/atom/types.ts:819](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L819)
+Defined in: [src/atom/types.ts:823](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L823)
 
 ***
 
@@ -127,7 +127,7 @@ Defined in: [src/atom/types.ts:819](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **humanDecides?**: [`HumanDecides`](/api/index/interfaces/HumanDecides)
 
-Defined in: [src/atom/types.ts:791](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L791)
+Defined in: [src/atom/types.ts:795](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L795)
 
 The app's declaration that this control's DECISION belongs to a person,
 compiled verbatim from `ActionDef.humanDecides` at either authoring door.
@@ -140,7 +140,7 @@ See [HumanDecides](/api/index/interfaces/HumanDecides). Absent means no ownershi
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:741](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L741)
+Defined in: [src/atom/types.ts:745](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L745)
 
 ***
 
@@ -148,7 +148,7 @@ Defined in: [src/atom/types.ts:741](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **noInput?**: `true`
 
-Defined in: [src/atom/types.ts:760](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L760)
+Defined in: [src/atom/types.ts:764](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L764)
 
 True when the author declared `'none'`: this action takes NO input, and a
 caller sending one is refused. Compiled as a FLAG with `schema` left
@@ -162,7 +162,7 @@ shape gate) stays byte-identical to what it was.
 
 > `optional` **observability?**: [`Observability`](/api/index/type-aliases/Observability)
 
-Defined in: [src/atom/types.ts:805](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L805)
+Defined in: [src/atom/types.ts:809](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L809)
 
 How this action's effect can be SEEN, compiled verbatim from
 `ActionDef.observability` at either authoring door. See
@@ -175,7 +175,7 @@ How this action's effect can be SEEN, compiled verbatim from
 
 > **on**: `string`[]
 
-Defined in: [src/atom/types.ts:742](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L742)
+Defined in: [src/atom/types.ts:746](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L746)
 
 ***
 
@@ -183,7 +183,7 @@ Defined in: [src/atom/types.ts:742](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **principalPolicy?**: [`PrincipalPolicy`](/api/index/interfaces/PrincipalPolicy)
 
-Defined in: [src/atom/types.ts:798](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L798)
+Defined in: [src/atom/types.ts:802](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L802)
 
 The app's declaration about WHO may perform this and whose choice it is,
 compiled verbatim from `ActionDef.principalPolicy` at either authoring door.
@@ -196,7 +196,7 @@ See [PrincipalPolicy](/api/index/interfaces/PrincipalPolicy). Absent means nothi
 
 > **role**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-Defined in: [src/atom/types.ts:820](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L820)
+Defined in: [src/atom/types.ts:824](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L824)
 
 ***
 
@@ -204,7 +204,7 @@ Defined in: [src/atom/types.ts:820](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **schema?**: `unknown`
 
-Defined in: [src/atom/types.ts:752](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L752)
+Defined in: [src/atom/types.ts:756](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L756)
 
 ***
 
@@ -212,6 +212,6 @@ Defined in: [src/atom/types.ts:752](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **verify?**: [`VerifyContract`](/api/index/type-aliases/VerifyContract)
 
-Defined in: [src/atom/types.ts:762](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L762)
+Defined in: [src/atom/types.ts:766](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L766)
 
 The app's own post-settlement check that this action really happened.

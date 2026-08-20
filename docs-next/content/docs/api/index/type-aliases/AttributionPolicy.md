@@ -6,7 +6,7 @@ title: AttributionPolicy
 
 > **AttributionPolicy** = `"default"` \| `"strict"`
 
-Defined in: [src/atom/types.ts:1120](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1120)
+Defined in: [src/atom/types.ts:1125](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1125)
 
 How hard [Session.updateState](/api/index/classes/Session#updatestate) may guess. See
 [SessionOptions.attributionPolicy](/api/index/interfaces/SessionOptions#attributionpolicy) — `'default'` is today's ladder,

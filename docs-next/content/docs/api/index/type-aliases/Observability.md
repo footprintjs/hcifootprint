@@ -6,7 +6,7 @@ title: Observability
 
 > **Observability** = `"state-delta"` \| `"postcondition"` \| `"navigation"` \| `"external"` \| `"unobservable"`
 
-Defined in: [src/atom/types.ts:283](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L283)
+Defined in: [src/atom/types.ts:286](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L286)
 
 HOW WOULD ANYONE SEE THAT THIS ACTION HAPPENED — the app's own answer,
 declared once next to the action.

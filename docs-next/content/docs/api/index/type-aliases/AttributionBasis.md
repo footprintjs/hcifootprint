@@ -6,7 +6,7 @@ title: AttributionBasis
 
 > **AttributionBasis** = `"caller-asserted"` \| `"named-by-report"` \| `"handler-window"` \| `"direct-call"` \| `"declared-stimulus"` \| `"external-report"` \| `"sensed-click"` \| `"signature-match"` \| `"queue-order"` \| `"unknown"`
 
-Defined in: [src/atom/types.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L123)
+Defined in: [src/atom/types.ts:124](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L124)
 
 WHICH RUNG FILED THIS MOTION under the principal it names. A closed set, one
 word per way this library can come to associate a transition with an actor —

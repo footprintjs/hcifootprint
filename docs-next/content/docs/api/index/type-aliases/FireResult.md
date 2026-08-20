@@ -4,9 +4,9 @@ title: FireResult
 
 # Type Alias: FireResult
 
-> **FireResult** = \{ `alreadyTrue?`: `FilterCondition`[]; `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REVOKED"`; \} \| \{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"OFFER_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `offeredFor?`: `string`; `offerId`: `string`; `ok`: `false`; `reason`: `"OFFER_NOT_ON_RECORD"`; `why`: `"unknown"` \| `"evicted"` \| `"other-action"`; \} \| \{ `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"WORLD_MOVED"`; \} \| \{ `acknowledgementId?`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_REQUIRED"`; `why?`: `"evicted"`; \} \| \{ `acknowledgementId`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_STALE"`; \} \| \{ `affordanceId`: `string`; `howToSettle`: `string`; `ok`: `false`; `pendingTransitionId`: `string`; `reason`: `"PRIOR_FIRE_PENDING"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `attempted`: [`Principal`](/api/index/type-aliases/Principal); `ok`: `false`; `reason`: `"PRINCIPAL_NOT_ALLOWED"`; `required`: [`ActorKind`](/api/index/type-aliases/ActorKind)[]; \} \| \{ `affordanceId`: `string`; `needs`: `"observability"` \| `"postcondition"`; `observability?`: [`Observability`](/api/index/type-aliases/Observability); `ok`: `false`; `reason`: `"EFFECT_NOT_VERIFIABLE"`; \}
+> **FireResult** = \{ `alreadyTrue?`: `FilterCondition`[]; `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `repeated?`: \{ `personActedSince`: \{ `basis`: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis); `transitionId`: `string`; \}; `priorTransitionId`: `string`; \}; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REVOKED"`; \} \| \{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"OFFER_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `offeredFor?`: `string`; `offerId`: `string`; `ok`: `false`; `reason`: `"OFFER_NOT_ON_RECORD"`; `why`: `"unknown"` \| `"evicted"` \| `"other-action"`; \} \| \{ `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"WORLD_MOVED"`; \} \| \{ `acknowledgementId?`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_REQUIRED"`; `why?`: `"evicted"`; \} \| \{ `acknowledgementId`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_STALE"`; \} \| \{ `affordanceId`: `string`; `howToSettle`: `string`; `ok`: `false`; `pendingTransitionId`: `string`; `reason`: `"PRIOR_FIRE_PENDING"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `howToRepeat`: `string`; `ok`: `false`; `priorTransitionId`: `string`; `reason`: `"DUPLICATE_EXECUTION"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `attempted`: [`Principal`](/api/index/type-aliases/Principal); `ok`: `false`; `reason`: `"PRINCIPAL_NOT_ALLOWED"`; `required`: [`ActorKind`](/api/index/type-aliases/ActorKind)[]; \} \| \{ `affordanceId`: `string`; `needs`: `"observability"` \| `"postcondition"`; `observability?`: [`Observability`](/api/index/type-aliases/Observability); `ok`: `false`; `reason`: `"EFFECT_NOT_VERIFIABLE"`; \}
 
-Defined in: [src/atom/types.ts:2030](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2030)
+Defined in: [src/atom/types.ts:2076](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2076)
 
 What became of one fire — the success arm, or one typed refusal.
 
@@ -24,7 +24,7 @@ stop compiling, and adding the case is the whole fix.
 
 ### Type Literal
 
-\{ `alreadyTrue?`: `FilterCondition`[]; `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \}
+\{ `alreadyTrue?`: `FilterCondition`[]; `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `repeated?`: \{ `personActedSince`: \{ `basis`: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis); `transitionId`: `string`; \}; `priorTransitionId`: `string`; \}; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \}
 
 #### alreadyTrue?
 
@@ -72,6 +72,34 @@ Present (false) only on an allowed unmaterialized agent fire: nothing is bound.
 #### ok
 
 > **ok**: `true`
+
+#### repeated?
+
+> `optional` **repeated?**: `object`
+
+THIS FIRE IS A KNOWING SECOND OCCURRENCE of a `mode: 'once'` action —
+present exactly when a settled receipt matched and a person acting on
+the screen since made the repeat legitimate (see `traverse/once.ts`:
+report, don't refuse). `personActedSince` carries the motion row and
+its attribution BASIS, because a person the library sensed and a
+person a caller asserted are not worth the same — recorded, not
+verified, here as everywhere.
+
+##### repeated.personActedSince
+
+> **personActedSince**: `object`
+
+##### repeated.personActedSince.basis
+
+> **basis**: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis)
+
+##### repeated.personActedSince.transitionId
+
+> **transitionId**: `string`
+
+##### repeated.priorTransitionId
+
+> **priorTransitionId**: `string`
 
 #### settlement
 
@@ -152,13 +180,13 @@ RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link).
 
 ### Type Literal
 
-\{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \}
+\{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \}
 
 ***
 
 ### Type Literal
 
-\{ `instances`: `string`[]; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \}
+\{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \}
 
 ***
 
@@ -428,6 +456,48 @@ The fire that is still out there — ask `session.settlementOf(id)` about it.
 #### reason
 
 > **reason**: `"PRIOR_FIRE_PENDING"`
+
+#### scope
+
+> **scope**: `"action"` \| `"instance"` \| `"payload"`
+
+Which scope matched: the action, this card, or this exact input.
+
+***
+
+### Type Literal
+
+\{ `affordanceId`: `string`; `howToRepeat`: `string`; `ok`: `false`; `priorTransitionId`: `string`; `reason`: `"DUPLICATE_EXECUTION"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \}
+
+This action already EXECUTED in this session and declares
+ `concurrency: { mode: 'once' }`. The receipt survives settlement; only a
+ person acting on the screen after it reopens the action — and the repeat
+ then fires carrying `repeated` instead of being refused. A refused first
+ occurrence never minted a receipt, so a clean retry is never caught here.
+
+#### affordanceId
+
+> **affordanceId**: `string`
+
+#### howToRepeat
+
+> **howToRepeat**: `string`
+
+The authored sentence naming the one door that reopens it.
+
+#### ok
+
+> **ok**: `false`
+
+#### priorTransitionId
+
+> **priorTransitionId**: `string`
+
+The occurrence already on the record — ask `session.settlementOf(id)`.
+
+#### reason
+
+> **reason**: `"DUPLICATE_EXECUTION"`
 
 #### scope
 

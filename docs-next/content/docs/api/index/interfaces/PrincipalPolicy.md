@@ -4,7 +4,7 @@ title: PrincipalPolicy
 
 # Interface: PrincipalPolicy
 
-Defined in: [src/atom/types.ts:710](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L710)
+Defined in: [src/atom/types.ts:714](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L714)
 
 WHO MAY PERFORM THIS ACTION, WHOSE CHOICE IT IS, AND WHETHER A RECORDED YES IS
 NEEDED — three separate facts that this library refuses to fold into one word.
@@ -37,7 +37,7 @@ an integrator owns it.
 
 > `optional` **decisionOwner?**: `"agent"` \| `"human"` \| `"either"`
 
-Defined in: [src/atom/types.ts:730](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L730)
+Defined in: [src/atom/types.ts:734](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L734)
 
 DECISION OWNERSHIP — whose call the choice is. DISCLOSURE, and enforcement
 never reads it: an owner is not a permission, and making "this is the
@@ -53,7 +53,7 @@ and means it.
 
 > `optional` **mayInvoke?**: [`ActorKind`](/api/index/type-aliases/ActorKind)[]
 
-Defined in: [src/atom/types.ts:720](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L720)
+Defined in: [src/atom/types.ts:724](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L724)
 
 ACTOR IDENTITY — the kinds that may invoke this action. The ONE half
 enforcement gates: a fire from any other principal is refused
@@ -69,7 +69,7 @@ action nobody may ever perform is an action not to declare.
 
 > `optional` **requiresHumanApproval?**: `boolean`
 
-Defined in: [src/atom/types.ts:737](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L737)
+Defined in: [src/atom/types.ts:741](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L741)
 
 CONSENT STATUS — this action needs a recorded human approval, whether or not
 it is marked `confirm`. Under enforcement it is held to the SAME gate

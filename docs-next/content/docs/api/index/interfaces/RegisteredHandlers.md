@@ -4,7 +4,7 @@ title: RegisteredHandlers
 
 # Interface: RegisteredHandlers
 
-Defined in: [src/traverse/session.ts:452](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L452)
+Defined in: [src/traverse/session.ts:480](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L480)
 
 registerHandlers() output: optional exact-provenance triggers + the group's cleanup.
 
@@ -14,7 +14,7 @@ registerHandlers() output: optional exact-provenance triggers + the group's clea
 
 > **setBusy**: (`actionId`, `label`) => `void`
 
-Defined in: [src/traverse/session.ts:480](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L480)
+Defined in: [src/traverse/session.ts:508](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L508)
 
 Say this control is WORKING right now — the app's own label for it, or
 `undefined` to clear. The third state a control has, scoped and refused the
@@ -47,7 +47,7 @@ not hand the result to the React binding at all.
 
 > **setEnabled**: (`actionId`, `enabled`) => `void`
 
-Defined in: [src/traverse/session.ts:467](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L467)
+Defined in: [src/traverse/session.ts:495](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L495)
 
 Grey out (or restore) one of the actions THIS group registered — the same
 control the tree API's group handle has always offered, scoped the same way.
@@ -73,7 +73,7 @@ Reaching for an action the group did not register is refused by name.
 
 > **triggers**: `Record`\<`string`, (`payload?`) => [`FireResult`](/api/index/type-aliases/FireResult)\>
 
-Defined in: [src/traverse/session.ts:461](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L461)
+Defined in: [src/traverse/session.ts:489](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L489)
 
 Wrapped manual triggers (same signature as the app's handlers): calling
 one records the action as source 'user' AND invokes the handler — the
@@ -88,7 +88,7 @@ tiers instead (DOM sensor / effect-signature inference).
 
 > **unregister**: () => `void`
 
-Defined in: [src/traverse/session.ts:482](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L482)
+Defined in: [src/traverse/session.ts:510](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L510)
 
 Unregister everything this call registered (call on unmount).
 

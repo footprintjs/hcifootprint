@@ -4,7 +4,7 @@ title: RegisteredActionDef
 
 # Interface: RegisteredActionDef
 
-Defined in: [src/traverse/nav-session.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L76)
+Defined in: [src/traverse/nav-session.ts:93](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L93)
 
 An action declared at mount time. `does` is a registration-site source-code literal — still authored.
 
@@ -204,7 +204,7 @@ Page this action claims to navigate to (a top-level page id).
 
 > `optional` **handler?**: [`ActionHandler`](/api/index/type-aliases/ActionHandler)
 
-Defined in: [src/traverse/nav-session.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L77)
+Defined in: [src/traverse/nav-session.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L94)
 
 ***
 

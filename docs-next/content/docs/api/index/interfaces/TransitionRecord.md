@@ -4,7 +4,7 @@ title: TransitionRecord
 
 # Interface: TransitionRecord
 
-Defined in: [src/atom/types.ts:1218](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1218)
+Defined in: [src/atom/types.ts:1223](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1223)
 
 One occurrence: a row in the interaction log. SETTLED (and stimulus/sync)
 transitions join 1:1 to a CommitBundle by `id`; pending and
@@ -17,7 +17,7 @@ rejected/rolled-back rows exist only here — that asymmetry is deliberate
 
 > `optional` **alreadyTrue?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:1369](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1369)
+Defined in: [src/atom/types.ts:1382](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1382)
 
 THE CONDITIONS THIS ACTION'S OWN VERIFY CONTRACT ALREADY MET, at the moment
 it fired — present only on a fire whose declared effect the world already
@@ -50,7 +50,7 @@ and a consumer annotating a row must never rewrite the trace.
 
 > `optional` **arrival?**: `"observed"` \| `"claimed"`
 
-Defined in: [src/atom/types.ts:1291](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1291)
+Defined in: [src/atom/types.ts:1304](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1304)
 
 WHERE THE CLAIM AND THE OBSERVATION MEET — present only on a fire whose edge
 declared `effect.navigatesTo`, whichever gesture carries it, and absent
@@ -84,7 +84,7 @@ live record and rides ALONGSIDE the receipt — see docs/design/answer-grammar.m
 
 > `optional` **askId?**: `string`
 
-Defined in: [src/atom/types.ts:1323](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1323)
+Defined in: [src/atom/types.ts:1336](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1336)
 
 Set when this fire was authorized by a high-effect confirm ask — the
 [ConfirmRecord](/api/index/interfaces/ConfirmRecord) `askId` it closes. Makes the ask → decision → fire
@@ -99,7 +99,7 @@ a human clicking the button directly with no ask outstanding).
 
 > **attribution**: [`Attribution`](/api/index/interfaces/Attribution)
 
-Defined in: [src/atom/types.ts:1232](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1232)
+Defined in: [src/atom/types.ts:1237](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1237)
 
 WHICH RUNG FILED THIS ROW, AND WHAT THAT IS WORTH — on every transition, of
 every kind, always. See [Attribution](/api/index/interfaces/Attribution).
@@ -116,7 +116,7 @@ answer — and on a stimulus nobody attributed the two honestly disagree
 
 > `optional` **captured?**: [`ActionCapture`](/api/index/interfaces/ActionCapture)
 
-Defined in: [src/atom/types.ts:1387](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1387)
+Defined in: [src/atom/types.ts:1411](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1411)
 
 D21 — THE CAPTURE ENVELOPE, present only on a fire of a `contextful()`
 action: what was true the moment before it ran, how it came to rest, what
@@ -140,7 +140,7 @@ taken at rest is never rewritten.
 
 > **cause**: [`Cause`](/api/index/interfaces/Cause)
 
-Defined in: [src/atom/types.ts:1221](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1221)
+Defined in: [src/atom/types.ts:1226](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1226)
 
 ***
 
@@ -148,7 +148,7 @@ Defined in: [src/atom/types.ts:1221](https://github.com/footprintjs/hcifootprint
 
 > **cursorVersion**: `number`
 
-Defined in: [src/atom/types.ts:1314](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1314)
+Defined in: [src/atom/types.ts:1327](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1327)
 
 Cursor version when the transition was created.
 
@@ -158,7 +158,7 @@ Cursor version when the transition was created.
 
 > `optional` **effectVerified?**: `boolean` \| `"unobservable"`
 
-Defined in: [src/atom/types.ts:1254](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1254)
+Defined in: [src/atom/types.ts:1267](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1267)
 
 Whether every DECLARED write key was present in the settled delta.
 'unobservable' when the affordance declared no writes. This checks key
@@ -170,7 +170,7 @@ presence only — not values, extra writes, or navigation claims.
 
 > `optional` **evidence?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:1256](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1256)
+Defined in: [src/atom/types.ts:1269](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1269)
 
 Guard evidence captured at fire time (why this edge was passable).
 
@@ -180,7 +180,7 @@ Guard evidence captured at fire time (why this edge was passable).
 
 > **fromNode**: `string`
 
-Defined in: [src/atom/types.ts:1257](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1257)
+Defined in: [src/atom/types.ts:1270](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1270)
 
 ***
 
@@ -188,7 +188,7 @@ Defined in: [src/atom/types.ts:1257](https://github.com/footprintjs/hcifootprint
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:1303](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1303)
+Defined in: [src/atom/types.ts:1316](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1316)
 
 Guard keys that could NOT be evaluated at fire time because the session's
 state view never contained them (L0/L1 — no state tap for those keys).
@@ -201,9 +201,23 @@ honestly which conditions were taken on faith (D18 rung-killer fix).
 
 > **id**: `string`
 
-Defined in: [src/atom/types.ts:1220](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1220)
+Defined in: [src/atom/types.ts:1225](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1225)
 
 runtimeStageId — the join key into the footprintjs commit log.
+
+***
+
+### instance?
+
+> `optional` **instance?**: `string`
+
+Defined in: [src/atom/types.ts:1260](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1260)
+
+The repeats-container card this fire named (`FireOptions.instance`), when
+it named one. Recorded because a receipt that says WHAT was pressed but
+not WHICH ROW cannot answer "did we already cancel order #57?" — the
+blindness the duplicate-execution corpus row turned on. Absent on a fire
+that named no card, and on every non-fire row.
 
 ***
 
@@ -211,7 +225,7 @@ runtimeStageId — the join key into the footprintjs commit log.
 
 > `optional` **materialized?**: `false`
 
-Defined in: [src/atom/types.ts:1342](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1342)
+Defined in: [src/atom/types.ts:1355](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1355)
 
 Present (false) only on an allowed unmaterialized fire (the
 `allowUnmaterializedFires` tour): the fire invoked NOTHING — nothing was
@@ -226,7 +240,7 @@ library is telling you what it could not do.
 
 > `optional` **observations?**: [`ExternalObservation`](/api/index/interfaces/ExternalObservation)[]
 
-Defined in: [src/atom/types.ts:1244](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1244)
+Defined in: [src/atom/types.ts:1249](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1249)
 
 WHAT SOMEBODY ELSE SAW about this fire's effect — every
 [Session.observeEffect](/api/index/classes/Session#observeeffect) report, in arrival order, appended and never
@@ -244,7 +258,7 @@ the app named reported that it did.
 
 > `optional` **offerId?**: `string`
 
-Defined in: [src/atom/types.ts:1333](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1333)
+Defined in: [src/atom/types.ts:1346](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1346)
 
 The served row this fire cited ([FireOptions.offerId](/api/index/interfaces/FireOptions#offerid)), when it cited
 one. Recorded whether or not any freshness axis enforces, because it is a
@@ -260,7 +274,7 @@ confirm chain. Absent on a fire that cited nothing.
 
 > **outcome**: [`Settlement`](/api/index/type-aliases/Settlement)
 
-Defined in: [src/atom/types.ts:1248](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1248)
+Defined in: [src/atom/types.ts:1261](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1261)
 
 ***
 
@@ -268,7 +282,7 @@ Defined in: [src/atom/types.ts:1248](https://github.com/footprintjs/hcifootprint
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [src/atom/types.ts:1247](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1247)
+Defined in: [src/atom/types.ts:1252](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1252)
 
 ***
 
@@ -276,7 +290,7 @@ Defined in: [src/atom/types.ts:1247](https://github.com/footprintjs/hcifootprint
 
 > `optional` **produced?**: `unknown`
 
-Defined in: [src/atom/types.ts:1312](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1312)
+Defined in: [src/atom/types.ts:1325](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1325)
 
 Data the fired handler RETURNED (search results, a looked-up record) —
 sanitized + capped. This is the "act → get data back" channel: an action
@@ -287,11 +301,41 @@ Populated once the handler resolves (await the settlement to read it).
 
 ***
 
+### repeated?
+
+> `optional` **repeated?**: `object`
+
+Defined in: [src/atom/types.ts:1390](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1390)
+
+THIS FIRE WAS A KNOWING SECOND OCCURRENCE of a `mode: 'once'` action, let
+through because a person acted on the screen after the first occurrence's
+receipt. The same object rides `FireResult.repeated` (see there for the
+fields' law); on the ROW so the trace shows the repeat was judged
+legitimate, never that the gate missed it.
+
+#### personActedSince
+
+> **personActedSince**: `object`
+
+##### personActedSince.basis
+
+> **basis**: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis)
+
+##### personActedSince.transitionId
+
+> **transitionId**: `string`
+
+#### priorTransitionId
+
+> **priorTransitionId**: `string`
+
+***
+
 ### timestamp
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:1246](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1246)
+Defined in: [src/atom/types.ts:1251](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1251)
 
 Epoch milliseconds when the transition was created.
 
@@ -301,7 +345,7 @@ Epoch milliseconds when the transition was created.
 
 > `optional` **toNode?**: `string`
 
-Defined in: [src/atom/types.ts:1258](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1258)
+Defined in: [src/atom/types.ts:1271](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1271)
 
 ***
 
@@ -309,7 +353,7 @@ Defined in: [src/atom/types.ts:1258](https://github.com/footprintjs/hcifootprint
 
 > `optional` **toNodeClaimed?**: `boolean`
 
-Defined in: [src/atom/types.ts:1263](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1263)
+Defined in: [src/atom/types.ts:1276](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1276)
 
 True when toNode came from the affordance's declared navigatesTo — a
 CLAIM about the app, not an observation. sync() records observations.
@@ -320,7 +364,7 @@ CLAIM about the app, not an observation. sync() records observations.
 
 > `optional` **unverifiedEdge?**: `boolean`
 
-Defined in: [src/atom/types.ts:1296](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1296)
+Defined in: [src/atom/types.ts:1309](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1309)
 
 True on sync()-recorded hops: the cursor moved without passing any guard.
 Backward slices must treat the hop as inferred, not authorized.

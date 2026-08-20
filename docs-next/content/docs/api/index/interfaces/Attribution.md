@@ -4,7 +4,7 @@ title: Attribution
 
 # Interface: Attribution
 
-Defined in: [src/atom/types.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L158)
+Defined in: [src/atom/types.ts:159](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L159)
 
 WHO THIS TRANSITION IS FILED UNDER, HOW IT GOT THERE, AND WHAT THAT IS WORTH.
 
@@ -24,7 +24,7 @@ because nobody claimed it. The record keeps its old bytes (a consumer reading
 
 > **basis**: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis)
 
-Defined in: [src/atom/types.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L161)
+Defined in: [src/atom/types.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L162)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [src/atom/types.ts:161](https://github.com/footprintjs/hcifootprint/
 
 > **certainty**: [`AttributionCertainty`](/api/index/type-aliases/AttributionCertainty)
 
-Defined in: [src/atom/types.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L162)
+Defined in: [src/atom/types.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L163)
 
 ***
 
@@ -40,6 +40,6 @@ Defined in: [src/atom/types.ts:162](https://github.com/footprintjs/hcifootprint/
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:160](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L160)
+Defined in: [src/atom/types.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L161)
 
 The principal this motion is filed under. `'unknown'` when nobody claimed it.

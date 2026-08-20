@@ -6,7 +6,7 @@ title: Settlement
 
 > **Settlement** = `"pending"` \| `"committed"` \| `"rejected"` \| `"rolled-back"` \| `"superseded"`
 
-Defined in: [src/atom/types.ts:171](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L171)
+Defined in: [src/atom/types.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L172)
 
 Settlement of a transition's declared effect.
 fire() → 'pending' when the affordance declares writes; the app reports the

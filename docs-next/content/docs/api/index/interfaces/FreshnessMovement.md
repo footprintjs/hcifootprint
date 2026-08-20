@@ -4,7 +4,7 @@ title: FreshnessMovement
 
 # Interface: FreshnessMovement
 
-Defined in: [src/atom/types.ts:1519](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1519)
+Defined in: [src/atom/types.ts:1543](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1543)
 
 ONE THING THAT MOVED UNDER A SERVED ROW — what a freshness refusal names, so a
 reader is told the FIELD rather than a conclusion (the shape `GUARD_FAILED`'s
@@ -20,7 +20,7 @@ wrong.
 
 > **axis**: `"guard"` \| `"reads"` \| `"writes"` \| `"position"`
 
-Defined in: [src/atom/types.ts:1521](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1521)
+Defined in: [src/atom/types.ts:1545](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1545)
 
 Which declaration this movement is about.
 
@@ -30,7 +30,7 @@ Which declaration this movement is about.
 
 > `optional` **from?**: `string`
 
-Defined in: [src/atom/types.ts:1527](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1527)
+Defined in: [src/atom/types.ts:1551](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1551)
 
 `'position'` only: the page the row was served on.
 
@@ -40,7 +40,7 @@ Defined in: [src/atom/types.ts:1527](https://github.com/footprintjs/hcifootprint
 
 > `optional` **keys?**: `string`[]
 
-Defined in: [src/atom/types.ts:1525](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1525)
+Defined in: [src/atom/types.ts:1549](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1549)
 
 The state keys that moved, by name. Absent on the `'position'` axis, which has none.
 
@@ -50,7 +50,7 @@ The state keys that moved, by name. Absent on the `'position'` axis, which has n
 
 > **response**: `"require-ack"` \| `"refuse"`
 
-Defined in: [src/atom/types.ts:1523](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1523)
+Defined in: [src/atom/types.ts:1547](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1547)
 
 What this session's policy does about it — the reason the fire was refused.
 
@@ -60,6 +60,6 @@ What this session's policy does about it — the reason the fire was refused.
 
 > `optional` **to?**: `string`
 
-Defined in: [src/atom/types.ts:1529](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1529)
+Defined in: [src/atom/types.ts:1553](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1553)
 
 `'position'` only: the page the cursor is on now.

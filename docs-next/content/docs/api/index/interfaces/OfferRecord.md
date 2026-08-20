@@ -4,7 +4,7 @@ title: OfferRecord
 
 # Interface: OfferRecord
 
-Defined in: [src/atom/types.ts:1442](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1442)
+Defined in: [src/atom/types.ts:1466](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1466)
 
 WHAT WAS TRUE WHEN THAT ROW WAS SERVED — the session-local record an
 [OfferRef](/api/index/interfaces/OfferRef) points at, read back with `session.offerFor(offerId)`.
@@ -33,7 +33,7 @@ never minted (`why: 'unknown'`).
 
 > **actionId**: `string`
 
-Defined in: [src/atom/types.ts:1415](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1415)
+Defined in: [src/atom/types.ts:1439](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1439)
 
 The action this row was for.
 
@@ -47,7 +47,7 @@ The action this row was for.
 
 > **guardEvaluated**: `string`[]
 
-Defined in: [src/atom/types.ts:1453](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1453)
+Defined in: [src/atom/types.ts:1477](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1477)
 
 Guard keys the session could evaluate when it served the row.
 
@@ -57,7 +57,7 @@ Guard keys the session could evaluate when it served the row.
 
 > **guardUnevaluated**: `string`[]
 
-Defined in: [src/atom/types.ts:1455](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1455)
+Defined in: [src/atom/types.ts:1479](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1479)
 
 Guard keys it could NOT — served anyway, with the marker, and recorded as such.
 
@@ -67,7 +67,7 @@ Guard keys it could NOT — served anyway, with the marker, and recorded as such
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1417](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1417)
+Defined in: [src/atom/types.ts:1441](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1441)
 
 The page the cursor was on when it was served.
 
@@ -81,7 +81,7 @@ The page the cursor was on when it was served.
 
 > **offerId**: `string`
 
-Defined in: [src/atom/types.ts:1413](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1413)
+Defined in: [src/atom/types.ts:1437](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1437)
 
 This offer's id, unique within the session. Cite it as [FireOptions.offerId](/api/index/interfaces/FireOptions#offerid).
 
@@ -95,7 +95,7 @@ This offer's id, unique within the session. Cite it as [FireOptions.offerId](/ap
 
 > **servedAt**: `number`
 
-Defined in: [src/atom/types.ts:1444](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1444)
+Defined in: [src/atom/types.ts:1468](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1468)
 
 When this offer was FIRST served (epoch ms). Never rewritten by a later serve.
 
@@ -105,7 +105,7 @@ When this offer was FIRST served (epoch ms). Never rewritten by a later serve.
 
 > **staleReads**: `string`[]
 
-Defined in: [src/atom/types.ts:1457](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1457)
+Defined in: [src/atom/types.ts:1481](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1481)
 
 Declared reads this session was already carrying an unanswered staleness for.
 
@@ -115,7 +115,7 @@ Declared reads this session was already carrying an unanswered staleness for.
 
 > **staleWrites**: `string`[]
 
-Defined in: [src/atom/types.ts:1459](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1459)
+Defined in: [src/atom/types.ts:1483](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1483)
 
 Declared writes this session was already carrying an unanswered staleness for.
 
@@ -125,7 +125,7 @@ Declared writes this session was already carrying an unanswered staleness for.
 
 > **stateVersion**: `number`
 
-Defined in: [src/atom/types.ts:1419](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1419)
+Defined in: [src/atom/types.ts:1443](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1443)
 
 The app's state version at serve time — the anchor "what has moved since?" is asked from.
 
@@ -139,7 +139,7 @@ The app's state version at serve time — the anchor "what has moved since?" is 
 
 > **structureVersion**: `number`
 
-Defined in: [src/atom/types.ts:1421](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1421)
+Defined in: [src/atom/types.ts:1445](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1445)
 
 The served-surface version at serve time (mounts, frames, enablement flips).
 
@@ -153,7 +153,7 @@ The served-surface version at serve time (mounts, frames, enablement flips).
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:1451](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1451)
+Defined in: [src/atom/types.ts:1475](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1475)
 
 The cursor version at first serve — what `keysChangedSince` is asked with
 when a fire cites this offer. Older than a re-serve's cursor by design: no

@@ -4,7 +4,7 @@ title: FreshnessPolicy
 
 # Interface: FreshnessPolicy
 
-Defined in: [src/atom/types.ts:410](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L410)
+Defined in: [src/atom/types.ts:409](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L409)
 
 FOUR AXES, EACH ANSWERED SEPARATELY — declare it per action
 (`ActionDef.freshness`) or once for the session
@@ -36,7 +36,7 @@ picks.
 
 > `optional` **guardChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
-Defined in: [src/atom/types.ts:416](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L416)
+Defined in: [src/atom/types.ts:415](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L415)
 
 A key this control's GUARD is judged on has been committed since the offer.
 The guard still passes — a guard that stopped passing is `GUARD_FAILED`,
@@ -48,7 +48,7 @@ which fires first and is not this.
 
 > `optional` **positionChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
-Defined in: [src/atom/types.ts:426](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L426)
+Defined in: [src/atom/types.ts:425](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L425)
 
 The cursor is on a different page than when the row was served, or the
 served structure has changed under it (`structureVersion`). Both halves are
@@ -60,7 +60,7 @@ served structure has changed under it (`structureVersion`). Both halves are
 
 > `optional` **readChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
-Defined in: [src/atom/types.ts:418](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L418)
+Defined in: [src/atom/types.ts:417](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L417)
 
 A key the app declared this control's outcome READS has been committed since the offer.
 
@@ -70,6 +70,6 @@ A key the app declared this control's outcome READS has been committed since the
 
 > `optional` **writeChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
-Defined in: [src/atom/types.ts:420](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L420)
+Defined in: [src/atom/types.ts:419](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L419)
 
 A key the app declared this control WRITES has been committed since the offer.

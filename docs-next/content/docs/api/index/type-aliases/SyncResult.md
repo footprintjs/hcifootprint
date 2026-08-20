@@ -6,7 +6,7 @@ title: SyncResult
 
 > **SyncResult** = \{ `changed`: `false`; `node`: `string`; `version`: `number`; \} \| \{ `changed`: `true`; `node`: `string`; `offGraph?`: `boolean`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; \}
 
-Defined in: [src/atom/types.ts:2317](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2317)
+Defined in: [src/atom/types.ts:2423](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2423)
 
 ## Union Members
 
