@@ -1,5 +1,107 @@
 # Changelog
 
+## [1.11.0] - 2026-08-19
+
+**Sync pages; observe the deeper place. `sync()` moves the walker and decides what is served;
+`observeFocus()` says which tab or area the reader is in. Declare containers, and report the
+deepest one on screen.**
+
+A real app declared `tabs:` and had nowhere to report them. It tried the obvious door —
+`sync('run-detail.why')` — and the cursor went OFF-GRAPH, which the library said out loud and
+correctly: an agent standing there is served nothing, because actions are served from the PAGE.
+The library's own answer for below-page position was `focus`, and focus moved only on `fire()`
+and `sync()` — so a PERSON clicking a tab, which is the whole mixed-initiative case, could never
+move it. That app's workaround was to mount the visible node and serve its own `lookingAt`
+beside the library's `youAreOn`. Two things were missing, and only one of them was a document.
+
+### Added — `observeFocus(path, opts?)`, the door for the deeper place
+
+Position has three tiers, and each now has exactly one door:
+
+| Tier | The call | What it answers | Moves what is served? |
+|---|---|---|---|
+| **page** | `session.sync('run-detail')` | which screen — the router's report | **yes** |
+| **container** | `session.observeFocus('run-detail.why')` | where INSIDE it — a declared tab, area or modal | **no**, on purpose |
+| **state** | `session.updateState({ … })` | what is true in there. Not position | no |
+
+```ts
+function onTabChange(tab: 'why' | 'timeline') {
+  session.show(`run-detail.${tab}`);                              // which tab is VISIBLE
+  session.observeFocus(`run-detail.${tab}`, { principal: 'user' }); // where the READER is
+}
+```
+
+It sets `session.focus` and the new `lookingAt`, so the facts block gains
+`Focus: run-detail.why.`, and it records a `FocusMove` with the principal you name — a person
+clicking a tab can move it, which no fire could ever carry. It does NOT mint a transition, bump
+the version, or change one byte of what `available()` serves: the page stays authoritative for
+serving, which is the whole reason this is not a sync.
+
+It refuses BY NAME rather than guessing: a node this map does not declare, and a node belonging
+to another page (sync that page first). Observing the page itself says the reader came back up
+with no container open; a container the app also says is hidden — a closed modal, a tab whose
+sibling is shown — is walked home by focus's existing ancestor fallback.
+
+### Added — `lookingAt`, on the session and in every served answer
+
+`session.lookingAt` is the observed container when it is below the page, and `null` when the
+page is the whole answer (always `null` on a flat `Session` — no container tree, nothing below a
+page to be in). The one builder that mints position in the serve layer now carries it, so every
+result that says where the reader is says both halves:
+
+```json
+{ "youAreOn": "run-detail", "lookingAt": "run-detail.why" }
+```
+
+`youAreOn` is the page that SERVES; `lookingAt` is the deeper place. It is absent, never empty,
+when there is nothing below the page to report.
+
+### Changed — `sync()` with a container path stops trapping
+
+Hand `sync()` a declared container path and it now syncs the PAGE that owns it and warns once,
+naming `observeFocus`. Before this release the cursor went off-graph and the session served
+nothing, silently — the failure above. An undeclared path is unchanged: the cursor follows
+reality off-graph, as it always has.
+
+### Added — `unevidenceable-tab`, an advisory note
+
+`lintGraph` reads the map alone and can never see a runtime call, so it proves the half that is
+authored: a tab **no declared control can put the cursor inside** — nothing lives in its
+subtree, and nothing anywhere binds to it as a tab switch — on a page that authors controls
+beside it. Such a tab tracks presence and never position.
+
+It is a note (`severity: 'info'`, the `checkGraph` advisory bucket) and never an error, because
+every cure is a runtime call a static reading cannot see: `observeFocus`, a fire that lands
+inside the tab, or a mount that declares its controls. The message says so instead of nagging.
+The floor is deliberate: a page that authors no controls at all is a live-store or
+mount-declared app whose every tab would be barren on paper and wired in life (the `live-desk`
+demo is exactly that), and the note stays silent there.
+
+### Taught — the rule, word for word, in six homes
+
+The [Map & Walker page](https://footprintjs.github.io/hcifootprint/docs/map/map-and-walker)
+gains "Where the reader is: page, container, state" — the rule, the three tiers, the before and
+after, the three doors, and the `system unknown changed: …` symptom. The README, `CLAUDE.md`,
+`llms.txt` and the JSDoc on `sync()`, `observeFocus()` and the `tabs:` / `areas:` / `modals:`
+authoring fields carry the same sentence, held byte-identical by the content-drift gate — every
+copy, not just the first — and the before/after the page prints is asserted against the one the
+session produces.
+
+### Known limit, named rather than papered over
+
+Labelling a state push still costs its attribution: `updateState(delta, { stimulus })` is
+documented to mean world-initiated, so such a delta must never settle a pending fire, and an app
+that wants `system unknown changed: …` to read better has to choose between a readable line and
+a working `did_it_work`. A label that does not touch attribution is the fix; it is not built
+here, and neither are authored labels for state keys. What this release removes is the reason
+POSITION was ever riding a state key.
+
+### Fixed — the coverage gate is green again
+
+The one uncovered line in the suite (`nav-session.ts`, the focus write on fire's ordinary path)
+now has the test it was missing: a fire through the flat projection, where the container tree
+knows nothing about the affordance, still records the move it did not make.
+
 ## [1.10.0] - 2026-08-19
 
 **The names the family already used, said out loud here: you declare the JourneyMap; the
