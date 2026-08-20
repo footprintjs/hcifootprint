@@ -1,5 +1,55 @@
 # Changelog
 
+## [1.10.0] - 2026-08-19
+
+**The names the family already used, said out loud here: you declare the JourneyMap; the
+session is the Walker; the recording carries both.**
+
+Nothing behaves differently. This release NAMES what this library has always done, in the
+ecosystem's words, so the same pattern reads the same at all three altitudes: footprintjs
+walks stages, agentfootprint (`defineSkillMap`, 9.51.0) walks skills, and this walks screens.
+
+### Added — `defineJourneyMap` and `JourneyMap`, permanent aliases
+
+`defineJourneyMap` is the SAME FUNCTION OBJECT as `buildNavigationGraph` — reference-equal,
+same signature, same `const Def` typed node paths — and the type `JourneyMap` is the same type
+as `NavigationGraph`. Both names ship forever; neither is a rename, neither is deprecated, and
+a codebase mixing them is not a mistake. `defineJourneyMap('shop', {…})` says what you are
+doing; `buildNavigationGraph('shop', {…})` says what you get.
+
+Reference equality is what is PINNED (`test/journey-map-vocabulary.test.ts`), because a copy
+that behaves identically today is exactly what drift looks like on day one: an alias may never
+quietly become a fork.
+
+### Added — a "Map & Walker" page, and the vocabulary in every home that teaches
+
+[The docs page](https://footprintjs.github.io/hcifootprint/docs/map/map-and-walker) carries the
+sentence, the three movers and the five moves; the README, `CLAUDE.md` and `llms.txt` carry it
+too, and a test holds all five homes to byte-identical prose so the family's one sentence cannot
+become five.
+
+**The three movers.** A cursor moves for exactly three reasons, each recorded as a `Cause`:
+**human** — a real click in your own controls (`principal: 'user'`, sensed by `watchPage` or
+caught by `contextful`, graded by `Attribution`); **agent** — the four served verbs
+`whats_here` / `why` / `do_action` / `did_it_work` through the MCP door (`principal: 'agent'`);
+**guard** — your data, an action's `when` / `enabledWhen` judged against the state your store
+pushed, saying no with `blockedBecause` and `unblockedBy`. And the world moves on its own —
+`Cause.kind: 'stimulus'` — recorded rather than silently absorbed.
+
+**The five moves, each answered by something that already ships.** Looking is `whats_here`;
+navigating is `do_action` on an action declaring `goTo` (with `howToReach` walking the hops
+first); moving inside a screen is a focus move (`session.focus`, `focusHistory`, `FocusMove`),
+not a page change; keeping a task list is journeys (`commitJourney`, `journeyStanding`);
+verifying is `did_it_work`, with `checkGraph`'s drift sensor as the honesty backstop under it —
+a walker that verifies against a stale map is verifying against fiction.
+
+### Not added — a `Walker`
+
+There is no `Walker` object to construct, on purpose. The walker is the session you already
+create, standing on a node, moving. Exporting a synonym would turn a way of READING the library
+into a second runtime object to keep in step with the first; the barrel is asserted to hold no
+such export.
+
 ## [1.9.0] - 2026-08-17
 
 **Two checks about the same idea: an address that names two things is not an address.**
