@@ -36,6 +36,23 @@ declared writes observed?). They disagree honestly — a tapless handler
 completes `'performed'` with `effectVerified: 'unobservable'` — and neither is
 averaged into the other.
 
+## already-true.ts — an effect the world already holds
+
+Five conditions, one exported function, no state. It answers ONE question at
+fire time: is what this action promises already the case? When it is, `fire()`
+does not join the state-report queue — nothing will report a change that is not
+happening — and waits on the handler rail instead, which always answers.
+
+It reads `verify` and never `writes`, and that is the whole of its honesty:
+`Effect.writes` is key NAMES only by stated law, so the library cannot know the
+value an action would set, and a rule built on it would have to invent the value
+it compared against. The declarative `VerifyContract` is the one declaration
+carrying values. An action declaring `writes` and no declarative verify behaves
+exactly as it always did.
+
+The evaluator is passed IN — the session's own `#evalGuard`, so this can never
+answer a question differently from the guard that offered the control.
+
 ## approval-gate.ts + same-input.ts + bound-input.ts — an approval we cannot prove is not an approval
 
 `confirm: true` was the AGENT asserting that a human approved: a boolean in the

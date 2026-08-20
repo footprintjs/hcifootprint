@@ -159,7 +159,17 @@ describe('one tool, and journey discovery moves to the result channel', () => {
 describe('what the one tool refuses, and how it says so', () => {
   it('a call with no journey is refused JOURNEY_REQUIRED', () => {
     const port = serveToAgent(freshSession(), { journeyTools: 'single' });
-    expect(port.call('shop.journey', {})).toEqual({ ok: false, judgment: 'error', reason: 'JOURNEY_REQUIRED' });
+    // DELIBERATELY NOT toEqual ANY MORE (1.12.0). This arm used to be three keys
+    // and nothing else, so an exact match was the whole shape; it now teaches by
+    // name like every other refusal on this port. The three keys a consumer
+    // branches on are unchanged to the byte and are still asserted here — what
+    // the loosened matcher allows is the correction and the valid set, which is
+    // the point of the change.
+    expect(port.call('shop.journey', {})).toMatchObject({
+      ok: false,
+      judgment: 'error',
+      reason: 'JOURNEY_REQUIRED',
+    });
     expect(port.call('shop.journey', { journey: '' })).toMatchObject({ reason: 'JOURNEY_REQUIRED' });
   });
 

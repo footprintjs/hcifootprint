@@ -140,6 +140,7 @@ import { redactFields } from './redact-fields.js';
 import { checkJsonShape, checkNoInput } from './payload-shape.js';
 import { NO_INPUT, expectsOf } from './expects.js';
 import { checkVerify, filterVerdict } from './verify.js';
+import { alreadyTrueNow } from './already-true.js';
 import { CERTAINTY_RANK, attributionOf, soleSignatureMatch } from './attribution.js';
 import {
   actorKindOf,
@@ -2823,6 +2824,20 @@ export class Session {
     }
     // Only ever present on the allowed-no-op path — absence means normal.
     const noOpMarks = honestNoOp ? ({ executed: false, materialized: false } as const) : {};
+    // IS THE EFFECT ALREADY TRUE? Asked HERE, before the record is minted, which
+    // is the only moment the answer is about the world this fire arrived into —
+    // one line later the handler has been invoked and any answer is about a
+    // world this fire may itself have changed.
+    //
+    // NEVER ON AN ALLOWED-UNMATERIALIZED FIRE. That fate already has its word
+    // (`materialized: false` — nothing in the app was wired to execute this),
+    // and a second marker beside it would be two words for one press. See
+    // ./already-true.ts for the five conditions and what each one refuses to
+    // over-claim.
+    const alreadyTrue = honestNoOp
+      ? undefined
+      : alreadyTrueNow(aff, (filter) => this.#evalGuard(filter), this.#node);
+    const alreadyTrueMark = alreadyTrue ? { alreadyTrue } : {};
 
     const record: TransitionRecord = {
       id: buildRuntimeStageId(affordanceId, this.#counter.value++),
@@ -2889,6 +2904,12 @@ export class Session {
       // Nothing executed: every effect on this record — including any
       // navigation — is a claim (the tour's honesty marker).
       ...(honestNoOp ? { materialized: false as const } : {}),
+      // …and the other honesty marker, about a different cause: something WAS
+      // wired to execute this, and what it promises was already the case. On
+      // the ROW as well as the result, so a press that legitimately did nothing
+      // is something the record can show — without looking like a move that
+      // happened.
+      ...alreadyTrueMark,
     };
     // Link the fire to the decision that authorized it, BEFORE the first emit, so
     // every observer sees the record already joined to its receipts.
@@ -2966,7 +2987,11 @@ export class Session {
     // (b) let the NEXT real app report settle this phantom by FIFO — certifying
     // the agent's no-op as the verified cause of motion a human performed. It
     // settles unobservably below instead.
-    if (declaredWrites.length > 0 && this.#stateTap && !honestNoOp) {
+    // …AND NOT AN ALREADY-TRUE ONE. This is the whole of the fix: the state rail
+    // is what this arm waits on, and an effect the world already holds has no
+    // report coming down it. Such a fire falls through to the block below, which
+    // waits on the HANDLER rail instead — the one that always answers.
+    if (declaredWrites.length > 0 && this.#stateTap && !honestNoOp && alreadyTrue === undefined) {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
       const latch = this.#openEffectLatch(record, flight);
@@ -2980,6 +3005,7 @@ export class Session {
         effectStatus: 'pending',
         whenSettled: latch.promise,
         ...noOpMarks,
+        ...alreadyTrueMark,
       };
     }
     if (declaredWrites.length > 0) {
@@ -2999,6 +3025,7 @@ export class Session {
           effectStatus: 'pending',
           whenSettled: latch.promise,
           ...noOpMarks,
+          ...alreadyTrueMark,
         };
       }
       this.#settle(record, aff, {}, { forceUnobservable: true });
@@ -3013,6 +3040,7 @@ export class Session {
         effectStatus: 'unobservable',
         whenSettled: this.#settledEffect(record, 'unobservable').promise,
         ...noOpMarks,
+        ...alreadyTrueMark,
       };
     }
     this.#settle(record, aff, {});
@@ -3032,6 +3060,7 @@ export class Session {
       effectStatus: handlerWillRun ? 'pending' : 'unobservable',
       whenSettled: latch.promise,
       ...noOpMarks,
+      ...alreadyTrueMark,
     };
   }
 

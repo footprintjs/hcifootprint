@@ -271,6 +271,12 @@ these ways, and never blocks:
   person has not answered. A step declaring no `writes` never joins the first list while its
   handler runs, and an ask joins none of the first two: nothing was fired.
 
+- **already true** — `alreadyTrue: [...]` rides the settled arm, and the fire result before it, when
+  what the action promises [was already the case when it fired](doc:already-true). The pair it makes
+  legible is `effectStatus: 'performed'` (your side did run) beside `effectVerified: 'unobservable'`
+  (no report exists to check the declared writes against) — two words a reader given only them
+  would add up to *something happened*.
+
 A settlement is a **receipt** of how the fire came to rest, and first settlement wins — so the
 record can move afterwards (a server rejecting an order the app already reported flips it to
 `'rolled-back'`). When the live record no longer agrees with the receipt, the settled arm
@@ -283,6 +289,34 @@ sentence for whichever one you got. It is read live, because the observation tha
 claim can land long after the receipt was written — so an action can be `performed` with
 `arrival` still `'claimed'`, and that pair is the truth. There is no third value for *did not
 arrive*, and the field is absent entirely on an action that declares no destination.
+
+## A missing argument is refused by name too
+
+Four refusals on this port used to be a bare code and nothing else — `TRANSITION_ID_REQUIRED`,
+`ACTION_REQUIRED`, `KEY_REQUIRED`, `JOURNEY_REQUIRED`. A conforming MCP host never reaches them (the
+tool schemas mark those arguments required), but a model emitting a malformed call does, and so does
+anything calling `port.call()` in process. A consumer integration reported having to hand-write
+three sentences of its own prose around one of them before a model could act on it.
+
+They now teach like every other refusal here: the argument named, the correction attached, and the
+valid values carried where a valid set exists. **The `reason` strings are unchanged** — anything
+branching on them keeps working, and what grew is what was missing.
+
+| refusal | what it now carries |
+|---|---|
+| `ACTION_REQUIRED` | `why` + `actions` — the same list `UNKNOWN_ACTION` serves, ids as the graph spells them |
+| `JOURNEY_REQUIRED` | `why` + `journeys` (+ `journeysElsewhere`) — the same scoped list `UNKNOWN_JOURNEY` serves |
+| `TRANSITION_ID_REQUIRED` | `why` + `pending` + `awaitingSettlement` + `awaitingHuman` — the same three lists `UNKNOWN_TRANSITION` serves, so an agent that **lost** its transition id recovers from the answer instead of guessing |
+| `KEY_REQUIRED` | `why` only, and it says out loud that there is no list — `why` runs a backward slice and answers honestly about a key nothing ever wrote, so there is no valid set to carry and inventing one would teach a ceiling that is not there |
+
+All four also carry the position (`youAreOn`, `lookingAt`, `version`) every other result on this
+port carries.
+
+No fourth word was minted for the open-fire list. `awaitingSettlement` is this library's name for
+*fires still open* — the documented superset of `pending`, the name the in-process door uses, and
+the name this same tool already serves on a **wrong** id. A second name one payload apart would
+teach a model that two fields mean two things when they mean the same thing. The action is not
+joined onto the ids either: every transition id begins with the action that made it.
 
 In process, [`session.settlementOf(transitionId)`](doc:sessions) is the same truth as a
 promise, and `port.whenSettled(transitionId)` is that promise for a caller holding only the

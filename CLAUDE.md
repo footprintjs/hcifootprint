@@ -16,6 +16,32 @@ it — **human** (a real click, `principal: 'user'`), **agent** (the four served
 own `Cause.kind: 'stimulus'`. Same pattern at three altitudes: footprintjs walks stages,
 agentfootprint (`defineSkillMap`) walks skills, this walks screens.
 
+**An effect already held (1.12.0):** **An effect that is already true is not a pending one. When an
+action's declarative verify contract covers every key it declares it writes and already holds at
+fire time, the fire never waits for a state report that nothing will send — it settles on its own
+handler and answers `alreadyTrue`.** The rule lives in ONE small module (traverse/already-true.ts,
+five conditions) called from `fire()` before the record is minted; it flips exactly one boolean in
+the state-tap arm's guard, so an already-true fire falls through to the tapless block and waits on
+the HANDLER rail instead. It reads `verify` and NOT `writes` — `writes` is key names only by stated
+law, so nothing here can know the value an action would set. The marker is `alreadyTrue:
+FilterCondition[]` on the fire result AND the row (presence is the mark, the value is the evidence:
+one field, not a boolean beside a list), served by modes.ts on the fire result and the settled
+`did_it_work` answer with one authored sentence. NOT stamped on an allowed-unmaterialized fire —
+that fate already has `materialized: false`.
+
+**Refusals teach, including the four that did not (1.12.0):** `TRANSITION_ID_REQUIRED`,
+`ACTION_REQUIRED`, `KEY_REQUIRED` and `JOURNEY_REQUIRED` were raised as `{ok:false, judgment:'error',
+reason}` and nothing else — no `why`, no correction, no valid set, not even `positionData()`. They
+now meet the house standard: the argument named, the correction attached, the valid set carried
+where one exists (`actions` / `journeys` from the same doors `UNKNOWN_ACTION` / `UNKNOWN_JOURNEY`
+read; `pending` + `awaitingSettlement` + `awaitingHuman` from the same doors `UNKNOWN_TRANSITION`
+reads), and honest silence where none does (`KEY_REQUIRED` — `why` runs a slice and never refuses a
+key, so there IS no valid set). ADDITIVE: the four `reason` strings are unchanged, none grows a
+singular `transitionId` (consent-invariant.test.ts sweeps for that), and no `openTransitions` was
+minted — `awaitingSettlement` is already the word for fires still open, and a second name for one
+fact is what answer-grammar rule 3 forbids. One in-repo `toEqual` pin was loosened deliberately
+(one-journey-tool.test.ts) — it was the only exact-match assertion on the four.
+
 **Position has three tiers, one door each (1.11.0):** page (`sync`) → container
 (`observeFocus`, new) → state (`updateState`, not position). **Sync pages; observe the deeper place.
 `sync()` moves the walker and decides what is served; `observeFocus()` says which tab or area the
@@ -54,6 +80,8 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | recording who moved the cursor, including when it did not move | `InteractionSession.focusHistory` + `FocusMove` | `src/traverse/nav-session.ts` | 1.8.0 |
 | tracking which tab is active — telling the agent WHERE INSIDE the page the person is, without moving what is served | `InteractionSession.observeFocus` + `lookingAt` (the deepest-node rule: sync pages, observe the deeper place) | `src/traverse/nav-session.ts` | 1.11.0 |
 | working out why the ledger says “system unknown changed: …” instead of naming what happened | `updateState` + `observeFocus` (an unattributed state report has no stimulus and no principal to print — and labelling it costs its attribution, a named known limit; if what moved is POSITION, report it as position instead) | `src/traverse/session.ts` | 1.11.0 |
+| working out why `did_it_work` keeps saying still-pending about an action whose effect was already true | `alreadyTrueNow` + `FireResult.alreadyTrue` (declare `verify` beside `writes`: `writes` is key names only, so nothing here can know the value your handler would set) | `src/traverse/already-true.ts` | 1.12.0 |
+| working out what a bare `TRANSITION_ID_REQUIRED` / `ACTION_REQUIRED` / `KEY_REQUIRED` / `JOURNEY_REQUIRED` wanted — or getting a lost transition id back out of the port | the four now carry `why` + the valid set + the position (`awaitingSettlement` on the transition one; no `openTransitions` was minted) | `src/serve/modes.ts` | 1.12.0 |
 | walking the fewest declared hops from here to some page | `Session.howToReach` / `routeBetween` + `RouteStep` | `src/graph/reach.ts` | 1.0.0 |
 | deriving which action would unblock another one | `Session.whatUnblocks` / `unblockingDependencies` | `src/graph/step-deps.ts` | 1.0.0 |
 | turning a URL your router already owns back into a page id | `matchRoute` | `src/graph/route-match.ts` | 0.4.0 |

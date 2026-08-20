@@ -1,5 +1,94 @@
 # Changelog
 
+## [1.12.0] - 2026-08-19
+
+**An effect that is already true is not a pending one. When an action's declarative verify contract
+covers every key it declares it writes and already holds at fire time, the fire never waits for a
+state report that nothing will send — it settles on its own handler and answers `alreadyTrue`.**
+
+Two things a consumer integration recorded from real agent runs, both about the same thing: a result
+that was true and useless to act on.
+
+### Added — `alreadyTrue`, for an action whose effect the world already holds
+
+**What changes.** Press a control while the thing it does is already the case, and the fire now says
+so — on the very first result, and again on the poll after it — instead of waiting forever. It
+carries `alreadyTrue`: the conditions that already hold, plus one sentence telling the reader that
+nothing needed changing and not to press it again.
+
+**Why it wasn't there.** An agent asked to open a domain view while it was already inside that
+domain. The app's store publishes when a value *changes*, which is what a store does — so writing
+the value it already held notified nobody, the app's report never came, and the fire waited for it.
+Nothing in this library puts a clock over that, deliberately, so the wait had no end:
+`did_it_work` could only ever answer `still-pending`. The model read that as *the app is still
+working*. It waited, re-checked, waited, and spent fifteen of its thirty steps on an outcome that
+could never arrive, then gave up with no answer for its human.
+
+Nobody was at fault. The app's netting is correct, the library's refusal to guess is correct, and
+the library is the only party standing where both halves are visible.
+
+**How it improves.** Declare the postcondition beside the action — `verify: { 'view.domain': { eq:
+'billing' } }` — and the library can see that the outcome already holds before anything runs:
+
+```jsonc
+{ "ok": true, "did": "open-billing", "alreadyTrue": [{ "key": "view.domain", "result": true, … }],
+  "why": "That was already the case. This action’s own verify contract … already held before it
+          fired, so nothing needed changing and nothing was written. Do not wait for a change and
+          do not perform it again …" }
+```
+
+Your handler still runs — deciding on your behalf that a press was pointless is not something this
+library does. What changed is only what the fire *waits on*: your handler, which always answers,
+instead of a state report that here cannot come. The row is an ordinary committed one carrying the
+marker, its commit bundle is empty, the journey step advances, single flight is released, and the
+drift sensor does not read an honest no-change as drift.
+
+**The one thing it reads, said plainly.** It reads `verify`, never `writes`. `Effect.writes` is key
+*names* only by stated law: this library never learns the value your action would set and does not
+read your handler to find out, so a rule built on `writes` would have to invent the value it
+compared against. **An action that declares `writes` and no declarative `verify` behaves exactly as
+it always did** — nothing is guessed on its behalf, and the correction is one line. Run
+`npm run example:already-true` to watch both, side by side.
+
+The exact boundary: some declared writes covered and some not is **not** a no-op (it fires
+normally); an action that declares no writes at all is never touched (it never waited on a state
+report, so it cannot hang); a `verify` predicate is opaque and claims nothing; a contract over a key
+this session has never held claims nothing; and a declared `goTo` you have not made yet claims
+nothing.
+
+### Changed — the four bare refusal codes now teach
+
+**What changes.** `TRANSITION_ID_REQUIRED`, `ACTION_REQUIRED`, `KEY_REQUIRED` and `JOURNEY_REQUIRED`
+now say what was wrong, what to send instead, and — where a valid set exists — what the valid values
+are. All four also say where the reader is standing, like every other result on this port.
+
+**Why it wasn't there.** They were raised as a bare code and nothing else. This repo's own law is
+that a wrong input fails *by name* with the correction attached and the valid values carried; these
+four never got it, so a consumer had to hand-write three sentences of its own prose around one of
+them before a model could act on it.
+
+**How it improves.**
+
+| refusal | what it now carries |
+|---|---|
+| `ACTION_REQUIRED` | `why` + `actions` — the same list a wrong action name gets |
+| `JOURNEY_REQUIRED` | `why` + `journeys` (+ `journeysElsewhere`) — the same scoped list a wrong journey id gets |
+| `TRANSITION_ID_REQUIRED` | `why` + `pending` + `awaitingSettlement` + `awaitingHuman` — the same three lists a wrong transition id gets, so an agent that **lost** its id recovers from the answer instead of guessing |
+| `KEY_REQUIRED` | `why` only — and it says out loud that there is no list, because `why` answers honestly about a key nothing ever wrote and inventing a valid set would teach a ceiling that is not there |
+
+No new word was minted for the open-fire list. `awaitingSettlement` is already this library's name
+for *fires still open*, and a second name one payload apart would teach a model that two fields mean
+two things when they mean the same thing.
+
+### Compatibility
+
+Additive. Every `reason` string is unchanged, no result loses a field, no published union grows a
+member, and no refusal grows a `transitionId`. `alreadyTrue` is a new optional field, absent on
+every fire that is not one. The only assertion in this repo that had to change was a single
+exact-match test on `JOURNEY_REQUIRED`, which was the arm's whole shape before it had anything to
+say.
+
+
 ## [1.11.0] - 2026-08-19
 
 **Sync pages; observe the deeper place. `sync()` moves the walker and decides what is served;

@@ -394,6 +394,56 @@ const ARRIVAL_OBSERVED_MEANS =
   'A matching observation landed after this action: the app reported being on the page this action ' +
   'said it goes to. That is corroboration, not proof that this action caused it.';
 
+// AN EFFECT THAT IS ALREADY TRUE, said once and served from two doors — the
+// fire's own result and the poll one call later — so a reader meets the same
+// sentence whichever way it asks. The failure it ends was recorded by a
+// consumer integration: an agent pressed a control while the thing that control
+// does was already the case, the app's store published nothing because nothing
+// changed, and the fire waited for a state report that could never arrive. The
+// model read "still pending" as "the app is still working" and spent fifteen of
+// its thirty steps on it.
+//
+// So the sentence has to do three things in the order a reader needs them: say
+// the outcome is ALREADY TRUE, say that nothing was written, and name the field
+// carrying what holds right now — and it must never say "nothing ran", because
+// the handler is still invoked (see src/traverse/already-true.ts).
+const ALREADY_TRUE_WHY =
+  'That was already the case. This action’s own verify contract — the condition the app said must ' +
+  'hold once it had run — already held before it fired, so nothing needed changing and nothing was ' +
+  'written. Do not wait for a change and do not perform it again: alreadyTrue lists the conditions ' +
+  'that hold right now.';
+
+// THE FOUR MISSING-ARGUMENT REFUSALS. A wrong input fails BY NAME with the
+// correction attached and the valid values carried — the law every other
+// refusal on this port already keeps, and the one these four never got. They
+// were raised as a bare code, so a consumer integration hand-wrote three
+// sentences of its own prose around one of them to make it usable.
+//
+// Each names the ARGUMENT, names where its values come from, and says that
+// nothing was performed — the last clause because `ok: false` on this port also
+// carries real refusals by the app, and a missing argument is not one.
+const JOURNEY_REQUIRED_WHY =
+  'This tool needs to know WHICH journey: pass journey set to one of the ids in the journeys list ' +
+  'beside this refusal, or call whats_here to see the journeys you can start from where you are. ' +
+  'Nothing was performed — a missing argument is not the app turning something down.';
+
+const KEY_REQUIRED_WHY =
+  'This tool needs to know WHICH state key: pass key set to a state key name. The names appear as ' +
+  'guard evidence on action rows, in the facts block, and among the keys a whats_here result says ' +
+  'changed. No list of valid keys is served here and there is no wrong one — a key nothing has ' +
+  'written is answered honestly rather than refused. Nothing was performed.';
+
+const TRANSITION_ID_REQUIRED_WHY =
+  'This tool needs to know WHICH action to report on: pass transitionId set to the id that ' +
+  'action’s own result carried. If you no longer have it, awaitingSettlement beside this refusal ' +
+  'lists the fires still open — every id begins with the action that made it — and awaitingHuman ' +
+  'lists the cards a person has not answered yet. Nothing was performed.';
+
+const ACTION_REQUIRED_WHY =
+  'This tool needs to know WHICH action: pass action set to one of the ids in the actions list ' +
+  'beside this refusal; the short name after the last dot also resolves when exactly one action ' +
+  'ends with it. Nothing was performed — a missing argument is not the app turning something down.';
+
 const NOT_MATERIALIZED_WHY =
   'Nothing in the app is wired to execute this action yet — firing it would do nothing. ' +
   'Tell the human it is not available; the app team can register a tool group to wire it, ' +
@@ -1501,6 +1551,18 @@ export function serveToAgent(
       ...(settled.transition.materialized === false
         ? { materialized: false, why: NOTHING_EXECUTED_IT }
         : {}),
+      // The same marker one call later, carried onto the POLL exactly as the
+      // tour marker above is — and for the same reason. A fire that came to rest
+      // having changed nothing reads as 'performed' on the effectStatus axis
+      // (our side did run to completion) and 'unobservable' on the state axis
+      // (no report exists to check writes against), and a reader given only
+      // those two learns that something happened. This is the third fact that
+      // makes the pair legible. Same word as the fire result, so a consumer
+      // branches on one name; never both `why` sentences on one payload, because
+      // an unmaterialized fire never carries this marker.
+      ...(settled.transition.alreadyTrue
+        ? { alreadyTrue: structuredClone(settled.transition.alreadyTrue), why: ALREADY_TRUE_WHY }
+        : {}),
       ...(settled.transition.toNode !== undefined ? { toNode: settled.transition.toNode } : {}),
       // WHO ANSWERED. Read off the RECEIPT, not live: the question is who this
       // fire came to rest on, and a reversal that lands afterwards is a new fact
@@ -1962,6 +2024,19 @@ export function serveToAgent(
         ...(fired.transition.guardUnevaluated ? { guardUnevaluated: [...fired.transition.guardUnevaluated] } : {}),
         // Honest no-op (allowUnmaterializedFires tour): nothing ran, nothing is bound.
         ...(fired.executed === false ? { executed: false, materialized: false } : {}),
+        // THE EFFECT WAS ALREADY TRUE. Served at FIRE time, which is the whole
+        // point: the model that burned fifteen steps on this had the answer
+        // available in the very first result and was told 'pending' instead.
+        // Copy: fired.alreadyTrue is the live record's own array.
+        //
+        // Beside `howToSettle` above, never instead of it. Both are true — the
+        // handler really has not finished, and what it promises really is
+        // already the case — and one poll now ends in an answer rather than in
+        // the same word forever. Mutually exclusive with the tour marker by
+        // construction: an unmaterialized fire never carries this one.
+        ...(fired.alreadyTrue
+          ? { alreadyTrue: structuredClone(fired.alreadyTrue), why: ALREADY_TRUE_WHY }
+          : {}),
         // Navigation moved on a CLAIM (effect.navigatesTo), not an app confirmation —
         // youAreOn already shows the claimed position; this flags it as unconfirmed.
         ...(fired.transition.toNodeClaimed ? { toNodeClaimed: true } : {}),
@@ -2528,7 +2603,22 @@ export function serveToAgent(
       if (journeyToolMode === 'single' && name === singleJourneyName) {
         const asked = parsed['journey'];
         if (typeof asked !== 'string' || !asked) {
-          return { ok: false, judgment: 'error', reason: 'JOURNEY_REQUIRED' };
+          // BY NAME, WITH THE CORRECTION AND THE VALID SET — the same shape and
+          // the same scoped list `UNKNOWN_JOURNEY` serves eleven lines down, so
+          // a caller that sent nothing and a caller that sent a wrong id learn
+          // the same thing from the same field names. The `reason` string is
+          // untouched: every consumer branching on it keeps working, and what
+          // grew is what was missing.
+          const scoped = journeysHere();
+          return {
+            ok: false,
+            judgment: 'error',
+            reason: 'JOURNEY_REQUIRED',
+            why: JOURNEY_REQUIRED_WHY,
+            journeys: scoped.here.map((journey) => journey.id),
+            ...elsewhereData(scoped.elsewhere),
+            ...positionData(),
+          };
         }
         // RESOLVED HERE, so `callJourney` keeps the invariant it was written
         // under: only a DECLARED journey id ever reaches it (and its
@@ -2557,7 +2647,20 @@ export function serveToAgent(
       }
       if (name === whyName) {
         if (typeof parsed['key'] !== 'string' || !parsed['key']) {
-          return { ok: false, judgment: 'error', reason: 'KEY_REQUIRED' };
+          // NO LIST, DELIBERATELY, and the sentence says so out loud. The other
+          // three refusals here point at a set the caller must pick from; this
+          // argument has none — `why` runs a backward slice over the commit log
+          // and answers honestly about a key nothing ever wrote, so there is no
+          // valid set to carry and inventing one (the state keys this session
+          // happens to hold) would teach a ceiling that is not there. Honest
+          // silence, the same stance `notHereData` takes when it has nothing.
+          return {
+            ok: false,
+            judgment: 'error',
+            reason: 'KEY_REQUIRED',
+            why: KEY_REQUIRED_WHY,
+            ...positionData(),
+          };
         }
         // The slice text is DATA (it can carry committed state values) — it
         // rides the result channel like producedFor(), never a description.
@@ -2565,13 +2668,49 @@ export function serveToAgent(
       }
       if (name === didItWorkName) {
         if (typeof parsed['transitionId'] !== 'string' || !parsed['transitionId']) {
-          return { ok: false, judgment: 'error', reason: 'TRANSITION_ID_REQUIRED' };
+          // THE THREE LISTS THIS TOOL'S OWN `UNKNOWN_TRANSITION` ALREADY SERVES,
+          // under the same three names — so an agent that LOST its id can
+          // recover from this answer instead of guessing, which is the second
+          // half of what the integration asked for.
+          //
+          // NOT a fourth name for a fact that has one. `awaitingSettlement` is
+          // this library's word for "fires still open" — it is the documented
+          // superset of `pending`, it is what the in-process door is called, and
+          // it is what this very tool serves on a WRONG id. Minting
+          // `openTransitions` beside it would put two names one payload apart on
+          // one fact, which is exactly what the answer grammar forbids. The
+          // action is not joined on either: every transition id BEGINS with the
+          // action that made it, so the join would restate the string.
+          return {
+            ok: false,
+            judgment: 'error',
+            reason: 'TRANSITION_ID_REQUIRED',
+            why: TRANSITION_ID_REQUIRED_WHY,
+            pending: session.pending().map((waiting) => waiting.id),
+            awaitingSettlement: session.awaitingSettlement(),
+            awaitingHuman: session
+              .asks()
+              .filter((ask) => ask.answer === undefined)
+              .map((ask) => ({ askId: ask.askId, action: ask.affordanceId })),
+            ...positionData(),
+          };
         }
         return callDidItWork(parsed['transitionId']);
       }
       if (name === doActionName) {
         if (typeof parsed['action'] !== 'string' || !parsed['action']) {
-          return { ok: false, judgment: 'error', reason: 'ACTION_REQUIRED' };
+          // The same `actions` list `UNKNOWN_ACTION` serves, from the same door:
+          // what is fireable from where the reader is standing, ids as the graph
+          // spells them. `notHereData` is NOT added — it answers "why is the id
+          // you named not here", and no id was named.
+          return {
+            ok: false,
+            judgment: 'error',
+            reason: 'ACTION_REQUIRED',
+            why: ACTION_REQUIRED_WHY,
+            actions: session.available().edges.map((edge) => edge.affordanceId),
+            ...positionData(),
+          };
         }
         return callDoAction({
           action: parsed['action'],

@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-2732%20passing-f5b301?style=flat" alt="2732 tests passing">
+  <img src="https://img.shields.io/badge/tests-2773%20passing-f5b301?style=flat" alt="2773 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -257,6 +257,37 @@ from whatever unlabelled state keys happen to move. `lintGraph` proves the autho
 (`unevidenceable-tab`).
 
 → [Map & Walker](https://footprintjs.github.io/hcifootprint/docs/map/map-and-walker)
+
+### When the action is already done
+
+> **An effect that is already true is not a pending one. When an action's declarative verify
+> contract covers every key it declares it writes and already holds at fire time, the fire never
+> waits for a state report that nothing will send — it settles on its own handler and answers
+> `alreadyTrue`.**
+
+An agent pressed a control while the thing it does was already the case — it asked to open a domain
+view while already inside that domain. The app's store publishes on *change*, so writing the value
+it already held notified nobody, no state report arrived, and the fire waited for one forever.
+`did_it_work` could only answer `still-pending`; the model read that as *the app is still working*
+and burned fifteen of its thirty steps on an outcome that could never arrive.
+
+Declare the postcondition beside the action and the library can see it, because `verify` is the one
+declaration carrying a **value** (`writes` is key names only, by design — nothing here infers what
+your handler would set):
+
+```ts
+'open-billing': {
+  does: 'Open the billing domain view',
+  writes: ['view.domain'],
+  verify: { 'view.domain': { eq: 'billing' } },
+}
+```
+
+The fire comes back carrying `alreadyTrue` — the conditions that already hold — plus one authored
+sentence that tells the model to move on. Your handler still runs; what changed is only what the
+fire *waits on*.
+
+→ [When it is already true](https://footprintjs.github.io/hcifootprint/docs/actions/already-true)
 
 ---
 

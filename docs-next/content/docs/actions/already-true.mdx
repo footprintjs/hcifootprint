@@ -1,0 +1,135 @@
+---
+title: When it is already true
+description: "An action whose effect the world already holds says so at once instead of waiting for a report nothing will send — and the declaration that makes that honest is your own verify contract."
+---
+
+## The failure this prevents
+
+A consumer integration recorded this one from a real agent run.
+
+The agent pressed a control while the thing that control does was **already the case**: it asked to
+open a domain view while it was already inside that domain. The app's store publishes on *change* —
+which is what a store does — so writing the value it already held notified nobody, `updateState()`
+never ran, and the fire sat waiting for a state report that was never coming.
+
+Nothing in this library holds a clock over that, deliberately. So the settlement stayed open for the
+life of the session, [`did_it_work`](doc:modes) could only ever answer `still-pending`, and the
+model read that as *the app is still working*. It waited, re-checked, waited — and spent fifteen of
+its thirty steps on an outcome that could never arrive, then gave up with no answer.
+
+The app is not at fault and neither is the netting. The library is the only party standing where
+both halves are visible, and this is it saying so.
+
+## The rule
+
+**An effect that is already true is not a pending one.** When an action's declarative verify
+contract covers every key it declares it writes and already holds at fire time, the fire never waits
+for a state report that nothing will send — it settles on its own handler and answers `alreadyTrue`.
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+// ---cut---
+const graph = buildNavigationGraph('desk', {
+  pages: {
+    workspace: {
+      actions: {
+        'open-billing': {
+          does: 'Open the billing domain view',
+          writes: ['view.domain'],
+          // The declaration that carries a VALUE — and the one this rule reads.
+          verify: { 'view.domain': { eq: 'billing' } },
+        },
+      },
+    },
+  },
+});
+const session = graph.createSession({ node: 'workspace', state: { 'view.domain': 'billing' } });
+const fired = session.fire('workspace.open-billing', { source: 'agent' });
+if (fired.ok) {
+  fired.alreadyTrue; // the conditions that already hold — absent on an ordinary fire
+}
+```
+
+What the agent gets back, on the very first result rather than the fifteenth:
+
+```jsonc
+{ "ok": true, "did": "open-billing", "transitionId": "workspace.open-billing#0",
+  "alreadyTrue": [{ "key": "view.domain", "op": "eq", "threshold": "billing",
+                    "actualSummary": "\"billing\"", "result": true, "redacted": false }],
+  "why": "That was already the case. This action’s own verify contract — the condition the app said must hold once it had run — already held before it fired, so nothing needed changing and nothing was written. Do not wait for a change and do not perform it again: alreadyTrue lists the conditions that hold right now." }
+```
+
+The same marker and the same sentence ride the settled `did_it_work` answer one call later, so a
+reader meets one wording whichever way it asks.
+
+## Why the verify contract, and not `writes`
+
+`Effect.writes` is **key names only**, by the law stated on it: this library never learns the value
+an action would set, and it does not read your handler to find out. So *"the write nets out"* is a
+fact `writes` alone can never establish — a rule built on it would have to invent the value it
+compared against, which is the one thing this library refuses to do.
+
+[`verify`](doc:receipts) in its declarative filter form is the one declaration that carries
+**values**: your own statement of what must hold once the action has run. So it is what this asks.
+
+**An action that declares `writes` and no declarative `verify` behaves exactly as it always did.**
+Nothing is guessed on its behalf. The correction is one line of declaration next to the action, and
+you get [the verify contract's own settlement verdict](doc:receipts) with it.
+
+## The five conditions
+
+Every one of them is a refusal to over-claim.
+
+| # | the condition | what it refuses |
+|---|---|---|
+| 1 | the action declares at least one `writes` key | an action declaring **none** never joined the state rail, so it cannot hang — marking it would be a word about a fate it does not have |
+| 2 | the verify contract is the **declarative** form | a predicate is opaque by construction; asking it before the action ran asks a postcondition a question it was not written to answer |
+| 3 | the contract **names every declared write** | the partial boundary — an action writing `view.domain` and `view.tab` under a contract constraining only the first has a declared effect the contract says nothing about |
+| 4 | the contract **holds right now, evaluably** | `failed` is the ordinary case (there is real work to do); `unevaluable` is honest absence — a key the state view never held is a key nothing read, and an unread key is never evidence |
+| 5 | any declared `goTo` is the page you are **already on** | page motion is part of the effect, and an effect only partly already true is not already true |
+
+## Your handler still runs
+
+Read `alreadyTrue` as **nothing needed changing**, never as *nothing ran*. Deciding on your behalf
+that a press was pointless is not something this library does, so an app that hangs analytics or
+focus off that control keeps them.
+
+What changed is only **what the fire waits on**: the handler rail, which always answers, instead of
+the state rail, which here cannot. A handler that throws is still refused, exactly as it would be
+otherwise.
+
+The fire also never joins the state-report queue, and that is the second half of the fix. A phantom
+sitting in that queue would let the *next* real report settle it by FIFO — certifying an agent's
+no-op as the verified cause of motion somebody else performed.
+
+## What the record shows
+
+A press that legitimately did nothing is still something the record should be able to show — and it
+must not look like a move that happened. It shows as **one ordinary committed row carrying the
+marker**:
+
+- the row's `outcome` is `committed` and its commit bundle is **empty** (footprint's deliberate
+  cursor-stop idiom) — nothing was written, so nothing is in it;
+- `effectVerified` is `'unobservable'`, never `false`, so the [drift sensor](doc:testing) does not
+  read an honest no-change as drift;
+- the journey step **advances**, because it is done — the alternative is re-offering the agent a
+  step whose outcome already holds, forever;
+- single flight is released, so the control is pressable again. Before this, the held flight refused
+  every later press with `PRIOR_FIRE_PENDING` pointing at a settlement that never came.
+
+## Run it
+
+`npm run example:already-true` prints one real run of exactly this: the already-true press, the
+ordinary press beside it for contrast, and the same press on an action that declares `writes` and no
+`verify` — the honest limit, shown rather than described. Nothing in the transcript is hand-written;
+it drives the port a remote model actually holds. Source: `examples/already-true/`.
+
+## Honest limits
+
+- **It reads your declaration, never your app.** No DOM is watched, no handler is read, no value is
+  inferred. An action that declares nothing here serves byte-identical results.
+- **An allowed unmaterialized fire keeps its own word.** `materialized: false` already says nothing
+  in the app was wired to execute it; a second marker beside it would be two words for one press,
+  so `alreadyTrue` is never stamped there.
+- **It is not a refusal.** The fire happened, the gates all said yes, and a `transitionId` was
+  minted — because something really did run through every one of them.

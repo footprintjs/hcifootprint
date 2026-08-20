@@ -382,6 +382,28 @@ with no handler to wrap: a TRUSTED click inside the anchor opens a record-only f
   page already declared (literal segments + `:param`, trailing-slash / query / hash insensitive,
   most-literal-segments wins) and returns `undefined` rather than guessing, which leaves an
   unplaceable path on the existing off-graph behavior. Source: `src/graph/route-match.ts`.
+- `fire()` and AN EFFECT ALREADY HELD (1.12.0) — **An effect that is already true is not a pending
+  one. When an action's declarative verify contract covers every key it declares it writes and
+  already holds at fire time, the fire never waits for a state report that nothing will send — it
+  settles on its own handler and answers `alreadyTrue`.** The field failure: an agent pressed a
+  control while the thing it does was already the case, the app's store published nothing because
+  nothing changed, `updateState()` never ran, and the fire waited on the state rail forever —
+  `did_it_work` could only answer `still-pending`, and the model spent fifteen of thirty steps on it.
+  WHICH DECLARATION: `verify` in its declarative filter form, because it is the only one carrying a
+  VALUE; `Effect.writes` is key names only by stated law, so an action declaring `writes` and no
+  declarative `verify` behaves exactly as it always did — nothing is guessed for it. FIVE
+  CONDITIONS: at least one declared write (an action declaring none never joined the state rail, so
+  it cannot hang and is never marked); the contract is declarative, not a predicate; the contract
+  NAMES EVERY declared write (the partial boundary — some covered, some not, is NOT already true);
+  the contract HOLDS evaluably right now (`unevaluable` claims nothing); any declared `goTo` is the
+  page you are already on. YOUR HANDLER STILL RUNS — read the marker as "nothing needed changing",
+  never as "nothing ran"; a handler that throws is still refused. The fire never joins the
+  state-report queue, so a later real report cannot settle this one by FIFO. The row is an ordinary
+  committed one with an EMPTY commit bundle, `effectVerified: 'unobservable'` (never `false`, so the
+  drift sensor does not read it as drift), the journey step advances, and single flight is released.
+  `alreadyTrue: FilterCondition[]` rides `FireResult`, `TransitionRecord`, the `do_action` result and
+  the settled `did_it_work` answer, each with one authored sentence. Source:
+  `src/traverse/already-true.ts`.
 - `observeFocus(path, opts?)` (1.11.0) — THE OBSERVATION DOOR: which tab, area or modal on THIS page
   the reader is looking at, WITHOUT moving the walker. `opts`: `principal?` (default `'unknown'`).
   **THE RULE: Sync pages; observe the deeper place. `sync()` moves the walker and decides what is
@@ -759,6 +781,22 @@ POLL, so it answers immediately, one of these ways:
   (`updateState`'s own word, same meaning); `awaitingSettlement` = every fire this tool can still be
   asked about — the superset, and the one a fire question is about; `awaitingHuman` = the cards a person
   has not answered (asks are not fires, so they join neither of the other two lists).
+
+- already true — `alreadyTrue: [...]` rides the settled arm (and the fire result before it) when what
+  the action promises was ALREADY the case when it fired, with one authored sentence. It is what makes
+  `effectStatus: 'performed'` beside `effectVerified: 'unobservable'` legible instead of adding up to
+  "something happened". See `fire()` and AN EFFECT ALREADY HELD in §3.
+- MISSING ARGUMENT (1.12.0) — `TRANSITION_ID_REQUIRED`, `ACTION_REQUIRED`, `KEY_REQUIRED` and
+  `JOURNEY_REQUIRED` were bare codes; they now teach by name with the correction attached, the valid
+  values where a valid set exists, and the position. `reason` strings are UNCHANGED (additive only).
+  `ACTION_REQUIRED` carries `why` + `actions` (the `UNKNOWN_ACTION` list); `JOURNEY_REQUIRED` carries
+  `why` + `journeys` (+ `journeysElsewhere`, the `UNKNOWN_JOURNEY` list); `TRANSITION_ID_REQUIRED`
+  carries `why` + `pending` + `awaitingSettlement` + `awaitingHuman` — the SAME THREE LISTS the
+  wrong-id arm serves, so an agent that LOST its transition id recovers from the answer instead of
+  guessing (no `openTransitions` was minted: `awaitingSettlement` is already this library's word for
+  fires still open, and every id begins with the action that made it); `KEY_REQUIRED` carries `why`
+  ONLY and says out loud that there is no list — `why` answers honestly about a key nothing wrote, so
+  no valid set exists and inventing one would teach a ceiling that is not there.
 
 Over a real MCP server (`mcpServer`) the answer usually arrives without a second call: the server waits up
 to `settleWithinMs` (default 250) and spreads EXACTLY what `did_it_work` would answer about that id into

@@ -758,6 +758,95 @@ describe('the homepage says the same true things to both readers', () => {
   });
 });
 
+describe('the already-true rule is ONE sentence, identical in every home that says it', () => {
+  /**
+   * 1.12.0's rule is a claim made in six places at once — the front door, the
+   * page that teaches it, the feature-work map an agent reads before touching
+   * this repo, the LLM-facing surface page meant to be read INSTEAD of the
+   * source, the module that owns the rule, and the types that publish its
+   * marker. The last of those says it TWICE (once on the row, once on the fire
+   * result), which is the case the 1.11.0 pin was widened for: a pin that read
+   * only the first copy would let the second rot in silence.
+   *
+   * MUTATION PROOF: soften one word in any home ("when a verify contract mostly
+   * holds") and this goes red naming the home that drifted.
+   */
+  const homes = [
+    'README.md',
+    docPage('already-true'),
+    'CLAUDE.md',
+    'llms.txt',
+    'src/traverse/already-true.ts', // where the rule is decided
+    'src/atom/types.ts', //            where its marker is published, twice
+  ];
+  const HEAD = 'An effect that is already true is not a pending one';
+  const TAIL = 'answers `alreadyTrue`';
+
+  /** EVERY copy in the file, not the first one — see the deepest-node pin above. */
+  const sentencesIn = (relative: string): string[] => {
+    const flat = flatten(read(relative));
+    const found: string[] = [];
+    for (let start = flat.indexOf(HEAD); start >= 0; start = flat.indexOf(HEAD, start + 1)) {
+      const end = flat.indexOf(TAIL, start);
+      expect(end, `${relative} stops before the half that says what the fire DOES`).toBeGreaterThan(start);
+      found.push(flat.slice(start, end + TAIL.length));
+    }
+    expect(found.length, `${relative} does not say the already-true rule`).toBeGreaterThan(0);
+    return found;
+  };
+
+  it('every copy in all six homes is byte-identical prose', () => {
+    const canonical =
+      'An effect that is already true is not a pending one. When an action\'s declarative verify ' +
+      'contract covers every key it declares it writes and already holds at fire time, the fire ' +
+      'never waits for a state report that nothing will send — it settles on its own handler and ' +
+      'answers `alreadyTrue`';
+    expect(sentencesIn(homes[0]!)[0]).toBe(canonical);
+    for (const home of homes) {
+      for (const sentence of sentencesIn(home)) {
+        expect(sentence, `${home} drifted from ${homes[0]}`).toBe(canonical);
+      }
+    }
+  });
+
+  it('the types home really does say it twice — the case the every-copy loop exists for', () => {
+    expect(sentencesIn('src/atom/types.ts')).toHaveLength(2);
+  });
+
+  it('the page quotes the sentence the PORT actually serves to a model', () => {
+    // The live-port mechanic, not a copied string: the page's jsonc block is
+    // asserted against the bytes a real already-true fire hands back.
+    const graph = buildNavigationGraph('desk', {
+      pages: {
+        workspace: {
+          actions: {
+            'open-billing': {
+              does: 'Open the billing domain view',
+              writes: ['view.domain'],
+              verify: { 'view.domain': { eq: 'billing' } },
+            },
+          },
+        },
+      },
+    });
+    const session = graph.createSession({
+      node: 'workspace',
+      state: { 'view.domain': 'billing' },
+      onWarn: () => undefined,
+    });
+    session.registerHandlers({
+      group: 'workspace',
+      handlers: { 'workspace.open-billing': () => undefined },
+    });
+    const served = serveToAgent(session, { source: 'agent' }).call('desk.do_action', {
+      action: 'open-billing',
+    });
+    const why = served['why'] as string;
+    expect(why).toContain('That was already the case');
+    expect(flatten(readDocPage('already-true'))).toContain(flatten(why));
+  });
+});
+
 /**
  * SEARCH-ENGINE FACTS — the three things a crawler is told about this project.
  *
