@@ -4,7 +4,7 @@ title: StaleAcknowledgement
 
 # Interface: StaleAcknowledgement
 
-Defined in: [src/atom/types.ts:1456](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1456)
+Defined in: [src/atom/types.ts:1483](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1483)
 
 A PROTOCOL STEP THE CALLER PERFORMED — the append-only row
 `session.acknowledgeStale()` writes, and the only thing a `'require-ack'`
@@ -32,7 +32,7 @@ same comparison.)
 
 > **acknowledgedAtStateVersion**: `number`
 
-Defined in: [src/atom/types.ts:1478](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1478)
+Defined in: [src/atom/types.ts:1505](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1505)
 
 The state version this was made at. Moves past it and this row stops authorizing.
 
@@ -42,7 +42,7 @@ The state version this was made at. Moves past it and this row stops authorizing
 
 > **acknowledgementId**: `string`
 
-Defined in: [src/atom/types.ts:1458](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1458)
+Defined in: [src/atom/types.ts:1485](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1485)
 
 This row's id. Cite it as [FireOptions.acknowledgementId](/api/index/interfaces/FireOptions#acknowledgementid).
 
@@ -52,7 +52,7 @@ This row's id. Cite it as [FireOptions.acknowledgementId](/api/index/interfaces/
 
 > **actionId**: `string`
 
-Defined in: [src/atom/types.ts:1460](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1460)
+Defined in: [src/atom/types.ts:1487](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1487)
 
 The action it is about.
 
@@ -62,7 +62,7 @@ The action it is about.
 
 > **keys**: `string`[]
 
-Defined in: [src/atom/types.ts:1476](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1476)
+Defined in: [src/atom/types.ts:1503](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1503)
 
 The keys the caller NAMED. Empty means they named none, which this door
 reads as "everything outstanding for this control" — so an empty list covers
@@ -76,7 +76,7 @@ own names. What the caller said, not what happened to be on the ledger:
 
 > `optional` **offerId?**: `string`
 
-Defined in: [src/atom/types.ts:1462](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1462)
+Defined in: [src/atom/types.ts:1489](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1489)
 
 The offer it answers, when the caller named one — a join, never a requirement.
 
@@ -86,7 +86,7 @@ The offer it answers, when the caller named one — a join, never a requirement.
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1468](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1468)
+Defined in: [src/atom/types.ts:1495](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1495)
 
 Who performed the step. Defaults to `'agent'`, never `'user'` — the same law
 [FireOptions.source](/api/index/interfaces/FireOptions#source) keeps, because filing a machine's act under a
@@ -98,6 +98,6 @@ person is the one mistake a ledger must not make on its own.
 
 > **timestamp**: `number`
 
-Defined in: [src/atom/types.ts:1480](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1480)
+Defined in: [src/atom/types.ts:1507](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1507)
 
 Epoch ms.

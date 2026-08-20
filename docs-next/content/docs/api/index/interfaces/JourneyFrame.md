@@ -4,7 +4,7 @@ title: JourneyFrame
 
 # Interface: JourneyFrame
 
-Defined in: [src/atom/types.ts:3123](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3123)
+Defined in: [src/atom/types.ts:3169](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3169)
 
 One committed pass at a journey. 'demoted' = the journey's precondition broke mid-flow.
 
@@ -14,7 +14,7 @@ One committed pass at a journey. 'demoted' = the journey's precondition broke mi
 
 > `optional` **closedAtVersion?**: `number`
 
-Defined in: [src/atom/types.ts:3138](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3138)
+Defined in: [src/atom/types.ts:3184](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3184)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/atom/types.ts:3138](https://github.com/footprintjs/hcifootprint
 
 > **firedSteps**: `string`[]
 
-Defined in: [src/atom/types.ts:3131](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3131)
+Defined in: [src/atom/types.ts:3177](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3177)
 
 Steps committed while this frame was open (observed fires).
 
@@ -32,7 +32,7 @@ Steps committed while this frame was open (observed fires).
 
 > **inferredSteps**: `string`[]
 
-Defined in: [src/atom/types.ts:3137](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3137)
+Defined in: [src/atom/types.ts:3183](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3183)
 
 Steps attributed by effect-signature INFERENCE while this frame was open
 — guesses, kept separate from observed fires. journeyPlan shows them as
@@ -44,7 +44,7 @@ Steps attributed by effect-signature INFERENCE while this frame was open
 
 > **journeyId**: `string`
 
-Defined in: [src/atom/types.ts:3125](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3125)
+Defined in: [src/atom/types.ts:3171](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3171)
 
 The journey this frame is open on.
 
@@ -54,7 +54,7 @@ The journey this frame is open on.
 
 > **openedAt**: `number`
 
-Defined in: [src/atom/types.ts:3128](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3128)
+Defined in: [src/atom/types.ts:3174](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3174)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: [src/atom/types.ts:3128](https://github.com/footprintjs/hcifootprint
 
 > **openedAtVersion**: `number`
 
-Defined in: [src/atom/types.ts:3129](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3129)
+Defined in: [src/atom/types.ts:3175](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3175)
 
 ***
 
@@ -70,7 +70,7 @@ Defined in: [src/atom/types.ts:3129](https://github.com/footprintjs/hcifootprint
 
 > **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:3127](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3127)
+Defined in: [src/atom/types.ts:3173](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3173)
 
 ***
 
@@ -78,4 +78,4 @@ Defined in: [src/atom/types.ts:3127](https://github.com/footprintjs/hcifootprint
 
 > **status**: [`FrameStatus`](/api/index/type-aliases/FrameStatus)
 
-Defined in: [src/atom/types.ts:3126](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3126)
+Defined in: [src/atom/types.ts:3172](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3172)

@@ -4,7 +4,7 @@ title: OfferRef
 
 # Interface: OfferRef
 
-Defined in: [src/atom/types.ts:1384](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1384)
+Defined in: [src/atom/types.ts:1411](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1411)
 
 THE NAME OF ONE SERVED ROW — stamped on every edge `available()` hands over,
 so a fire can say which row it was planned against.
@@ -32,7 +32,7 @@ are what makes two rows the same offer or different ones.
 
 > **actionId**: `string`
 
-Defined in: [src/atom/types.ts:1388](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1388)
+Defined in: [src/atom/types.ts:1415](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1415)
 
 The action this row was for.
 
@@ -42,7 +42,7 @@ The action this row was for.
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1390](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1390)
+Defined in: [src/atom/types.ts:1417](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1417)
 
 The page the cursor was on when it was served.
 
@@ -52,7 +52,7 @@ The page the cursor was on when it was served.
 
 > **offerId**: `string`
 
-Defined in: [src/atom/types.ts:1386](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1386)
+Defined in: [src/atom/types.ts:1413](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1413)
 
 This offer's id, unique within the session. Cite it as [FireOptions.offerId](/api/index/interfaces/FireOptions#offerid).
 
@@ -62,7 +62,7 @@ This offer's id, unique within the session. Cite it as [FireOptions.offerId](/ap
 
 > **stateVersion**: `number`
 
-Defined in: [src/atom/types.ts:1392](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1392)
+Defined in: [src/atom/types.ts:1419](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1419)
 
 The app's state version at serve time — the anchor "what has moved since?" is asked from.
 
@@ -72,6 +72,6 @@ The app's state version at serve time — the anchor "what has moved since?" is 
 
 > **structureVersion**: `number`
 
-Defined in: [src/atom/types.ts:1394](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1394)
+Defined in: [src/atom/types.ts:1421](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1421)
 
 The served-surface version at serve time (mounts, frames, enablement flips).

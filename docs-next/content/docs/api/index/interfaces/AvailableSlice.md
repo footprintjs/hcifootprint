@@ -4,7 +4,7 @@ title: AvailableSlice
 
 # Interface: AvailableSlice
 
-Defined in: [src/atom/types.ts:1821](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1821)
+Defined in: [src/atom/types.ts:1848](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1848)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1821](https://github.com/footprintjs/hcifootprint
 
 > **edges**: [`AvailableEdge`](/api/index/interfaces/AvailableEdge)[]
 
-Defined in: [src/atom/types.ts:1824](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1824)
+Defined in: [src/atom/types.ts:1851](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1851)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:1824](https://github.com/footprintjs/hcifootprint
 
 > **node**: `string`
 
-Defined in: [src/atom/types.ts:1823](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1823)
+Defined in: [src/atom/types.ts:1850](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1850)
 
 ***
 
@@ -28,4 +28,4 @@ Defined in: [src/atom/types.ts:1823](https://github.com/footprintjs/hcifootprint
 
 > **version**: `number`
 
-Defined in: [src/atom/types.ts:1822](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1822)
+Defined in: [src/atom/types.ts:1849](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1849)
