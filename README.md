@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-2694%20passing-f5b301?style=flat" alt="2694 tests passing">
+  <img src="https://img.shields.io/badge/tests-2704%20passing-f5b301?style=flat" alt="2704 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -175,6 +175,56 @@ meaning, and meaning is yours.
 [What would free it](https://footprintjs.github.io/hcifootprint/docs/actions/what-would-free-it) ·
 [How to reach a page](https://footprintjs.github.io/hcifootprint/docs/traversal/how-to-reach) ·
 [Navigation graph](https://footprintjs.github.io/hcifootprint/docs/map/navigation-graph)
+
+---
+
+## Map & Walker
+
+The three contexts above have one sentence under them, and it is the same sentence this
+library's siblings say at their own altitude:
+
+> **You declare the JourneyMap; the session is the Walker; the recording carries both.**
+
+Since 1.10.0 those two nouns have names in the API — `defineJourneyMap` and `JourneyMap`,
+**permanent aliases** of `buildNavigationGraph` and `NavigationGraph`. Same function object,
+same type, both names forever; neither is a rename, and a codebase may speak either dialect.
+
+```ts
+import { defineJourneyMap } from 'hcifootprint';
+
+const map = defineJourneyMap('shop', { pages: { /* … */ } });
+const walker = map.createSession({ node: 'catalog' });   // the walker IS the session
+```
+
+There is deliberately **no `Walker` to construct**. A walker is not a thing you wire up — it is
+the session you already create, standing on a node, moving. Three movers move it, and each
+lands on the record as a `Cause` (`kind` — was an offered edge fired, or did the world move? —
+plus `principal`, whose move it was):
+
+| Mover | What moves the cursor | On the record |
+|---|---|---|
+| **human** | a real click in your own controls — `watchPage` senses it, `contextful` catches the app's own call | `kind: 'fired'`, `principal: 'user'`, with `Attribution` grading what that claim is worth |
+| **agent** | the four served verbs through the MCP door — `whats_here`, `why`, `do_action`, `did_it_work` | `kind: 'fired'`, `principal: 'agent'`, plus the `offerId` of the row it planned against |
+| **guard** | your data: an action's `when` / `enabledWhen` judged against the state your store pushed | the guard's own evidence, and `blockedBecause` / `unblockedBy` when it says no |
+
+And the world moves on its own — a back button, a server push, an expiry. That is
+`kind: 'stimulus'`: recorded, never silently absorbed.
+
+Five moves make up walking, and every one of them is answered by something that already ships:
+
+| A walker… | Here it is |
+|---|---|
+| **looks** | `whats_here` — one row per action offered on this node |
+| **navigates** | `do_action` on an action declaring `goTo`; the row carries `goesTo`, and `howToReach` walks the hops first |
+| **moves inside a screen** | a fire landing on an area, a tab or a modal moves the **focus**, not the page — `session.focus`, with `focusHistory` recording who moved it |
+| **keeps a task list** | **journeys** — `commitJourney` opens a frame, `journeyStanding` says where the flow stands |
+| **verifies** | `did_it_work` — the settled facts of one fire, never a guess; the drift sensor (`checkGraph`) is the honesty backstop under it |
+
+The same pattern sits at three altitudes: [footprintjs](https://github.com/footprintjs/footPrint)
+walks **stages**, [agentfootprint](https://github.com/footprintjs/agentfootprint)
+(`defineSkillMap`) walks **skills**, and this walks **screens**.
+
+→ [Map & Walker](https://footprintjs.github.io/hcifootprint/docs/map/map-and-walker)
 
 ---
 

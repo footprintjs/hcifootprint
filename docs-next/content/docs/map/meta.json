@@ -4,6 +4,7 @@
   "icon": "Map",
   "pages": [
     "---Declare it---",
+    "map-and-walker",
     "navigation-graph",
     "journeys",
     "guarded-journeys",

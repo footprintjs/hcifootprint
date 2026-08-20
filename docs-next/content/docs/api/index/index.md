@@ -143,6 +143,7 @@ title: index
 - [FreshnessResponse](/api/index/type-aliases/FreshnessResponse)
 - [GapReason](/api/index/type-aliases/GapReason)
 - [GraphSource](/api/index/type-aliases/GraphSource)
+- [JourneyMap](/api/index/type-aliases/JourneyMap)
 - [NodeKind](/api/index/type-aliases/NodeKind)
 - [NodePathsOf](/api/index/type-aliases/NodePathsOf)
 - [Observability](/api/index/type-aliases/Observability)
@@ -164,6 +165,7 @@ title: index
 ## Variables
 
 - [contextful](/api/index/variables/contextful)
+- [defineJourneyMap](/api/index/variables/defineJourneyMap)
 - [ERROR\_MESSAGE](/api/index/variables/ERROR_MESSAGE)
 - [REDACTED](/api/index/variables/REDACTED)
 

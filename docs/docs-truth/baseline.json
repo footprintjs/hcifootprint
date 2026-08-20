@@ -26,6 +26,7 @@
     "DecisionStatus",
     "DECLARABLE_ACTION_FIELDS",
     "DeclarableActionField",
+    "defineJourneyMap",
     "DependencyEdge",
     "EffectStatus",
     "expectConformance",
@@ -45,6 +46,7 @@
     "InteractionSession",
     "Journey",
     "JourneyDef",
+    "JourneyMap",
     "JourneyStanding",
     "JourneyToolsPort",
     "JourneyToolsPortWithSettlement",
@@ -57,6 +59,7 @@
     "Page",
     "PendingInfo",
     "PresenceIndex",
+    "Principal",
     "ReactRouterOptions",
     "REDACTED",
     "RegisteredActionDef",
@@ -181,6 +184,7 @@
     "JourneyDef",
     "JourneyFrame",
     "JourneyHealth",
+    "JourneyMap",
     "JourneyPlan",
     "JourneyPlanStep",
     "JourneySpec",
@@ -286,6 +290,7 @@
     "checkGraph",
     "conformSource",
     "contextful",
+    "defineJourneyMap",
     "edgesToMCPTools",
     "expectConformance",
     "expectNoStaleLogic",
@@ -306,9 +311,9 @@
     "watchPage"
   ],
   "counts": {
-    "total": 222,
-    "site-prose": 80,
-    "site-code-only": 7,
+    "total": 224,
+    "site-prose": 83,
+    "site-code-only": 6,
     "repo-only": 18,
     "undocumented": 117
   }

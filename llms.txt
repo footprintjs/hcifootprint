@@ -66,6 +66,15 @@ not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships
 `.build()`). Node names in the literal become a typed path union, so a typo in a later
 `registerActions('catalog.filtr-rail')` is a COMPILE error, not a silent no-op.
 
+**The official vocabulary (1.10.0):** you declare the JourneyMap; the session is the Walker; the
+recording carries both. `defineJourneyMap` is a PERMANENT reference-equal alias of
+`buildNavigationGraph`, and the type `JourneyMap` of `NavigationGraph` — both names ship forever,
+neither is a rename, so either dialect is correct. There is deliberately NO `Walker` export: the
+walker is the session (`map.createSession()`), moved by three movers — **human** (a real click,
+`principal: 'user'`), **agent** (the four served verbs `whats_here` / `why` / `do_action` /
+`did_it_work`), **guard** (your data: `when` / `enabledWhen`) — plus the world's own
+`Cause.kind: 'stimulus'`, recorded rather than absorbed.
+
 Source: `src/tree/appmap.ts`, `src/tree/types.ts`.
 
 ```ts

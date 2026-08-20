@@ -109,6 +109,14 @@ export type {
 } from './graph/sources/types.js';
 // The navigation graph: buildNavigationGraph() authoring, InteractionSession runtime
 export { buildNavigationGraph } from './tree/appmap.js';
+// THE OFFICIAL VOCABULARY (1.10.0), the Map & Walker names: `defineJourneyMap`
+// is a PERMANENT reference-equal alias of `buildNavigationGraph`, and
+// `JourneyMap` of `NavigationGraph` — both names ship forever, neither is a
+// rename. There is no `Walker` export on purpose: the walker is the session, not
+// an object you construct. tree/appmap.ts carries the sentence itself and the
+// three movers (a pointer, never a second copy to drift).
+export { defineJourneyMap } from './tree/appmap.js';
+export type { JourneyMap } from './tree/appmap.js';
 export type {
   NavigationGraph,
   NavigationGraphDef,

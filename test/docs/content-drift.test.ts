@@ -197,6 +197,83 @@ describe('the merge order is ONE sentence, identical in every home that quotes i
   });
 });
 
+
+describe('the Map & Walker sentence is ONE sentence, identical in every home that says it', () => {
+  /**
+   * The family's vocabulary (1.10.0) is a claim made in five places at once —
+   * the front door, the docs page that teaches it, the feature-work map an
+   * agent reads before touching this repo, the LLM-facing surface page meant to
+   * be read INSTEAD of the source, and the source that owns the alias itself.
+   * A sentence repeated five times is a sentence that drifts four ways, and
+   * the ecosystem's whole argument is that the SAME pattern sits at three
+   * altitudes: a wording that wanders here quietly makes it three patterns.
+   *
+   * MUTATION PROOF: change one word in any home ("the session is a Walker") and
+   * this goes red naming the home that drifted.
+   */
+  const homes = [
+    'README.md',
+    docPage('map-and-walker'),
+    'CLAUDE.md',
+    'llms.txt',
+    'src/tree/appmap.ts',
+  ];
+  const TAIL = 'the recording carries both';
+
+  /** The sentence itself, however the file happens to wrap, bold or comment it. */
+  const sentenceIn = (relative: string): string => {
+    const flat = flatten(read(relative));
+    const start = flat.indexOf('declare the JourneyMap');
+    const end = flat.indexOf(TAIL);
+    expect(start, `${relative} does not say the Map & Walker sentence`).toBeGreaterThanOrEqual(0);
+    expect(end, `${relative} stops before the recording half of it`).toBeGreaterThan(start);
+    return flat.slice(start, end + TAIL.length);
+  };
+
+  it('all five homes carry byte-identical prose', () => {
+    const [first, ...rest] = homes.map(sentenceIn);
+    expect(first).toBe('declare the JourneyMap; the session is the Walker; the recording carries both');
+    for (const [index, sentence] of rest.entries()) {
+      expect(sentence, `${homes[index + 1]} drifted from ${homes[0]}`).toBe(first);
+    }
+  });
+
+  it('the docs page names the three movers and the five moves — in this domain’s words', () => {
+    const page = flatten(readDocPage('map-and-walker'));
+    // The movers, as the library's own vocabulary spells them.
+    for (const mover of ['human', 'agent', 'guard']) expect(page).toContain(mover);
+    for (const evidence of ['principal: ', 'watchPage', 'blockedBecause', 'stimulus'])
+      expect(page).toContain(evidence);
+    // The five moves, each named by what already answers it — not by a state
+    // machine this library does not have.
+    for (const answer of [
+      'whats_here',
+      'do_action',
+      'goesTo',
+      'focusHistory',
+      'journeyStanding',
+      'did_it_work',
+      'checkGraph',
+    ])
+      expect(page).toContain(answer);
+  });
+
+  it('the four served verbs it lists are the four the port actually serves', () => {
+    const graph = buildNavigationGraph('shop', {
+      pages: { catalog: { actions: { 'add-to-cart': { does: 'Add the open dress to the cart' } } } },
+      journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart'] } },
+    });
+    // The generics the port serves, minus the journey tools and the graph-id
+    // prefix a host binds them under: the VERBS, which is what the page names.
+    const served = serveToAgent(graph.createSession({ onWarn: () => undefined }))
+      .tools()
+      .map((tool) => tool.name.replace(/^shop[._]/, ''))
+      .filter((name) => !name.startsWith('journey'));
+    expect(served.sort()).toEqual(['did_it_work', 'do_action', 'whats_here', 'why']);
+    const page = flatten(readDocPage('map-and-walker'));
+    for (const verb of served) expect(page, `the page never names ${verb}`).toContain(verb);
+  });
+});
 describe('a doc that quotes a refusal quotes the refusal the library emits', () => {
   const sessions = flatten(readDocPage('sessions'));
   const journeys = flatten(readDocPage('guarded-journeys'));

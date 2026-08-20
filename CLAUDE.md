@@ -7,6 +7,15 @@ description. Everything relational — routes between pages, which action unbloc
 **derived from declarations made for other reasons**, never authored. **Trust the code**
 where any doc disagrees.
 
+**The vocabulary (1.10.0):** you declare the JourneyMap; the session is the Walker; the
+recording carries both. `defineJourneyMap`/`JourneyMap` are permanent reference-equal aliases of
+`buildNavigationGraph`/`NavigationGraph` (tree/appmap.ts) — both names ship forever, neither is a
+rename, and there is deliberately NO `Walker` export: the walker is the session. Three movers move
+it — **human** (a real click, `principal: 'user'`), **agent** (the four served verbs `whats_here` /
+`why` / `do_action` / `did_it_work`), **guard** (your data: `when`/`enabledWhen`) — plus the world's
+own `Cause.kind: 'stimulus'`. Same pattern at three altitudes: footprintjs walks stages,
+agentfootprint (`defineSkillMap`) walks skills, this walks screens.
+
 ## Before you design it: it may already exist
 
 **Read this table before proposing any new capability.** Everything below already ships.
@@ -23,6 +32,8 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 
 | If you are about to build… | It is | Where | Since |
 |---|---|---|---|
+| declaring the app's journey map — the official, family-wide name for the authoring door | `defineJourneyMap` + `JourneyMap` (permanent reference-equal aliases of `buildNavigationGraph` / `NavigationGraph`) | `src/tree/appmap.ts` | 1.10.0 |
+| a Walker class to construct, so the agent has something to hold — there is none, on purpose: the walker IS the session | `InteractionSession` | `src/traverse/nav-session.ts` | 1.0.0 |
 | binding an action to a real control by role and accessible name, instead of a CSS selector | `ElementLocator` (one arm of `Binding`, alongside `keychord` / `programmatic` / `url` / `tab`) | `src/atom/types.ts` | 0.2.0 |
 | a vocabulary for who caused a move — a person, the agent, or the world moving on its own | `Cause` + `Principal` + `StimulusKind` | `src/atom/types.ts` | 0.2.0 |
 | grading what a "who did this" is actually worth — watched, matched, or nobody said | `Attribution` + `AttributionBasis` + `AttributionCertainty` | `src/atom/types.ts` | 1.7.0 |

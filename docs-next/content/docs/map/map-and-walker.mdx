@@ -1,0 +1,96 @@
+---
+title: Map & Walker
+description: "The official vocabulary, in one sentence: you declare the JourneyMap; the session is the Walker; the recording carries both."
+---
+
+**You declare the JourneyMap; the session is the Walker; the recording carries both.**
+
+That sentence is the whole model. The map is static data you author once — pages, the things
+inside them, the journeys worth finishing. The walker is the live session standing somewhere
+on it. And because every move goes through the session, the recording holds both halves: the
+map as declared, and the path actually walked over it.
+
+Since 1.10.0 the two nouns have names in the API, as **permanent aliases** of the doors that
+have always been there:
+
+| The official name | The door it is an alias of | What it is |
+|---|---|---|
+| `defineJourneyMap` | `buildNavigationGraph` | the authoring call — one object literal, validated and frozen |
+| `JourneyMap` | `NavigationGraph` | the compiled map that call hands back |
+
+Both names ship forever and neither is a rename: they are the **same function object** and the
+**same type**, so a codebase can speak either dialect, and a mixed codebase is not a mistake.
+
+```ts twoslash
+import { defineJourneyMap } from 'hcifootprint';
+import type { JourneyMap } from 'hcifootprint';
+
+const map: JourneyMap<'catalog' | 'checkout'> = defineJourneyMap('shop', {
+  pages: {
+    catalog: {
+      route: '/catalog',
+      actions: {
+        'add-to-cart': { does: 'Add the open dress to the cart', writes: ['cart.items'] },
+        'go-checkout': { does: 'Go to checkout', goTo: 'checkout' },
+      },
+    },
+    checkout: {
+      route: '/checkout',
+      actions: {
+        'place-order': { does: 'Place the order', enabledWhen: { 'cart.items': { gt: 0 } } },
+      },
+    },
+  },
+  journeys: { purchase: { does: 'Buy a dress end to end', steps: ['add-to-cart', 'place-order'] } },
+});
+
+const walker = map.createSession({ node: 'catalog' }); // the walker IS the session
+```
+
+## There is no `Walker` to construct
+
+The library exports no `Walker` object, and that is deliberate. A walker is not a thing you
+wire up — it is the session you already create, standing on a node, moving. Exporting a
+synonym for it would turn a way of *reading* the library into a second runtime object to keep
+in step with the first.
+
+## The three movers
+
+A cursor only ever moves for three reasons, and each one is recorded as a
+[`Cause`](doc:attribution-and-authority) — `kind` (was an offered edge fired, or did the world
+move?) plus `principal` (whose move was it?).
+
+| Mover | What it is here | What moves the cursor | On the record |
+|---|---|---|---|
+| **human** | the Principal your app already serves — real clicks, in your own controls | `watchPage` senses the click, or `contextful` catches the app's own call | `Cause.kind: 'fired'`, `principal: 'user'`, with `Attribution` grading what that claim is worth |
+| **agent** | the model, through the MCP door | the four served verbs — `whats_here`, `why`, `do_action`, `did_it_work` | `Cause.kind: 'fired'`, `principal: 'agent'`, plus the `offerId` of the row it planned against |
+| **guard** | your DATA, deciding | an action's `when` / `enabledWhen` judged against the state your store pushed | the guard's own evidence, and `blockedBecause` / `unblockedBy` when it says no |
+
+And a fourth thing that is not a mover, because nobody chose it: the world moves on its own —
+a back button, a server push, a session expiry. That is `Cause.kind: 'stimulus'`, recorded
+rather than silently absorbed, because a cursor that moved without an offered edge is exactly
+what an agent must not be allowed to miss.
+
+## The five things a walker does
+
+Nothing on this list is new machinery. It is the same five moves any walker makes, and the
+column on the right is what already answers each one.
+
+| A walker… | Here it is |
+|---|---|
+| **looks** — what is around me? | `whats_here` — one row per action offered on this node, from `available()` |
+| **navigates** — go somewhere else | `do_action` on an action that declares `goTo`; the served row carries `goesTo`, and `howToReach` walks the declared hops first |
+| **moves inside a screen** | a fire that lands on a deeper node — an area, a tab, a modal — moves the **focus** without changing the page: `session.focus`, with `focusHistory` recording every move and who moved it (`FocusMove.cause`), including the moves where focus stayed |
+| **keeps a task list** | **journeys** — `commitJourney` opens a frame, and `journeyStanding` says where the flow stands (`in-progress`, `awaiting-human`, `with-the-human`, `blocked`, `failed`, `done`) |
+| **verifies** — did that work? | `did_it_work` — the settled facts of one fire (`effectStatus`, `outcome`, `effectVerified`, `verifyHeld`, `arrival`), never a guess |
+
+The honesty backstop under the last row is the [drift sensor](doc:testing): `lintGraph` and
+`checkGraph` fail in CI when the map has drifted from the app, because a walker that verifies
+against a stale map is verifying against fiction.
+
+## The same pattern, at three altitudes
+
+[footprintjs](https://github.com/footprintjs/footPrint) walks **stages**,
+[agentfootprint](https://github.com/footprintjs/agentfootprint) (`defineSkillMap`) walks
+**skills**, and this walks **screens** — one declared map, one walker on it, one recording that
+carries both.
