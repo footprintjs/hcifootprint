@@ -194,11 +194,15 @@ FOUR wires land here, so an app can say it wherever it already knows it:
 
 > `optional` **enumeration?**: `"selector"` \| `"mounted-window"`
 
-Defined in: [src/atom/types.ts:1891](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1891)
+Defined in: [src/atom/types.ts:1895](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1895)
 
 Where `instances` came from: 'selector' = the declared existence source
 (complete), 'mounted-window' = only what is mounted right now (partial —
 stated, not silently presented as complete).
+
+This coverage is also what the `INSTANCE_UNKNOWN` refusal's `verdict`
+stands on: absence from a 'selector' set refuses as `'never-existed'`;
+absence from a window only as `'unsupported'`.
 
 ***
 

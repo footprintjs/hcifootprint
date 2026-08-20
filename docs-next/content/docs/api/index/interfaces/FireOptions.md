@@ -4,7 +4,7 @@ title: FireOptions
 
 # Interface: FireOptions
 
-Defined in: [src/atom/types.ts:1923](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1923)
+Defined in: [src/atom/types.ts:1927](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1927)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/atom/types.ts:1923](https://github.com/footprintjs/hcifootprint
 
 > `optional` **acknowledgementId?**: `string`
 
-Defined in: [src/atom/types.ts:1993](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1993)
+Defined in: [src/atom/types.ts:1997](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1997)
 
 THE PROTOCOL STEP THIS FIRE PERFORMED — the `acknowledgementId` from
 `session.acknowledgeStale()`, read only under a `'require-ack'` axis.
@@ -28,7 +28,7 @@ and the record it points at says so in its own words.
 
 > `optional` **askId?**: `string`
 
-Defined in: [src/atom/types.ts:1963](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1963)
+Defined in: [src/atom/types.ts:1967](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1967)
 
 The confirm-journal row that authorizes this fire — read only when the
 session was created with [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval). Pass
@@ -51,7 +51,7 @@ it honestly always was — the agent asking to proceed now.
 
 > `optional` **expectedVersion?**: `number`
 
-Defined in: [src/atom/types.ts:1937](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1937)
+Defined in: [src/atom/types.ts:1941](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1941)
 
 Optimistic-concurrency token from available().version. If supplied and
 stale, fire() rejects with STALE_CURSOR — the agent must replan on a
@@ -63,7 +63,7 @@ fresh slice. Guards are ALSO re-evaluated at fire time regardless.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:1940](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1940)
+Defined in: [src/atom/types.ts:1944](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1944)
 
 Instance key for a tool on a repeats container (e.g. an order-card id).
 
@@ -73,7 +73,7 @@ Instance key for a tool on a repeats container (e.g. an order-card id).
 
 > `optional` **invoke?**: `boolean`
 
-Defined in: [src/atom/types.ts:1946](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1946)
+Defined in: [src/atom/types.ts:1950](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1950)
 
 Invoke the registered handler (default true when one exists). The DOM
 sensor passes false: the browser already runs the app's own onClick, so
@@ -85,7 +85,7 @@ the sensor's fire() is record-only.
 
 > `optional` **offerId?**: `string`
 
-Defined in: [src/atom/types.ts:1983](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1983)
+Defined in: [src/atom/types.ts:1987](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1987)
 
 THE ROW THIS FIRE WAS PLANNED AGAINST — the `offerId` from
 [AvailableEdge.offerRef](/api/index/interfaces/AvailableEdge#offerref), or from the served action row when the
@@ -111,7 +111,7 @@ freshness against a plan you cannot identify.
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [src/atom/types.ts:1938](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1938)
+Defined in: [src/atom/types.ts:1942](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1942)
 
 ***
 
@@ -119,7 +119,7 @@ Defined in: [src/atom/types.ts:1938](https://github.com/footprintjs/hcifootprint
 
 > **source**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:1931](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1931)
+Defined in: [src/atom/types.ts:1935](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1935)
 
 Who is acting. Required here on purpose — a typed caller should never
 leave provenance to an assumption. It is only ever assumed for a caller

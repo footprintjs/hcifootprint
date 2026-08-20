@@ -4,7 +4,7 @@ title: ConfirmWillUse
 
 # Interface: ConfirmWillUse
 
-Defined in: [src/atom/types.ts:2844](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2844)
+Defined in: [src/atom/types.ts:2875](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2875)
 
 WHAT THIS FIRE WILL SEND — the input on the ask card, so the human approves an
 object and not just a verb.
@@ -43,7 +43,7 @@ refuses to judge a match against it rather than comparing two truncations.
 
 > `optional` **input?**: `unknown`
 
-Defined in: [src/atom/types.ts:2846](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2846)
+Defined in: [src/atom/types.ts:2877](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2877)
 
 The payload the confirmed fire will carry. Absent for an input-less action.
 
@@ -53,6 +53,6 @@ The payload the confirmed fire will carry. Absent for an input-less action.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:2848](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2848)
+Defined in: [src/atom/types.ts:2879](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2879)
 
 The row/instance the card is about (an order id), when the action takes one.

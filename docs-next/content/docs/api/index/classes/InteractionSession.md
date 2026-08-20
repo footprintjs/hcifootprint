@@ -109,7 +109,7 @@ The compiled graph's id (namespaces MCP tool names).
 
 > **get** **lookingAt**(): `string` \| `null`
 
-Defined in: [src/traverse/nav-session.ts:1308](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1308)
+Defined in: [src/traverse/nav-session.ts:1315](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1315)
 
 The deeper place, for whoever is SERVING rather than printing: the observed
 focus when it is below the page, and null when the page is the whole
@@ -1014,7 +1014,7 @@ audit sink like gaps(); it grows for the session's life.
 
 > **contextBrief**(`opts?`): [`ContextBrief`](/api/index/interfaces/ContextBrief)
 
-Defined in: [src/traverse/nav-session.ts:1318](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1318)
+Defined in: [src/traverse/nav-session.ts:1325](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1325)
 
 Token-lean, prompt-ready session context for the next chat turn: current
 position, the open frame, and who did what since `sinceVersion` (the
@@ -1741,7 +1741,7 @@ the work was done.
 
 > **observeFocus**(`path`, `opts?`): `void`
 
-Defined in: [src/traverse/nav-session.ts:1276](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1276)
+Defined in: [src/traverse/nav-session.ts:1283](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1283)
 
 THE OBSERVATION DOOR: report which tab, area or modal on THIS page the
 reader is looking at, without moving the walker.
@@ -2669,7 +2669,7 @@ Detached snapshot of the projected state (live state is immutable-after-swap; ne
 
 > **sync**(`observedNode`, `opts?`): [`SyncResult`](/api/index/type-aliases/SyncResult)
 
-Defined in: [src/traverse/nav-session.ts:1183](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1183)
+Defined in: [src/traverse/nav-session.ts:1190](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1190)
 
 Sync pages; observe the deeper place. `sync()` moves the walker and decides
 what is served; `observeFocus()` says which tab or area the reader is in.

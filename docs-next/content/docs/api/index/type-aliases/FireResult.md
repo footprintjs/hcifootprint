@@ -4,9 +4,9 @@ title: FireResult
 
 # Type Alias: FireResult
 
-> **FireResult** = \{ `alreadyTrue?`: `FilterCondition`[]; `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `repeated?`: \{ `personActedSince`: \{ `basis`: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis); `transitionId`: `string`; \}; `priorTransitionId`: `string`; \}; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REVOKED"`; \} \| \{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"OFFER_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `offeredFor?`: `string`; `offerId`: `string`; `ok`: `false`; `reason`: `"OFFER_NOT_ON_RECORD"`; `why`: `"unknown"` \| `"evicted"` \| `"other-action"`; \} \| \{ `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"WORLD_MOVED"`; \} \| \{ `acknowledgementId?`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_REQUIRED"`; `why?`: `"evicted"`; \} \| \{ `acknowledgementId`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_STALE"`; \} \| \{ `affordanceId`: `string`; `howToSettle`: `string`; `ok`: `false`; `pendingTransitionId`: `string`; `reason`: `"PRIOR_FIRE_PENDING"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `howToRepeat`: `string`; `ok`: `false`; `priorTransitionId`: `string`; `reason`: `"DUPLICATE_EXECUTION"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `attempted`: [`Principal`](/api/index/type-aliases/Principal); `ok`: `false`; `reason`: `"PRINCIPAL_NOT_ALLOWED"`; `required`: [`ActorKind`](/api/index/type-aliases/ActorKind)[]; \} \| \{ `affordanceId`: `string`; `needs`: `"observability"` \| `"postcondition"`; `observability?`: [`Observability`](/api/index/type-aliases/Observability); `ok`: `false`; `reason`: `"EFFECT_NOT_VERIFIABLE"`; \}
+> **FireResult** = \{ `alreadyTrue?`: `FilterCondition`[]; `effectStatus`: [`EffectStatus`](/api/index/type-aliases/EffectStatus); `executed?`: `false`; `materialized?`: `false`; `ok`: `true`; `repeated?`: \{ `personActedSince`: \{ `basis`: [`AttributionBasis`](/api/index/type-aliases/AttributionBasis); `transitionId`: `string`; \}; `priorTransitionId`: `string`; \}; `settlement`: `"settled"` \| `"awaiting-state"`; `transition`: [`TransitionRecord`](/api/index/interfaces/TransitionRecord); `version`: `number`; `whenSettled`: `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>; \} \| \{ `available`: `string`[]; `ok`: `false`; `reason`: `"UNKNOWN_AFFORDANCE"`; \} \| \{ `ok`: `false`; `reason`: `"STALE_CURSOR"`; `version`: `number`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NOT_ON_NODE"`; \} \| \{ `evidence`: `FilterCondition`[]; `ok`: `false`; `reason`: `"GUARD_FAILED"`; \} \| \{ `issues`: `string`; `ok`: `false`; `reason`: `"PAYLOAD_INVALID"`; \} \| \{ `ok`: `false`; `overlay`: `string`; `reason`: `"BLOCKED_BY_OVERLAY"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"NODE_NOT_VISIBLE"`; \} \| \{ `node`: `string`; `ok`: `false`; `reason`: `"STILL_MOUNTING"`; \} \| \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \} \| \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; `verdict`: `"never-existed"` \| `"unsupported"`; \} \| \{ `affordanceId`: `string`; `evidence?`: `FilterCondition`[]; `ok`: `false`; `reason`: `"TOOL_DISABLED"`; \} \| \{ `affordanceId`: `string`; `gesture?`: [`Binding`](/api/index/type-aliases/Binding); `ok`: `false`; `reason`: `"NOT_MATERIALIZED"`; \} \| \{ `affordanceId`: `string`; `askId?`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_SPENT"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `differs`: `"action"` \| `"input"` \| `"instance"` \| `"both"` \| `"cannot-judge"`; `ok`: `false`; `reason`: `"APPROVAL_MISMATCH"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_STALE"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_DECLINED"`; \} \| \{ `affordanceId`: `string`; `askId`: `string`; `ok`: `false`; `reason`: `"APPROVAL_REVOKED"`; \} \| \{ `affordanceId`: `string`; `ok`: `false`; `reason`: `"OFFER_REQUIRED"`; \} \| \{ `affordanceId`: `string`; `offeredFor?`: `string`; `offerId`: `string`; `ok`: `false`; `reason`: `"OFFER_NOT_ON_RECORD"`; `why`: `"unknown"` \| `"evicted"` \| `"other-action"`; \} \| \{ `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"WORLD_MOVED"`; \} \| \{ `acknowledgementId?`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_REQUIRED"`; `why?`: `"evicted"`; \} \| \{ `acknowledgementId`: `string`; `affordanceId`: `string`; `moved`: [`FreshnessMovement`](/api/index/interfaces/FreshnessMovement)[]; `offerId`: `string`; `ok`: `false`; `reason`: `"ACKNOWLEDGEMENT_STALE"`; \} \| \{ `affordanceId`: `string`; `howToSettle`: `string`; `ok`: `false`; `pendingTransitionId`: `string`; `reason`: `"PRIOR_FIRE_PENDING"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `howToRepeat`: `string`; `ok`: `false`; `priorTransitionId`: `string`; `reason`: `"DUPLICATE_EXECUTION"`; `scope`: `"action"` \| `"instance"` \| `"payload"`; \} \| \{ `affordanceId`: `string`; `attempted`: [`Principal`](/api/index/type-aliases/Principal); `ok`: `false`; `reason`: `"PRINCIPAL_NOT_ALLOWED"`; `required`: [`ActorKind`](/api/index/type-aliases/ActorKind)[]; \} \| \{ `affordanceId`: `string`; `needs`: `"observability"` \| `"postcondition"`; `observability?`: [`Observability`](/api/index/type-aliases/Observability); `ok`: `false`; `reason`: `"EFFECT_NOT_VERIFIABLE"`; \}
 
-Defined in: [src/atom/types.ts:2076](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2076)
+Defined in: [src/atom/types.ts:2080](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2080)
 
 What became of one fire — the success arm, or one typed refusal.
 
@@ -182,11 +182,58 @@ RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link).
 
 \{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_REQUIRED"`; \}
 
+A repeats-container tool fired with no instance key — the known keys ride along.
+
 ***
 
 ### Type Literal
 
-\{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; \}
+\{ `instances`: `string`[]; `instancesTotal`: `number`; `ok`: `false`; `reason`: `"INSTANCE_UNKNOWN"`; `verdict`: `"never-existed"` \| `"unsupported"`; \}
+
+The named instance is not in the compared existence set — `verdict` says how strong that absence is.
+
+#### instances
+
+> **instances**: `string`[]
+
+#### instancesTotal
+
+> **instancesTotal**: `number`
+
+#### ok
+
+> **ok**: `false`
+
+#### reason
+
+> **reason**: `"INSTANCE_UNKNOWN"`
+
+#### verdict
+
+> **verdict**: `"never-existed"` \| `"unsupported"`
+
+WHICH KIND OF WRONG THIS ID IS — the honest strength of "not in the
+list", decided by the COVERAGE of the list it was compared against
+(the same source the served row's `enumeration` states):
+
+- `'never-existed'` — the compared set came from the app's DECLARED
+  existence source (`enumeration: 'selector'`), which enumerates
+  everything that exists right now. An id absent from it does not
+  exist, and the refusal may say so.
+- `'unsupported'` — the compared set is only the mounted window
+  (`enumeration: 'mounted-window'`): what happens to be on screen.
+  Absence from a window proves nothing about the world past its edge —
+  the id is not backed by anything served, and that is ALL this
+  refusal knows. Never relay it as nonexistence: the row the agent
+  named may be real and simply not mounted.
+
+The render cap changes neither verdict: membership always runs against
+the FULL compared set (instance #51 is real), so `instances` here may
+be a 50-key slice of `instancesTotal` keys while the verdict stands on
+all of them — under a capped window, an id past the cap is exactly the
+case `'unsupported'` protects. And a selector that throws or answers a
+non-array falls back to the mounted window, so the verdict falls back
+WITH it: a nonexistence claim must never outlive its evidence.
 
 ***
 
