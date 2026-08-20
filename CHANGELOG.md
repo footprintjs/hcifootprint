@@ -42,6 +42,20 @@
   keys of 200 can never read as 50 of 50 (fireability was always uncapped;
   now the served row says so).
 
+- **The unknown-instance refusal says which kind of wrong it is** (Context
+  Integrity). `INSTANCE_UNKNOWN` now carries
+  `verdict: 'never-existed' | 'unsupported'`, decided by the coverage of the
+  set the id was compared against — the same source the served row's
+  `enumeration` states. Absent from the app's declared existence source (a
+  `selector` set enumerates everything that exists) → `'never-existed'`, and
+  the refusal may finally say so. Absent from the mounted window →
+  `'unsupported'`: not backed by anything served, and that is ALL the refusal
+  knows — a window has an edge, the world continues past it, and under a
+  capped window an id past the render cap is exactly the case
+  `'unsupported'` protects. A selector that throws or answers a non-array
+  falls back to the mounted window, and the verdict falls back WITH it: a
+  nonexistence claim never outlives its evidence.
+
 ## [1.12.0] - 2026-08-19
 
 **An effect that is already true is not a pending one. When an action's declarative verify contract

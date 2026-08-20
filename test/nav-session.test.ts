@@ -510,3 +510,112 @@ describe('the render cap says its size (1.13.0)', () => {
     expect(refused).toMatchObject({ ok: false, reason: 'INSTANCE_UNKNOWN', instancesTotal: 200 });
   });
 });
+
+describe('INSTANCE_UNKNOWN carries a coverage verdict — window absence is not nonexistence', () => {
+  it("absent from the declared existence source → 'never-existed'", () => {
+    // The selector is the app's own statement of what exists, so an id it
+    // does not enumerate never existed — the refusal may say so.
+    const session = shopMap().createSession({
+      node: 'orders',
+      state: { orderIds: ['o-1', 'o-2'] },
+      allowUnmaterializedFires: true,
+    });
+    const refused = session.fire('orders.order-card.cancel-order', { source: 'agent', instance: 'ghost' });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: 'INSTANCE_UNKNOWN',
+      verdict: 'never-existed',
+    });
+  });
+
+  it("absent from the mounted window → 'unsupported', never 'never-existed'", () => {
+    // No selector: the compared list is only what happens to be on screen.
+    // Absence from a window proves nothing about the world past its edge.
+    const map = buildNavigationGraph('list', {
+      pages: {
+        inbox: {
+          areas: {
+            row: { repeats: true, actions: { archive: { does: 'Archive this row' } } },
+          },
+        },
+      },
+    });
+    const session = map.createSession({ onWarn: () => undefined });
+    session.registerActions('inbox.row', { instance: 'm-1' });
+    const refused = session.fire('inbox.row.archive', { source: 'agent', instance: 'ghost' });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: 'INSTANCE_UNKNOWN',
+      verdict: 'unsupported',
+    });
+  });
+
+  it("a broken selector degrades the verdict too: fallback window → 'unsupported'", () => {
+    // When the app's selector throws, existence falls back to the mounted
+    // window — and the verdict must fall back WITH it, or the refusal would
+    // claim nonexistence on evidence it no longer has.
+    const session = rowList(() => {
+      throw new Error('store not ready');
+    }).createSession({ onWarn: () => undefined });
+    session.registerActions('inbox.row', { instance: 'm-1' });
+    const refused = session.fire('inbox.row.archive', { source: 'agent', instance: 'ghost' });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: 'INSTANCE_UNKNOWN',
+      verdict: 'unsupported',
+    });
+  });
+
+  it("the render cap never corrupts the verdict: 200 declared keys, ghost is still 'never-existed'", () => {
+    // Membership runs against the FULL declared set (instance #51 fires), so
+    // a capped RENDER changes nothing about existence — 'never-existed'
+    // stands on the uncapped selector even when instances shows 50 of 200.
+    const many = Array.from({ length: 200 }, (_, i) => `row-${i}`);
+    const session = rowList(() => many).createSession({
+      node: 'inbox',
+      state: {},
+      allowUnmaterializedFires: true,
+    });
+    const refused = session.fire('inbox.row.archive', { source: 'agent', instance: 'ghost' });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: 'INSTANCE_UNKNOWN',
+      verdict: 'never-existed',
+      instancesTotal: 200,
+    });
+  });
+
+  it("a capped WINDOW is the case 'unsupported' protects: 60 mounted, ghost might live past the cap", () => {
+    // 60 rows mounted, 50 rendered: the refusal's own list is visibly partial
+    // (instancesTotal > instances.length), and the window itself is partial
+    // knowledge of the world — both caps land on the same honest verdict.
+    const map = buildNavigationGraph('list', {
+      pages: {
+        inbox: {
+          areas: {
+            row: { repeats: true, actions: { archive: { does: 'Archive this row' } } },
+          },
+        },
+      },
+    });
+    const session = map.createSession({ onWarn: () => undefined });
+    for (let i = 0; i < 60; i++)
+      session.registerActions('inbox.row', {
+        instance: `m-${i}`,
+        handlers: { archive: () => undefined },
+      });
+    // A mounted id past the render cap fires — the cap trims what is SHOWN, never what is real.
+    expect(session.fire('inbox.row.archive', { source: 'agent', instance: 'm-55' }).ok).toBe(true);
+    const refused = session.fire('inbox.row.archive', { source: 'agent', instance: 'ghost' });
+    expect(refused).toMatchObject({
+      ok: false,
+      reason: 'INSTANCE_UNKNOWN',
+      verdict: 'unsupported',
+      instancesTotal: 60,
+    });
+    if (!refused.ok && refused.reason === 'INSTANCE_UNKNOWN') {
+      expect(refused.instances).toHaveLength(50);
+      expect(refused.instancesTotal).toBeGreaterThan(refused.instances.length);
+    }
+  });
+});

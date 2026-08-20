@@ -709,6 +709,9 @@ describe('T-A12 frozen-unions-stay-frozen', () => {
       | 'ACKNOWLEDGEMENT_REQUIRED'
       | 'ACKNOWLEDGEMENT_STALE'
       | 'PRIOR_FIRE_PENDING'
+      // mode 'once' (the receipt survives settlement) — a conscious act,
+      // recorded here like every other growth this pin has witnessed.
+      | 'DUPLICATE_EXECUTION'
       // AND THE TWO THIS RELEASE ADDS — read what the pin is actually for
       // before reading them as this test failing at its own job. It guards
       // `humanDecides`: ownership is DISCLOSURE and mints no refusal word, and
@@ -753,6 +756,8 @@ describe('T-A12 frozen-unions-stay-frozen', () => {
       | 'ACKNOWLEDGEMENT_REQUIRED'
       | 'ACKNOWLEDGEMENT_STALE'
       | 'PRIOR_FIRE_PENDING'
+      // mode 'once', in lockstep with FireResult above.
+      | 'DUPLICATE_EXECUTION'
       // IN LOCKSTEP, as the two always are — see the sentence on the pin above
       // for why neither of these is `humanDecides` growing a refusal.
       | 'PRINCIPAL_NOT_ALLOWED'

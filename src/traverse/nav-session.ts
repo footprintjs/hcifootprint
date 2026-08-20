@@ -1026,6 +1026,13 @@ export class InteractionSession<Paths extends string = string> extends Session {
               reason: "INSTANCE_UNKNOWN",
               instances: existence.keys.slice(0, 50),
               instancesTotal: existence.keys.length,
+              // Coverage decides the verdict: only the declared existence
+              // source can prove nonexistence — a mounted window is partial
+              // knowledge, and absence from it is never proof.
+              verdict:
+                existence.enumeration === "selector"
+                  ? "never-existed"
+                  : "unsupported",
             };
           }
         }

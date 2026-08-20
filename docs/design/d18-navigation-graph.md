@@ -227,6 +227,12 @@ without letting scroll churn poison plans, by **splitting the version**:
   `materialized`/fireable-now. At L0/L1 with no selector, serve the mounted
   window WITH `enumeration: 'mounted-window'` so partial knowledge is stated,
   not silently presented as complete.
+- **The unknown-instance refusal says which kind of wrong:** `INSTANCE_UNKNOWN`
+  carries `verdict`, derived from the same coverage. Absent from a selector
+  set → `'never-existed'` (the declared existence source enumerates everything,
+  so absence IS nonexistence). Absent from the mounted window →
+  `'unsupported'` — not backed by anything served, never proof the id does
+  not exist: a window has an edge, and the world continues past it.
 
 ## 5. Registration — mount handles
 
@@ -380,6 +386,7 @@ X2b must ablate serving mode explicitly.
 | `visibility: 'assumed'` | node shown-status derived, not signaled |
 | `materialized: false` | spine tool declared, handler not yet mounted |
 | `enumeration: 'mounted-window'` | instance list = what's mounted, not what exists |
+| `verdict: 'unsupported'` | id absent from a WINDOW — unbacked, not proven nonexistent (`'never-existed'` needs the selector) |
 | `guardUnevaluated` | guard keys absent from the session's state view |
 | `effectVerified: 'unobservable'` | settled without a state tap |
 | `settling` | router node changed more recently than registrations under it (deep-link/SSR window) |

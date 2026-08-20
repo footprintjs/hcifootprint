@@ -1887,6 +1887,10 @@ export interface AvailableEdge {
    * Where `instances` came from: 'selector' = the declared existence source
    * (complete), 'mounted-window' = only what is mounted right now (partial —
    * stated, not silently presented as complete).
+   *
+   * This coverage is also what the `INSTANCE_UNKNOWN` refusal's `verdict`
+   * stands on: absence from a 'selector' set refuses as `'never-existed'`;
+   * absence from a window only as `'unsupported'`.
    */
   enumeration?: "selector" | "mounted-window";
 }
@@ -2143,17 +2147,44 @@ export type FireResult =
   | { ok: false; reason: "NODE_NOT_VISIBLE"; node: string }
   /** RETRIABLE: the node's mounts have not arrived yet (mid-navigation / deep link). */
   | { ok: false; reason: "STILL_MOUNTING"; node: string }
+  /** A repeats-container tool fired with no instance key — the known keys ride along. */
   | {
       ok: false;
       reason: "INSTANCE_REQUIRED";
       instances: string[];
       instancesTotal: number;
     }
+  /** The named instance is not in the compared existence set — `verdict` says how strong that absence is. */
   | {
       ok: false;
       reason: "INSTANCE_UNKNOWN";
       instances: string[];
       instancesTotal: number;
+      /**
+       * WHICH KIND OF WRONG THIS ID IS — the honest strength of "not in the
+       * list", decided by the COVERAGE of the list it was compared against
+       * (the same source the served row's `enumeration` states):
+       *
+       * - `'never-existed'` — the compared set came from the app's DECLARED
+       *   existence source (`enumeration: 'selector'`), which enumerates
+       *   everything that exists right now. An id absent from it does not
+       *   exist, and the refusal may say so.
+       * - `'unsupported'` — the compared set is only the mounted window
+       *   (`enumeration: 'mounted-window'`): what happens to be on screen.
+       *   Absence from a window proves nothing about the world past its edge —
+       *   the id is not backed by anything served, and that is ALL this
+       *   refusal knows. Never relay it as nonexistence: the row the agent
+       *   named may be real and simply not mounted.
+       *
+       * The render cap changes neither verdict: membership always runs against
+       * the FULL compared set (instance #51 is real), so `instances` here may
+       * be a 50-key slice of `instancesTotal` keys while the verdict stands on
+       * all of them — under a capped window, an id past the cap is exactly the
+       * case `'unsupported'` protects. And a selector that throws or answers a
+       * non-array falls back to the mounted window, so the verdict falls back
+       * WITH it: a nonexistence claim must never outlive its evidence.
+       */
+      verdict: "never-existed" | "unsupported";
     }
   /** RETRIABLE: the control is registered but currently greyed out (disabled). */
   | {
