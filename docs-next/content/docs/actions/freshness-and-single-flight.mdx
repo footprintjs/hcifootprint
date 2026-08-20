@@ -57,6 +57,44 @@ the id up; one that cites a **retained** id minted for a different control is re
 `why: 'other-action'`, with `offeredFor` naming the row it does belong to. Only `'unknown'` means an
 id this session never handed out.
 
+### The window, not just the loss
+
+A drop **count** says how much is gone. It cannot say *what is still answerable* — and that is the
+question a caller holding an id actually has. So the bound states its window:
+
+```ts
+session.offersRetention();
+// → { minted: 640, dropped: 140, firstRetained: 'offer#141', lastRetained: 'offer#640' }
+
+session.acknowledgementsRetention(); // the same shape, for the acknowledgement ledger
+```
+
+Everything from `firstRetained` to `lastRetained` can be answered; everything before it is evicted
+and countable. Both ends are **absent** while the ledger is empty — never a fabricated placeholder,
+because an id that was never minted is a different fact from an id that expired.
+
+And you can ask about one id without firing anything:
+
+```ts
+session.offerStanding('offer#12');
+// → 'retained' | 'evicted' | 'unknown'
+```
+
+Three answers, and the middle one is the point: `'evicted'` says *this session really did hand that
+out, and the cap dropped it* — which is a different sentence from `'unknown'` ("nothing by that name
+was ever minted here"). Collapsing them would tell a caller it invented an id it was given.
+
+Sensing trails are bounded on the same terms: `session.sensedTrailsDropped()` counts what the cap
+removed, and asking for an evicted trail says **EVICTED** with the surviving count rather than
+answering in a way indistinguishable from "nothing was ever sensed there".
+
+<Callout type="info">
+  The same rule reaches the render caps. A list cut at 30 entries appends `… N more omitted`, an
+  object cut at 40 keys carries a `'…': 'N more key(s) omitted'` entry, and a repeats row states
+  `instancesTotal` beside the instances it shows — so 50 of 200 can never read as 50 of 50.
+  Fireability was always uncapped; now the row says so.
+</Callout>
+
 ## Step 2 — declare what a moved world costs
 
 Per action, or once for the session. Four axes, three answers.
@@ -142,6 +180,9 @@ whole. Because that means a cited receipt can expire, the bound is answered rath
 `session.acknowledgementsDropped()` counts evictions, the integrator is warned once, and a fire
 citing a dropped receipt is refused with `why: 'evicted'` — a step you really did perform, dropped by
 this library's own limit. It is never reported as a pointer you made up.
+`session.acknowledgementsRetention()` answers the window the same way the offer ledger's does
+(`{ minted, dropped, firstRetained, lastRetained }`), so "which receipts can still be cited?" has an
+answer that does not require guessing at the cap.
 
 <Callout type="info">
   This warning is said to **every** session that fills the ledger, unlike the offer ledger's. Nothing
