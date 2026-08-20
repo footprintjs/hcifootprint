@@ -238,14 +238,55 @@ export interface ActionDef {
   role?: CanonicalRole;
 }
 
-/** A container node: areas coexist (AND), tabs exclude (at most one shown), modals overlay. */
+/**
+ * A container node: areas coexist (AND), tabs exclude (at most one shown),
+ * modals overlay.
+ *
+ * THE DEEPEST-NODE RULE, said once here and repeated on each bucket below:
+ * **Sync pages; observe the deeper place. `sync()` moves the walker and decides
+ * what is served; `observeFocus()` says which tab or area the reader is in.
+ * Declare containers, and report the deepest one on screen.** Declaring a
+ * container without ever observing it gives you mount-tracking but not
+ * position: the containers are real nodes, and `session.observeFocus('page.tab')`
+ * is what puts the reader inside one. `sync()` cannot — actions are served from
+ * the PAGE, so a cursor on a tab would be served nothing.
+ */
 export interface NodeDef {
   /** Optional authored description of the container itself. */
   does?: string;
   /** Container guard: every descendant action's guard is AND-narrowed by this. */
   when?: WhereFilter;
+  /**
+   * Sibling regions that coexist — a sidebar and a detail pane are both here.
+   *
+   * Declaring a container without ever observing it gives you mount-tracking
+   * but not position — see the deepest-node rule on {@link NodeDef}.
+   */
   areas?: Record<string, NodeDef>;
+  /**
+   * An exclusivity PRIOR: at most one of these is shown. Not a statechart — no
+   * transitions, no initial, no history.
+   *
+   * Declaring a container without ever observing it gives you mount-tracking
+   * but not position — see the deepest-node rule on {@link NodeDef}. Tabs are
+   * where that bites hardest: the whole point of the bucket is that ONE of them
+   * is where the reader is, and nothing but evidence can say which — and a
+   * person clicking a tab fires nothing, so only an observation can carry it.
+   * `session.show('page.tab')` says which tab is VISIBLE;
+   * `session.observeFocus('page.tab')` says the reader is IN it.
+   */
   tabs?: Record<string, NodeDef>;
+  /**
+   * Overlays. A shown blocking modal masks sibling actions (`blocks: false`
+   * opts a popover out), and a modal is NEVER assumed active: closed until
+   * registered or shown.
+   *
+   * Declaring a container without ever observing it gives you mount-tracking
+   * but not position — see the deepest-node rule on {@link NodeDef}. For a
+   * modal the order matters: `show()` opens it, and an `observeFocus()` naming
+   * a modal nobody opened resolves to the page, because a closed modal cannot
+   * hold anyone.
+   */
   modals?: Record<string, ModalDef>;
   /** Template container: instances carry runtime keys (order cards, product tiles). */
   repeats?: boolean;

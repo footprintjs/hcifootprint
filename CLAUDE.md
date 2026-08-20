@@ -16,6 +16,20 @@ it — **human** (a real click, `principal: 'user'`), **agent** (the four served
 own `Cause.kind: 'stimulus'`. Same pattern at three altitudes: footprintjs walks stages,
 agentfootprint (`defineSkillMap`) walks skills, this walks screens.
 
+**Position has three tiers, one door each (1.11.0):** page (`sync`) → container
+(`observeFocus`, new) → state (`updateState`, not position). **Sync pages; observe the deeper place.
+`sync()` moves the walker and decides what is served; `observeFocus()` says which tab or area the
+reader is in. Declare containers, and report the deepest one on screen.** The middle door had to
+exist: actions are served from the PAGE, so a cursor on a tab is served nothing (a container path to
+`sync` now syncs its page and warns, naming `observeFocus` — before 1.11.0 it went off-graph
+silently), and `focus` moved only on `fire()`/`sync()`, so a PERSON clicking a tab could never move
+it. `observeFocus` (traverse/nav-session.ts) sets `focus` + the new `lookingAt` getter (served beside
+`youAreOn` by modes.ts `positionData`), records a `FocusMove`, and touches NOTHING else — no
+transition, no version bump, no change to `available()`. It refuses BY NAME: undeclared node, or a
+node on another page. Three facts, three doors: `show()`/`setVisible()` = VISIBLE,
+`observeFocus()` = the READER, `sync()` = the WALKER. Authored half lintable
+(`unevidenceable-tab`, advisory); the runtime half no static check can see.
+
 ## Before you design it: it may already exist
 
 **Read this table before proposing any new capability.** Everything below already ships.
@@ -38,6 +52,8 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | a vocabulary for who caused a move — a person, the agent, or the world moving on its own | `Cause` + `Principal` + `StimulusKind` | `src/atom/types.ts` | 0.2.0 |
 | grading what a "who did this" is actually worth — watched, matched, or nobody said | `Attribution` + `AttributionBasis` + `AttributionCertainty` | `src/atom/types.ts` | 1.7.0 |
 | recording who moved the cursor, including when it did not move | `InteractionSession.focusHistory` + `FocusMove` | `src/traverse/nav-session.ts` | 1.8.0 |
+| tracking which tab is active — telling the agent WHERE INSIDE the page the person is, without moving what is served | `InteractionSession.observeFocus` + `lookingAt` (the deepest-node rule: sync pages, observe the deeper place) | `src/traverse/nav-session.ts` | 1.11.0 |
+| working out why the ledger says “system unknown changed: …” instead of naming what happened | `updateState` + `sync` (an unattributed state report has no stimulus and no principal to print — name them, or report position AS position; state-key labels are not built) | `src/traverse/session.ts` | 1.11.0 |
 | walking the fewest declared hops from here to some page | `Session.howToReach` / `routeBetween` + `RouteStep` | `src/graph/reach.ts` | 1.0.0 |
 | deriving which action would unblock another one | `Session.whatUnblocks` / `unblockingDependencies` | `src/graph/step-deps.ts` | 1.0.0 |
 | turning a URL your router already owns back into a page id | `matchRoute` | `src/graph/route-match.ts` | 0.4.0 |

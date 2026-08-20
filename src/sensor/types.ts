@@ -142,7 +142,8 @@ export interface WatchOptions {
    * Watch the view for location motion and report it with `sync()`. **Default
    * false**, and the default is the honest one.
    *
-   * `sync()` takes a PAGE ID, and page ids are author-chosen names, not URL paths
+   * `sync()` takes a NODE ID — a page id, or a declared container path under one
+   * — and node ids are author-chosen names, not URL paths
    * (from-routes.ts:4 — "Page names are EXPLICIT (the keys of the table)"). A
    * watcher that handed `location.pathname` to `sync()` unasked would, in every
    * app whose pages are named rather than pathed, move the cursor to a node that

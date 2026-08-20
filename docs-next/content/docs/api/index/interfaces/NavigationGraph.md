@@ -4,7 +4,7 @@ title: NavigationGraph<Paths>
 
 # Interface: NavigationGraph\<Paths\>
 
-Defined in: [src/tree/types.ts:412](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L412)
+Defined in: [src/tree/types.ts:453](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L453)
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Defined in: [src/tree/types.ts:412](https://github.com/footprintjs/hcifootprint/
 
 > **actionNodes**: `Record`\<`string`, `string`[]\>
 
-Defined in: [src/tree/types.ts:423](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L423)
+Defined in: [src/tree/types.ts:464](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L464)
 
 Qualified action id → the node path(s) it lives on (root actions list their pages).
 
@@ -28,7 +28,7 @@ Qualified action id → the node path(s) it lives on (root actions list their pa
 
 > **id**: `string`
 
-Defined in: [src/tree/types.ts:413](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L413)
+Defined in: [src/tree/types.ts:454](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L454)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/tree/types.ts:413](https://github.com/footprintjs/hcifootprint/
 
 > **nodes**: `Record`\<`string`, [`MapNode`](/api/index/interfaces/MapNode)\>
 
-Defined in: [src/tree/types.ts:421](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L421)
+Defined in: [src/tree/types.ts:462](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L462)
 
 Every node by path — pages included.
 
@@ -46,7 +46,7 @@ Every node by path — pages included.
 
 > **spec**: [`NavigationGraphSpec`](/api/index/interfaces/NavigationGraphSpec)
 
-Defined in: [src/tree/types.ts:419](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L419)
+Defined in: [src/tree/types.ts:460](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L460)
 
 The flat projection: a Session-compatible NavigationGraphSpec whose affordance
 ids are qualified dot paths and whose guards are the composed root→leaf
@@ -58,7 +58,7 @@ chains. A plain Session runs on it unchanged; InteractionSession adds the tree.
 
 > **createSession**(`opts?`): [`InteractionSession`](/api/index/classes/InteractionSession)\<`Paths`\>
 
-Defined in: [src/tree/types.ts:425](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L425)
+Defined in: [src/tree/types.ts:466](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L466)
 
 Create a live interaction session; `Paths` carries the typed node paths through.
 
@@ -78,7 +78,7 @@ Create a live interaction session; `Paths` carries the typed node paths through.
 
 > **requiredStateKeys**(): `string`[]
 
-Defined in: [src/tree/types.ts:440](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L440)
+Defined in: [src/tree/types.ts:481](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L481)
 
 The sorted, deduped set of state keys every guard in this graph reads —
 across ALL action `when`s, container-node `when`s, and journey preconditions,

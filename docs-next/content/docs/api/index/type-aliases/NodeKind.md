@@ -6,4 +6,4 @@ title: NodeKind
 
 > **NodeKind** = `"page"` \| `"area"` \| `"tab"` \| `"modal"`
 
-Defined in: [src/tree/types.ts:389](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L389)
+Defined in: [src/tree/types.ts:430](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L430)

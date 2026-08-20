@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-2704%20passing-f5b301?style=flat" alt="2704 tests passing">
+  <img src="https://img.shields.io/badge/tests-2732%20passing-f5b301?style=flat" alt="2732 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -223,6 +223,38 @@ Five moves make up walking, and every one of them is answered by something that 
 The same pattern sits at three altitudes: [footprintjs](https://github.com/footprintjs/footPrint)
 walks **stages**, [agentfootprint](https://github.com/footprintjs/agentfootprint)
 (`defineSkillMap`) walks **skills**, and this walks **screens**.
+
+### Where the reader is: page, container, state
+
+> **Sync pages; observe the deeper place. `sync()` moves the walker and decides what is
+> served; `observeFocus()` says which tab or area the reader is in. Declare containers, and
+> report the deepest one on screen.**
+
+Position has three tiers, and each has one door: the page (`sync('run-detail')` — the walker
+moves, and what is served moves with it), the container inside it
+(`observeFocus('run-detail.why')` — any declared tab, area or modal path, and serving does NOT
+move), and state (`updateState`, which is not position). The middle one gets skipped because
+nothing forces it: declaring `tabs:` compiles, mounts and masks perfectly well while never once
+saying which tab the person is looking at.
+
+It has to be its own door. A tab is not a place the walker can stand — actions are served from
+the **page**, so a cursor parked on a tab would be served nothing — and a **person** clicking a
+tab fires nothing, which is exactly the case worth reporting.
+
+```ts
+session.show('run-detail.why');                              // which tab is VISIBLE
+session.observeFocus('run-detail.why', { principal: 'user' }); // where the READER is
+```
+
+```text
+You are on: run-detail.        →   You are on: run-detail.
+                                   Focus: run-detail.why.
+```
+
+Every served answer carries both halves as data: `youAreOn` is the page that serves,
+`lookingAt` is the deeper place. Without it a screen-driving agent has to deduce the open tab
+from whatever unlabelled state keys happen to move. `lintGraph` proves the authored half
+(`unevidenceable-tab`).
 
 → [Map & Walker](https://footprintjs.github.io/hcifootprint/docs/map/map-and-walker)
 

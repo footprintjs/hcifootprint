@@ -18,7 +18,7 @@
  * and the setEnabled case below stops recording a structure swap.
  */
 import { describe, expect, it } from 'vitest';
-import { Session, buildNavigationGraph } from '../src/index.js';
+import { Session, buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { ActionGroup } from '../src/index.js';
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -231,5 +231,26 @@ describe('the action-group handle a subclass builds for itself', () => {
       ok: false,
       reason: 'NOT_MATERIALIZED',
     });
+  });
+});
+
+describe('position on a graph with no container tree', () => {
+  /**
+   * `lookingAt` is the served half of "where inside the current node the reader
+   * is", and the flat door answers it honestly by having nothing to answer:
+   * there is no container tree, so there is nothing below a page for anyone to
+   * be in. `observeFocus` is the tree layer's door and does not exist here.
+   *
+   * MUTATION PROOF: make the base getter return `this.node` and the served
+   * result grows a `lookingAt` that merely repeats `youAreOn` — a second
+   * position that says nothing, handed to a model as if it did.
+   */
+  it('says nothing below the page, and serves no lookingAt beside youAreOn', () => {
+    const session = flat();
+    expect(session.lookingAt).toBeNull();
+
+    const here = serveToAgent(session).call('desk.whats_here', {});
+    expect(here['youAreOn']).toBe('compose');
+    expect(here).not.toHaveProperty('lookingAt');
   });
 });

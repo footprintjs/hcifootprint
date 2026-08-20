@@ -56,7 +56,12 @@ not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships
   `checkGraph(graph, opts?)` → `GraphHealth` (`{ ok, errors, warnings, findings, byType, journeys:
   JourneyHealth[], unreachablePages, summary }`, `DriftType`). Codes: `dangling-guard-key`,
   `unsatisfiable-guard`, `uncompletable-journey`, `journey-step-order`, `journey-step-cycle`,
-  `unreachable-page`, `dead-end-page`, `unconsumed-write`.
+  `unreachable-page`, `dead-end-page`, `unconsumed-write`, `waypoint-page`, `ambiguous-binding`,
+  `unevidenceable-tab` (advisory note: a tab no declared control can put the cursor inside — nothing
+  lives in it and nothing binds to it as a tab switch — on a page that authors controls beside it.
+  It tracks presence, never position. Every cure is a runtime call no static check can see
+  (`observeFocus`, a fire inside the tab, a mount that declares its controls), so it is never an
+  error).
 
 ---
 
@@ -360,14 +365,42 @@ with no handler to wrap: a TRUSTED click inside the anchor opens a record-only f
 - `updateState(delta, opts?)` — the app reports a projected-state delta (router/store tap); pending
   fires settle. `opts` (`UpdateOptions`): `transitionId?` (settle THIS pending precisely — preferred
   over FIFO), `stimulus?`, `principal?`. Returns `UpdateResult`.
-- `sync(observedNode, opts?)` — reconcile the cursor when the world moved without an offered edge
-  (back button, redirect, deep link). `opts`: `stimulus?`, `principal?`. An unauthored page is not an
-  error — the cursor follows reality and `available()` honestly serves zero edges there
-  (`offGraph: true`). `sync` takes a PAGE ID, not a URL: if your router speaks paths, translate with
+  **KNOWN LIMIT (not fixed in 1.11.0):** an unattributed report narrates as
+  `system unknown changed: <keys>`, and the only way to improve that word today is
+  `stimulus:`/`principal:` — which is DOCUMENTED to mean world-initiated, so such a delta must never
+  settle a pending fire. An app wanting its pushes labelled therefore chooses between a readable line
+  and a working `did_it_work`, and should choose the second. A label that does not touch attribution
+  is the fix and is not built. What IS fixed here: position no longer has to ride a state key at all
+  — report it with `observeFocus` (above).
+- `sync(observedNode, opts?)` — THE WALKER'S DOOR: the cursor moved, so what is served moves with
+  it (back button, redirect, deep link). `opts`: `stimulus?`, `principal?`. An unauthored page is
+  not an error — the cursor follows reality and `available()` honestly serves zero edges there
+  (`offGraph: true`). Hand it a DECLARED container path and it syncs that container's PAGE and warns
+  once naming `observeFocus` (before 1.11.0 the cursor went off-graph and the session served nothing,
+  silently). `sync` takes a PAGE ID, not a URL: if your router speaks paths, translate with
   `matchRoute(graph.spec.pages, location.pathname) ?? location.pathname` — it reads the `route` each
   page already declared (literal segments + `:param`, trailing-slash / query / hash insensitive,
   most-literal-segments wins) and returns `undefined` rather than guessing, which leaves an
   unplaceable path on the existing off-graph behavior. Source: `src/graph/route-match.ts`.
+- `observeFocus(path, opts?)` (1.11.0) — THE OBSERVATION DOOR: which tab, area or modal on THIS page
+  the reader is looking at, WITHOUT moving the walker. `opts`: `principal?` (default `'unknown'`).
+  **THE RULE: Sync pages; observe the deeper place. `sync()` moves the walker and decides what is
+  served; `observeFocus()` says which tab or area the reader is in. Declare containers, and report
+  the deepest one on screen.** Position has three tiers — PAGE (`sync`), CONTAINER (`observeFocus`),
+  STATE (`updateState`, which is not position) — and the middle one needs its own door twice over: a
+  tab is not a place the walker can stand (actions are served from the PAGE, so a cursor there would
+  be served nothing), and a PERSON clicking a tab fires nothing, so `focus` — which moves on `fire()`
+  and `sync()` — could never carry it. It sets `session.focus` and `session.lookingAt`, adds
+  `Focus: <path>.` to the facts block, and records a `FocusMove` with the principal you name. It does
+  NOT mint a transition, bump the version, or change one byte of `available()`. It REFUSES BY NAME
+  (throws): a node this map does not declare, and a node on another page (`sync` that page first).
+  Observing the page itself says the reader came back up; a container the app also says is hidden is
+  walked home by focus's ancestor fallback. Three facts, three doors: `show()`/`setVisible()` =
+  VISIBLE, `observeFocus()` = where the READER is, `sync()` = where the WALKER is. Source:
+  `src/traverse/nav-session.ts`.
+- `lookingAt` (1.11.0) — the read side: the observed container when it is below the page, else
+  `null`. Every served result that states position carries it beside `youAreOn`
+  (`{ youAreOn: 'run-detail', lookingAt: 'run-detail.why' }`), present only when there is one.
 - **Stimulus** = world-initiated motion (`StimulusKind`: `'navigation' | 'timeout' | 'push' |
   'structure-swap' | 'unknown'`). It is not a standalone method on the session — you record it via
   the `stimulus` option on `updateState`/`sync`. When set, the delta is NEVER attributed to a pending

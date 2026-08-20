@@ -65,6 +65,7 @@ const TYPE_OF: Record<LintCode, DriftType> = {
   'unconsumed-write': 'note',
   'waypoint-page': 'note',
   'ambiguous-binding': 'control',
+  'unevidenceable-tab': 'note',
 };
 
 const TYPE_LABEL: Record<DriftType, string> = {

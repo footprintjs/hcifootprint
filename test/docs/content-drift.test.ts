@@ -274,6 +274,147 @@ describe('the Map & Walker sentence is ONE sentence, identical in every home tha
     for (const verb of served) expect(page, `the page never names ${verb}`).toContain(verb);
   });
 });
+describe('the deepest-node rule is ONE sentence, identical in every home that says it', () => {
+  /**
+   * The defect this rule exists to stop was a TEACHING defect standing on a
+   * missing door. An app declared `tabs:`, reached for the obvious call —
+   * `sync('run-detail.why')` — and the cursor went off-graph, serving nothing,
+   * because actions are served from the PAGE. Its workaround was to mount the
+   * visible node and serve its own `lookingAt` beside the library's `youAreOn`.
+   *
+   * So the rule has two halves that must travel together: sync is for pages,
+   * and the deeper place has its OWN door that does not move what is served. A
+   * home that carries half of it teaches the workaround. Six homes is six ways
+   * to drift, which is exactly why it is pinned: the front door, the page that
+   * teaches the model, the feature-work map an agent reads before touching this
+   * repo, the LLM-facing surface page meant to be read INSTEAD of the source,
+   * and the two source files where the call and the declaration are written.
+   *
+   * MUTATION PROOF: soften one word in any home ("sync the deepest node you
+   * can") and this goes red naming the home that drifted.
+   */
+  const homes = [
+    'README.md',
+    docPage('map-and-walker'),
+    'CLAUDE.md',
+    'llms.txt',
+    'src/traverse/nav-session.ts', // where the call is written
+    'src/tree/types.ts', //           where the container is declared
+  ];
+  const HEAD = 'Sync pages; observe the deeper place';
+  const TAIL = 'report the deepest one on screen';
+
+  /**
+   * EVERY copy in the file, not the first one. `nav-session.ts` says it twice —
+   * on `sync`, whose whole job here is to hand the deeper place off, and on
+   * `observeFocus`, which is the deeper place's door — and a pin that read only
+   * the first would let the second rot in silence.
+   *
+   * The honest limit: this gates every copy that STILL SAYS the rule, and a
+   * home saying it at all. A copy someone deletes outright leaves the home
+   * still carrying it once, which this deliberately allows — pinning a COUNT
+   * would redden on a new mention, which is the opposite of what is wanted.
+   */
+  const sentencesIn = (relative: string): string[] => {
+    const flat = flatten(read(relative));
+    const found: string[] = [];
+    for (let start = flat.indexOf(HEAD); start >= 0; start = flat.indexOf(HEAD, start + 1)) {
+      const end = flat.indexOf(TAIL, start);
+      expect(end, `${relative} stops before the half that says what to DO`).toBeGreaterThan(start);
+      found.push(flat.slice(start, end + TAIL.length));
+    }
+    expect(found.length, `${relative} does not say the deepest-node rule`).toBeGreaterThan(0);
+    return found;
+  };
+
+  it('every copy in all six homes is byte-identical prose', () => {
+    const canonical =
+      'Sync pages; observe the deeper place. `sync()` moves the walker and decides what is served; ' +
+      '`observeFocus()` says which tab or area the reader is in. Declare containers, and report ' +
+      'the deepest one on screen';
+    expect(sentencesIn(homes[0]!)[0]).toBe(canonical);
+    for (const home of homes) {
+      for (const sentence of sentencesIn(home)) {
+        expect(sentence, `${home} drifted from ${homes[0]}`).toBe(canonical);
+      }
+    }
+  });
+
+  it('the before/after the page prints is the before/after the session produces', () => {
+    // The whole section turns on two facts blocks and one served shape. A page
+    // that PARAPHRASES them teaches a reader to expect a line the library never
+    // writes — the same failure as a doc quoting a reworded refusal.
+    const map = buildNavigationGraph('runs', {
+      pages: {
+        'run-detail': {
+          actions: { export: { does: 'Export this run as JSON', writes: ['run.exported'] } },
+          tabs: {
+            why: { does: 'Why this step ran', actions: { 'open-slice': { does: 'Open the causal slice' } } },
+            timeline: { does: 'The run timeline', actions: { scrub: { does: 'Scrub to a step' } } },
+          },
+        },
+      },
+    });
+    const positionOf = (observe: boolean): string[] => {
+      const session = map.createSession({ node: 'run-detail', onWarn: () => undefined });
+      session.sync('run-detail');
+      if (observe) session.observeFocus('run-detail.why');
+      return session
+        .groundTruth()
+        .text.split('\n')
+        .filter((line) => line.startsWith('You are on') || line.startsWith('Focus'));
+    };
+
+    const page = flatten(readDocPage('map-and-walker'));
+    expect(positionOf(false)).toEqual(['You are on: run-detail.']);
+    expect(positionOf(true)).toEqual(['You are on: run-detail.', 'Focus: run-detail.why.']);
+    for (const line of positionOf(true)) expect(page).toContain(line);
+
+    // …and the served halves the page prints as JSON are the ones the port serves.
+    const session = map.createSession({ node: 'run-detail', onWarn: () => undefined });
+    session.observeFocus('run-detail.why');
+    const here = serveToAgent(session).call('runs.whats_here', {});
+    expect({ youAreOn: here['youAreOn'], lookingAt: here['lookingAt'] }).toEqual({
+      youAreOn: 'run-detail',
+      lookingAt: 'run-detail.why',
+    });
+    // Quotes are formatting (flatten drops them); the two names beside each
+    // other in one served shape is the claim.
+    expect(page).toContain(flatten('{ "youAreOn": "run-detail", "lookingAt": "run-detail.why" }'));
+  });
+
+  it('the rule names all three doors, because no two of them are the same fact', () => {
+    const page = flatten(readDocPage('map-and-walker'));
+    for (const door of ['session.show(', 'session.observeFocus(', 'session.sync(', 'session.updateState(']) {
+      expect(page, `the page never names ${door}`).toContain(door);
+    }
+    // The advisory that gates the authored half, the state-key line that is the
+    // same symptom one tier down, and the limit that is NOT cured here.
+    expect(page).toContain('unevidenceable-tab');
+    expect(page).toContain('system unknown changed');
+    expect(page).toContain('Known limit');
+  });
+
+  it('the unattributed-state line the page quotes is the one the session prints', () => {
+    // `system unknown changed: …` is authored on the library's side (the floor
+    // for a report that named no stimulus and no principal). Reworded there and
+    // not here, and the page would be teaching a symptom nobody ever sees.
+    const session = buildNavigationGraph('runs', {
+      pages: { 'run-detail': { actions: { export: { does: 'Export this run as JSON' } } } },
+    }).createSession({ node: 'run-detail', onWarn: () => undefined });
+    session.updateState({ 'runDetail.activeTab': 'why', 'runDetail.selectedStep': 3 });
+    const row = session
+      .contextBrief()
+      .text.split('\n')
+      .find((entry) => entry.includes('changed:'))!;
+    // The ledger renders it as a bullet; the sentence is what a doc can quote.
+    const line = row.slice(row.indexOf('system'));
+
+    expect(line).toBe('system unknown changed: runDetail.activeTab, runDetail.selectedStep');
+    expect(flatten(readDocPage('map-and-walker'))).toContain(flatten(line));
+  });
+});
+
 describe('a doc that quotes a refusal quotes the refusal the library emits', () => {
   const sessions = flatten(readDocPage('sessions'));
   const journeys = flatten(readDocPage('guarded-journeys'));

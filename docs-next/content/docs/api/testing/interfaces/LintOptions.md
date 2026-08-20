@@ -4,7 +4,7 @@ title: LintOptions
 
 # Interface: LintOptions
 
-Defined in: [src/testing/model/lint.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L67)
+Defined in: [src/testing/model/lint.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L68)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/testing/model/lint.ts:67](https://github.com/footprintjs/hcifoo
 
 > `optional` **externalKeys?**: `string`[]
 
-Defined in: [src/testing/model/lint.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L80)
+Defined in: [src/testing/model/lint.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L81)
 
 Keys supplied from OUTSIDE the graph's own writes (a server push, a store
 the app seeds, a parent app). Listed here they count as producible, so a
@@ -24,7 +24,7 @@ guard over them is not flagged as dangling.
 
 > `optional` **initialState?**: `string`[] \| `Record`\<`string`, `unknown`\>
 
-Defined in: [src/testing/model/lint.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L74)
+Defined in: [src/testing/model/lint.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L75)
 
 The keys (or a sample object) the app guarantees before any action runs —
 the initial projected state. Supplying it lets the linter PROMOTE
@@ -37,6 +37,6 @@ initial world known, an unproducible key is provably dead.
 
 > `optional` **startPage?**: `string`
 
-Defined in: [src/testing/model/lint.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L82)
+Defined in: [src/testing/model/lint.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/testing/model/lint.ts#L83)
 
 Which page the app starts on (default: the first declared page).

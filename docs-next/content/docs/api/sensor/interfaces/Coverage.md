@@ -4,7 +4,7 @@ title: Coverage
 
 # Interface: Coverage
 
-Defined in: [src/sensor/types.ts:246](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L246)
+Defined in: [src/sensor/types.ts:247](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L247)
 
 What the sensor is watching right now, and what it has said since it started.
 
@@ -14,7 +14,7 @@ What the sensor is watching right now, and what it has said since it started.
 
 > `readonly` **at**: `number`
 
-Defined in: [src/sensor/types.ts:256](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L256)
+Defined in: [src/sensor/types.ts:257](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L257)
 
 The clock reading when coverage() was asked.
 
@@ -24,7 +24,7 @@ The clock reading when coverage() was asked.
 
 > `readonly` **declared**: `number`
 
-Defined in: [src/sensor/types.ts:252](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L252)
+Defined in: [src/sensor/types.ts:253](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L253)
 
 How many controls are declared through attach() right now.
 
@@ -34,7 +34,7 @@ How many controls are declared through attach() right now.
 
 > `readonly` **edges**: readonly [`EdgeCoverage`](/api/sensor/interfaces/EdgeCoverage)[]
 
-Defined in: [src/sensor/types.ts:248](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L248)
+Defined in: [src/sensor/types.ts:249](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L249)
 
 One row per LIVE edge: watching, or unwatched with the sentence saying why.
 
@@ -44,7 +44,7 @@ One row per LIVE edge: watching, or unwatched with the sentence saying why.
 
 > `readonly` **reports**: `Readonly`\<`Record`\<[`SensorReport`](/api/sensor/type-aliases/SensorReport)\[`"kind"`\], `number`\>\>
 
-Defined in: [src/sensor/types.ts:250](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L250)
+Defined in: [src/sensor/types.ts:251](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L251)
 
 How many reports of each kind this watcher has emitted.
 
@@ -54,6 +54,6 @@ How many reports of each kind this watcher has emitted.
 
 > `readonly` **since**: `number`
 
-Defined in: [src/sensor/types.ts:254](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L254)
+Defined in: [src/sensor/types.ts:255](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L255)
 
 The clock reading when the watcher started — the tally's window opens here.

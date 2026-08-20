@@ -4,9 +4,19 @@ title: PageNodeDef
 
 # Interface: PageNodeDef
 
-Defined in: [src/tree/types.ts:268](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L268)
+Defined in: [src/tree/types.ts:309](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L309)
 
-A container node: areas coexist (AND), tabs exclude (at most one shown), modals overlay.
+A container node: areas coexist (AND), tabs exclude (at most one shown),
+modals overlay.
+
+THE DEEPEST-NODE RULE, said once here and repeated on each bucket below:
+**Sync pages; observe the deeper place. `sync()` moves the walker and decides
+what is served; `observeFocus()` says which tab or area the reader is in.
+Declare containers, and report the deepest one on screen.** Declaring a
+container without ever observing it gives you mount-tracking but not
+position: the containers are real nodes, and `session.observeFocus('page.tab')`
+is what puts the reader inside one. `sync()` cannot — actions are served from
+the PAGE, so a cursor on a tab would be served nothing.
 
 ## Extends
 
@@ -18,7 +28,7 @@ A container node: areas coexist (AND), tabs exclude (at most one shown), modals 
 
 > `optional` **actions?**: `Record`\<`string`, [`ActionDef`](/api/index/interfaces/ActionDef)\>
 
-Defined in: [src/tree/types.ts:260](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L260)
+Defined in: [src/tree/types.ts:301](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L301)
 
 The controls on this node.
 
@@ -32,7 +42,12 @@ The controls on this node.
 
 > `optional` **areas?**: `Record`\<`string`, [`NodeDef`](/api/index/interfaces/NodeDef)\>
 
-Defined in: [src/tree/types.ts:247](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L247)
+Defined in: [src/tree/types.ts:265](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L265)
+
+Sibling regions that coexist — a sidebar and a detail pane are both here.
+
+Declaring a container without ever observing it gives you mount-tracking
+but not position — see the deepest-node rule on [NodeDef](/api/index/interfaces/NodeDef).
 
 #### Inherited from
 
@@ -44,7 +59,7 @@ Defined in: [src/tree/types.ts:247](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **does?**: `string`
 
-Defined in: [src/tree/types.ts:244](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L244)
+Defined in: [src/tree/types.ts:256](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L256)
 
 Optional authored description of the container itself.
 
@@ -58,7 +73,7 @@ Optional authored description of the container itself.
 
 > `optional` **instances?**: (`state`) => `string`[]
 
-Defined in: [src/tree/types.ts:258](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L258)
+Defined in: [src/tree/types.ts:299](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L299)
 
 L2 existence source for a repeats container: the COMPLETE instance set,
 from projected state (order #57 exists while scrolled out of view).
@@ -85,7 +100,17 @@ honestly marked enumeration:'mounted-window'.
 
 > `optional` **modals?**: `Record`\<`string`, [`ModalDef`](/api/index/interfaces/ModalDef)\>
 
-Defined in: [src/tree/types.ts:249](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L249)
+Defined in: [src/tree/types.ts:290](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L290)
+
+Overlays. A shown blocking modal masks sibling actions (`blocks: false`
+opts a popover out), and a modal is NEVER assumed active: closed until
+registered or shown.
+
+Declaring a container without ever observing it gives you mount-tracking
+but not position — see the deepest-node rule on [NodeDef](/api/index/interfaces/NodeDef). For a
+modal the order matters: `show()` opens it, and an `observeFocus()` naming
+a modal nobody opened resolves to the page, because a closed modal cannot
+hold anyone.
 
 #### Inherited from
 
@@ -97,7 +122,7 @@ Defined in: [src/tree/types.ts:249](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **repeats?**: `boolean`
 
-Defined in: [src/tree/types.ts:251](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L251)
+Defined in: [src/tree/types.ts:292](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L292)
 
 Template container: instances carry runtime keys (order cards, product tiles).
 
@@ -111,7 +136,7 @@ Template container: instances carry runtime keys (order cards, product tiles).
 
 > `optional` **route?**: `string`
 
-Defined in: [src/tree/types.ts:269](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L269)
+Defined in: [src/tree/types.ts:310](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L310)
 
 ***
 
@@ -119,7 +144,18 @@ Defined in: [src/tree/types.ts:269](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **tabs?**: `Record`\<`string`, [`NodeDef`](/api/index/interfaces/NodeDef)\>
 
-Defined in: [src/tree/types.ts:248](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L248)
+Defined in: [src/tree/types.ts:278](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L278)
+
+An exclusivity PRIOR: at most one of these is shown. Not a statechart — no
+transitions, no initial, no history.
+
+Declaring a container without ever observing it gives you mount-tracking
+but not position — see the deepest-node rule on [NodeDef](/api/index/interfaces/NodeDef). Tabs are
+where that bites hardest: the whole point of the bucket is that ONE of them
+is where the reader is, and nothing but evidence can say which — and a
+person clicking a tab fires nothing, so only an observation can carry it.
+`session.show('page.tab')` says which tab is VISIBLE;
+`session.observeFocus('page.tab')` says the reader is IN it.
 
 #### Inherited from
 
@@ -131,7 +167,7 @@ Defined in: [src/tree/types.ts:248](https://github.com/footprintjs/hcifootprint/
 
 > `optional` **when?**: [`WhereFilter`](/api/index/type-aliases/WhereFilter)\<`Record`\<`string`, `unknown`\>\>
 
-Defined in: [src/tree/types.ts:246](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L246)
+Defined in: [src/tree/types.ts:258](https://github.com/footprintjs/hcifootprint/blob/main/src/tree/types.ts#L258)
 
 Container guard: every descendant action's guard is AND-narrowed by this.
 

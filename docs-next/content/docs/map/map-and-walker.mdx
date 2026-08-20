@@ -71,6 +71,138 @@ a back button, a server push, a session expiry. That is `Cause.kind: 'stimulus'`
 rather than silently absorbed, because a cursor that moved without an offered edge is exactly
 what an agent must not be allowed to miss.
 
+## Where the reader is: page, container, state
+
+**Sync pages; observe the deeper place. `sync()` moves the walker and decides what is served;
+`observeFocus()` says which tab or area the reader is in. Declare containers, and report the
+deepest one on screen.**
+
+Position has three tiers, and each has exactly one door.
+
+| Tier | The call | What it answers | Does it move what is served? |
+|---|---|---|---|
+| **page** | `session.sync('run-detail')` | which screen — the router's report | **yes** — actions are served from the page |
+| **container** | `session.observeFocus('run-detail.why')` | where INSIDE it — a declared tab, area or modal | **no**, on purpose |
+| **state** | `session.updateState({ … })` | what is true in there. Not position | no |
+
+The container tier is the one that gets skipped, because nothing forces it: declaring `tabs:`
+compiles, mounts, masks and narrows guards perfectly well while never once saying which tab
+the person is looking at. Declaring a container gives you mount-tracking; **observing** it is
+what gives you position.
+
+And it has to be its own door. A tab is not a place the walker can stand — actions are served
+from the **page**, so a cursor parked on `run-detail.why` would be served nothing at all. Nor
+could a fire carry it: `focus` used to move only on `fire()` and `sync()`, and a **person**
+clicking a tab fires nothing, which is exactly the case worth reporting.
+
+### The same session, told two ways
+
+```ts twoslash
+import { defineJourneyMap } from 'hcifootprint';
+
+const map = defineJourneyMap('runs', {
+  pages: {
+    'run-detail': {
+      route: '/runs/:id',
+      actions: { export: { does: 'Export this run as JSON', writes: ['run.exported'] } },
+      tabs: {
+        why: { does: 'Why this step ran', actions: { 'open-slice': { does: 'Open the causal slice' } } },
+        timeline: { does: 'The run timeline', actions: { scrub: { does: 'Scrub to a step' } } },
+      },
+    },
+  },
+});
+
+const session = map.createSession({ node: 'run-detail' });
+
+// COARSE — the router reported the page, and nothing reported the tab.
+session.sync('run-detail');
+
+// DEEPEST — your own tab handler, reporting both facts about the tab it opened.
+function onTabChange(tab: 'why' | 'timeline') {
+  session.show(`run-detail.${tab}`); //                            which tab is VISIBLE
+  session.observeFocus(`run-detail.${tab}`, { principal: 'user' }); // where the READER is
+}
+```
+
+What the model is handed, page-only:
+
+```text
+You are on: run-detail.
+No actions have been performed in this app this session.
+```
+
+…and with the deepest container observed:
+
+```text
+You are on: run-detail.
+Focus: run-detail.why.
+No actions have been performed in this app this session.
+```
+
+Every served answer carries the same two halves as data — `youAreOn` is the page that serves,
+and `lookingAt` is the deeper place, present only when there is one:
+
+```json
+{ "youAreOn": "run-detail", "lookingAt": "run-detail.why" }
+```
+
+Without that, a screen-driving agent has to *deduce* the open tab from whatever unlabelled
+state keys happen to move, and every turn it spends deducing is a turn it does not spend
+acting.
+
+### Three facts, three doors
+
+`show()`, `observeFocus()` and `sync()` answer different questions, and an app that flips a tab
+reports the first two:
+
+| Door | The fact it states | What it changes |
+|---|---|---|
+| `session.show('run-detail.why')` | this tab is **visible** (its siblings are not) | which actions `whats_here` serves |
+| `session.observeFocus('run-detail.why')` | the **reader** is in it | `session.focus`, `lookingAt`, the `Focus:` line, `focusHistory` |
+| `session.sync('run-detail')` | the **walker** is on this page | the cursor, the version, and everything served |
+
+`observeFocus` refuses by name rather than guessing: a node this map does not declare, and a
+node belonging to another page (sync that page first). Observing the page itself says the
+reader came back up with no container open. A container the app also says is hidden — a closed
+modal, a tab whose sibling is shown — is walked home to the nearest place that is really there,
+because a closed modal cannot hold anyone.
+
+Hand `sync()` a container path and it does the safe thing rather than the literal one: it syncs
+the page that owns the container and warns once, naming `observeFocus`. Before 1.11.0 that call
+put the cursor **off-graph** — a session that served nothing, silently. An undeclared path is
+still honest: the cursor follows reality off-graph, exactly as it always has.
+
+### "system unknown changed: …" — the other half of the same symptom
+
+When in-page position rides an ordinary state key, this is what the model reads in the session
+ledger:
+
+```text
+system unknown changed: runDetail.activeTab, runDetail.selectedStep
+```
+
+That line is the honest floor for a report that named no stimulus and no principal: the world
+moved, nobody said who or why, and the key names are all anyone gets. The first cure is the
+rule above — report **position as position**, so the tab stops riding a state key at all.
+
+<Callout type="warn" title="Known limit: labelling a state push costs its attribution">
+The other half has no clean cure today. `updateState(delta, { stimulus: 'push' })` improves the
+line, but `stimulus` is documented to mean *world-initiated* — such a delta must NEVER settle a
+pending fire. So an app that wants its own pushes labelled has to choose between a readable
+line and a working `did_it_work`, and it will always pick the second. A label that does not
+touch attribution is the fix; it is **not** built in this release, and neither are authored
+labels for state keys themselves.
+</Callout>
+
+### The CI half
+
+`lintGraph` reads the map alone and can never see a runtime call, so it proves the half that is
+authored: a tab **no declared control can put the cursor inside** — nothing lives in it, and
+nothing binds to it as a tab switch — on a page that authors controls beside it. That is the
+`unevidenceable-tab` note (advisory, never an error: an app that observes its tabs has already
+handled it). See [the drift harness](doc:testing).
+
 ## The five things a walker does
 
 Nothing on this list is new machinery. It is the same five moves any walker makes, and the
@@ -80,7 +212,7 @@ column on the right is what already answers each one.
 |---|---|
 | **looks** — what is around me? | `whats_here` — one row per action offered on this node, from `available()` |
 | **navigates** — go somewhere else | `do_action` on an action that declares `goTo`; the served row carries `goesTo`, and `howToReach` walks the declared hops first |
-| **moves inside a screen** | a fire that lands on a deeper node — an area, a tab, a modal — moves the **focus** without changing the page: `session.focus`, with `focusHistory` recording every move and who moved it (`FocusMove.cause`), including the moves where focus stayed |
+| **moves inside a screen** | a fire that lands on a deeper node — an area, a tab, a modal — or `observeFocus`, the door a person's tab click goes through, moves the **focus** without changing the page or what is served: `session.focus` and `lookingAt`, with `focusHistory` recording every move and who moved it (`FocusMove.cause`), including the moves where focus stayed. See [the three tiers](#where-the-reader-is-page-container-state) |
 | **keeps a task list** | **journeys** — `commitJourney` opens a frame, and `journeyStanding` says where the flow stands (`in-progress`, `awaiting-human`, `with-the-human`, `blocked`, `failed`, `done`) |
 | **verifies** — did that work? | `did_it_work` — the settled facts of one fire (`effectStatus`, `outcome`, `effectVerified`, `verifyHeld`, `arrival`), never a guess |
 

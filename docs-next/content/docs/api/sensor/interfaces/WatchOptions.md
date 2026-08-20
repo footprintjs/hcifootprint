@@ -12,7 +12,7 @@ Defined in: [src/sensor/types.ts:84](https://github.com/footprintjs/hcifootprint
 
 > `optional` **cadence?**: [`Cadence`](/api/sensor/type-aliases/Cadence)
 
-Defined in: [src/sensor/types.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L166)
+Defined in: [src/sensor/types.ts:167](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L167)
 
 The watcher's default cadence for value-bearing controls. Default `'commit'`
 — commit-on-blur. A declaration may override it per control. See
@@ -144,12 +144,13 @@ trusted event — the same injectable-with-production-default seam as
 
 > `optional` **watchLocation?**: `boolean`
 
-Defined in: [src/sensor/types.ts:160](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L160)
+Defined in: [src/sensor/types.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L161)
 
 Watch the view for location motion and report it with `sync()`. **Default
 false**, and the default is the honest one.
 
-`sync()` takes a PAGE ID, and page ids are author-chosen names, not URL paths
+`sync()` takes a NODE ID — a page id, or a declared container path under one
+— and node ids are author-chosen names, not URL paths
 (from-routes.ts:4 — "Page names are EXPLICIT (the keys of the table)"). A
 watcher that handed `location.pathname` to `sync()` unasked would, in every
 app whose pages are named rather than pathed, move the cursor to a node that

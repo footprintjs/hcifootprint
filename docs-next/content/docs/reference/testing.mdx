@@ -30,6 +30,15 @@ if (!health.ok) { console.error(health.summary); process.exit(1); }
 `checkGraph` is static and pure — import it from `hcifootprint/testing/lint` for a CI step
 that loads **no engine code at all** (see [Tree-shaking](doc:tree-shaking)).
 
+Some findings are **advisory notes** rather than drift: `waypoint-page` (most of the map only
+routes), `unconsumed-write` (a declared write no guard reads), and — since 1.11.0 —
+`unevidenceable-tab`: a tab **no declared control can put the cursor inside** (nothing lives in
+it, and nothing binds to it as a tab switch) on a page that authors controls beside it. Such a
+tab tracks presence and never position. It is a note and never an error on purpose: every cure is
+a runtime call — `session.observeFocus('page.tab')` (the
+[three tiers of position](doc:map-and-walker)), a fire that lands inside the tab, or a mount that
+declares its controls — and no reading of the compiled graph can see any of them.
+
 ## 2. `testApp` — Playwright for your interaction logic, minus the browser
 
 Write mock handlers (one per action, returning a state change), then drive the graph as a

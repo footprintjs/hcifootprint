@@ -1681,7 +1681,17 @@ export function serveToAgent(
   // -- result builders (data channel; text = authored strings only) -----------
 
   function positionData(): ServeResult {
-    return { youAreOn: session.node, version: session.version };
+    // `youAreOn` is the page the walker stands on — what is SERVED comes from
+    // there. `lookingAt` is the deeper place the app observed (a tab, an area,
+    // a modal), present only when there is one, so a reader is never handed a
+    // second position that merely repeats the first. One builder mints both,
+    // because every result that states where the reader is goes through here.
+    const looking = session.lookingAt;
+    return {
+      youAreOn: session.node,
+      ...(looking === null ? {} : { lookingAt: looking }),
+      version: session.version,
+    };
   }
 
   function frameData(journeyId: string): ServeResult {

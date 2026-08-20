@@ -103,6 +103,28 @@ The compiled graph's id (namespaces MCP tool names).
 
 ***
 
+### lookingAt
+
+#### Get Signature
+
+> **get** **lookingAt**(): `string` \| `null`
+
+Defined in: [src/traverse/nav-session.ts:1113](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1113)
+
+The deeper place, for whoever is SERVING rather than printing: the observed
+focus when it is below the page, and null when the page is the whole
+answer. `whats_here` carries it as `lookingAt`, beside `youAreOn`.
+
+##### Returns
+
+`string` \| `null`
+
+#### Overrides
+
+[`Session`](/api/index/classes/Session).[`lookingAt`](/api/index/classes/Session#lookingat)
+
+***
+
 ### node
 
 #### Get Signature
@@ -971,7 +993,7 @@ audit sink like gaps(); it grows for the session's life.
 
 > **contextBrief**(`opts?`): [`ContextBrief`](/api/index/interfaces/ContextBrief)
 
-Defined in: [src/traverse/nav-session.ts:1013](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1013)
+Defined in: [src/traverse/nav-session.ts:1123](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1123)
 
 Token-lean, prompt-ready session context for the next chat turn: current
 position, the open frame, and who did what since `sinceVersion` (the
@@ -1691,6 +1713,73 @@ the work was done.
 #### Inherited from
 
 [`Session`](/api/index/classes/Session).[`observeEffect`](/api/index/classes/Session#observeeffect)
+
+***
+
+### observeFocus()
+
+> **observeFocus**(`path`, `opts?`): `void`
+
+Defined in: [src/traverse/nav-session.ts:1086](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1086)
+
+THE OBSERVATION DOOR: report which tab, area or modal on THIS page the
+reader is looking at, without moving the walker.
+
+Sync pages; observe the deeper place. `sync()` moves the walker and decides
+what is served; `observeFocus()` says which tab or area the reader is in.
+Declare containers, and report the deepest one on screen.
+
+Position has three tiers and only two doors owned it before this one: the
+PAGE (`sync`), and STATE (`updateState`, which is not position at all).
+Everything between them — which tab is open, which panel is on screen —
+had no reporter, because [focus](/api/index/classes/InteractionSession#focus) moved only on `sync()` and `fire()`.
+A person clicking a tab fires nothing, so the one case that matters most
+(a human and an agent looking at the same screen) could never be reported.
+
+What it does, and what it deliberately does not:
+
+- it sets [focus](/api/index/classes/InteractionSession#focus) and [lookingAt](/api/index/classes/InteractionSession#lookingat), so the facts block gains
+  `Focus: run-detail.why.` and every served answer carries `lookingAt`;
+- it records a FocusMove with the principal you name, so who moved
+  the reader is on the record exactly as it is for a fire or a sync;
+- it does NOT move the cursor, mint a transition, bump the version, or
+  change one byte of what `available()` serves. The page stays
+  authoritative for serving, which is the whole reason this is not a sync.
+
+It refuses BY NAME rather than guessing: a path this map does not declare,
+and a path that belongs to another page (sync that page first). Both are
+app-wiring mistakes, and both are the kind that would otherwise show up as
+a session quietly describing the wrong screen.
+
+Observing the PAGE itself is how you say the reader is back at page level
+with no container open. A container the page is not currently showing (a
+closed modal, a tab whose sibling is shown) is accepted and then honestly
+walked home by [focus](/api/index/classes/InteractionSession#focus)'s ancestor fallback — being told the reader is
+somewhere the app also says is hidden resolves to the nearest place that is
+really there.
+
+```ts
+function onTabChange(tab: 'why' | 'timeline') {
+  session.show(`run-detail.${tab}`);                              // VISIBLE
+  session.observeFocus(`run-detail.${tab}`, { principal: 'user' }); // WHERE THE READER IS
+}
+```
+
+#### Parameters
+
+##### path
+
+`Paths`
+
+##### opts?
+
+###### principal?
+
+[`Principal`](/api/index/type-aliases/Principal)
+
+#### Returns
+
+`void`
 
 ***
 
@@ -2494,11 +2583,31 @@ Detached snapshot of the projected state (live state is immutable-after-swap; ne
 
 > **sync**(`observedNode`, `opts?`): [`SyncResult`](/api/index/type-aliases/SyncResult)
 
-Defined in: [src/traverse/nav-session.ts:976](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L976)
+Defined in: [src/traverse/nav-session.ts:1001](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/nav-session.ts#L1001)
 
-The observed node is runtime input from the world, so an unauthored page
-is NOT an error: the cursor follows reality (off-graph), available()
-honestly serves zero edges there, and the hop is still recorded.
+Sync pages; observe the deeper place. `sync()` moves the walker and decides
+what is served; `observeFocus()` says which tab or area the reader is in.
+Declare containers, and report the deepest one on screen.
+
+This is the WALKER's door: the cursor moved, so what is served moves with
+it. Actions are offered from the PAGE node, which is why a container path
+cannot be a cursor — an agent standing on a tab would be served nothing.
+
+Hand it one anyway and this does the safe thing rather than the literal
+one: the page that owns the container is synced (never an off-graph cursor
+over a name the map knows) and a one-time warning names the door that
+actually reports the tab. The old behaviour — a silent off-graph cursor and
+a session serving nothing — is the failure this arm exists to end.
+
+```ts
+function onTabChange(tab: 'why' | 'timeline') {
+  session.show(`run-detail.${tab}`);          // which tab is VISIBLE
+  session.observeFocus(`run-detail.${tab}`);  // where the READER is
+}
+```
+
+An UNDECLARED path is still runtime input from the world and still honest:
+the cursor follows reality off-graph, as it always has.
 
 #### Parameters
 

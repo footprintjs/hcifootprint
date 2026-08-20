@@ -45,7 +45,8 @@ export type LintCode =
   | 'dead-end-page'
   | 'unconsumed-write'
   | 'waypoint-page'
-  | 'ambiguous-binding';
+  | 'ambiguous-binding'
+  | 'unevidenceable-tab';
 
 export interface LintFinding {
   code: LintCode;
@@ -361,6 +362,73 @@ export function lintGraph(graph: NavigationGraph, opts?: LintOptions): LintFindi
         'Give the controls distinct accessible names — which also makes them distinguishable ' +
         'to a screen reader and to an agent reading the accessibility tree — or bind the ' +
         'ambiguous one through a different gesture.',
+    });
+  }
+
+  // ── A tab bucket is a claim about WHERE THE READER IS ───────────────────
+  //
+  // `areas` coexist and `modals` mask; a `tabs` bucket says something neither
+  // of them says — at most ONE of these is the one you are looking at. That is
+  // a position claim, and position below the page comes from EVIDENCE: a fire
+  // that lands on the node, or a sync that names it.
+  //
+  // What this can prove from the graph alone is the half that is authored: a
+  // tab that no declared control can ever reach INTO — nothing lives in it, and
+  // nothing anywhere binds to it as a tab switch. Such a tab is a label. It
+  // tracks presence and it narrows guards; it never says where anybody is, and
+  // "You are on" stops at the page while the reader is somewhere the map can
+  // name and does not.
+  //
+  // What it CANNOT see is the cure, because every cure is a runtime call:
+  // `session.observeFocus('page.tab')`, a fire that lands inside the tab, or a
+  // mount that declares the tab's controls when the panel renders. So this is a
+  // note, never an error — an app that observes the deepest container on screen
+  // has already handled it, and the message says so rather than nagging.
+  // Grouped per bucket for the same reason: four barren tabs are one design
+  // decision, not four defects.
+  //
+  // THE FLOOR. A page that declares no controls of its own is not authored
+  // here at all — it is a live-store or mount-declared app whose whole action
+  // surface arrives at runtime (the live-desk demo is exactly that), and every
+  // tab in it would be barren on paper while being perfectly wired in life.
+  // Saying anything there would be noise on the one shape that can never be
+  // judged statically, so the note is reserved for a page that DOES author
+  // controls and authors them beside its tabs rather than inside them.
+  const actionNodePaths = new Set<string>();
+  for (const paths of Object.values(graph.actionNodes)) for (const path of paths) actionNodePaths.add(path);
+  const tabTargets = new Set<string>();
+  for (const aff of affList) if (aff.binding?.kind === 'tab') tabTargets.add(aff.binding.target);
+
+  const holdsAnAction = (path: string): boolean =>
+    [...actionNodePaths].some((held) => held === path || held.startsWith(`${path}.`));
+
+  const barrenByParent = new Map<string, string[]>();
+  for (const node of Object.values(graph.nodes)) {
+    if (node.kind !== 'tab') continue;
+    if (holdsAnAction(node.path) || tabTargets.has(node.path)) continue;
+    if (!holdsAnAction(node.page)) continue; // the page authors nothing — see THE FLOOR above
+    /* v8 ignore next -- the `?? node.page` arm is unreachable: walkNode only ever passes a null parent for a PAGE, so a node of kind 'tab' always carries the container that declared it. It names the bucket this tab would be grouped under rather than reading a key off null. */
+    const parent = node.parent ?? node.page;
+    barrenByParent.set(parent, [...(barrenByParent.get(parent) ?? []), node.path]);
+  }
+  for (const [parent, barren] of barrenByParent) {
+    findings.push({
+      code: 'unevidenceable-tab',
+      severity: 'info',
+      page: graph.nodes[parent].page,
+      message:
+        `“${parent}” declares ${barren.length === 1 ? 'a tab' : `${barren.length} tabs`} ` +
+        `(${list(barren)}) that nothing in the graph can put the cursor inside: no action lives ` +
+        `in ${barren.length === 1 ? 'it' : 'them'}, and no control binds to ` +
+        `${barren.length === 1 ? 'it' : 'them'} as a tab switch. As authored ` +
+        `${barren.length === 1 ? 'it tracks' : 'they track'} presence, never position — ` +
+        `“You are on” stops at “${graph.nodes[parent].page}”.`,
+      remedy:
+        'Sync pages; observe the deeper place: session.observeFocus(<the tab path>) when the app ' +
+        'flips the tab is what puts the reader inside it (session.show(...) says which tab is ' +
+        'VISIBLE; observeFocus says where the READER is, and neither moves the cursor). Or move ' +
+        'the tab’s own controls under it, so a fire lands there. If your app already observes the ' +
+        'tab, this note is handled — a static check cannot see a runtime call.',
     });
   }
 

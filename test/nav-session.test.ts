@@ -4,7 +4,7 @@
  * evidence-based focus, dormancy, structure-swap world motion, instances.
  */
 import { describe, expect, it } from 'vitest';
-import { buildNavigationGraph } from '../src/index.js';
+import { InteractionSession, buildNavigationGraph } from '../src/index.js';
 import type { NavigationGraph, FireResult } from '../src/index.js';
 
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -309,6 +309,41 @@ describe('focus — sync/fire evidence only, ancestor fallback', () => {
     const session = shopMap().createSession({ node: 'checkout', onWarn: () => undefined });
     session.registerActions('checkout.payment');
     expect(session.focus).toBe('checkout');
+  });
+
+  it('a fire through the ORDINARY path records the move it did not make', () => {
+    /**
+     * The other arm of fire(): an affordance the flat projection serves and the
+     * container tree knows nothing about. `buildNavigationGraph` files an
+     * actionNodes row for everything it compiles, so this shape only reaches
+     * the runtime through the public InteractionSession constructor — a graph
+     * assembled by hand, or a projection built before the tree existed. It is
+     * the pre-tree contract, and it still holds: the fire works, the focus does
+     * not move, and the move is RECORDED anyway, because "the app fired and the
+     * cursor stayed" is a fact about initiative that a log which only spoke on
+     * change would erase.
+     *
+     * MUTATION PROOF: drop the `if (plain.ok)` focus write at the end of fire()
+     * and this is the only case in the suite that reddens — it was the one line
+     * the coverage gate had been red on.
+     */
+    const compiled = shopMap();
+    const projectionOnly: NavigationGraph = { ...compiled, actionNodes: {} };
+    const session = new InteractionSession(projectionOnly, { node: 'checkout', onWarn: () => undefined });
+    session.registerHandlers({ group: 'cart', handlers: { 'checkout.edit-cart': () => undefined } });
+
+    const before = session.focusHistory.length;
+    expect(session.fire('checkout.edit-cart', { source: 'user' })).toMatchObject({ ok: true });
+
+    expect(session.focus).toBe('checkout');
+    expect(session.focusHistory.slice(before)).toEqual([
+      {
+        from: 'checkout',
+        to: 'checkout',
+        moved: false,
+        cause: { kind: 'fired', principal: 'user', affordanceId: 'checkout.edit-cart' },
+      },
+    ]);
   });
 });
 

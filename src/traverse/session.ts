@@ -6859,6 +6859,19 @@ export class Session {
   }
 
   /**
+   * WHERE INSIDE the current node the reader is — the served half of the same
+   * fact, and `null` when there is nothing more to say than the node itself.
+   *
+   * Null here, always: a flat graph has no container tree, so there is nothing
+   * below a page for anyone to be in. The tree layer overrides it with the
+   * observed focus, and one getter is what keeps the facts block, the brief and
+   * every served result quoting the same answer rather than three.
+   */
+  get lookingAt(): string | null {
+    return null;
+  }
+
+  /**
    * Every attempt, both ledgers merged — the transitions somebody fired and the
    * gap rows for the fires this session refused.
    *

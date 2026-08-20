@@ -50,6 +50,28 @@ The compiled graph's id (namespaces MCP tool names).
 
 ***
 
+### lookingAt
+
+#### Get Signature
+
+> **get** **lookingAt**(): `string` \| `null`
+
+Defined in: [src/traverse/session.ts:6870](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L6870)
+
+WHERE INSIDE the current node the reader is — the served half of the same
+fact, and `null` when there is nothing more to say than the node itself.
+
+Null here, always: a flat graph has no container tree, so there is nothing
+below a page for anyone to be in. The tree layer overrides it with the
+observed focus, and one getter is what keeps the facts block, the brief and
+every served result quoting the same answer rather than three.
+
+##### Returns
+
+`string` \| `null`
+
+***
+
 ### node
 
 #### Get Signature

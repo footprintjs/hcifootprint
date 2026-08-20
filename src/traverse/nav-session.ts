@@ -973,8 +973,52 @@ export class InteractionSession<Paths extends string = string> extends Session {
     return this.registry.isEnabled(affordanceId) === false;
   }
 
+  /**
+   * Sync pages; observe the deeper place. `sync()` moves the walker and decides
+   * what is served; `observeFocus()` says which tab or area the reader is in.
+   * Declare containers, and report the deepest one on screen.
+   *
+   * This is the WALKER's door: the cursor moved, so what is served moves with
+   * it. Actions are offered from the PAGE node, which is why a container path
+   * cannot be a cursor — an agent standing on a tab would be served nothing.
+   *
+   * Hand it one anyway and this does the safe thing rather than the literal
+   * one: the page that owns the container is synced (never an off-graph cursor
+   * over a name the map knows) and a one-time warning names the door that
+   * actually reports the tab. The old behaviour — a silent off-graph cursor and
+   * a session serving nothing — is the failure this arm exists to end.
+   *
+   * ```ts
+   * function onTabChange(tab: 'why' | 'timeline') {
+   *   session.show(`run-detail.${tab}`);          // which tab is VISIBLE
+   *   session.observeFocus(`run-detail.${tab}`);  // where the READER is
+   * }
+   * ```
+   *
+   * An UNDECLARED path is still runtime input from the world and still honest:
+   * the cursor follows reality off-graph, as it always has.
+   */
   override sync(observedNode: string, opts?: { stimulus?: StimulusKind; principal?: Principal }): SyncResult {
-    const result = super.sync(observedNode, opts);
+    // A DECLARED non-page path is a name from this map used at the wrong door.
+    // Not an error — this door takes runtime input from the world — but never
+    // silent either: the page it belongs to is what gets synced, and the
+    // warning says so and names `observeFocus`.
+    const declared = this.#map.nodes[observedNode];
+    const container = declared && declared.kind !== 'page' ? declared : undefined;
+    if (container) {
+      const warnKey = `sync-container:${container.path}`;
+      if (!this.#warnedOnce.has(warnKey)) {
+        this.#warnedOnce.add(warnKey);
+        this.warn(
+          `hcifootprint: sync('${container.path}') names a ${container.kind}, not a page — actions are ` +
+            `served from the page, so a cursor there would be served nothing. Synced its page ` +
+            `'${container.page}' instead. To report that the reader is INSIDE it, call ` +
+            `session.observeFocus('${container.path}') — sync moves the walker, observeFocus says which ` +
+            `tab or area the reader is in.`,
+        );
+      }
+    }
+    const result = super.sync(container ? container.page : observedNode, opts);
     if (result.changed) {
       // The world moved without an offered edge — a back button, a push, an
       // expiry. A stimulus is exactly that, and the principal is whoever the
@@ -996,6 +1040,62 @@ export class InteractionSession<Paths extends string = string> extends Session {
   }
 
   /**
+   * THE OBSERVATION DOOR: report which tab, area or modal on THIS page the
+   * reader is looking at, without moving the walker.
+   *
+   * Sync pages; observe the deeper place. `sync()` moves the walker and decides
+   * what is served; `observeFocus()` says which tab or area the reader is in.
+   * Declare containers, and report the deepest one on screen.
+   *
+   * Position has three tiers and only two doors owned it before this one: the
+   * PAGE (`sync`), and STATE (`updateState`, which is not position at all).
+   * Everything between them — which tab is open, which panel is on screen —
+   * had no reporter, because {@link focus} moved only on `sync()` and `fire()`.
+   * A person clicking a tab fires nothing, so the one case that matters most
+   * (a human and an agent looking at the same screen) could never be reported.
+   *
+   * What it does, and what it deliberately does not:
+   *
+   * - it sets {@link focus} and {@link lookingAt}, so the facts block gains
+   *   `Focus: run-detail.why.` and every served answer carries `lookingAt`;
+   * - it records a {@link FocusMove} with the principal you name, so who moved
+   *   the reader is on the record exactly as it is for a fire or a sync;
+   * - it does NOT move the cursor, mint a transition, bump the version, or
+   *   change one byte of what `available()` serves. The page stays
+   *   authoritative for serving, which is the whole reason this is not a sync.
+   *
+   * It refuses BY NAME rather than guessing: a path this map does not declare,
+   * and a path that belongs to another page (sync that page first). Both are
+   * app-wiring mistakes, and both are the kind that would otherwise show up as
+   * a session quietly describing the wrong screen.
+   *
+   * Observing the PAGE itself is how you say the reader is back at page level
+   * with no container open. A container the page is not currently showing (a
+   * closed modal, a tab whose sibling is shown) is accepted and then honestly
+   * walked home by {@link focus}'s ancestor fallback — being told the reader is
+   * somewhere the app also says is hidden resolves to the nearest place that is
+   * really there.
+   *
+   * ```ts
+   * function onTabChange(tab: 'why' | 'timeline') {
+   *   session.show(`run-detail.${tab}`);                              // VISIBLE
+   *   session.observeFocus(`run-detail.${tab}`, { principal: 'user' }); // WHERE THE READER IS
+   * }
+   * ```
+   */
+  observeFocus(path: Paths, opts?: { principal?: Principal }): void {
+    const node = this.#requireNode(path);
+    if (node.page !== this.node) {
+      throw new Error(
+        `hcifootprint: observeFocus('${path}') names a node on page '${node.page}', and the session is ` +
+          `on '${this.node}'. This door reports where the reader is INSIDE the current page — if the ` +
+          `page really changed, sync('${node.page}') first, then observe.`,
+      );
+    }
+    this.#moveFocus(node.path, { kind: 'stimulus', principal: opts?.principal ?? 'unknown' });
+  }
+
+  /**
    * The tree knows one more true thing about position: WHERE inside the page
    * the cursor rests. It rides the facts block's cursor section rather than its
    * tail, because it is part of the same answer to "where am I".
@@ -1005,9 +1105,19 @@ export class InteractionSession<Paths extends string = string> extends Session {
     return focus === null ? super.positionLines() : [...super.positionLines(), focus];
   }
 
+  /**
+   * The deeper place, for whoever is SERVING rather than printing: the observed
+   * focus when it is below the page, and null when the page is the whole
+   * answer. `whats_here` carries it as `lookingAt`, beside `youAreOn`.
+   */
+  override get lookingAt(): string | null {
+    return this.focus === this.node ? null : this.focus;
+  }
+
   /** 'Focus: <path>.' — or null when focus is just the page (nothing to add). */
   #focusLine(): string | null {
-    return this.focus !== this.node ? `Focus: ${this.focus}.` : null;
+    const looking = this.lookingAt;
+    return looking === null ? null : `Focus: ${looking}.`;
   }
 
   override contextBrief(opts?: ContextBriefOptions): ContextBrief {
