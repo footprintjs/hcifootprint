@@ -46,7 +46,7 @@ See `traverse/once.ts` for the whole of the law.
 
 ### scope?
 
-> `optional` **scope?**: `"action"` \| `"instance"` \| `"payload"`
+> `optional` **scope?**: `"instance"` \| `"action"` \| `"payload"`
 
 Defined in: [src/atom/types.ts:473](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L473)
 

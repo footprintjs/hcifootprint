@@ -56,6 +56,8 @@
  */
 export { watchPage } from './watch-page.js';
 export type {
+  BindingControlProjection,
+  BindingAwarePageWatch,
   ControlAttachment,
   Coverage,
   PageWatch,

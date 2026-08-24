@@ -146,7 +146,7 @@ a secret, a customer's name, or the payload into one.
 
 ### decisionOwner?
 
-> `optional` **decisionOwner?**: `"agent"` \| `"human"` \| `"either"`
+> `optional` **decisionOwner?**: `"human"` \| `"agent"` \| `"either"`
 
 Defined in: [src/atom/types.ts:1874](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1874)
 

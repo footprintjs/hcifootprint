@@ -23,13 +23,17 @@
  *                        declaration through the source and names every field
  *                        that did not come out, at the seam that lost it.
  *
+ *   checkActionContracts(defs, env) — ACTIVATION. Joins declarations to an
+ *                        explicit runtime/binding/evidence snapshot and names
+ *                        what is active, descriptive, unresolved, or inert.
+ *
  * Zero new dependencies; tree-shakeable; imports the real Session (never a
  * parallel simulation) and never the MCP SDK. Honest boundary: this tests
  * interaction LOGIC above the binding — not pixels, not the DOM. It complements
  * Playwright; it does not replace it.
  *
  * ```ts
- * import { testApp, lintGraph } from 'hcifootprint/testing';
+ * import { testApp, lintGraph, checkActionContracts } from 'hcifootprint/testing';
  * ```
  */
 export { lintGraph, formatFindings, expectNoStaleLogic } from './model/lint.js';
@@ -56,3 +60,21 @@ export type {
   FullActionDef,
   SourceUnderTest,
 } from './conform.js';
+export { checkActionContracts } from '../action/contracts.js';
+export type {
+  ActionBindingCapability,
+  ActionBindingContractRow,
+  ActionBindingContractSnapshot,
+  ActionContractDeclaration,
+  ActionContractDisposition,
+  ActionContractEnvironment,
+  ActionContractKind,
+  ActionContractReason,
+  ActionContractReport,
+  ActionContractResult,
+  ActionContractRuntimeSnapshot,
+  ActionEvidenceProducer,
+  ActionEvidenceSnapshot,
+  ActionEvidenceStage,
+  InteractiveHostResolution,
+} from '../action/contracts.js';

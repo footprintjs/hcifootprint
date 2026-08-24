@@ -6,6 +6,8 @@ title: sensor
 
 ## Interfaces
 
+- [BindingAwarePageWatch](/api/sensor/interfaces/BindingAwarePageWatch)
+- [BindingControlProjection](/api/sensor/interfaces/BindingControlProjection)
 - [ControlAttachment](/api/sensor/interfaces/ControlAttachment)
 - [ControlDeclaration](/api/sensor/interfaces/ControlDeclaration)
 - [Coverage](/api/sensor/interfaces/Coverage)

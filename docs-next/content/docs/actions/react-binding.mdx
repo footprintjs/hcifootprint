@@ -27,13 +27,14 @@ it, and the sensor records that a person did. There is no `fire()` call anywhere
 components, and nothing here can run your handler, so one human click can never become two
 ledger rows.
 
-## Four exports, and two of them are hooks
+## Five runtime exports, and four of them are hooks
 
 | | what it is |
 | --- | --- |
 | `ControlSurfaceProvider` | puts a watcher in scope for a subtree. `watch` may be `null`. |
 | `useControl(spec)` | returns a **ref callback**. Put it on the element. |
 | `useControlSurface()` | the watcher in scope, or `null` — for a component that needs to ask |
+| [`useActionBinding(...)`](#useactionbinding--one-callable-one-exact-live-binding) | composes an existing listener with one executable live binding and returns `{ ref, hostProps, getBinding }` |
 | [`useWorking(spec)`](#useworking--your-own-spinner-flag-on-the-ledger) | the async half: your busy flag becomes a work row and a busy label |
 
 `useControl`'s spec is the core's own
@@ -43,6 +44,101 @@ is derived from that type rather than restated, so the two can never drift.
 
 The ref callback takes the structural `SensorElement`, which every `HTMLElement` satisfies —
 so it goes onto a `<button>`, an `<input>` or a `<div>` with no cast.
+
+## `useActionBinding` — one callable, one exact live binding
+
+`useControl` is record-only: the sensor observes the browser after your listener runs.
+`useActionBinding` is the executable alternative. Start with a callable made by
+`defineAction`, render that same application behavior normally, and give the hook a host
+adapter that knows how to compose the listener and resolve the committed interactive
+element. The hook opens one binding only after the ref commits; render itself remains pure.
+
+```tsx
+import type { MouseEvent } from 'react';
+import {
+  composeActionInvocation,
+  createActionBindingRuntime,
+  defineAction,
+  type ActionHostAdapter,
+  type ActionInvocationMiddleware,
+} from 'hcifootprint';
+import { useActionBinding } from 'hcifootprint/react';
+
+const runtime = createActionBindingRuntime();
+const save = defineAction(
+  'draft.save',
+  { does: 'Save the draft' },
+  (_event: MouseEvent<HTMLButtonElement>) => saveDraft(),
+);
+
+interface SaveProps {
+  disabled: boolean;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}
+
+const buttonAdapter: ActionHostAdapter<
+  SaveProps,
+  HTMLButtonElement,
+  HTMLButtonElement,
+  HTMLButtonElement,
+  ActionInvocationMiddleware<unknown, [MouseEvent<HTMLButtonElement>], void>,
+  SaveProps
+> = {
+  composeInvocation(props, invoke) {
+    return { ...props, onClick: composeActionInvocation(props.onClick, invoke) };
+  },
+  resolve(_props, host) {
+    return { kind: 'resolved', interactive: host, valueElement: host };
+  },
+  readEnabled({ props }) {
+    return !props.disabled;
+  },
+  readCoverage() {
+    return 'verifiable';
+  },
+};
+
+function SaveButton(props: SaveProps) {
+  const binding = useActionBinding(runtime, save, props, buttonAdapter, {
+    node: 'draft',
+    onInvocation: async (invocation, effects) => {
+      const performed = await invocation.whenInvoked;
+      if (performed.status !== 'performed') return;
+      const evidence = await readSavedRevision();
+      effects.settle(invocation.transition, { status: 'verified', evidence });
+    },
+    onInvocationError: reportInstrumentationError,
+  });
+
+  return <button ref={binding.ref} {...binding.hostProps}>Save</button>;
+}
+```
+
+Keep the definition, runtime, and adapter stable outside render (or deliberately memoize
+the application-owned equivalents). Ordinary prop changes update committed readers without
+replacing binding identity. Use `attachmentKey` only when a prop changes descendant
+resolution, coverage, or locator projection.
+
+Coverage is a fail-closed boundary. The hook connects and projects sensor ownership only
+for explicit `executable` or `verifiable` coverage. Missing, `identity`, or `semantic`
+coverage leaves the original listener untouched and creates no binding; use `useControl`
+when record-only sensor ownership is the intended level. If a custom component emits an
+output while its app-owned enabled reader says false, that occurrence has already happened:
+the hook still executes the existing listener once and records it. Enabledness continues to
+gate agent offers and direct protocol invocation.
+
+Projecting a binding to a page watcher arbitrates reporting ownership only. The resulting
+binding transition does not invent a human principal, attribution basis, or certainty. Keep
+the sensor-owned path when the receipt must carry its existing human provenance, or add an
+explicit provenance rail before describing a connection-owned occurrence as human-attributed.
+
+The composed callback is generation-owned. A callback retained from an old host may still
+finish its own application listener, but it cannot attribute that work to the replacement
+binding. `onInvocation` receives the exact invocation and a frozen
+`ActionSettlementCapability` containing only `binding` and `settle`; it can settle only that
+invocation's effect rail. Observer failures are severed from the application result and can
+be routed through `onInvocationError`. Neither observer can replace the listener's return
+value or thrown value.
 
 ## The value your component already holds
 
@@ -108,14 +204,15 @@ That is a choice, not an accident:
 
 - **Guarded action, and the refusal must arrive first?** Keep your own wrapper, and name that
   edge in `reportedElsewhere` so the sensor stands down for it. One act, one row.
-- **Everything else?** The hook.
+- **Everything else?** Use `useControl` for record-only sensor ownership, or
+  `useActionBinding` when the exact live control must also be executable by an agent.
 
 `live-desk` keeps exactly three controls on its own door for that reason, and says so in the
 code.
 
 ## `useWorking` — your own spinner flag, on the ledger
 
-The second hook is the async half, and it takes nothing you do not already have. A component that
+The fourth hook is the async half, and it takes nothing you do not already have. A component that
 renders a spinner has a boolean; the words under that spinner; and the error it shows when it fails.
 `useWorking` turns the two **edges** of that boolean into the two calls the core has always had —
 [`beginWork` / `done`](doc:when-the-app-is-still-working) — and stands your
@@ -223,11 +320,12 @@ reports nothing — adopting this subpath can never change whether your app rend
 `react` is an [optional peer](https://nodejs.org/api/packages.html), and `hcifootprint/react`
 is the only place in the package that names it. A consumer who never writes
 `from 'hcifootprint/react'` never resolves react — no dynamic-specifier trick, just an
-ordinary static import in a folder you did not ask for. The control skin is 597 B and the
-working hook 2,399 B, and each reaches the core through **types alone** — so a page that
-imports one ships neither the other, nor a watcher, nor an engine. Both ceilings are pinned by
-`test/treeshake.test.ts`, because "it drags no engine" is the kind of promise that only stays
-true while something measures it.
+ordinary static import in a folder you did not ask for. The record-only control and working
+hooks reach the core through **types alone**. The executable action hook value-imports only the
+framework-neutral connection, coverage, and host-adapter leaves — never a watcher, session,
+graph, registry, or `footprintjs`. The boundaries and size ceilings are pinned by
+`test/treeshake.test.ts` and `test/react-treeshake.test.ts`, because "it drags no engine" is the
+kind of promise that only stays true while something measures it.
 
 The peer range is `*` on purpose, and it is the honest one. `optional` means "need not be
 installed"; it has never meant "version ignored when present", so a floor written there is a
@@ -251,16 +349,14 @@ it for you.
   types, so naming `document` in `src/` is a compile error. That is exactly why
   `WatchOptions.root` is required, and a wrapper that only renamed `watchPage` would be a
   second name for one thing.
-- **No handler registration.** `registerActions` is already the library's one mount door and
-  it needs no framework — call it from your own effect. It stays out of `useControl` because
-  the edge id a declaration needs is the *engine's* to resolve, and neither `registerAction` nor
-  `registerActions` hands the resolved id back. A binding that rebuilt it from `node` and
-  `id` would copy the engine's own rule into every framework skin and be silently wrong for a
-  root tool.
+- **No implicit handler registration in `useControl`.** `registerActions` remains the existing
+  session mount door and needs no framework. The record-only hook cannot reconstruct a
+  resolved edge id from `node` and `id`. Applications that need an executable live binding opt
+  into `useActionBinding` with an explicit runtime and callable definition.
 
 ## Vue and Angular
 
-Nothing above is React-only except the scheduling, and that is true of **both** hooks.
+Nothing above is React-only except the scheduling, and that is true of all four hooks.
 
 For a control, the framework interface is five fields and one method —
 `watch.attach({ edge, element, instance?, value?, cadence?, commits? })` — so Vue is `onMounted` /
@@ -272,7 +368,12 @@ For working, it is [five lines](doc:waiting-for-the-app#promises-and-callbacks--
 down, in whichever of that framework's three moments already exist. There is no subscription to
 adopt and no scheduler to hand over.
 
-Both are driven from a plain object with no framework at all —
+For executable action binding, the same framework-neutral connection lifecycle sits underneath:
+connect and attach at host commit, update from committed readers, compose the existing output once,
+and disconnect from the framework's destruction hook. The test-only structural Angular lifecycle
+proof exercises those same doors without shipping or importing Angular into the core.
+
+The record-only control and working skins are driven from a plain object with no framework at all —
 `test/sensor-framework-interface.test.ts` and `test/work-framework-interface.test.ts` — so "thin" is
 a test rather than a claim, and the day a Vue or Angular skin lands, nothing in the core has to move
 for it.

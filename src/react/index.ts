@@ -1,11 +1,12 @@
 /**
- * hcifootprint/react — a SKIN over the human sensor, not a second brain.
+ * hcifootprint/react — lifecycle skins over the framework-neutral protocols.
  *
  * The core is framework-free and stays that way: `hcifootprint/sensor` decides
  * what is recognisable, what may carry a payload, when a value-bearing control
- * commits, and what one human act is worth on the ledger. This subpath adds
- * exactly what React's own scheduling requires and nothing else — a context to
- * find the watcher, and a ref callback whose identity is stable across renders.
+ * commits, and what one human act is worth on the ledger. The action-binding
+ * protocol separately owns exact callable execution. This subpath adds only
+ * what React scheduling requires: committed readers, callback refs, listener
+ * composition, and exact cleanup.
  *
  * ```ts
  * import { watchPage } from 'hcifootprint/sensor';
@@ -21,12 +22,14 @@
  * // <button ref={ref} onClick={send}>Send</button>
  * ```
  *
- * WHAT YOU DELETE BY ADOPTING IT — the report call in every onClick. The button
- * still runs your function; the sensor still records the human. Nothing here can
- * perform anything, because the port it drives makes an executing fire
- * inexpressible (`RecordOnlyFire`), so one click can never become two acts.
+ * `useControl` remains record-only: the button runs your function and the sensor
+ * records the human. `useActionBinding` is the higher-level alternative: its
+ * composed listener enters the connection's continuation door, which executes
+ * that existing function once while associating the exact live binding. An
+ * optional physical-root projector makes a colocated sensor stand down for that
+ * element, so these two ownership modes do not produce two rows.
  *
- * THE SECOND HOOK IS THE SAME SHAPE FOR THE ASYNC HALF. `useWorking` takes the
+ * THE FOURTH HOOK IS THE SAME SHAPE FOR THE ASYNC HALF. `useWorking` takes the
  * busy flag a component already renders its own spinner from and turns its two
  * edges into the two calls the core has always had:
  *
@@ -41,11 +44,11 @@
  * the busy label ONLY: neither door settles a transition, so no arrangement of
  * it can report that something worked.
  *
- * A SEPARATE SUBPATH SO THE PEER IS GENUINELY OPTIONAL. `react` is an optional
- * peer with a real floor (`>=18`); this is the only folder in the package that
- * names it, and a consumer who never writes `from 'hcifootprint/react'` never
- * resolves it. No dynamic-specifier hatch is needed for that, because the import
- * here is an ordinary static one that a bundler can see straight through
+ * A SEPARATE SUBPATH SO THE PEER IS GENUINELY OPTIONAL. The package declares
+ * the optional peer as `*` so consumers who never import this subpath are not
+ * version-gated; this subpath itself has a real React 18 floor because it uses
+ * `useInsertionEffect`. This is the only folder in the package that names
+ * React, and its ordinary static import stays visible to bundlers
  * (test/react-boundary.test.ts pins the whole property).
  *
  * WHAT IS DELIBERATELY ABSENT:
@@ -54,9 +57,9 @@
  *   library compiles with `lib: ["ES2022"]`, so naming `document` in `src/` is a
  *   compile error. That is the point of `WatchOptions.root` being required, and a
  *   wrapper that only renamed `watchPage` would be a second name for one thing.
- * - Handler registration. See the note on `useControl`: `registerActions` is
- *   already the library's one mount door, and the edge id a declaration needs is
- *   the engine's to resolve rather than a skin's to reconstruct.
+ * - Implicit handler registration in `useControl`. Its declared sensor surface
+ *   remains compatible and record-only. Applications wanting an executable live
+ *   binding opt into `useActionBinding` with an explicit runtime and definition.
  *
  * REDACTION, SAID OUT LOUD BECAUSE IT CROSSES A BOUNDARY: `redactedKeys` governs
  * STATE keys, never payloads. A value declared here rides into `payload`, which is
@@ -66,5 +69,14 @@ export { ControlSurfaceProvider, useControlSurface } from './context.js';
 export type { ControlSurfaceProviderProps } from './context.js';
 export { useControl } from './use-control.js';
 export type { ControlRef, ControlSpec } from './use-control.js';
+export { useActionBinding } from './use-action-binding.js';
+export type {
+  ActionBindingProjection,
+  ActionBindingProjector,
+  ActionBindingRefCallback,
+  ActionSettlementCapability,
+  UseActionBindingOptions,
+  UseActionBindingResult,
+} from './use-action-binding.js';
 export { useWorking } from './use-working.js';
 export type { BusyControl, WorkingSession, WorkingSpec } from './use-working.js';

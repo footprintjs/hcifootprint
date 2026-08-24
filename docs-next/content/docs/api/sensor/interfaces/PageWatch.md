@@ -4,7 +4,7 @@ title: PageWatch
 
 # Interface: PageWatch
 
-Defined in: [src/sensor/types.ts:283](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L283)
+Defined in: [src/sensor/types.ts:299](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L299)
 
 The handle `watchPage` returns.
 
@@ -15,13 +15,17 @@ across renders, and `registerActions`'s handle already sets that idiom
 `stop()` is idempotent, the same contract a PresenceHandle keeps: watch → stop
 → watch nets to one live listener set.
 
+## Extended by
+
+- [`BindingAwarePageWatch`](/api/sensor/interfaces/BindingAwarePageWatch)
+
 ## Methods
 
 ### attach()
 
 > **attach**(`control`): [`ControlAttachment`](/api/sensor/interfaces/ControlAttachment)
 
-Defined in: [src/sensor/types.ts:285](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L285)
+Defined in: [src/sensor/types.ts:301](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L301)
 
 Hand a control over. THE declared level — see [ControlDeclaration](/api/sensor/interfaces/ControlDeclaration).
 
@@ -41,7 +45,7 @@ Hand a control over. THE declared level — see [ControlDeclaration](/api/sensor
 
 > **coverage**(): [`Coverage`](/api/sensor/interfaces/Coverage)
 
-Defined in: [src/sensor/types.ts:286](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L286)
+Defined in: [src/sensor/types.ts:302](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L302)
 
 #### Returns
 
@@ -53,7 +57,7 @@ Defined in: [src/sensor/types.ts:286](https://github.com/footprintjs/hcifootprin
 
 > **stop**(): `void`
 
-Defined in: [src/sensor/types.ts:287](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L287)
+Defined in: [src/sensor/types.ts:303](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L303)
 
 #### Returns
 

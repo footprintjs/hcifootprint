@@ -50,14 +50,14 @@ describe('src/sensor is a ZERO-VALUE-IMPORT leaf over the engine', () => {
     });
   }
 
-  it('the ONLY engine module it names at all is the shared type file', () => {
+  it('the ONLY engine modules it names are shared protocol type files', () => {
     const named = new Set<string>();
     for (const file of files) {
       for (const match of readFileSync(file, 'utf8').matchAll(/from '(\.\.\/[^']+)'/g)) {
         named.add(match[1]!);
       }
     }
-    expect([...named]).toEqual(['../atom/types.js']);
+    expect([...named]).toEqual(['../atom/types.js', '../action/types.js']);
   });
 });
 

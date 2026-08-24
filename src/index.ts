@@ -46,6 +46,70 @@ export type { RouteStep } from './graph/reach.js';
 // down what they were given.
 export type { CommitBundle } from 'footprintjs/advanced';
 export type { MCPToolDescription } from 'footprintjs';
+// High-level Action Binding Protocol: one callable definition, many live
+// bindings, and structured identities for every join. Framework-free and
+// additive; existing graph/session registration remains fully supported.
+export {
+  actionDefinitionOf,
+  defineAction,
+  isDefinedAction,
+} from './action/definition.js';
+export {
+  connectAction,
+  createActionBindingRuntime,
+} from './action/connection.js';
+export {
+  assertBindingCoverage,
+  isBindingCoverage,
+} from './action/coverage.js';
+export {
+  composeActionInvocation,
+  resolveActionHost,
+} from './action/host-adapter.js';
+export type {
+  ActionAttachment,
+  ActionBindingRef,
+  ActionBindingRuntime,
+  ActionBindingRuntimeOptions,
+  ActionBindingSnapshot,
+  ActionBindingUpdate,
+  ActionConnection,
+  ActionContractActivation,
+  ActionDefinitionContract,
+  ActionDefinitionRecord,
+  ActionDefinitionRef,
+  ActionEffectSettlement,
+  ActionEffectSettlementInput,
+  ActionInvocation,
+  ActionInvocationSettlement,
+  ActionInvoke,
+  ActionOfferedInvoke,
+  ActionInvokeOptions,
+  ActionOffer,
+  ActionOfferRef,
+  ActionTransitionSnapshot,
+  ActionTransitionRef,
+  BindingCoverage,
+  BindingProjection,
+  ConnectActionOptions,
+  DeepReadonly,
+  DefinedAction,
+  HumanReporting,
+  ReadonlyActionDefinitionContract,
+} from './action/types.js';
+export type {
+  ActionHostAdapter,
+  ActionHostContext,
+  ActionHostListener,
+  ActionHostResolution,
+  ActionHostTargetResolution,
+  ActionHostUnresolvedReason,
+  ActionInvocationMiddleware,
+  ResolvedActionHost,
+  ResolvedActionHostTarget,
+  UnresolvedActionHost,
+  UnresolvedActionHostTarget,
+} from './action/host-adapter.js';
 // The same rule applied to a type this package's own signatures ACCEPT.
 // `WhereFilter` is the shape of every `when:` and `enabledWhen:` an app
 // authors, half of the exported `VerifyContract`, and the declared type of
@@ -141,7 +205,13 @@ export type { SessionEventName, SessionEvents, ActionGroup, ActionHandle } from 
 export { PresenceIndex } from './presence/presence.js';
 export type { PresenceHandle } from './presence/presence.js';
 export { ActionRegistry } from './registry/registry.js';
-export type { Registration, ActionHandler } from './registry/registry.js';
+export type {
+  ActionHandler,
+  BindingRegistration,
+  BindingRegistrationOptions,
+  BindingRegistrationUpdate,
+  Registration,
+} from './registry/registry.js';
 export { edgesToMCPTools, leaveJourneyTool } from './serve/mcp.js';
 // Serving mode — journeys as fixed tools, disclosure in results
 export { serveToAgent } from './serve/modes.js';

@@ -6,7 +6,7 @@ title: contextful
 
 > `const` **contextful**: \<`A`, `R`\>(`fn`, `options`) => (...`args`) => `R` & `object`
 
-Defined in: [src/contextful/contextful.ts:129](https://github.com/footprintjs/hcifootprint/blob/main/src/contextful/contextful.ts#L129)
+Defined in: [src/contextful/contextful.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/contextful/contextful.ts#L144)
 
 Wrap a handler so both doors into one action — the agent's `fire()` and the
 app's own call — land in the same capture envelope. See the module header.

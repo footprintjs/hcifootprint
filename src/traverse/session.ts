@@ -185,6 +185,13 @@ import { routeBetween, type RouteStep } from "../graph/reach.js";
 import { ActionRegistry } from "../registry/registry.js";
 import type { Registration, ActionHandler } from "../registry/registry.js";
 
+/** The exact executable selected before a transition becomes observable. */
+interface ResolvedInvocation {
+  readonly handler: ActionHandler;
+  /** Context declaration captured with the exact executable, before observers run. */
+  readonly captureOptions?: ContextfulOptions;
+}
+
 /**
  * Who an UNATTRIBUTED action is charged to.
  *
@@ -452,6 +459,8 @@ interface ContextAssist {
   inferred?: true;
   /** What the RECORD may carry as payload — the allowlist projection, never the raw input. */
   recordPayload?: unknown;
+  /** The declaration owned by the exact direct-call wrapper, not a registry successor. */
+  captureOptions?: ContextfulOptions;
 }
 
 /**
@@ -2848,9 +2857,15 @@ export class Session {
     // and still ahead of the approval gate below, which is the AUTHORITY
     // question: never send a human to approve an action that is guard-closed,
     // mis-shaped, greyed out or wired to nothing.
-    const unmaterialized =
-      opts.invoke !== false &&
-      this.handlerFor(affordanceId, opts) === undefined;
+    // SELECT ONCE. The transition event below is synchronous, and a listener
+    // may unregister/remount from inside it. Re-reading the registry after that
+    // emit would let the capability gates approve binding A while this exact
+    // occurrence executed binding B.
+    const invocation =
+      opts.invoke === false
+        ? undefined
+        : this.resolveInvocation(affordanceId, opts);
+    const unmaterialized = opts.invoke !== false && invocation === undefined;
     const honestNoOp = unmaterialized && source === "agent";
     // The one question every settlement arm below asks: will OUR side actually
     // execute anything? (`unmaterialized` already answered "invoke wanted but
@@ -3270,7 +3285,15 @@ export class Session {
     }
     // D21 — the capture envelope opens BEFORE the first emit, so the very first
     // observer of this row already sees what was true the moment before it ran.
-    this.#openCapture(record, aff, conditions, unevaluable, opts);
+    this.#openCapture(
+      record,
+      aff,
+      conditions,
+      unevaluable,
+      opts,
+      invocation,
+      assist,
+    );
     this.#transitions.push(record);
     this.#emitTransition(record);
     this.#version++; // firing changes the world the next plan must see
@@ -3341,7 +3364,7 @@ export class Session {
       // The app owns the real handler; the delta arrives via updateState().
       this.#pending.push({ record, affordance: aff });
       const latch = this.#openEffectLatch(record, flight);
-      this.#invokeHandler(record, affordanceId, opts);
+      this.#invokeHandler(record, affordanceId, opts, invocation);
       return {
         ok: true,
         transition: record,
@@ -3367,7 +3390,7 @@ export class Session {
           settleOnCompletion: true,
         });
         const latch = this.#openEffectLatch(record, flight);
-        this.#invokeHandler(record, affordanceId, opts);
+        this.#invokeHandler(record, affordanceId, opts, invocation);
         return {
           ok: true,
           transition: record,
@@ -3381,7 +3404,7 @@ export class Session {
         };
       }
       this.#settle(record, aff, {}, { forceUnobservable: true });
-      this.#invokeHandler(record, affordanceId, opts); // structurally a no-op: nothing is bound
+      this.#invokeHandler(record, affordanceId, opts, invocation); // structurally a no-op: nothing is bound
       return {
         ok: true,
         transition: record,
@@ -3404,7 +3427,7 @@ export class Session {
     const latch = handlerWillRun
       ? this.#openEffectLatch(record, flight)
       : this.#settledEffect(record, "unobservable");
-    this.#invokeHandler(record, affordanceId, opts);
+    this.#invokeHandler(record, affordanceId, opts, invocation);
     return {
       ok: true,
       transition: record,
@@ -3683,10 +3706,11 @@ export class Session {
     record: TransitionRecord,
     affordanceId: string,
     opts: FireOptions,
+    invocation: ResolvedInvocation | undefined,
   ): void {
     if (opts.invoke === false) return; // record-only (the DOM sensor's mode)
-    const handler = this.handlerFor(affordanceId, opts);
-    if (!handler) return;
+    const handler = invocation?.handler;
+    if (handler === undefined) return;
     const aff = this.spec.affordances[affordanceId];
     const pendingEntry = this.#pending.find((p) => p.record.id === record.id);
     if (pendingEntry) pendingEntry.handlerInFlight = true;
@@ -4052,8 +4076,23 @@ export class Session {
   #contextOptions(
     affordanceId: string,
     opts: FireOptions,
+    invocation: ResolvedInvocation | undefined,
+    assist: ContextAssist | null,
   ): ContextfulOptions | undefined {
-    const handler = this.handlerFor(affordanceId, opts);
+    if (assist?.captureOptions !== undefined) return assist.captureOptions;
+    if (
+      opts.invoke !== false &&
+      invocation?.captureOptions !== undefined
+    ) {
+      return invocation.captureOptions;
+    }
+    // An executing fire already selected one exact handler before the row was
+    // emitted. Re-reading the registry here could attach replacement handler
+    // B's capture policy to a transition that will execute handler A.
+    const handler =
+      opts.invoke === false
+        ? this.handlerFor(affordanceId, opts)
+        : invocation?.handler;
     const brand = handler === undefined ? undefined : readContextful(handler);
     return brand?.options ?? this.#senses.get(affordanceId);
   }
@@ -4071,8 +4110,10 @@ export class Session {
     conditions: FilterCondition[],
     unevaluable: string[],
     opts: FireOptions,
+    invocation: ResolvedInvocation | undefined,
+    assist: ContextAssist | null,
   ): void {
-    const options = this.#contextOptions(aff.id, opts);
+    const options = this.#contextOptions(aff.id, opts, invocation, assist);
     if (options === undefined) return;
     const input = projectInput(opts.payload, options);
     record.captured = {
@@ -4281,7 +4322,11 @@ export class Session {
         payload,
         ...(instance !== undefined ? { instance } : {}),
       },
-      { direct: true, recordPayload: projectInput(payload, options) },
+      {
+        direct: true,
+        recordPayload: projectInput(payload, options),
+        captureOptions: options,
+      },
     );
     if (!result.ok) return run();
     const record = result.transition;
@@ -7860,6 +7905,31 @@ export class Session {
     const href = gestureHref(aff, this.spec.pages);
     if (href === undefined) return undefined;
     return () => navigate(href);
+  }
+
+  /**
+   * Resolve one exact executable for a fire. A structured-binding session can
+   * widen this seam later to carry the binding reference beside the handler;
+   * the base runtime already guarantees the handler itself is never re-read.
+   */
+  protected resolveInvocation(
+    affordanceId: string,
+    opts: FireOptions,
+  ): ResolvedInvocation | undefined {
+    const handler = this.handlerFor(affordanceId, opts);
+    if (handler === undefined) return undefined;
+    const brand = readContextful(handler);
+    if (brand === undefined || typeof brand.invokeOriginal !== "function") {
+      return { handler };
+    }
+    const invokeOriginal = brand.invokeOriginal;
+    return {
+      // Session handlers own one optional payload slot. Capture the underlying
+      // execution door now; the wrapper's mutable site may belong to another
+      // Session by the time the deferred invocation microtask runs.
+      handler: (payload?: unknown) => invokeOriginal(payload),
+      captureOptions: brand.options,
+    };
   }
 
   /** Whether navigate could materialise this edge right now (the available() stamp's half of the question). */

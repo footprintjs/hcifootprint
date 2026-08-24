@@ -3,6 +3,127 @@ title: Live bindings & fromLiveStore
 description: Components register what they have when they render — and if your app keeps a live action store, fromLiveStore does the subscribe-and-register bookkeeping for you.
 ---
 
+## Two live-binding surfaces, with different jobs
+
+HCIFootprint now has two additive ways to bind application behavior. The existing
+`session.registerActions(...)` and `fromLiveStore(...)` APIs bind graph affordance paths into a
+`Session`; they feed Session availability, MCP serving, guards, receipts, gaps, and trace behavior.
+The callable Action Binding Protocol binds one action definition to one or more exact live control
+instances. It is framework-neutral and gives each definition, binding, offer, and invocation its own
+structured identity.
+
+The callable runtime does **not** automatically turn a definition into a Session affordance or an
+MCP tool. Keep using the graph and Session APIs when those are the consumers. Use the callable
+protocol when a framework adapter, agent surface, test, or developer tool needs to address and invoke
+the exact mounted instance. The rest of this page documents the Session-shaped surface; this section
+introduces the newer one.
+
+### Callable definitions and exact live instances
+
+`defineAction(id, contract, implementation)` declares authored meaning once and returns an ordinary
+callable. Calling that function directly preserves normal JavaScript `this`, arguments, return values,
+throws, and thenables. Reachability, instance identity, enabledness, host state, and locators belong to
+each live connection instead of the definition.
+
+The isolated runtime defaults to `contractActivation: 'require-active'`: it rejects enforceable
+clauses for which this small runtime has no enforcement port instead of silently treating them as
+active. `createActionBindingRuntime({ contractActivation: 'disclosure' })` is the explicit opt-in to
+carry those clauses as metadata only.
+
+```ts
+import {
+  connectAction,
+  createActionBindingRuntime,
+  defineAction,
+} from 'hcifootprint';
+
+declare const saveButton: HTMLButtonElement;
+declare function persistDraft(id: string): Promise<void>;
+declare function readSavedRevision(id: string): Promise<number>;
+
+let draftId = 'draft-42';
+let saving = false;
+
+const saveDraft = defineAction(
+  'draft.save',
+  { does: 'Save the open draft', writes: ['draft.savedRevision'] },
+  (id: string) => persistDraft(id),
+);
+
+const runtime = createActionBindingRuntime();
+const connection = connectAction(runtime, saveDraft, {
+  node: 'draft',
+  instance: draftId,
+  input: () => draftId,
+  enabled: () => !saving,
+});
+
+const attachment = connection.attach({
+  interactive: saveButton,
+  valueElement: saveButton,
+  coverage: 'verifiable',
+  locators: [
+    {
+      kind: 'element',
+      locator: { role: 'button', name: 'Save' },
+      actuation: 'click',
+    },
+  ],
+});
+
+const [offer] = runtime.available(connection.definition);
+if (!offer) throw new Error('Save is not currently available');
+
+const invocation = connection.invokeOffered({ offer: offer.ref });
+const outcome = await invocation.whenInvoked;
+if (outcome.status === 'performed') {
+  const revision = await readSavedRevision(draftId); // authoritative app observation
+  connection.settle(invocation.transition, {
+    status: 'verified',
+    evidence: { revision },
+  });
+  await invocation.whenEffectSettled;
+  runtime.forgetTransition(invocation.transition);
+}
+
+attachment.detach();
+connection.disconnect();
+```
+
+One definition can have many simultaneous connections. Every connection keeps its own generated
+binding reference, opaque `instance`, committed input/enabled/busy readers, host attachment, and
+locators. `update(...)` replaces committed readers without changing binding identity; reconnect to
+add or remove the input-reader capability. `disconnect()` is idempotent.
+
+Coverage is ordered and says only what this binding can substantiate:
+
+| coverage | strongest supported claim |
+| --- | --- |
+| `identity` | this exact control or test target is identified |
+| `semantic` | its authored action meaning is also known |
+| `executable` | the binding has an invocation door |
+| `verifiable` | it also has an authoritative effect-observation path |
+
+`runtime.available(...)` returns only bindings at `executable` or `verifiable` coverage whose
+enabled reader is not `false`. It returns immutable offers for exact binding revisions. Use
+`connection.invoke()` to invoke that binding directly, or `invokeOffered({ offer: offer.ref })` to
+join the invocation to the exact offer a consumer previously saw. A stale, superseded, foreign, or
+lookalike offer fails closed rather than being recovered from its strings.
+
+Invocation completion and effect verification are separate rails. `whenInvoked` reports whether the
+application handler performed or refused; a returned or resolved Promise does not prove that React
+committed, navigation arrived, or state changed. `whenEffectSettled` remains pending until an
+authoritative observer calls `settle(...)`, and a `verified` settlement is accepted only for an
+invocation that ran with `verifiable` coverage. Once both rails have settled,
+`forgetTransition(...)` is the explicit history-retention boundary.
+
+Finally, control identity is not human attribution. A host element, locator, sensor-ownership
+projection, or connection-owned occurrence does not by itself mint a human principal, attribution
+basis, or certainty. Keep the existing sensor/Session path when you need its human-provenance receipt,
+or add an explicit provenance rail before making that claim. The
+[React binding](doc:react-binding#useactionbinding--one-callable-one-exact-live-binding) provides the
+committed host lifecycle for this protocol.
+
 ## The wire: declare statically, bind at mount
 
 A tool needs only `does` to exist in the plannable spine; its handler arrives when the

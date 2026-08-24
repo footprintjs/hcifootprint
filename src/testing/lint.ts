@@ -1,13 +1,12 @@
 /**
- * hcifootprint/testing/lint — the STATIC linter, in isolation.
+ * hcifootprint/testing/lint — pure static checks, in isolation.
  *
- * Import from here (not hcifootprint/testing) for a guaranteed engine-free CI
- * lint: this entry pulls in ONLY the pure model (compiled-graph types + the
- * guard helpers), never the Session/footprint engine. So a plain `node` or
- * `tsx` lint script — no bundler, no tree-shaking — still loads nothing heavy.
+ * Import from here (not hcifootprint/testing) for guaranteed engine-free CI
+ * lint and action-contract activation checks. This entry pulls in only pure
+ * projections, never the Session/footprint engine.
  *
  * ```ts
- * import { lintGraph, expectNoStaleLogic } from 'hcifootprint/testing/lint';
+ * import { lintGraph, checkActionContracts } from 'hcifootprint/testing/lint';
  * ```
  *
  * (The full hcifootprint/testing barrel re-exports these too, alongside the
@@ -17,3 +16,21 @@ export { lintGraph, formatFindings, expectNoStaleLogic } from './model/lint.js';
 export type { LintFinding, LintOptions, LintCode, LintSeverity } from './model/lint.js';
 export { checkGraph } from './model/check.js';
 export type { GraphHealth, JourneyHealth, DriftType } from './model/check.js';
+export { checkActionContracts } from '../action/contracts.js';
+export type {
+  ActionBindingCapability,
+  ActionBindingContractRow,
+  ActionBindingContractSnapshot,
+  ActionContractDeclaration,
+  ActionContractDisposition,
+  ActionContractEnvironment,
+  ActionContractKind,
+  ActionContractReason,
+  ActionContractReport,
+  ActionContractResult,
+  ActionContractRuntimeSnapshot,
+  ActionEvidenceProducer,
+  ActionEvidenceSnapshot,
+  ActionEvidenceStage,
+  InteractiveHostResolution,
+} from '../action/contracts.js';

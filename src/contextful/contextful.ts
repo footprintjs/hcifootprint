@@ -58,6 +58,13 @@ export interface ContextfulSite {
 export interface ContextfulBrand {
   readonly options: ContextfulOptions;
   /**
+   * Execute the wrapped application function without consulting the mutable
+   * registration site. A Session captures this door when it selects a handler,
+   * so a synchronous remount cannot redirect that already-approved occurrence
+   * into another Session's direct-reporting path.
+   */
+  readonly invokeOriginal: (...args: unknown[]) => unknown;
+  /**
    * The registration that owns this handler right now, or null. Last
    * registration wins — the registry's own rule (registry.ts:23-25), one field
    * over — and a release only clears the site it put there (token identity), so
@@ -90,16 +97,24 @@ function wrap<A extends unknown[], R>(
         `Pass the options to the single contextful() call instead.`,
     );
   }
-  const brand: ContextfulBrand = { options, site: null };
+  const invokeOriginal = (...args: A): R => fn(...args);
+  const brand: ContextfulBrand = {
+    options,
+    site: null,
+    invokeOriginal: invokeOriginal as (...args: unknown[]) => unknown,
+  };
   const wrapped = (...args: A): R => {
     const site = brand.site;
     // Not registered anywhere, or the session is already recording this very
     // invocation: run the app's function and nothing else.
-    if (site === null || site.invoking()) return fn(...args);
+    if (site === null || site.invoking()) return invokeOriginal(...args);
     // The app is calling its own action. `args[0]` is the payload by the same
     // convention the registry states (`ActionHandler = (payload?) => …`); every
     // argument is still forwarded untouched.
-    return site.direct(args.length > 0 ? args[0] : undefined, () => fn(...args)) as R;
+    return site.direct(
+      args.length > 0 ? args[0] : undefined,
+      () => invokeOriginal(...args),
+    ) as R;
   };
   Object.defineProperty(wrapped, BRAND, { value: brand, enumerable: false });
   return wrapped;

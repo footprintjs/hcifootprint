@@ -35,7 +35,7 @@ an integrator owns it.
 
 ### decisionOwner?
 
-> `optional` **decisionOwner?**: `"agent"` \| `"human"` \| `"either"`
+> `optional` **decisionOwner?**: `"human"` \| `"agent"` \| `"either"`
 
 Defined in: [src/atom/types.ts:734](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L734)
 

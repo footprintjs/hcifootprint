@@ -6,6 +6,13 @@ title: testing
 
 ## Interfaces
 
+- [ActionBindingContractRow](/api/testing/interfaces/ActionBindingContractRow)
+- [ActionBindingContractSnapshot](/api/testing/interfaces/ActionBindingContractSnapshot)
+- [ActionContractDeclaration](/api/testing/interfaces/ActionContractDeclaration)
+- [ActionContractEnvironment](/api/testing/interfaces/ActionContractEnvironment)
+- [ActionContractReport](/api/testing/interfaces/ActionContractReport)
+- [ActionContractResult](/api/testing/interfaces/ActionContractResult)
+- [ActionEvidenceSnapshot](/api/testing/interfaces/ActionEvidenceSnapshot)
 - [ConformanceFixture](/api/testing/interfaces/ConformanceFixture)
 - [ConformanceOptions](/api/testing/interfaces/ConformanceOptions)
 - [ConformanceReport](/api/testing/interfaces/ConformanceReport)
@@ -22,10 +29,18 @@ title: testing
 
 ## Type Aliases
 
+- [ActionBindingCapability](/api/testing/type-aliases/ActionBindingCapability)
+- [ActionContractDisposition](/api/testing/type-aliases/ActionContractDisposition)
+- [ActionContractKind](/api/testing/type-aliases/ActionContractKind)
+- [ActionContractReason](/api/testing/type-aliases/ActionContractReason)
+- [ActionContractRuntimeSnapshot](/api/testing/type-aliases/ActionContractRuntimeSnapshot)
+- [ActionEvidenceProducer](/api/testing/type-aliases/ActionEvidenceProducer)
+- [ActionEvidenceStage](/api/testing/type-aliases/ActionEvidenceStage)
 - [ConformanceSeam](/api/testing/type-aliases/ConformanceSeam)
 - [DeclarableActionField](/api/testing/type-aliases/DeclarableActionField)
 - [DriftType](/api/testing/type-aliases/DriftType)
 - [FullActionDef](/api/testing/type-aliases/FullActionDef)
+- [InteractiveHostResolution](/api/testing/type-aliases/InteractiveHostResolution)
 - [LintCode](/api/testing/type-aliases/LintCode)
 - [LintSeverity](/api/testing/type-aliases/LintSeverity)
 - [Resolver](/api/testing/type-aliases/Resolver)
@@ -37,6 +52,7 @@ title: testing
 
 ## Functions
 
+- [checkActionContracts](/api/testing/functions/checkActionContracts)
 - [checkGraph](/api/testing/functions/checkGraph)
 - [conformSource](/api/testing/functions/conformSource)
 - [expectConformance](/api/testing/functions/expectConformance)

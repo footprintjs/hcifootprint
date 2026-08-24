@@ -4,7 +4,7 @@ title: SensorSession
 
 # Interface: SensorSession
 
-Defined in: [src/sensor/types.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L55)
+Defined in: [src/sensor/types.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L61)
 
 What the sensor needs from a session — and nothing more.
 
@@ -18,7 +18,7 @@ passes their session straight in; a test can pass a hand-built stand-in.
 
 > **available**(): [`AvailableSlice`](/api/index/interfaces/AvailableSlice)
 
-Defined in: [src/sensor/types.ts:57](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L57)
+Defined in: [src/sensor/types.ts:63](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L63)
 
 The live action space: the served edges ARE the sensor's watch-list.
 
@@ -32,7 +32,7 @@ The live action space: the served edges ARE the sensor's watch-list.
 
 > `optional` **declareHolds**(`affordanceId`, `read`): () => `void`
 
-Defined in: [src/sensor/types.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L81)
+Defined in: [src/sensor/types.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L87)
 
 The session's value door: hand over a declared control's `value()` so the
 SERVED ROW can say what the control holds, one turn before anything fires.
@@ -67,7 +67,7 @@ payload of a reported gesture, and the row simply stays silent). A real
 
 > **fire**(`affordanceId`, `opts`): [`FireResult`](/api/index/type-aliases/FireResult)
 
-Defined in: [src/sensor/types.ts:62](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L62)
+Defined in: [src/sensor/types.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L68)
 
 The record-only tier — and the port DEMANDS it, so the sensor is
 structurally incapable of executing anything. See [RecordOnlyFire](/api/sensor/type-aliases/RecordOnlyFire).
@@ -92,7 +92,7 @@ structurally incapable of executing anything. See [RecordOnlyFire](/api/sensor/t
 
 > **on**\<`N`\>(`event`, `listener`): () => `void`
 
-Defined in: [src/sensor/types.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L64)
+Defined in: [src/sensor/types.ts:70](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L70)
 
 The passive observer surface — how the sensor learns the surface moved.
 
@@ -122,7 +122,7 @@ The passive observer surface — how the sensor learns the surface moved.
 
 > **sync**(`observedNode`, `opts?`): [`SyncResult`](/api/index/type-aliases/SyncResult)
 
-Defined in: [src/sensor/types.ts:66](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L66)
+Defined in: [src/sensor/types.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L72)
 
 Observed navigation: the existing hop-recording path (atom/types.ts:495 `unverifiedEdge`).
 

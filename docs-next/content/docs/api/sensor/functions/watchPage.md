@@ -4,9 +4,9 @@ title: watchPage
 
 # Function: watchPage()
 
-> **watchPage**(`session`, `options`): [`PageWatch`](/api/sensor/interfaces/PageWatch)
+> **watchPage**(`session`, `options`): [`BindingAwarePageWatch`](/api/sensor/interfaces/BindingAwarePageWatch)
 
-Defined in: [src/sensor/watch-page.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/watch-page.ts#L121)
+Defined in: [src/sensor/watch-page.ts:135](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/watch-page.ts#L135)
 
 Attach the sensor to a page. The session is the single source of truth for what
 to watch; `options.root` is the only thing about the environment the library is
@@ -24,4 +24,4 @@ told.
 
 ## Returns
 
-[`PageWatch`](/api/sensor/interfaces/PageWatch)
+[`BindingAwarePageWatch`](/api/sensor/interfaces/BindingAwarePageWatch)

@@ -34,7 +34,7 @@ are unchanged — this rides BESIDE them.
 
 ### clearedBy
 
-> **clearedBy**: `"user"` \| `"app"` \| `"invalid"`
+> **clearedBy**: `"app"` \| `"user"` \| `"invalid"`
 
 Defined in: [src/atom/types.ts:586](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L586)
 
