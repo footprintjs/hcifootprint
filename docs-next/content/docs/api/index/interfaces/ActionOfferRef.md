@@ -1,10 +1,10 @@
 ---
-title: ActionOfferRef<Id>
+title: ActionOfferRef<Id, P>
 ---
 
-# Interface: ActionOfferRef\<Id\>
+# Interface: ActionOfferRef\<Id, P\>
 
-Defined in: [src/action/types.ts:29](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L29)
+Defined in: [src/action/types.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L37)
 
 Under which application facts was one exact binding exposed?
 
@@ -14,13 +14,17 @@ Under which application facts was one exact binding exposed?
 
 `Id` *extends* `string` = `string`
 
+### P
+
+`P` *extends* [`Principal`](/api/index/type-aliases/Principal) = [`Principal`](/api/index/type-aliases/Principal)
+
 ## Properties
 
 ### binding
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:32](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L32)
+Defined in: [src/action/types.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L43)
 
 ***
 
@@ -28,7 +32,7 @@ Defined in: [src/action/types.ts:32](https://github.com/footprintjs/hcifootprint
 
 > `readonly` `optional` **input?**: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"bound"`\>
 
-Defined in: [src/action/types.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L36)
+Defined in: [src/action/types.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L49)
 
 Opaque identity for an input captured as part of this exact offer.
 
@@ -38,7 +42,7 @@ Opaque identity for an input captured as part of this exact offer.
 
 > `readonly` **kind**: `"action-offer"`
 
-Defined in: [src/action/types.ts:30](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L30)
+Defined in: [src/action/types.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L41)
 
 ***
 
@@ -46,7 +50,17 @@ Defined in: [src/action/types.ts:30](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **offerId**: `string`
 
-Defined in: [src/action/types.ts:31](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L31)
+Defined in: [src/action/types.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L42)
+
+***
+
+### principal
+
+> `readonly` **principal**: `P`
+
+Defined in: [src/action/types.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L45)
+
+The reader authority under which this exact capability was exposed.
 
 ***
 
@@ -54,6 +68,6 @@ Defined in: [src/action/types.ts:31](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **revision**: `number`
 
-Defined in: [src/action/types.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L34)
+Defined in: [src/action/types.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L47)
 
 The committed binding-fact generation this offer describes.

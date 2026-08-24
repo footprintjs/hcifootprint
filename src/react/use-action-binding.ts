@@ -1,6 +1,6 @@
 import { useCallback, useInsertionEffect, useMemo, useRef } from 'react';
 import type { Binding } from '../atom/types.js';
-import { connectAction } from '../action/connection.js';
+import { connectAction, withObserverCapture } from '../action/connection.js';
 import { resolveActionHost } from '../action/host-adapter.js';
 import type {
   ActionHostAdapter,
@@ -10,19 +10,18 @@ import type {
 import type {
   ActionAttachment,
   ActionBindingRef,
-  ActionBindingRuntime,
+  ActionRuntime,
   ActionConnection,
-  ActionInvocation,
   ActionInvocationMode,
+  ActionObservedInvocation,
   ActionSettlementCapability,
   BindingCoverage,
   ConnectActionOptions,
   DefinedAction,
 } from '../action/types.js';
 
-type FirstParameter<F extends (...args: any[]) => any> = Parameters<F> extends []
-  ? undefined
-  : Parameters<F>[0];
+type FirstParameter<F extends (...args: any[]) => any> =
+  Parameters<F> extends [] ? undefined : Parameters<F>[0];
 
 /** The exact interactive-element projection understood by a physical root. */
 export interface ActionBindingProjection<
@@ -53,7 +52,8 @@ export type UseActionBindingOptions<
   Input,
   Interactive extends object,
   Id extends string = string,
-  Output = unknown,
+  ActionOutput = unknown,
+  HostOutput = unknown,
 > = {
   readonly node: string;
   readonly instance?: string;
@@ -78,7 +78,7 @@ export type UseActionBindingOptions<
    * Errors from this observer never replace the host listener's own result.
    */
   readonly onInvocation?: (
-    invocation: ActionInvocation<Output, Id>,
+    invocation: ActionObservedInvocation<ActionOutput, HostOutput, Id>,
     settlement: ActionSettlementCapability<Id>,
   ) => void | PromiseLike<void>;
   /** Optional sink for an `onInvocation` observer failure. */
@@ -130,7 +130,13 @@ interface HeldBinding<
   readonly availabilityKey?: unknown;
 }
 
-interface LatestRender<Props, Input, Output, Id extends string> {
+interface LatestRender<
+  Props,
+  Input,
+  ActionOutput,
+  HostOutput,
+  Id extends string,
+> {
   readonly props: Readonly<Props>;
   readonly input: ((props: Readonly<Props>) => Input) | undefined;
   readonly inputKey?: unknown;
@@ -138,7 +144,7 @@ interface LatestRender<Props, Input, Output, Id extends string> {
   readonly availabilityKey?: unknown;
   readonly onInvocation:
     | ((
-        invocation: ActionInvocation<Output, Id>,
+        invocation: ActionObservedInvocation<ActionOutput, HostOutput, Id>,
         settlement: ActionSettlementCapability<Id>,
       ) => void | PromiseLike<void>)
     | undefined;
@@ -169,9 +175,10 @@ export function useActionBinding<
   ValueElement extends object,
   This,
   EventArgs extends readonly unknown[],
+  HostResult,
   ComposedProps,
 >(
-  runtime: ActionBindingRuntime,
+  runtime: ActionRuntime,
   definition: DefinedAction<F, Id, Mode>,
   props: Readonly<Props>,
   adapter: ActionHostAdapter<
@@ -179,7 +186,7 @@ export function useActionBinding<
     Host,
     Interactive,
     ValueElement,
-    ActionInvocationMiddleware<This, EventArgs, ReturnType<F>>,
+    ActionInvocationMiddleware<This, EventArgs, HostResult>,
     ComposedProps,
     Binding
   >,
@@ -188,7 +195,8 @@ export function useActionBinding<
     Mode extends 'scalar' ? Parameters<F>[0] : undefined,
     Interactive,
     Id,
-    Awaited<ReturnType<F>>
+    Awaited<ReturnType<F>>,
+    Awaited<HostResult>
   > &
     (Mode extends 'scalar'
       ? unknown
@@ -200,6 +208,7 @@ export function useActionBinding<
       Props,
       FirstParameter<F>,
       Awaited<ReturnType<F>>,
+      Awaited<HostResult>,
       Id
     >
   >({
@@ -285,6 +294,7 @@ export function useActionBinding<
       Props,
       FirstParameter<F>,
       Awaited<ReturnType<F>>,
+      Awaited<HostResult>,
       Id
     > = {
       props,
@@ -351,15 +361,15 @@ export function useActionBinding<
   const invocation = useCallback(
     function (
       this: This,
-      proceed: () => ReturnType<F>,
+      proceed: () => HostResult,
       ..._eventArgs: EventArgs
-    ): ReturnType<F> {
+    ): HostResult {
       const current = held.current;
       if (current === null || current.owner !== owner) return proceed();
       const connection = current.connection;
 
       const captured: {
-        outcome: ContinuationOutcome<ReturnType<F>>;
+        outcome: ContinuationOutcome<HostResult>;
       } = { outcome: { kind: 'none' } };
       connection.invokeContinuation(() => {
         try {
@@ -404,10 +414,7 @@ export function useActionBinding<
       // This hook owns an invocation door. Identity/semantic-only adapters use
       // the record-only sensor hook instead; wrapping them here would turn
       // instrumentation into a blocker for the existing listener.
-      if (
-        bindingCoverage === 'identity' ||
-        bindingCoverage === 'semantic'
-      ) {
+      if (bindingCoverage === 'identity' || bindingCoverage === 'semantic') {
         return;
       }
       // Any unknown runtime value deliberately continues into connectAction(),
@@ -425,14 +432,20 @@ export function useActionBinding<
         valueElement: resolved.valueElement,
       });
 
-      const observeInvocation = (
-        opened: ActionInvocation<Awaited<ReturnType<F>>, Id>,
+      const deliverInvocation = (
+        committedObservers: LatestRender<
+          Props,
+          FirstParameter<F>,
+          Awaited<ReturnType<F>>,
+          Awaited<HostResult>,
+          Id
+        >,
+        opened: ActionObservedInvocation<Awaited<ReturnType<F>>, unknown, Id>,
         settlement: ActionSettlementCapability<Id>,
       ): void => {
         // The observer and its error sink are one committed pair for this
         // invocation. An async failure from an old render/binding must never be
         // delivered to a successor render's sink.
-        const committedObservers = latest.current;
         const observer = committedObservers.onInvocation;
         const errorSink = committedObservers.onInvocationError;
         if (observer === undefined) return;
@@ -445,11 +458,36 @@ export function useActionBinding<
           }
         };
         try {
-          void Promise.resolve(observer(opened, settlement)).catch(report);
+          void Promise.resolve(
+            observer(
+              opened as ActionObservedInvocation<
+                Awaited<ReturnType<F>>,
+                Awaited<HostResult>,
+                Id
+              >,
+              settlement,
+            ),
+          ).catch(report);
         } catch (error) {
           report(error);
         }
       };
+      const observeInvocation = withObserverCapture(
+        (
+          opened: ActionObservedInvocation<Awaited<ReturnType<F>>, unknown, Id>,
+          settlement: ActionSettlementCapability<Id>,
+        ): void => deliverInvocation(latest.current, opened, settlement),
+        () => {
+          const committedObservers = latest.current;
+          return (opened, settlement): void =>
+            deliverInvocation(committedObservers, opened, settlement);
+        },
+      );
+      const observeInvocationError = withObserverCapture(
+        (error: unknown): void | PromiseLike<void> | undefined =>
+          latest.current.onInvocationError?.(error),
+        () => latest.current.onInvocationError,
+      );
 
       const connectOptions: ConnectActionOptions<
         FirstParameter<F>,
@@ -464,6 +502,7 @@ export function useActionBinding<
           : {}),
         humanReporting: 'connection',
         onInvocation: observeInvocation,
+        onInvocationError: observeInvocationError,
         ...(hasInput
           ? {
               input: () =>
@@ -486,7 +525,7 @@ export function useActionBinding<
       let projected: ActionAttachment | undefined;
       try {
         const connectCommitted = connectAction as (
-          selectedRuntime: ActionBindingRuntime,
+          selectedRuntime: ActionRuntime,
           selectedDefinition: DefinedAction<F, Id, Mode>,
           selectedOptions: ConnectActionOptions<
             FirstParameter<F>,

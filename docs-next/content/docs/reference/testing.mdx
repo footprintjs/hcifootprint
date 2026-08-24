@@ -143,8 +143,8 @@ asks one question — did your adapter's threading survive.
 An action can carry a policy that the selected runtime never enforces, or name evidence no
 application rail publishes. `checkActionContracts` is the pure activation check: hand it the
 action definitions plus explicit runtime, binding, and evidence snapshots, and it classifies
-each contract without reading a session, a handler, or the DOM. Import it from
-`hcifootprint/testing/lint` when this should remain an engine-free CI step.
+each activation check modeled by that environment without reading a session, a handler, or the
+DOM. Import it from `hcifootprint/testing/lint` when this should remain an engine-free CI step.
 
 ```ts
 import { actionDefinitionOf } from 'hcifootprint';
@@ -156,8 +156,7 @@ const report = checkActionContracts([actionDefinitionOf(save)!], {
     complete: true,
     principalEnforcement: true,
     humanApprovalGate: true,
-    concurrencyEnforcement: true,
-    highEffectVerification: false,
+    predicateVerification: true,
   },
   bindings: {
     complete: true,
@@ -188,9 +187,22 @@ Every checked contract receives one disposition:
 - `unresolved` — the supplied snapshots do not contain enough evidence to decide;
 - `inert` — complete snapshots prove that a declaration which looks enforceable cannot operate.
 
-`unresolved` and `inert` both keep `report.ok` false. The `complete` flags are therefore
-load-bearing: an absent row in a complete inventory proves a missing binding or producer, while
-the same absence in a partial inventory remains unknown rather than becoming a false green.
+`guard.when` and `guard.enabledWhen` are checked against availability-stage state producers;
+declarative `settle.verify` is checked against settlement-stage producers. A function-valued
+`settle.verify` is never executed by this pure projection. Instead,
+`runtime.predicateVerification` states whether the selected environment has an operative predicate
+executor; it is required in a complete runtime snapshot and may be omitted from a partial one.
+
+`unresolved` and `inert` both keep `report.ok` false. More precisely, `report.ok` covers every
+activation check the function emitted, not every field in an action definition. The `complete`
+flags are therefore load-bearing: an absent producer in a complete inventory proves a missing
+evidence path, while the same absence in a partial inventory remains unknown rather than becoming
+a false green.
+
+`inputSchema` is an intentional boundary. This environment model does not emit a schema-activation
+check, so a schema-only declaration may have `report.ok === true`. Validation activation belongs to
+`ActionRuntime`, which decides whether the schema can validate itself or is supported by its
+`inputSchemaAdapter`.
 
 ## The honest boundary
 

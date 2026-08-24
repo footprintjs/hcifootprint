@@ -9,6 +9,7 @@
  * trailing /index and 404s on the served site).
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { deriveTitle, rewriteLinks } from '../../scripts/gen-fumadocs-api.mjs';
 
 describe('a generated page arrives with the title a reader should see in the sidebar', () => {
@@ -16,14 +17,18 @@ describe('a generated page arrives with the title a reader should see in the sid
     expect(deriveTitle('# Function: buildNavigationGraph()\n\nbody', 'x')).toBe(
       'buildNavigationGraph',
     );
-    expect(deriveTitle('# Interface: NavigationGraphDef\n', 'x')).toBe('NavigationGraphDef');
+    expect(deriveTitle('# Interface: NavigationGraphDef\n', 'x')).toBe(
+      'NavigationGraphDef',
+    );
   });
   it('unescapes markdown and drops backticks', () => {
     expect(deriveTitle('# Type Alias: `Binding`\n', 'x')).toBe('Binding');
     expect(deriveTitle('# Variable: FOO\\_BAR\n', 'x')).toBe('FOO_BAR');
   });
   it('falls back to the filename when there is no H1', () => {
-    expect(deriveTitle('no heading here', 'fallback-name')).toBe('fallback-name');
+    expect(deriveTitle('no heading here', 'fallback-name')).toBe(
+      'fallback-name',
+    );
   });
 });
 
@@ -38,10 +43,37 @@ describe('a generated cross-reference points at the route the site really serves
   });
   it('collapses EVERY module index to its folder route (multi-entry TypeDoc)', () => {
     expect(rewriteLinks('[m](/api/mcp/index)')).toBe('[m](/api/mcp)');
-    expect(rewriteLinks('[l](/api/testing/lint/index#usage)')).toBe('[l](/api/testing/lint#usage)');
+    expect(rewriteLinks('[l](/api/testing/lint/index#usage)')).toBe(
+      '[l](/api/testing/lint#usage)',
+    );
   });
   it('never touches external links', () => {
-    const md = '[x](https://example.com/page.md) [y](https://example.com/api/index)';
+    const md =
+      '[x](https://example.com/page.md) [y](https://example.com/api/index)';
     expect(rewriteLinks(md)).toBe(md);
+  });
+});
+
+describe('generated action API signatures stay nameable', () => {
+  it('keeps defineAction options and structured registry rows out of anonymous object collapse', () => {
+    const defineActionPage = readFileSync(
+      new URL(
+        '../../docs-next/content/docs/api/index/functions/defineAction.md',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const registryPage = readFileSync(
+      new URL(
+        '../../docs-next/content/docs/api/index/classes/ActionRegistry.md',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+
+    expect(defineActionPage).toContain('DefineActionOptions');
+    expect(defineActionPage).not.toContain('`object` & `object`');
+    expect(registryPage).toContain('BindingRegistration');
+    expect(registryPage).not.toContain('bindingRegistrations**(): `object`[]');
   });
 });

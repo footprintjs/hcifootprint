@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   connectAction,
-  createActionBindingRuntime,
+  createActionRuntime,
   defineAction,
 } from '../src/index.js';
 import { watchPage } from '../src/sensor/index.js';
@@ -13,13 +13,13 @@ describe('connection-owned human reporting is exact to an element and binding', 
     const button = el('button', { text: 'Send' });
     surface.mount(button);
     const watch = watchPage(session, { root: surface });
-    const runtime = createActionBindingRuntime();
+    const runtime = createActionRuntime();
     let calls = 0;
-    const action = defineAction(
-      desk.send,
-      { does: 'Send the message', invocation: 'inputless' },
-      () => (calls += 1),
-    );
+    const action = defineAction(desk.send, {
+      does: 'Send the message',
+      invocation: 'inputless',
+      mutate: () => (calls += 1),
+    });
     const connection = connectAction(runtime, action, { node: 'inbox' });
     const projection = watch.projectBinding({
       binding: connection.binding,
@@ -50,12 +50,12 @@ describe('connection-owned human reporting is exact to an element and binding', 
     const sensorOwned = el('button', { text: 'Send' });
     surface.mount(connected, sensorOwned);
     const watch = watchPage(session, { root: surface });
-    const runtime = createActionBindingRuntime();
-    const action = defineAction(
-      desk.send,
-      { does: 'Send', invocation: 'inputless' },
-      () => undefined,
-    );
+    const runtime = createActionRuntime();
+    const action = defineAction(desk.send, {
+      does: 'Send',
+      invocation: 'inputless',
+      mutate: () => undefined,
+    });
     const connection = connectAction(runtime, action, { node: 'inbox' });
     watch.projectBinding({ binding: connection.binding, element: connected });
 
@@ -76,12 +76,12 @@ describe('connection-owned human reporting is exact to an element and binding', 
     const button = el('button', { children: [child] });
     surface.mount(button);
     const watch = watchPage(session, { root: surface });
-    const runtime = createActionBindingRuntime();
-    const action = defineAction(
-      desk.send,
-      { does: 'Send', invocation: 'inputless' },
-      () => undefined,
-    );
+    const runtime = createActionRuntime();
+    const action = defineAction(desk.send, {
+      does: 'Send',
+      invocation: 'inputless',
+      mutate: () => undefined,
+    });
     const firstConnection = connectAction(runtime, action, { node: 'inbox' });
     const secondConnection = connectAction(runtime, action, { node: 'inbox' });
     const first = watch.projectBinding({
@@ -109,12 +109,12 @@ describe('connection-owned human reporting is exact to an element and binding', 
     const button = el('button', { text: 'Send' });
     surface.mount(button);
     const watch = watchPage(session, { root: surface });
-    const runtime = createActionBindingRuntime();
-    const unrelated = defineAction(
-      'unrelated.action',
-      { does: 'Run another action', invocation: 'inputless' },
-      () => undefined,
-    );
+    const runtime = createActionRuntime();
+    const unrelated = defineAction('unrelated.action', {
+      does: 'Run another action',
+      invocation: 'inputless',
+      mutate: () => undefined,
+    });
     const connection = connectAction(runtime, unrelated, { node: 'inbox' });
     watch.projectBinding({ binding: connection.binding, element: button });
 
@@ -133,12 +133,12 @@ describe('connection-owned human reporting is exact to an element and binding', 
     const button = el('button', { text: 'Send' });
     surface.mount(button);
     const watch = watchPage(session, { root: surface });
-    const runtime = createActionBindingRuntime();
-    const action = defineAction(
-      desk.send,
-      { does: 'Send', invocation: 'inputless' },
-      () => undefined,
-    );
+    const runtime = createActionRuntime();
+    const action = defineAction(desk.send, {
+      does: 'Send',
+      invocation: 'inputless',
+      mutate: () => undefined,
+    });
     const connection = connectAction(runtime, action, { node: 'inbox' });
     const projection = { binding: connection.binding, element: button };
     const stale = watch.projectBinding(projection);

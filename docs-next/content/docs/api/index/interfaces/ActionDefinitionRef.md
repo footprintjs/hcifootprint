@@ -4,7 +4,7 @@ title: ActionDefinitionRef<Id>
 
 # Interface: ActionDefinitionRef\<Id\>
 
-Defined in: [src/action/types.ts:12](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L12)
+Defined in: [src/action/types.ts:20](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L20)
 
 What capability is this?
 
@@ -20,7 +20,7 @@ What capability is this?
 
 > `readonly` **definitionId**: `Id`
 
-Defined in: [src/action/types.ts:15](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L15)
+Defined in: [src/action/types.ts:23](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L23)
 
 Existing string identity, retained as the compatibility/display projection.
 
@@ -30,4 +30,4 @@ Existing string identity, retained as the compatibility/display projection.
 
 > `readonly` **kind**: `"action-definition"`
 
-Defined in: [src/action/types.ts:13](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L13)
+Defined in: [src/action/types.ts:21](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L21)

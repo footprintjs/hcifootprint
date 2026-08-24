@@ -1634,7 +1634,7 @@ frame, or null when none was open.
 
 ###### reason?
 
-`"completed"` \| `"cancelled"`
+`"cancelled"` \| `"completed"`
 
 #### Returns
 

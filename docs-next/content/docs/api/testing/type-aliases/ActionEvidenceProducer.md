@@ -6,7 +6,7 @@ title: ActionEvidenceProducer
 
 > **ActionEvidenceProducer** = \{ `definitionId?`: `string`; `keys`: readonly `string`[]; `kind`: `"state"`; `producerId`: `string`; `stages`: readonly [`ActionEvidenceStage`](/api/testing/type-aliases/ActionEvidenceStage)[]; \} \| \{ `definitionId?`: `string`; `kind`: `"navigation"`; `producerId`: `string`; \} \| \{ `definitionId?`: `string`; `kind`: `"external-effect"`; `producerId`: `string`; \}
 
-Defined in: [src/action/contracts.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L101)
+Defined in: [src/action/contracts.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L98)
 
 An authoritative application rail the checker may rely on.
 

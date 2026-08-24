@@ -8,27 +8,25 @@
     "src/testing/index.ts",
     "src/testing/lint.ts"
   ],
-  "plugin": [
-    "typedoc-plugin-markdown"
-  ],
+  "plugin": ["typedoc-plugin-markdown"],
   "readme": "none",
   "githubPages": false,
   "hideGenerator": true,
   "excludePrivate": true,
   "excludeProtected": true,
   "excludeInternal": true,
-  "exclude": [
-    "**/*.test.ts",
-    "test/**/*"
-  ],
+  "exclude": ["**/*.test.ts", "test/**/*"],
   "categorizeByGroup": true,
-  "sort": [
-    "alphabetical"
-  ],
+  "sort": ["alphabetical"],
   "skipErrorChecking": true,
   "intentionallyNotExported": [
     "ChildPaths",
-    "SourcePagePaths"
+    "SourcePagePaths",
+    "DeepReadonly",
+    "SettleWithProgress",
+    "InputlessMutation",
+    "ScalarProgressMutation",
+    "ScalarMutation"
   ],
   "externalSymbolLinkMappings": {
     "footprintjs": {

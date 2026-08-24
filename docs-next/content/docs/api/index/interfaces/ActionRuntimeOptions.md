@@ -1,10 +1,10 @@
 ---
-title: ActionBindingRuntimeOptions
+title: ActionRuntimeOptions
 ---
 
-# Interface: ActionBindingRuntimeOptions
+# Interface: ActionRuntimeOptions
 
-Defined in: [src/action/types.ts:488](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L488)
+Defined in: [src/action/types.ts:714](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L714)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/action/types.ts:488](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **contractActivation?**: [`ActionContractActivation`](/api/index/type-aliases/ActionContractActivation)
 
-Defined in: [src/action/types.ts:495](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L495)
+Defined in: [src/action/types.ts:721](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L721)
 
 `require-active` (default) rejects clauses this small runtime cannot
 enforce. Self-validating and adapter-supported input schemas are enforced;
@@ -25,6 +25,6 @@ unsupported formats are rejected in strict mode or disclosure-only when
 
 > `readonly` `optional` **inputSchemaAdapter?**: [`ActionInputSchemaAdapter`](/api/index/interfaces/ActionInputSchemaAdapter)
 
-Defined in: [src/action/types.ts:497](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L497)
+Defined in: [src/action/types.ts:723](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L723)
 
 Optional validator for schema formats that are otherwise disclosure-only.

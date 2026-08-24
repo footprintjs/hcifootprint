@@ -4,7 +4,7 @@ title: ActionBindingUpdate<Input>
 
 # Interface: ActionBindingUpdate\<Input\>
 
-Defined in: [src/action/types.ts:170](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L170)
+Defined in: [src/action/types.ts:287](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L287)
 
 Mutable committed facts for one stable connection identity.
 
@@ -24,7 +24,7 @@ Mutable committed facts for one stable connection identity.
 
 > `readonly` `optional` **busy?**: () => `string` \| `undefined`
 
-Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L178)
+Defined in: [src/action/types.ts:296](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L296)
 
 #### Returns
 
@@ -36,7 +36,7 @@ Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **coverage?**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L179)
+Defined in: [src/action/types.ts:297](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L297)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **enabled?**: () => `boolean` \| `undefined`
 
-Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L177)
+Defined in: [src/action/types.ts:295](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L295)
 
 #### Returns
 
@@ -56,7 +56,7 @@ Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: [src/action/types.ts:181](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L181)
+Defined in: [src/action/types.ts:299](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L299)
 
 ***
 
@@ -64,10 +64,11 @@ Defined in: [src/action/types.ts:181](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **input?**: () => `Input`
 
-Defined in: [src/action/types.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L176)
+Defined in: [src/action/types.ts:294](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L294)
 
 Live value reader. Direct connection invocation reads it at invocation;
-`available()` reads and retains it while minting an exact bound offer.
+a principal port's `offers()` reads and retains it while minting an exact
+bound offer.
 The definition-side payload shape is `inputSchema`.
 
 #### Returns
@@ -80,4 +81,4 @@ The definition-side payload shape is `inputSchema`.
 
 > `readonly` `optional` **locators?**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: [src/action/types.ts:180](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L180)
+Defined in: [src/action/types.ts:298](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L298)

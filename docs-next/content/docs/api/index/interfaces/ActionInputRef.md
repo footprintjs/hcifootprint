@@ -4,7 +4,7 @@ title: ActionInputRef<Source>
 
 # Interface: ActionInputRef\<Source\>
 
-Defined in: [src/action/types.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L46)
+Defined in: [src/action/types.ts:62](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L62)
 
 Auditable identity for one invocation payload without disclosing its value.
 A bound offer and every transition invoked from it carry the same ref.
@@ -13,7 +13,7 @@ A bound offer and every transition invoked from it carry the same ref.
 
 ### Source
 
-`Source` *extends* [`ActionInputSource`](/api/index/type-aliases/ActionInputSource) = [`ActionInputSource`](/api/index/type-aliases/ActionInputSource)
+`Source` *extends* `"bound"` \| `"caller"` = `"bound"` \| `"caller"`
 
 ## Properties
 
@@ -21,7 +21,7 @@ A bound offer and every transition invoked from it carry the same ref.
 
 > `readonly` **inputId**: `string`
 
-Defined in: [src/action/types.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L50)
+Defined in: [src/action/types.ts:66](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L66)
 
 ***
 
@@ -29,7 +29,7 @@ Defined in: [src/action/types.ts:50](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **kind**: `"action-input"`
 
-Defined in: [src/action/types.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L49)
+Defined in: [src/action/types.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L65)
 
 ***
 
@@ -37,4 +37,4 @@ Defined in: [src/action/types.ts:49](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **source**: `Source`
 
-Defined in: [src/action/types.ts:51](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L51)
+Defined in: [src/action/types.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L67)

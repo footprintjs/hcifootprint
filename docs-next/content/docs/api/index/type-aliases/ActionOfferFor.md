@@ -1,12 +1,12 @@
 ---
-title: ActionOfferFor<F, Id, Mode>
+title: ActionOfferFor<F, Id, Mode, P>
 ---
 
-# Type Alias: ActionOfferFor\<F, Id, Mode\>
+# Type Alias: ActionOfferFor\<F, Id, Mode, P\>
 
-> **ActionOfferFor**\<`F`, `Id`, `Mode`\> = `Mode` *extends* `"host"` ? `never` : `Mode` *extends* `"inputless"` ? [`InputlessActionOffer`](/api/index/interfaces/InputlessActionOffer)\<`Id`, `F`\> : `Mode` *extends* `"scalar"` ? [`BoundActionOffer`](/api/index/interfaces/BoundActionOffer)\<`Id`, `F`\> \| [`OpenActionOffer`](/api/index/interfaces/OpenActionOffer)\<`Id`, `F`\> : `never`
+> **ActionOfferFor**\<`F`, `Id`, `Mode`, `P`\> = `Mode` *extends* `"host"` ? `never` : `Mode` *extends* `"inputless"` ? [`InputlessActionOffer`](/api/index/interfaces/InputlessActionOffer)\<`Id`, `F`, `P`\> : `Mode` *extends* `"scalar"` ? [`BoundActionOffer`](/api/index/interfaces/BoundActionOffer)\<`Id`, `F`, `P`\> \| [`OpenActionOffer`](/api/index/interfaces/OpenActionOffer)\<`Id`, `F`, `P`\> : `never`
 
-Defined in: [src/action/types.ts:373](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L373)
+Defined in: [src/action/types.ts:596](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L596)
 
 Offers possible for one known callable signature.
 
@@ -23,3 +23,7 @@ Offers possible for one known callable signature.
 ### Mode
 
 `Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode) = [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
+### P
+
+`P` *extends* [`Principal`](/api/index/type-aliases/Principal) = [`Principal`](/api/index/type-aliases/Principal)

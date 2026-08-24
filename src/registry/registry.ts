@@ -21,13 +21,14 @@
  *   in the declared spec — the prompt-injection firewall).
  */
 
-import type { Binding } from "../atom/types.js";
+import type { Binding } from '../atom/types.js';
 import type {
   ActionBindingRef,
+  ActionDefinitionRef,
   BindingCoverage,
   HumanReporting,
-} from "../action/types.js";
-import { assertBindingCoverage } from "../action/coverage.js";
+} from '../action/types.js';
+import { assertBindingCoverage } from '../action/coverage.js';
 
 export type ActionHandler = (payload?: unknown) => unknown | Promise<unknown>;
 
@@ -56,7 +57,9 @@ export interface Registration {
   binding?: ActionBindingRef;
 }
 
-/** One registration whose structured binding identity is known. */
+/**
+ * One registration whose structured binding identity is known.
+ */
 export interface BindingRegistration extends Registration {
   binding: ActionBindingRef;
   coverage: BindingCoverage;
@@ -70,6 +73,7 @@ export interface BindingRegistration extends Registration {
   revision: number;
 }
 
+/** @inline */
 export interface BindingRegistrationOptions {
   coverage?: BindingCoverage;
   attached?: boolean;
@@ -132,7 +136,9 @@ export class ActionRegistry {
   ): void {
     const existingToken = this.#activeByAffordance.get(affordanceId);
     const existing =
-      existingToken === undefined ? undefined : this.#byToken.get(existingToken);
+      existingToken === undefined
+        ? undefined
+        : this.#byToken.get(existingToken);
     if (existing) {
       this.#warn(
         `hcifootprint: '${affordanceId}' re-registered by group '${group}' (previously '${existing.group}') — ` +
@@ -176,10 +182,10 @@ export class ActionRegistry {
     const token = binding.bindingId;
     if (!token) {
       throw new TypeError(
-        "hcifootprint: a structured action binding needs a non-empty bindingId.",
+        'hcifootprint: a structured action binding needs a non-empty bindingId.',
       );
     }
-    const coverage = options.coverage ?? "executable";
+    const coverage = options.coverage ?? 'executable';
     assertBindingCoverage(coverage, `binding '${token}'`);
     const existing = this.#byToken.get(token);
     if (existing !== undefined) {
@@ -312,16 +318,12 @@ export class ActionRegistry {
   }
 
   /** Resolve the handler for one exact structured binding. */
-  handlerForBinding(
-    binding: ActionBindingRef | string,
-  ): ActionHandler | undefined {
+  handlerForBinding(binding: ActionBindingRef): ActionHandler | undefined {
     return this.#bindingEntry(binding)?.handler;
   }
 
   /** A copy of one exact structured registration, or nothing once disconnected. */
-  registrationFor(
-    binding: ActionBindingRef | string,
-  ): BindingRegistration | undefined {
+  registrationFor(binding: ActionBindingRef): BindingRegistration | undefined {
     const entry = this.#bindingEntry(binding);
     if (entry?.binding === undefined) return undefined;
     const { token: _token, ...registration } = entry;
@@ -329,11 +331,11 @@ export class ActionRegistry {
   }
 
   /** Every live binding of one definition, in connection order. */
-  bindingsFor(definitionId: string): BindingRegistration[] {
+  bindingsFor(definition: ActionDefinitionRef): BindingRegistration[] {
     const rows: BindingRegistration[] = [];
     for (const entry of this.#byToken.values()) {
       if (
-        entry.binding?.definition.definitionId !== definitionId ||
+        entry.binding?.definition !== definition ||
         entry.binding === undefined
       ) {
         continue;
@@ -348,10 +350,7 @@ export class ActionRegistry {
   }
 
   /** Flip enabledness on one binding without changing any sibling. */
-  setBindingEnabled(
-    binding: ActionBindingRef | string,
-    enabled: boolean,
-  ): boolean {
+  setBindingEnabled(binding: ActionBindingRef, enabled: boolean): boolean {
     const entry = this.#bindingEntry(binding);
     if (entry === undefined || entry.enabled === enabled) return false;
     entry.enabled = enabled;
@@ -360,10 +359,7 @@ export class ActionRegistry {
   }
 
   /** Set or clear the busy label on one binding without changing any sibling. */
-  setBindingBusy(
-    binding: ActionBindingRef | string,
-    busy: string | undefined,
-  ): boolean {
+  setBindingBusy(binding: ActionBindingRef, busy: string | undefined): boolean {
     const entry = this.#bindingEntry(binding);
     if (entry === undefined || entry.busy === busy) return false;
     if (busy === undefined) delete entry.busy;
@@ -374,14 +370,17 @@ export class ActionRegistry {
 
   /** Replace committed facts for one stable binding identity. */
   updateBinding(
-    binding: ActionBindingRef | string,
+    binding: ActionBindingRef,
     update: BindingRegistrationUpdate,
   ): boolean {
     const entry = this.#bindingEntry(binding);
     if (entry?.binding === undefined) return false;
     let changed = false;
     if (update.coverage !== undefined) {
-      assertBindingCoverage(update.coverage, `binding '${entry.binding.bindingId}'`);
+      assertBindingCoverage(
+        update.coverage,
+        `binding '${entry.binding.bindingId}'`,
+      );
       if (entry.coverage !== update.coverage) {
         entry.coverage = update.coverage;
         changed = true;
@@ -395,28 +394,28 @@ export class ActionRegistry {
       entry.locators = update.locators;
       changed = true;
     }
-    if ("humanReporting" in update) {
+    if ('humanReporting' in update) {
       if (entry.humanReporting !== update.humanReporting) {
         if (update.humanReporting === undefined) delete entry.humanReporting;
         else entry.humanReporting = update.humanReporting;
         changed = true;
       }
     }
-    if ("input" in update) {
+    if ('input' in update) {
       if (entry.input !== update.input) {
         if (update.input === undefined) delete entry.input;
         else entry.input = update.input;
         changed = true;
       }
     }
-    if ("readEnabled" in update) {
+    if ('readEnabled' in update) {
       if (entry.readEnabled !== update.readEnabled) {
         if (update.readEnabled === undefined) delete entry.readEnabled;
         else entry.readEnabled = update.readEnabled;
         changed = true;
       }
     }
-    if ("readBusy" in update) {
+    if ('readBusy' in update) {
       if (entry.readBusy !== update.readBusy) {
         if (update.readBusy === undefined) delete entry.readBusy;
         else entry.readBusy = update.readBusy;
@@ -428,7 +427,7 @@ export class ActionRegistry {
   }
 
   /** Mark an attachment-host replacement whose public facts are otherwise equal. */
-  touchBinding(binding: ActionBindingRef | string): boolean {
+  touchBinding(binding: ActionBindingRef): boolean {
     const entry = this.#bindingEntry(binding);
     if (entry?.binding === undefined) return false;
     entry.revision = (entry.revision ?? 0) + 1;
@@ -436,7 +435,7 @@ export class ActionRegistry {
   }
 
   /** Disconnect one exact binding. Idempotent. */
-  unregisterBinding(binding: ActionBindingRef | string): boolean {
+  unregisterBinding(binding: ActionBindingRef): boolean {
     const entry = this.#bindingEntry(binding);
     if (entry?.binding === undefined) return false;
     const token = entry.binding.bindingId;
@@ -447,15 +446,10 @@ export class ActionRegistry {
     return true;
   }
 
-  #bindingEntry(
-    binding: ActionBindingRef | string,
-  ): RegistryEntry | undefined {
-    const token = typeof binding === "string" ? binding : binding.bindingId;
-    const entry = this.#byToken.get(token);
+  #bindingEntry(binding: ActionBindingRef): RegistryEntry | undefined {
+    const entry = this.#byToken.get(binding.bindingId);
     if (entry?.binding === undefined) return undefined;
-    if (typeof binding !== "string" && entry.binding !== binding) {
-      return undefined;
-    }
+    if (entry.binding !== binding) return undefined;
     return entry;
   }
 

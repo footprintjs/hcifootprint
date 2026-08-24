@@ -6,6 +6,6 @@ title: ActionContractActivation
 
 > **ActionContractActivation** = `"require-active"` \| `"disclosure"`
 
-Defined in: [src/action/types.ts:461](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L461)
+Defined in: [src/action/types.ts:687](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L687)
 
 How the framework-neutral runtime treats enforceable authored clauses.

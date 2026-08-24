@@ -10,7 +10,7 @@ import {
 } from '../src/action/host-adapter.js';
 import {
   connectAction,
-  createActionBindingRuntime,
+  createActionRuntime,
   defineAction,
 } from '../src/index.js';
 
@@ -20,19 +20,26 @@ interface PressEvent {
 
 describe('framework-neutral action host adapters', () => {
   it('joins a composed host listener to one protocol invocation without executing the definition twice', async () => {
-    const runtime = createActionBindingRuntime();
+    const runtime = createActionRuntime();
     let calls = 0;
-    const action = defineAction(
-      'orders.archive',
-      { does: 'Archive the order', invocation: 'host' },
-      function (this: { prefix: string }, orderId: string) {
+    const action = defineAction('orders.archive', {
+      does: 'Archive the order',
+      invocation: 'host',
+      mutate: function (
+        this: {
+          prefix: string;
+        },
+        orderId: string,
+      ) {
         calls += 1;
         return `${this.prefix}:${orderId}`;
       },
-    );
+    });
     const connection = connectAction(runtime, action, { node: 'orders' });
     const receiver = { prefix: 'archived' };
-    let invocation: ReturnType<typeof connection.invokeContinuation> | undefined;
+    let invocation:
+      | ReturnType<typeof connection.invokeContinuation>
+      | undefined;
     const composed = composeActionInvocation(
       action,
       function (proceed, orderId) {
@@ -60,6 +67,43 @@ describe('framework-neutral action host adapters', () => {
       status: 'performed',
       produced: 'archived:o-57',
     });
+  });
+
+  it('keeps mutation progress and lifecycle arguments out of host continuations', async () => {
+    const runtime = createActionRuntime();
+    let mutationCalls = 0;
+    const action = defineAction('orders.host-progress-boundary', {
+      does: 'Record an occurrence without changing its host callback',
+      invocation: 'inputless',
+      settle: {
+        progress: { stages: ['started'], required: true },
+      },
+      mutate: (lifecycle) => {
+        mutationCalls += 1;
+        lifecycle?.reportProgress('started');
+        return 'mutation';
+      },
+    });
+    const connection = connectAction(runtime, action, { node: 'orders' });
+    let receivedArguments = -1;
+
+    const invocation = connection.invokeContinuation(function () {
+      receivedArguments = arguments.length;
+      return 'host';
+    });
+
+    await expect(invocation.whenInvoked).resolves.toMatchObject({
+      status: 'performed',
+      produced: 'host',
+    });
+    expect(invocation.behavior).toBe('host-continuation');
+    expect(invocation.input).toEqual({ source: 'host', provided: false });
+    expect(invocation.progress).toBeUndefined();
+    expect(
+      runtime.transitionFor(invocation.transition)?.progress,
+    ).toBeUndefined();
+    expect(receivedArguments).toBe(0);
+    expect(mutationCalls).toBe(0);
   });
 
   it('composes one invocation around one existing listener without changing its JavaScript behavior', () => {
@@ -204,11 +248,9 @@ describe('framework-neutral action host adapters', () => {
         return 'semantic';
       },
     };
-    const invoke: ActionInvocationMiddleware<
-      unknown,
-      [PressEvent],
-      object
-    > = (proceed) => proceed();
+    const invoke: ActionInvocationMiddleware<unknown, [PressEvent], object> = (
+      proceed,
+    ) => proceed();
 
     const rendered = adapter.composeInvocation(props, invoke);
     expect(resolveCalls).toBe(0);
@@ -287,11 +329,7 @@ describe('framework-neutral action host adapters', () => {
       name: 'Save',
       onClick: () => undefined,
     };
-    const adapter: ActionHostAdapter<
-      Props,
-      typeof host,
-      typeof interactive
-    > = {
+    const adapter: ActionHostAdapter<Props, typeof host, typeof interactive> = {
       composeInvocation(current) {
         return current;
       },
@@ -360,9 +398,7 @@ describe('framework-neutral action host adapters', () => {
       },
       get interactive() {
         interactiveReads += 1;
-        return interactiveReads === 1
-          ? firstInteractive
-          : secondInteractive;
+        return interactiveReads === 1 ? firstInteractive : secondInteractive;
       },
       get valueElement() {
         valueReads += 1;
@@ -403,7 +439,9 @@ describe('framework-neutral action host adapters', () => {
           kind: 'unresolved' as const,
           get reason() {
             reasonReads += 1;
-            return reasonReads === 1 ? 'absent' as const : 'ambiguous' as const;
+            return reasonReads === 1
+              ? ('absent' as const)
+              : ('ambiguous' as const);
           },
         }),
       },
@@ -428,20 +466,18 @@ describe('framework-neutral action host adapters', () => {
       );
 
     expect(() => resolveWith(null)).toThrow(/resolution record/);
-    expect(() =>
-      resolveWith({ kind: 'unresolved', reason: 'maybe' }),
-    ).toThrow(/invalid unresolved action host reason/);
+    expect(() => resolveWith({ kind: 'unresolved', reason: 'maybe' })).toThrow(
+      /invalid unresolved action host reason/,
+    );
     expect(() => resolveWith({ kind: 'mystery' })).toThrow(
       /invalid action host resolution kind/,
     );
-    expect(() =>
-      resolveWith({ kind: 'resolved', interactive: null }),
-    ).toThrow(/needs one interactive object/);
+    expect(() => resolveWith({ kind: 'resolved', interactive: null })).toThrow(
+      /needs one interactive object/,
+    );
 
     const adapter = (
-      facts: Partial<
-        ActionHostAdapter<{}, typeof host, typeof interactive>
-      >,
+      facts: Partial<ActionHostAdapter<{}, typeof host, typeof interactive>>,
     ): ActionHostAdapter<{}, typeof host, typeof interactive> => ({
       composeInvocation: (props) => props,
       resolve: () => ({ kind: 'resolved', interactive }),
@@ -455,11 +491,7 @@ describe('framework-neutral action host adapters', () => {
       ),
     ).toThrow(/enabled reader/);
     expect(() =>
-      resolveActionHost(
-        adapter({ readBusy: () => 1 as never }),
-        {},
-        host,
-      ),
+      resolveActionHost(adapter({ readBusy: () => 1 as never }), {}, host),
     ).toThrow(/busy reader/);
     expect(() =>
       resolveActionHost(

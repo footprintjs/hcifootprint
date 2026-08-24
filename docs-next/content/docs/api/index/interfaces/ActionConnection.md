@@ -4,7 +4,7 @@ title: ActionConnection<F, Id, HasInputReader, Mode>
 
 # Interface: ActionConnection\<F, Id, HasInputReader, Mode\>
 
-Defined in: [src/action/types.ts:419](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L419)
+Defined in: [src/action/types.ts:645](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L645)
 
 ## Type Parameters
 
@@ -30,7 +30,7 @@ Defined in: [src/action/types.ts:419](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:426](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L426)
+Defined in: [src/action/types.ts:652](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L652)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/action/types.ts:426](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:425](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L425)
+Defined in: [src/action/types.ts:651](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L651)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [src/action/types.ts:425](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **invoke**: [`ActionInvoke`](/api/index/type-aliases/ActionInvoke)\<`F`, `Id`, `HasInputReader`, `Mode`\>
 
-Defined in: [src/action/types.ts:444](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L444)
+Defined in: [src/action/types.ts:670](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L670)
 
 ## Methods
 
@@ -54,7 +54,7 @@ Defined in: [src/action/types.ts:444](https://github.com/footprintjs/hcifootprin
 
 > **attach**(`projection`): [`ActionAttachment`](/api/index/interfaces/ActionAttachment)
 
-Defined in: [src/action/types.ts:427](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L427)
+Defined in: [src/action/types.ts:653](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L653)
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: [src/action/types.ts:427](https://github.com/footprintjs/hcifootprin
 
 > **disconnect**(): `void`
 
-Defined in: [src/action/types.ts:457](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L457)
+Defined in: [src/action/types.ts:683](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L683)
 
 #### Returns
 
@@ -82,23 +82,29 @@ Defined in: [src/action/types.ts:457](https://github.com/footprintjs/hcifootprin
 
 ### invokeContinuation()
 
-> **invokeContinuation**(`continuation`): [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`\>
+> **invokeContinuation**\<`HostResult`\>(`continuation`): [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`HostResult`\>, `Id`, `"host-continuation"`\>
 
-Defined in: [src/action/types.ts:450](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L450)
+Defined in: [src/action/types.ts:676](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L676)
 
 Open an invocation around a host listener continuation. The definition's
 implementation is not also called: the continuation is this occurrence's
 exact application behavior, so listener composition remains one act.
 
+#### Type Parameters
+
+##### HostResult
+
+`HostResult`
+
 #### Parameters
 
 ##### continuation
 
-() => `ReturnType`\<`F`\>
+() => `HostResult`
 
 #### Returns
 
-[`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`\>
+[`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`HostResult`\>, `Id`, `"host-continuation"`\>
 
 ***
 
@@ -106,7 +112,7 @@ exact application behavior, so listener composition remains one act.
 
 > **settle**(`transition`, `settlement`): [`ActionEffectSettlement`](/api/index/type-aliases/ActionEffectSettlement)\<`Id`\>
 
-Defined in: [src/action/types.ts:453](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L453)
+Defined in: [src/action/types.ts:679](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L679)
 
 #### Parameters
 
@@ -128,7 +134,7 @@ Defined in: [src/action/types.ts:453](https://github.com/footprintjs/hcifootprin
 
 > **touch**(): `void`
 
-Defined in: [src/action/types.ts:443](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L443)
+Defined in: [src/action/types.ts:669](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L669)
 
 Publish a new committed fact generation when stable readers changed meaning.
 
@@ -140,15 +146,21 @@ Publish a new committed fact generation when stable readers changed meaning.
 
 ### update()
 
-> **update**(`update`): `void`
+> **update**\<`Update`\>(`update`): `void`
 
-Defined in: [src/action/types.ts:428](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L428)
+Defined in: [src/action/types.ts:654](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L654)
+
+#### Type Parameters
+
+##### Update
+
+`Update` *extends* [`ActionBindingUpdate`](/api/index/interfaces/ActionBindingUpdate)\<`Parameters`\<`F`\> *extends* \[\] ? `undefined` : `Parameters`\<`F`\>\[`0`\]\>
 
 #### Parameters
 
 ##### update
 
-`HasInputReader` *extends* `true` ? [`ActionBindingUpdate`](/api/index/interfaces/ActionBindingUpdate)\<`Parameters`\<`F`\> *extends* \[\] ? `undefined` : `Parameters`\<`F`\>\[`0`\]\> : `Omit`\<[`ActionBindingUpdate`](/api/index/interfaces/ActionBindingUpdate)\<`Parameters`\<`F`\> *extends* \[\] ? `undefined` : `Parameters`\<`F`\>\[`0`\]\>, `"input"`\> & `object`
+`Update` & `HasInputReader` *extends* `true` ? `Update` *extends* `object` ? `never` : `unknown` : `"input"` *extends* keyof `Update` ? `never` : `unknown`
 
 #### Returns
 

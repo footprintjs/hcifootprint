@@ -1,10 +1,10 @@
 ---
-title: BoundActionOffer<Id, F>
+title: BoundActionOffer<Id, F, P>
 ---
 
-# Interface: BoundActionOffer\<Id, F\>
+# Interface: BoundActionOffer\<Id, F, P\>
 
-Defined in: [src/action/types.ts:302](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L302)
+Defined in: [src/action/types.ts:521](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L521)
 
 An offer whose invocation payload was captured from its live binding.
 
@@ -18,13 +18,17 @@ An offer whose invocation payload was captured from its live binding.
 
 `F` *extends* (...`args`) => `any` = (...`args`) => `any`
 
+### P
+
+`P` *extends* [`Principal`](/api/index/type-aliases/Principal) = [`Principal`](/api/index/type-aliases/Principal)
+
 ## Properties
 
 ### contractActivation
 
 > `readonly` **contractActivation**: [`ActionContractActivation`](/api/index/type-aliases/ActionContractActivation)
 
-Defined in: [src/action/types.ts:314](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L314)
+Defined in: [src/action/types.ts:534](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L534)
 
 Whether enforceable clauses were active or carried only for disclosure.
 
@@ -34,7 +38,7 @@ Whether enforceable clauses were active or carried only for disclosure.
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:312](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L312)
+Defined in: [src/action/types.ts:532](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L532)
 
 ***
 
@@ -42,7 +46,7 @@ Defined in: [src/action/types.ts:312](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **definition**: [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`, `"scalar"`\>
 
-Defined in: [src/action/types.ts:310](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L310)
+Defined in: [src/action/types.ts:530](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L530)
 
 Immutable authored meaning and payload schema for an in-process consumer.
 
@@ -52,7 +56,7 @@ Immutable authored meaning and payload schema for an in-process consumer.
 
 > `readonly` **input**: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"bound"`\>
 
-Defined in: [src/action/types.ts:317](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L317)
+Defined in: [src/action/types.ts:537](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L537)
 
 ***
 
@@ -60,15 +64,15 @@ Defined in: [src/action/types.ts:317](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **inputMode**: `"bound"`
 
-Defined in: [src/action/types.ts:316](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L316)
+Defined in: [src/action/types.ts:536](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L536)
 
 ***
 
 ### inputValidation
 
-> `readonly` **inputValidation**: [`ActionInputValidationDisposition`](/api/index/type-aliases/ActionInputValidationDisposition)
+> `readonly` **inputValidation**: `"disclosure"` \| `"not-declared"` \| `"active"`
 
-Defined in: [src/action/types.ts:315](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L315)
+Defined in: [src/action/types.ts:535](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L535)
 
 ***
 
@@ -76,15 +80,15 @@ Defined in: [src/action/types.ts:315](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **locators**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: [src/action/types.ts:311](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L311)
+Defined in: [src/action/types.ts:531](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L531)
 
 ***
 
 ### ref
 
-> `readonly` **ref**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`\> & `object`
+> `readonly` **ref**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`, `P`\> & `object`
 
-Defined in: [src/action/types.ts:306](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L306)
+Defined in: [src/action/types.ts:526](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L526)
 
 #### Type Declaration
 

@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  actionDefinitionOf,
   connectAction,
-  createActionBindingRuntime,
+  createActionRuntime,
   defineAction,
 } from '../src/index.js';
 import type {
   ActionAttachment,
   ActionBindingRef,
-  ActionBindingRuntime,
+  ActionRuntime,
   ActionConnection,
   ActionInvocation,
   ConnectActionOptions,
@@ -51,7 +52,7 @@ type OutputOf<F extends (input: any) => any> = Awaited<ReturnType<F>>;
  * commit supplies the latest signal readers and an already-resolved projection.
  */
 class AngularActionDirectiveLike<F extends (input: any) => any> {
-  readonly #runtime: ActionBindingRuntime;
+  readonly #runtime: ActionRuntime;
   readonly #definition: DefinedAction<F>;
   readonly #node: string;
   readonly #channel: InvocationChannel;
@@ -63,7 +64,7 @@ class AngularActionDirectiveLike<F extends (input: any) => any> {
   #destroyed = false;
 
   constructor(options: {
-    runtime: ActionBindingRuntime;
+    runtime: ActionRuntime;
     definition: DefinedAction<F>;
     node: string;
     destroyRef: DestroyRefLike;
@@ -97,7 +98,7 @@ class AngularActionDirectiveLike<F extends (input: any) => any> {
       // express an exact non-empty parameter tuple because TypeScript permits a
       // zero-argument function where a one-argument callback is expected.
       const connectInputAction = connectAction as (
-        runtime: ActionBindingRuntime,
+        runtime: ActionRuntime,
         definition: DefinedAction<F>,
         options: ConnectActionOptions<InputOf<F>> & {
           readonly input: SignalLike<InputOf<F>>;
@@ -168,9 +169,7 @@ class AngularActionDirectiveLike<F extends (input: any) => any> {
   }
 }
 
-function resolveInteractive(
-  ref: ElementRefLike<object>,
-): object | undefined {
+function resolveInteractive(ref: ElementRefLike<object>): object | undefined {
   const host = ref.nativeElement;
   if (host === null || host === undefined) return undefined;
   if ('interactive' in host) {
@@ -205,12 +204,12 @@ class FakeZone implements ZoneRunnerLike {
 describe('structural Angular action binding', () => {
   it('stays inert while unresolved, unwraps a committed host, and reads current signals', async () => {
     const seen: string[] = [];
-    const action = defineAction(
-      'angular.save',
-      { does: 'Save the draft', invocation: 'scalar' },
-      ({ value }: { value: string }) => seen.push(value),
-    );
-    const runtime = createActionBindingRuntime();
+    const action = defineAction('angular.save', {
+      does: 'Save the draft',
+      invocation: 'scalar',
+      mutate: ({ value }: { value: string }) => seen.push(value),
+    });
+    const runtime = createActionRuntime();
     const destroyRef = new FakeDestroyRef();
     const directive = new AngularActionDirectiveLike({
       runtime,
@@ -238,7 +237,7 @@ describe('structural Angular action binding', () => {
       enabled: true,
       busy: 'hydrating',
     });
-    expect(runtime.available()).toEqual([]);
+    expect(runtime.forPrincipal('system').offers()).toEqual([]);
     expect(directive.onNativeEvent()).toBeUndefined();
     expect(seen).toEqual([]);
 
@@ -280,12 +279,12 @@ describe('structural Angular action binding', () => {
 
   it('chooses exactly one event channel and invokes once with or without a zone runner', async () => {
     const calls: string[] = [];
-    const action = defineAction(
-      'angular.submit',
-      { does: 'Submit the form', invocation: 'scalar' },
-      ({ source }: { source: string }) => calls.push(source),
-    );
-    const runtime = createActionBindingRuntime();
+    const action = defineAction('angular.submit', {
+      does: 'Submit the form',
+      invocation: 'scalar',
+      mutate: ({ source }: { source: string }) => calls.push(source),
+    });
+    const runtime = createActionRuntime();
     const nativeDestroy = new FakeDestroyRef();
     const outputDestroy = new FakeDestroyRef();
     const zone = new FakeZone();
@@ -332,15 +331,15 @@ describe('structural Angular action binding', () => {
     const pending = new Promise<string>((resolve) => {
       release = resolve;
     });
-    const action = defineAction(
-      'angular.export',
-      { does: 'Export the report', invocation: 'scalar' },
-      (_input: { format: string }) => {
+    const action = defineAction('angular.export', {
+      does: 'Export the report',
+      invocation: 'scalar',
+      mutate: (_input: { format: string }) => {
         calls += 1;
         return pending;
       },
-    );
-    const runtime = createActionBindingRuntime();
+    });
+    const runtime = createActionRuntime();
     const destroyRef = new FakeDestroyRef();
     const directive = new AngularActionDirectiveLike({
       runtime,
@@ -374,13 +373,13 @@ describe('structural Angular action binding', () => {
 
   it('keeps directive trees on separate runtimes isolated', async () => {
     const calls: string[] = [];
-    const action = defineAction(
-      'angular.isolated',
-      { does: 'Run in this application root', invocation: 'scalar' },
-      ({ root }: { root: string }) => calls.push(root),
-    );
-    const firstRuntime = createActionBindingRuntime();
-    const secondRuntime = createActionBindingRuntime();
+    const action = defineAction('angular.isolated', {
+      does: 'Run in this application root',
+      invocation: 'scalar',
+      mutate: ({ root }: { root: string }) => calls.push(root),
+    });
+    const firstRuntime = createActionRuntime();
+    const secondRuntime = createActionRuntime();
     const firstDestroy = new FakeDestroyRef();
     const secondDestroy = new FakeDestroyRef();
     const first = new AngularActionDirectiveLike({
@@ -406,20 +405,25 @@ describe('structural Angular action binding', () => {
       { input: () => ({ root: 'second' }) },
     );
 
-    expect(firstRuntime.bindings('angular.isolated')).toHaveLength(1);
-    expect(secondRuntime.bindings('angular.isolated')).toHaveLength(1);
+    const definition = actionDefinitionOf(action)!.ref;
+    expect(firstRuntime.bindings(definition)).toHaveLength(1);
+    expect(secondRuntime.bindings(definition)).toHaveLength(1);
     const firstInvocation = first.onNativeEvent()!;
     const secondInvocation = second.onNativeEvent()!;
     await Promise.all([
       firstInvocation.whenInvoked,
       secondInvocation.whenInvoked,
     ]);
-    expect(firstRuntime.transitionFor(secondInvocation.transition)).toBeUndefined();
-    expect(secondRuntime.transitionFor(firstInvocation.transition)).toBeUndefined();
+    expect(
+      firstRuntime.transitionFor(secondInvocation.transition),
+    ).toBeUndefined();
+    expect(
+      secondRuntime.transitionFor(firstInvocation.transition),
+    ).toBeUndefined();
 
     firstDestroy.destroy();
     expect(firstRuntime.bindings()).toEqual([]);
-    expect(secondRuntime.bindings('angular.isolated')).toHaveLength(1);
+    expect(secondRuntime.bindings(definition)).toHaveLength(1);
     await second.onNativeEvent()!.whenInvoked;
     expect(calls).toEqual(['first', 'second', 'second']);
     secondDestroy.destroy();

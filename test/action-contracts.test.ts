@@ -42,9 +42,7 @@ function binding(
     bindingId: options?.bindingId ?? 'binding#1',
     definition,
     node: 'orders',
-    ...(options?.instance !== undefined
-      ? { instance: options.instance }
-      : {}),
+    ...(options?.instance !== undefined ? { instance: options.instance } : {}),
   };
   return {
     ref,
@@ -69,8 +67,7 @@ function environment(
       complete: true,
       principalEnforcement: true,
       humanApprovalGate: true,
-      concurrencyEnforcement: true,
-      highEffectVerification: false,
+      predicateVerification: true,
     },
     bindings: { complete: true, rows: [] },
     evidence: { complete: true, producers: [] },
@@ -84,8 +81,7 @@ function result(
   kind: ActionContractKind,
 ) {
   const found = report.contracts.find(
-    (row) =>
-      row.definition.definitionId === definitionId && row.kind === kind,
+    (row) => row.definition.definitionId === definitionId && row.kind === kind,
   );
   expect(found).toBeDefined();
   return found!;
@@ -101,7 +97,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
     const action = declaration('orders.archive', {
       does: 'Archive the order',
       invocation: 'inputless',
-      principalPolicy: { mayInvoke: ['human'] },
+      principal: { mayInvoke: ['human'] },
     });
 
     const inert = checkActionContracts(
@@ -111,27 +107,26 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
           complete: true,
           principalEnforcement: false,
           humanApprovalGate: true,
-          concurrencyEnforcement: true,
-          highEffectVerification: false,
+          predicateVerification: true,
         },
       }),
     );
-    expect(result(inert, 'orders.archive', 'principal-may-invoke')).toMatchObject(
-      {
-        disposition: 'inert',
-        reason: 'principal-enforcement-disabled',
-      },
-    );
+    expect(
+      result(inert, 'orders.archive', 'principal-may-invoke'),
+    ).toMatchObject({
+      disposition: 'inert',
+      reason: 'principal-enforcement-disabled',
+    });
     expect(inert.ok).toBe(false);
     expect(inert.conclusive).toBe(true);
 
     const active = checkActionContracts([action], environment());
-    expect(result(active, 'orders.archive', 'principal-may-invoke')).toMatchObject(
-      {
-        disposition: 'active',
-        reason: 'principal-enforcement-active',
-      },
-    );
+    expect(
+      result(active, 'orders.archive', 'principal-may-invoke'),
+    ).toMatchObject({
+      disposition: 'active',
+      reason: 'principal-enforcement-active',
+    });
     expect(active.ok).toBe(true);
   });
 
@@ -139,7 +134,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
     const action = declaration('orders.transfer', {
       does: 'Transfer the balance',
       invocation: 'inputless',
-      principalPolicy: {
+      principal: {
         decisionOwner: 'human',
         requiresHumanApproval: true,
       },
@@ -151,8 +146,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
           complete: true,
           principalEnforcement: true,
           humanApprovalGate: false,
-          concurrencyEnforcement: true,
-          highEffectVerification: false,
+          predicateVerification: true,
         },
       }),
     );
@@ -183,8 +177,8 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
     const action = declaration('draft.save', {
       does: 'Save the draft',
       invocation: 'inputless',
-      enabledWhen: { ready: { eq: true } },
-      verify: { saved: { eq: true } },
+      guard: { enabledWhen: { ready: { eq: true } } },
+      settle: { verify: { saved: { eq: true } } },
     });
 
     const missing = checkActionContracts([action], environment());
@@ -242,66 +236,80 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
     expect(result(active, 'draft.save', 'verify').disposition).toBe('active');
   });
 
-  it('marks instance-scoped concurrency inert without binding identity', () => {
-    const action = declaration('orders.archive', {
-      does: 'Archive the order',
+  it('checks guard.when against availability evidence even without enabledWhen', () => {
+    const action = declaration('orders.list', {
+      does: 'Show the order list',
       invocation: 'inputless',
-      concurrency: { mode: 'single-flight', scope: 'instance' },
+      guard: { when: { page: { eq: 'orders' } } },
     });
 
-    const withoutInstance = checkActionContracts(
-      [action],
-      environment({
-        bindings: {
-          complete: true,
-          rows: [binding(action.ref)],
-        },
-      }),
-    );
-    expect(result(withoutInstance, 'orders.archive', 'concurrency')).toMatchObject(
-      {
-        disposition: 'inert',
-        reason: 'instance-binding-missing',
-      },
-    );
+    const missing = checkActionContracts([action], environment());
+    expect(result(missing, 'orders.list', 'guard-when')).toMatchObject({
+      disposition: 'inert',
+      reason: 'evidence-producer-missing',
+      keys: ['page'],
+    });
+    expect(
+      missing.contracts.some((contract) => contract.kind === 'enabled-when'),
+    ).toBe(false);
 
-    const withInstance = checkActionContracts(
+    const active = checkActionContracts(
       [action],
       environment({
-        bindings: {
+        evidence: {
           complete: true,
-          rows: [binding(action.ref, { instance: 'o-57' })],
+          producers: [
+            {
+              kind: 'state',
+              producerId: 'router-state',
+              keys: ['page'],
+              stages: ['availability'],
+            },
+          ],
         },
       }),
     );
-    expect(result(withInstance, 'orders.archive', 'concurrency')).toMatchObject(
-      {
-        disposition: 'active',
-        reason: 'instance-binding-present',
-      },
-    );
-
-    const incomplete = checkActionContracts(
-      [action],
-      environment({
-        bindings: {
-          complete: false,
-          rows: [binding(action.ref, { instance: 'o-57' })],
-        },
-      }),
-    );
-    expect(result(incomplete, 'orders.archive', 'concurrency')).toMatchObject({
-      disposition: 'unresolved',
-      reason: 'binding-inventory-incomplete',
+    expect(result(active, 'orders.list', 'guard-when')).toMatchObject({
+      disposition: 'active',
+      reason: 'evidence-producer-present',
     });
   });
 
-  it('requires an explicit runtime concurrency gate before certifying non-parallel policy', () => {
-    const action = declaration('jobs.run', {
-      does: 'Run the job',
+  it('uses the explicit predicate executor posture without running the predicate', () => {
+    let predicateCalls = 0;
+    const action = declaration('draft.publish', {
+      does: 'Publish the draft',
       invocation: 'inputless',
-      concurrency: { mode: 'single-flight' },
+      settle: {
+        observability: 'postcondition',
+        verify: () => {
+          predicateCalls += 1;
+          return true;
+        },
+      },
     });
+    const verificationBinding = binding(action.ref, {
+      coverage: 'verifiable',
+      requestedCapabilities: ['high-effect-verification'],
+    });
+
+    const active = checkActionContracts(
+      [action],
+      environment({
+        bindings: { complete: true, rows: [verificationBinding] },
+      }),
+    );
+    expect(result(active, 'draft.publish', 'verify')).toMatchObject({
+      disposition: 'active',
+      reason: 'predicate-verification-active',
+    });
+    expect(
+      result(active, 'draft.publish', 'high-effect-verification'),
+    ).toMatchObject({
+      disposition: 'active',
+      reason: 'predicate-verification-active',
+    });
+
     const disabled = checkActionContracts(
       [action],
       environment({
@@ -309,26 +317,58 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
           complete: true,
           principalEnforcement: true,
           humanApprovalGate: true,
-          concurrencyEnforcement: false,
-          highEffectVerification: false,
+          predicateVerification: false,
         },
+        bindings: { complete: true, rows: [verificationBinding] },
       }),
     );
-    expect(result(disabled, 'jobs.run', 'concurrency')).toMatchObject({
+    expect(result(disabled, 'draft.publish', 'verify')).toMatchObject({
       disposition: 'inert',
-      reason: 'runtime-concurrency-disabled',
+      reason: 'predicate-verification-disabled',
+    });
+    expect(
+      result(disabled, 'draft.publish', 'high-effect-verification'),
+    ).toMatchObject({
+      disposition: 'inert',
+      reason: 'predicate-verification-disabled',
     });
 
     const unknown = checkActionContracts(
       [action],
       environment({
         runtime: { complete: false },
+        bindings: { complete: true, rows: [verificationBinding] },
       }),
     );
-    expect(result(unknown, 'jobs.run', 'concurrency')).toMatchObject({
+    expect(result(unknown, 'draft.publish', 'verify')).toMatchObject({
       disposition: 'unresolved',
-      reason: 'runtime-policy-unresolved',
+      reason: 'predicate-verification-unresolved',
     });
+    expect(
+      result(unknown, 'draft.publish', 'high-effect-verification'),
+    ).toMatchObject({
+      disposition: 'unresolved',
+      reason: 'predicate-verification-unresolved',
+    });
+    expect(unknown.conclusive).toBe(false);
+    expect(predicateCalls).toBe(0);
+  });
+
+  it('leaves inputSchema activation to ActionRuntime and scopes ok to emitted checks', () => {
+    const schemaOnly = declaration('orders.rename', {
+      does: 'Rename the order',
+      invocation: 'scalar',
+      inputSchema: {
+        type: 'string',
+        minLength: 1,
+      },
+    });
+
+    const report = checkActionContracts([schemaOnly], environment());
+
+    expect(report.contracts).toEqual([]);
+    expect(report.ok).toBe(true);
+    expect(report.conclusive).toBe(true);
   });
 
   it('refuses identity-only agent execution and activates executable coverage', () => {
@@ -350,14 +390,14 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
         },
       }),
     );
-    expect(result(identityOnly, 'orders.archive', 'agent-execution')).toMatchObject(
-      {
-        disposition: 'inert',
-        reason: 'coverage-insufficient',
-        requiredCoverage: 'executable',
-        actualCoverage: 'identity',
-      },
-    );
+    expect(
+      result(identityOnly, 'orders.archive', 'agent-execution'),
+    ).toMatchObject({
+      disposition: 'inert',
+      reason: 'coverage-insufficient',
+      requiredCoverage: 'executable',
+      actualCoverage: 'identity',
+    });
 
     const executable = checkActionContracts(
       [action],
@@ -373,37 +413,27 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
         },
       }),
     );
-    expect(result(executable, 'orders.archive', 'agent-execution')).toMatchObject(
-      {
-        disposition: 'active',
-        reason: 'coverage-sufficient',
-      },
-    );
+    expect(
+      result(executable, 'orders.archive', 'agent-execution'),
+    ).toMatchObject({
+      disposition: 'active',
+      reason: 'coverage-sufficient',
+    });
   });
 
   it('requires verifiable coverage and a usable authoritative path for high-effect verification', () => {
     const action = declaration('payments.charge', {
       does: 'Charge the card',
       invocation: 'inputless',
-      confirm: true,
-      observability: 'external',
+      settle: { observability: 'external' },
     });
     const row = binding(action.ref, {
       coverage: 'executable',
       requestedCapabilities: ['high-effect-verification'],
     });
-    const verificationRuntime = {
-      complete: true as const,
-      principalEnforcement: true,
-      humanApprovalGate: true,
-      concurrencyEnforcement: true,
-      highEffectVerification: true,
-    };
-
     const insufficient = checkActionContracts(
       [action],
       environment({
-        runtime: verificationRuntime,
         bindings: { complete: true, rows: [row] },
       }),
     );
@@ -418,7 +448,6 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
     const verified = checkActionContracts(
       [action],
       environment({
-        runtime: verificationRuntime,
         bindings: {
           complete: true,
           rows: [
@@ -446,23 +475,42 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
       disposition: 'active',
       reason: 'verification-path-active',
     });
-  });
 
-  it('reports a confirmation contract inert when high-effect verification is disabled', () => {
-    const action = declaration('payments.refund', {
-      does: 'Refund the payment',
+    const navigate = declaration('checkout.finish', {
+      does: 'Finish checkout',
       invocation: 'inputless',
-      confirm: true,
+      settle: { observability: 'navigation', goTo: 'receipt' },
     });
-    const report = checkActionContracts([action], environment());
-
+    const navigation = checkActionContracts(
+      [navigate],
+      environment({
+        bindings: {
+          complete: true,
+          rows: [
+            binding(navigate.ref, {
+              coverage: 'verifiable',
+              requestedCapabilities: ['high-effect-verification'],
+            }),
+          ],
+        },
+        evidence: {
+          complete: true,
+          producers: [
+            {
+              kind: 'navigation',
+              producerId: 'router',
+              definitionId: 'checkout.finish',
+            },
+          ],
+        },
+      }),
+    );
     expect(
-      result(report, 'payments.refund', 'high-effect-verification'),
+      result(navigation, 'checkout.finish', 'high-effect-verification'),
     ).toMatchObject({
-      disposition: 'inert',
-      reason: 'high-effect-verification-disabled',
+      disposition: 'active',
+      reason: 'verification-path-active',
     });
-    expect(report.ok).toBe(false);
   });
 
   it('reports an adapter that cannot resolve its required interactive host', () => {
@@ -520,18 +568,21 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
     const alpha = declaration('alpha', {
       does: 'Alpha',
       invocation: 'inputless',
-      principalPolicy: { decisionOwner: 'human' },
+      principal: { decisionOwner: 'human' },
     });
     const zulu = declaration('zulu', {
       does: 'Zulu',
       invocation: 'inputless',
-      principalPolicy: { mayInvoke: ['agent'] },
+      principal: { mayInvoke: ['agent'] },
     });
     const declarations = [zulu, alpha];
     const before = [...declarations];
 
     const first = checkActionContracts(declarations, environment());
-    const second = checkActionContracts([...declarations].reverse(), environment());
+    const second = checkActionContracts(
+      [...declarations].reverse(),
+      environment(),
+    );
 
     expect(first).toEqual(second);
     expect(declarations).toEqual(before);

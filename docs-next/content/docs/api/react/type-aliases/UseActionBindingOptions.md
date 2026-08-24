@@ -1,12 +1,12 @@
 ---
-title: UseActionBindingOptions<Props, Input, Interactive, Id, Output>
+title: UseActionBindingOptions<Props, Input, Interactive, Id, ActionOutput, HostOutput>
 ---
 
-# Type Alias: UseActionBindingOptions\<Props, Input, Interactive, Id, Output\>
+# Type Alias: UseActionBindingOptions\<Props, Input, Interactive, Id, ActionOutput, HostOutput\>
 
-> **UseActionBindingOptions**\<`Props`, `Input`, `Interactive`, `Id`, `Output`\> = `object` & \{ `input?`: `undefined`; `inputKey?`: `never`; \} \| \{ `input`: (`props`) => `Input`; `inputKey`: `unknown`; \}
+> **UseActionBindingOptions**\<`Props`, `Input`, `Interactive`, `Id`, `ActionOutput`, `HostOutput`\> = `object` & \{ `input?`: `undefined`; `inputKey?`: `never`; \} \| \{ `input`: (`props`) => `Input`; `inputKey`: `unknown`; \}
 
-Defined in: [src/react/use-action-binding.ts:51](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L51)
+Defined in: [src/react/use-action-binding.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L50)
 
 Stable identity, host facts, and explicit input ownership for one React binding.
 
@@ -53,7 +53,7 @@ Errors from this observer never replace the host listener's own result.
 
 ##### invocation
 
-[`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Output`, `Id`\>
+[`ActionObservedInvocation`](/api/index/type-aliases/ActionObservedInvocation)\<`ActionOutput`, `HostOutput`, `Id`\>
 
 ##### settlement
 
@@ -103,6 +103,10 @@ The watcher/projector that owns a portal's physical interactive root.
 
 `Id` *extends* `string` = `string`
 
-### Output
+### ActionOutput
 
-`Output` = `unknown`
+`ActionOutput` = `unknown`
+
+### HostOutput
+
+`HostOutput` = `unknown`

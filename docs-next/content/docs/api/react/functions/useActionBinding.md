@@ -4,9 +4,9 @@ title: useActionBinding
 
 # Function: useActionBinding()
 
-> **useActionBinding**\<`F`, `Id`, `Mode`, `Props`, `Host`, `Interactive`, `ValueElement`, `This`, `EventArgs`, `ComposedProps`\>(`runtime`, `definition`, `props`, `adapter`, `options`): [`UseActionBindingResult`](/api/react/interfaces/UseActionBindingResult)\<`Host`, `ComposedProps`, `Id`\>
+> **useActionBinding**\<`F`, `Id`, `Mode`, `Props`, `Host`, `Interactive`, `ValueElement`, `This`, `EventArgs`, `HostResult`, `ComposedProps`\>(`runtime`, `definition`, `props`, `adapter`, `options`): [`UseActionBindingResult`](/api/react/interfaces/UseActionBindingResult)\<`Host`, `ComposedProps`, `Id`\>
 
-Defined in: [src/react/use-action-binding.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L162)
+Defined in: [src/react/use-action-binding.ts:168](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L168)
 
 Connect a callable action to one committed React host.
 
@@ -52,6 +52,10 @@ readers without touching a host or changing binding identity.
 
 `EventArgs` *extends* readonly `unknown`[]
 
+### HostResult
+
+`HostResult`
+
 ### ComposedProps
 
 `ComposedProps`
@@ -60,7 +64,7 @@ readers without touching a host or changing binding identity.
 
 ### runtime
 
-[`ActionBindingRuntime`](/api/index/interfaces/ActionBindingRuntime)
+[`ActionRuntime`](/api/index/interfaces/ActionRuntime)
 
 ### definition
 
@@ -72,11 +76,11 @@ readers without touching a host or changing binding identity.
 
 ### adapter
 
-[`ActionHostAdapter`](/api/index/interfaces/ActionHostAdapter)\<`Props`, `Host`, `Interactive`, `ValueElement`, [`ActionInvocationMiddleware`](/api/index/type-aliases/ActionInvocationMiddleware)\<`This`, `EventArgs`, `ReturnType`\<`F`\>\>, `ComposedProps`, [`Binding`](/api/index/type-aliases/Binding)\>
+[`ActionHostAdapter`](/api/index/interfaces/ActionHostAdapter)\<`Props`, `Host`, `Interactive`, `ValueElement`, [`ActionInvocationMiddleware`](/api/index/type-aliases/ActionInvocationMiddleware)\<`This`, `EventArgs`, `HostResult`\>, `ComposedProps`, [`Binding`](/api/index/type-aliases/Binding)\>
 
 ### options
 
-[`UseActionBindingOptions`](/api/react/type-aliases/UseActionBindingOptions)\<`Props`, `Mode` *extends* `"scalar"` ? `Parameters`\<`F`\>\[`0`\] : `undefined`, `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>\> & `Mode` *extends* `"scalar"` ? `unknown` : `object`
+[`UseActionBindingOptions`](/api/react/type-aliases/UseActionBindingOptions)\<`Props`, `Mode` *extends* `"scalar"` ? `Parameters`\<`F`\>\[`0`\] : `undefined`, `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>, `Awaited`\<`HostResult`\>\> & `Mode` *extends* `"scalar"` ? `unknown` : `object`
 
 ## Returns
 

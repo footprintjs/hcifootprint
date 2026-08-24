@@ -6,7 +6,7 @@ title: DefinedAction<F, Id, Mode>
 
 > **DefinedAction**\<`F`, `Id`, `Mode`\> = `F` & `object`
 
-Defined in: [src/action/types.ts:146](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L146)
+Defined in: [src/action/types.ts:263](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L263)
 
 A callable carrying an action-definition identity. The marker is type-only;
 runtime recognition uses a non-enumerable `Symbol.for` property.

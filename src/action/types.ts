@@ -1,5 +1,13 @@
-import type { ActionDef } from '../tree/types.js';
-import type { Binding } from '../atom/types.js';
+import type { WhereFilter } from 'footprintjs';
+import type {
+  Binding,
+  BlockedBecause,
+  CanonicalRole,
+  Observability,
+  Principal,
+  PrincipalPolicy,
+  VerifyContract,
+} from '../atom/types.js';
 
 /** The strongest evidence a live binding can substantiate. */
 export type BindingCoverage =
@@ -26,17 +34,25 @@ export interface ActionBindingRef<Id extends string = string> {
 }
 
 /** Under which application facts was one exact binding exposed? */
-export interface ActionOfferRef<Id extends string = string> {
+export interface ActionOfferRef<
+  Id extends string = string,
+  P extends Principal = Principal,
+> {
   readonly kind: 'action-offer';
   readonly offerId: string;
   readonly binding: ActionBindingRef<Id>;
+  /** The reader authority under which this exact capability was exposed. */
+  readonly principal: P;
   /** The committed binding-fact generation this offer describes. */
   readonly revision: number;
   /** Opaque identity for an input captured as part of this exact offer. */
   readonly input?: ActionInputRef<'bound'>;
 }
 
-/** Where the payload used by an invocation came from. */
+/**
+ * Where the payload used by an invocation came from.
+ * @inline
+ */
 export type ActionInputSource = 'bound' | 'caller';
 
 /**
@@ -56,6 +72,8 @@ export interface ActionTransitionRef<Id extends string = string> {
   readonly kind: 'action-transition';
   readonly transitionId: string;
   readonly binding: ActionBindingRef<Id>;
+  /** Who requested this invocation, or `unknown` for an unscoped/direct occurrence. */
+  readonly principal: Principal;
   readonly offer?: ActionOfferRef<Id>;
   /** The exact payload receipt used by this invocation, when it had one. */
   readonly input?: ActionInputRef;
@@ -64,14 +82,90 @@ export interface ActionTransitionRef<Id extends string = string> {
 /** Which invocation doors an authored callable deliberately supports. */
 export type ActionInvocationMode = 'inputless' | 'scalar' | 'host';
 
-/** Authored semantics carried by a definition. Reachability belongs to a live binding. */
-export type ActionDefinitionContract = Omit<ActionDef, 'binding' | 'input'> & {
-  /**
-   * Explicit runtime call shape. `inputless` and `scalar` may be invoked
-   * directly and brokered; `host` is recordable only through the exact host
-   * continuation, preserving receivers and multi-argument listener calls.
-   */
-  readonly invocation: ActionInvocationMode;
+/** @inline */
+interface ActionGuardFields {
+  /** Projected-state condition for presence. */
+  readonly when?: WhereFilter;
+  /** Projected-state condition for enabledness. */
+  readonly enabledWhen?: WhereFilter;
+  /** The app-authored explanation served while the action is unavailable. */
+  readonly blockedBecause?: BlockedBecause | (() => BlockedBecause | undefined);
+}
+
+/** Grouped, declarative availability metadata owned by one action definition. */
+export type ActionGuardContract = ActionGuardFields &
+  (
+    | { readonly when: WhereFilter }
+    | { readonly enabledWhen: WhereFilter }
+    | {
+        readonly blockedBecause: NonNullable<
+          ActionGuardFields['blockedBecause']
+        >;
+      }
+  );
+
+/** Ordered progress vocabulary for one transition. */
+export interface ActionProgressDeclaration<
+  Stages extends readonly string[] = readonly string[],
+> {
+  readonly stages: Stages;
+  /** A started invocation that reports no stage closes with unmet integrity. */
+  readonly required?: boolean;
+}
+
+/** @inline */
+interface ActionSettleFields<
+  Stages extends readonly string[] = readonly string[],
+> {
+  readonly writes?: readonly string[];
+  readonly reads?: readonly string[];
+  readonly goTo?: string;
+  readonly verify?: VerifyContract;
+  readonly observability?: Observability;
+  readonly progress?: ActionProgressDeclaration<Stages>;
+}
+
+/** Grouped effect, evidence, and progress declarations for one action. */
+export type ActionSettleContract<
+  Stages extends readonly string[] = readonly string[],
+> = ActionSettleFields<Stages> &
+  (
+    | { readonly writes: readonly string[] }
+    | { readonly reads: readonly string[] }
+    | { readonly goTo: string }
+    | { readonly verify: VerifyContract }
+    | { readonly observability: Observability }
+    | { readonly progress: ActionProgressDeclaration<Stages> }
+  );
+
+/** @inline */
+type ActionSettleWithoutProgress = ActionSettleContract & {
+  readonly progress?: never;
+};
+
+/** @inline */
+type ActionPrincipalContract = PrincipalPolicy &
+  (
+    | {
+        readonly mayInvoke: NonNullable<PrincipalPolicy['mayInvoke']>;
+      }
+    | {
+        readonly decisionOwner: NonNullable<PrincipalPolicy['decisionOwner']>;
+      }
+    | {
+        readonly requiresHumanApproval: NonNullable<
+          PrincipalPolicy['requiresHumanApproval']
+        >;
+      }
+  );
+
+/** @inline */
+interface ActionDefinitionCommonContract {
+  /** Stable, app-authored sentence describing the action's meaning. */
+  readonly does: string;
+  readonly guard?: ActionGuardContract;
+  /** Invocation authority and decision ownership. */
+  readonly principal?: ActionPrincipalContract;
   /**
    * Inert, named inputs reserved for a future channel broker. Layer 1 stores
    * these declarations but never matches a surface, collects a value, or
@@ -95,28 +189,51 @@ export type ActionDefinitionContract = Omit<ActionDef, 'binding' | 'input'> & {
     readonly kind: string;
     readonly schema?: unknown;
   };
-  /**
-   * Definition-side payload contract: Zod, JSON Schema, a `.safeParse`/`.parse`
-   * validator, or `'none'`. Omission means the shape is not declared. The
-   * Action Binding runtime enforces parseable schemas before the handler
-   * runs. Other formats need `inputSchemaAdapter` or explicit disclosure mode.
-   * Bound values are checked while minting an offer and caller values are
-   * checked by `runtime.invoke()`. Live binding values use `input` readers.
-   */
-  readonly inputSchema?: ActionDef['input'];
-};
+  readonly role?: CanonicalRole;
+}
+
+/**
+ * Authored semantics carried by a definition. Reachability belongs to a live
+ * binding, and each invocation branch states its payload/progress laws.
+ * @inlineType ActionPrincipalContract
+ */
+export type ActionDefinitionContract = ActionDefinitionCommonContract &
+  (
+    | {
+        /** Direct and brokered invocation exposes no payload slot. */
+        readonly invocation: 'inputless';
+        /** The explicit no-input marker is the only legal schema value. */
+        readonly inputSchema?: 'none';
+        readonly settle?: ActionSettleContract;
+      }
+    | {
+        /** Direct and brokered invocation exposes one deliberate payload slot. */
+        readonly invocation: 'scalar';
+        /** Definition-side payload schema; never a live value reader. */
+        readonly inputSchema?: object;
+        readonly settle?: ActionSettleContract;
+      }
+    | {
+        /** Host invocation preserves the exact receiver/listener arguments. */
+        readonly invocation: 'host';
+        readonly inputSchema?: never;
+        /** Host continuations have no lifecycle parameter. */
+        readonly settle?: ActionSettleWithoutProgress;
+      }
+  );
 
 /**
  * The declaration view exposed by a defined action. Functions and opaque
  * validators keep their identity; declaration-shaped containers are readonly.
+ * @inlineType DeepReadonly
  */
-export type ReadonlyActionDefinitionContract = DeepReadonly<
-  ActionDefinitionContract
->;
+export type ReadonlyActionDefinitionContract =
+  DeepReadonly<ActionDefinitionContract>;
 
 /**
  * Recursively make declaration containers readonly while retaining callable
  * validators and readers as their original function types.
+ * @inline
  */
 export type DeepReadonly<T> = T extends (...args: any[]) => any
   ? T
@@ -170,7 +287,8 @@ export interface BindingProjection {
 export interface ActionBindingUpdate<Input> {
   /**
    * Live value reader. Direct connection invocation reads it at invocation;
-   * `available()` reads and retains it while minting an exact bound offer.
+   * a principal port's `offers()` reads and retains it while minting an exact
+   * bound offer.
    * The definition-side payload shape is `inputSchema`.
    */
   readonly input?: () => Input;
@@ -184,9 +302,7 @@ export interface ActionBindingUpdate<Input> {
 /** The only connection authority exposed to an invocation observer. */
 export interface ActionSettlementCapability<Id extends string = string> {
   readonly binding: ActionBindingRef<Id>;
-  settle(
-    settlement: ActionEffectSettlementInput,
-  ): ActionEffectSettlement<Id>;
+  settle(settlement: ActionEffectSettlementInput): ActionEffectSettlement<Id>;
 }
 
 /** Facts supplied when opening one live binding. */
@@ -194,13 +310,16 @@ export interface ConnectActionOptions<
   Input,
   Output = unknown,
   Id extends string = string,
->
-  extends ActionBindingUpdate<Input> {
+> extends ActionBindingUpdate<Input> {
   readonly node: string;
   readonly instance?: string;
-  /** Observe every direct, brokered, or host-continuation invocation. */
+  /**
+   * Observe every invocation without pretending a host listener returns the
+   * action mutation's output. Core does not own the host callback type, so its
+   * host branch is deliberately `unknown`; framework bindings may refine it.
+   */
   readonly onInvocation?: (
-    invocation: ActionInvocation<Output, Id>,
+    invocation: ActionObservedInvocation<Output, unknown, Id>,
     settlement: ActionSettlementCapability<Id>,
   ) => void | PromiseLike<void>;
   /** Optional sink for observer failures; neither observer can replace app behavior. */
@@ -211,10 +330,7 @@ export interface ActionAttachment {
   detach(): void;
 }
 
-export type ActionInvocationSettlement<
-  Output,
-  Id extends string = string,
-> =
+export type ActionInvocationSettlement<Output, Id extends string = string> =
   | {
       readonly status: 'performed';
       readonly transition: ActionTransitionRef<Id>;
@@ -243,11 +359,82 @@ export type ActionEffectSettlement<Id extends string = string> =
       readonly status: 'refused';
       readonly transition: ActionTransitionRef<Id>;
       readonly reason: unknown;
+    }
+  | {
+      /** Authoritative evidence can no longer arrive for this transition. */
+      readonly status: 'abandoned';
+      readonly transition: ActionTransitionRef<Id>;
+      readonly authority: ActionAbandonmentAuthority;
+    };
+
+/** The explicit fact that authorizes an `abandoned` effect terminal. */
+export type ActionAbandonmentAuthority =
+  | {
+      readonly kind: 'cancelled';
+      readonly reason: unknown;
+    }
+  | {
+      readonly kind: 'deadline';
+      readonly deadlineAt: number;
+    }
+  | {
+      readonly kind: 'evidence-exhausted';
+      readonly sources: readonly string[];
     };
 
 export type ActionEffectSettlementInput =
   | { readonly status: 'verified'; readonly evidence: unknown }
-  | { readonly status: 'refused'; readonly reason: unknown };
+  | { readonly status: 'refused'; readonly reason: unknown }
+  | {
+      readonly status: 'abandoned';
+      readonly authority: ActionAbandonmentAuthority;
+    };
+
+/** One retained progress report from the application handler. */
+export interface ActionProgressObservation {
+  readonly stage: string;
+  readonly detail?: unknown;
+}
+
+/** What is knowable about declared progress at this instant. */
+export type ActionProgressSnapshot =
+  | {
+      readonly disposition: 'open';
+      readonly declared: readonly string[];
+      readonly observed: readonly ActionProgressObservation[];
+    }
+  | {
+      /** The application handler never started, so no stage was owed. */
+      readonly disposition: 'not-started';
+      readonly declared: readonly string[];
+      readonly observed: readonly [];
+    }
+  | {
+      readonly disposition: 'closed';
+      readonly declared: readonly string[];
+      readonly observed: readonly ActionProgressObservation[];
+      /** Declared stages with no retained observation when invocation closed. */
+      readonly unreported: readonly string[];
+      /** Present only when `required` was declared and no stage was observed. */
+      readonly integrity?: 'unmet';
+    };
+
+/** Retained and live progress for one exact transition. */
+export interface ActionProgress {
+  snapshot(): ActionProgressSnapshot;
+  /** Immediately replays the current snapshot, then streams changes until closed. */
+  subscribe(listener: (snapshot: ActionProgressSnapshot) => void): () => void;
+}
+
+/** Narrow, transition-owned capability optionally passed to an opted-in handler. */
+export interface ActionLifecycle<
+  Id extends string = string,
+  Stage extends string = string,
+> {
+  readonly transition: ActionTransitionRef<Id>;
+  /** Report one declared stage. Instrumentation failures never replace app behavior. */
+  reportProgress(stage: Stage, detail?: unknown): void;
+}
 
 /** Non-secret provenance for the payload rail of one invocation. */
 export type ActionInvocationInput =
@@ -269,15 +456,44 @@ export type ActionInvocationInput =
   | { readonly source: 'caller'; readonly provided: false }
   | { readonly source: 'host'; readonly provided: false };
 
-export interface ActionInvocation<Output, Id extends string = string> {
+export interface ActionInvocation<
+  Output,
+  Id extends string = string,
+  Behavior extends 'mutation' | 'host-continuation' =
+    | 'mutation'
+    | 'host-continuation',
+> {
   readonly transition: ActionTransitionRef<Id>;
+  /** Which application behavior this occurrence executed. */
+  readonly behavior: Behavior;
   /** Auditable input origin; the payload value itself is deliberately not disclosed. */
-  readonly input: ActionInvocationInput;
+  readonly input: Behavior extends 'host-continuation'
+    ? Extract<ActionInvocationInput, { readonly source: 'host' }>
+    : Behavior extends 'mutation'
+      ? Exclude<ActionInvocationInput, { readonly source: 'host' }>
+      : ActionInvocationInput;
   /** Invocation outcome. This promise always resolves; refusal/failure are data. */
   readonly whenInvoked: Promise<ActionInvocationSettlement<Output, Id>>;
   /** Authoritative effect observation. Handler completion never settles it. */
   readonly whenEffectSettled: Promise<ActionEffectSettlement<Id>>;
+  /** Present only for a mutation whose definition declared progress stages. */
+  readonly progress?: Behavior extends 'host-continuation'
+    ? never
+    : ActionProgress;
 }
+
+/**
+ * Observer view of a connection occurrence. Direct/brokered calls produce the
+ * action mutation's output; host continuations produce their own independent
+ * listener result. `behavior` is the honest discriminator between them.
+ */
+export type ActionObservedInvocation<
+  ActionOutput,
+  HostOutput = unknown,
+  Id extends string = string,
+> =
+  | ActionInvocation<ActionOutput, Id, 'mutation'>
+  | ActionInvocation<HostOutput, Id, 'host-continuation'>;
 
 export interface ActionBindingSnapshot<Id extends string = string> {
   readonly ref: ActionBindingRef<Id>;
@@ -292,7 +508,10 @@ export interface ActionBindingSnapshot<Id extends string = string> {
 
 declare const ACTION_OFFER_CALLABLE_TYPE: unique symbol;
 
-/** Whether this runtime will enforce the offer's declared input contract. */
+/**
+ * Whether this runtime will enforce the offer's declared input contract.
+ * @inline
+ */
 export type ActionInputValidationDisposition =
   | 'not-declared'
   | 'active'
@@ -302,8 +521,9 @@ export type ActionInputValidationDisposition =
 export interface BoundActionOffer<
   Id extends string = string,
   F extends (...args: any[]) => any = (...args: any[]) => any,
+  P extends Principal = Principal,
 > {
-  readonly ref: ActionOfferRef<Id> & {
+  readonly ref: ActionOfferRef<Id, P> & {
     readonly input: ActionInputRef<'bound'>;
   };
   /** Immutable authored meaning and payload schema for an in-process consumer. */
@@ -323,8 +543,9 @@ export interface BoundActionOffer<
 export interface OpenActionOffer<
   Id extends string = string,
   F extends (...args: any[]) => any = (...args: any[]) => any,
+  P extends Principal = Principal,
 > {
-  readonly ref: ActionOfferRef<Id> & { readonly input?: never };
+  readonly ref: ActionOfferRef<Id, P> & { readonly input?: never };
   /** Immutable authored meaning and payload schema for an in-process consumer. */
   readonly definition: ActionDefinitionRecord<Id, 'scalar'>;
   readonly locators: readonly Binding[];
@@ -343,8 +564,9 @@ export interface OpenActionOffer<
 export interface InputlessActionOffer<
   Id extends string = string,
   F extends (...args: any[]) => any = (...args: any[]) => any,
+  P extends Principal = Principal,
 > {
-  readonly ref: ActionOfferRef<Id> & { readonly input?: never };
+  readonly ref: ActionOfferRef<Id, P> & { readonly input?: never };
   /** Immutable authored meaning and payload schema for an in-process consumer. */
   readonly definition: ActionDefinitionRecord<Id, 'inputless'>;
   readonly locators: readonly Binding[];
@@ -364,22 +586,24 @@ export interface InputlessActionOffer<
 export type ActionOffer<
   Id extends string = string,
   F extends (...args: any[]) => any = (...args: any[]) => any,
+  P extends Principal = Principal,
 > =
-  | BoundActionOffer<Id, F>
-  | OpenActionOffer<Id, F>
-  | InputlessActionOffer<Id, F>;
+  | BoundActionOffer<Id, F, P>
+  | OpenActionOffer<Id, F, P>
+  | InputlessActionOffer<Id, F, P>;
 
 /** Offers possible for one known callable signature. */
 export type ActionOfferFor<
   F extends (...args: any[]) => any,
   Id extends string = string,
   Mode extends ActionInvocationMode = ActionInvocationMode,
+  P extends Principal = Principal,
 > = Mode extends 'host'
   ? never
   : Mode extends 'inputless'
-    ? InputlessActionOffer<Id, F>
+    ? InputlessActionOffer<Id, F, P>
     : Mode extends 'scalar'
-      ? BoundActionOffer<Id, F> | OpenActionOffer<Id, F>
+      ? BoundActionOffer<Id, F, P> | OpenActionOffer<Id, F, P>
       : never;
 
 export interface ActionTransitionSnapshot {
@@ -387,11 +611,13 @@ export interface ActionTransitionSnapshot {
   readonly input: ActionInvocationInput;
   readonly coverage: BindingCoverage;
   readonly invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
-  readonly effectStatus: 'unverified' | 'verified' | 'refused';
+  readonly effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
   readonly produced?: unknown;
   readonly error?: unknown;
   readonly evidence?: unknown;
   readonly reason?: unknown;
+  readonly authority?: ActionAbandonmentAuthority;
+  readonly progress?: ActionProgressSnapshot;
 }
 
 /**
@@ -407,13 +633,13 @@ export type ActionInvoke<
 > = Mode extends 'host'
   ? never
   : Mode extends 'inputless'
-    ? () => ActionInvocation<Awaited<ReturnType<F>>, Id>
+    ? () => ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'>
     : Mode extends 'scalar'
       ? HasInputReader extends true
-        ? () => ActionInvocation<Awaited<ReturnType<F>>, Id>
+        ? () => ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'>
         : (
             input: Parameters<F>[0],
-          ) => ActionInvocation<Awaited<ReturnType<F>>, Id>
+          ) => ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'>
       : never;
 
 export interface ActionConnection<
@@ -425,19 +651,19 @@ export interface ActionConnection<
   readonly definition: ActionDefinitionRef<Id>;
   readonly binding: ActionBindingRef<Id>;
   attach(projection: BindingProjection): ActionAttachment;
-  update(
-    update: HasInputReader extends true
-      ? ActionBindingUpdate<
-          Parameters<F> extends [] ? undefined : Parameters<F>[0]
-        >
-      : Omit<
-          ActionBindingUpdate<
-            Parameters<F> extends [] ? undefined : Parameters<F>[0]
-          >,
-          'input'
-        > & {
-          readonly input?: undefined;
-        },
+  update<
+    Update extends ActionBindingUpdate<
+      Parameters<F> extends [] ? undefined : Parameters<F>[0]
+    >,
+  >(
+    update: Update &
+      (HasInputReader extends true
+        ? Update extends { readonly input: undefined }
+          ? never
+          : unknown
+        : 'input' extends keyof Update
+          ? never
+          : unknown),
   ): void;
   /** Publish a new committed fact generation when stable readers changed meaning. */
   touch(): void;
@@ -447,9 +673,9 @@ export interface ActionConnection<
    * implementation is not also called: the continuation is this occurrence's
    * exact application behavior, so listener composition remains one act.
    */
-  invokeContinuation(
-    continuation: () => ReturnType<F>,
-  ): ActionInvocation<Awaited<ReturnType<F>>, Id>;
+  invokeContinuation<HostResult>(
+    continuation: () => HostResult,
+  ): ActionInvocation<Awaited<HostResult>, Id, 'host-continuation'>;
   settle(
     transition: ActionTransitionRef<Id>,
     settlement: ActionEffectSettlementInput,
@@ -485,7 +711,7 @@ export interface ActionInputSchemaAdapter {
   ): ActionInputSchemaResult;
 }
 
-export interface ActionBindingRuntimeOptions {
+export interface ActionRuntimeOptions {
   /**
    * `require-active` (default) rejects clauses this small runtime cannot
    * enforce. Self-validating and adapter-supported input schemas are enforced;
@@ -497,9 +723,41 @@ export interface ActionBindingRuntimeOptions {
   readonly inputSchemaAdapter?: ActionInputSchemaAdapter;
 }
 
+/**
+ * Principal-scoped offer and invocation authority. The principal belongs to
+ * the reader, never to a live binding: one control may be offered to a person
+ * while being withheld from an agent.
+ */
+export interface PrincipalActionPort<P extends Principal = Principal> {
+  readonly principal: P;
+  /** Invoke an exact retained bound or inputless offer minted for this principal. */
+  invoke<F extends (...args: any[]) => any, Id extends string = string>(
+    offer: BoundActionOffer<Id, F, P> | InputlessActionOffer<Id, F, P>,
+  ): ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'>;
+  /** Invoke an exact retained open offer with its one required caller payload. */
+  invoke<F extends (...args: any[]) => any, Id extends string = string>(
+    offer: OpenActionOffer<Id, F, P>,
+    input: Parameters<F>[0],
+  ): ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'>;
+  /** Enumerate exact retained offers this principal is permitted to invoke. */
+  offers<
+    F extends (...args: any[]) => any,
+    Id extends string = string,
+    Mode extends ActionInvocationMode = ActionInvocationMode,
+  >(
+    definition: DefinedAction<F, Id, Mode>,
+  ): readonly ActionOfferFor<DefinedAction<F, Id, Mode>, Id, Mode, P>[];
+  offers<Ref extends ActionDefinitionRef>(
+    definition: Ref,
+  ): readonly ActionOffer<Ref['definitionId'], (...args: any[]) => any, P>[];
+  offers(): readonly ActionOffer<string, (...args: any[]) => any, P>[];
+}
+
 /** Framework-neutral store and execution port for connected actions. */
-export interface ActionBindingRuntime {
+export interface ActionRuntime {
   readonly contractActivation: ActionContractActivation;
+  /** Bind offer generation and invocation to one explicit reader principal. */
+  forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P>;
   /**
    * Connect a scalar binding whose exact payload is owned by a required live
    * `options.input` reader.
@@ -511,11 +769,7 @@ export interface ActionBindingRuntime {
   >(
     definition: DefinedAction<F, Id, Mode>,
     options: Mode extends 'scalar'
-      ? ConnectActionOptions<
-          Parameters<F>[0],
-          Awaited<ReturnType<F>>,
-          Id
-        > & {
+      ? ConnectActionOptions<Parameters<F>[0], Awaited<ReturnType<F>>, Id> & {
           readonly input: () => Parameters<F>[0];
         }
       : never,
@@ -530,62 +784,21 @@ export interface ActionBindingRuntime {
     Mode extends ActionInvocationMode = ActionInvocationMode,
   >(
     definition: DefinedAction<F, Id, Mode>,
-    options: Mode extends 'scalar'
-      ? ConnectActionOptions<
-          Parameters<F>[0],
-          Awaited<ReturnType<F>>,
-          Id
-        >
-      : Omit<
-          ConnectActionOptions<undefined, Awaited<ReturnType<F>>, Id>,
-          'input'
-        > & {
-          readonly input?: never;
-        },
+    options: Omit<
+      ConnectActionOptions<
+        Mode extends 'scalar' ? Parameters<F>[0] : undefined,
+        Awaited<ReturnType<F>>,
+        Id
+      >,
+      'input'
+    > & {
+      readonly input?: never;
+    },
   ): ActionConnection<F, Id, false, Mode>;
-  bindings(definition?: ActionDefinitionRef | string): ActionBindingSnapshot[];
-  bindingFor(
-    binding: ActionBindingRef | string,
-  ): ActionBindingSnapshot | undefined;
-  /** Invoke the exact full offer previously returned by `available()`. */
-  invoke<
-    F extends (...args: any[]) => any,
-    Id extends string = string,
-  >(
-    offer: BoundActionOffer<Id, F> | InputlessActionOffer<Id, F>,
-  ): ActionInvocation<Awaited<ReturnType<F>>, Id>;
-  /**
-   * Invoke an exact retained open offer with one mandatory caller payload
-   * slot. The payload is validated before the handler starts; rejection is a
-   * structured `refused` invocation rather than an application failure.
-   */
-  invoke<
-    F extends (...args: any[]) => any,
-    Id extends string = string,
-  >(
-    offer: OpenActionOffer<Id, F>,
-    input: Parameters<F>[0],
-  ): ActionInvocation<Awaited<ReturnType<F>>, Id>;
-  /**
-   * Enumerate exact retained offers for current executable bindings. Host-only,
-   * disabled, insufficient-coverage, and unschematized open bindings are
-   * withheld. Minting a bound offer executes and validates its input reader;
-   * unchanged generations reuse the same offer and retained value.
-   */
-  available<
-    F extends (...args: any[]) => any,
-    Id extends string = string,
-    Mode extends ActionInvocationMode = ActionInvocationMode,
-  >(
-    definition: DefinedAction<F, Id, Mode>,
-  ): readonly ActionOfferFor<DefinedAction<F, Id, Mode>, Id, Mode>[];
-  available<Ref extends ActionDefinitionRef>(
-    definition: Ref,
-  ): readonly ActionOffer<Ref['definitionId']>[];
-  available<Id extends string>(definition: Id): readonly ActionOffer<Id>[];
-  available(): readonly ActionOffer[];
+  bindings(definition?: ActionDefinitionRef): ActionBindingSnapshot[];
+  bindingFor(binding: ActionBindingRef): ActionBindingSnapshot | undefined;
   transitionFor(
-    transition: ActionTransitionRef | string,
+    transition: ActionTransitionRef,
   ): ActionTransitionSnapshot | undefined;
   /** Release a fully settled transition from runtime history. */
   forgetTransition(transition: ActionTransitionRef): boolean;

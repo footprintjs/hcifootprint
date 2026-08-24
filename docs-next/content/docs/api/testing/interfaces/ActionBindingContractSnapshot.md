@@ -4,7 +4,7 @@ title: ActionBindingContractSnapshot
 
 # Interface: ActionBindingContractSnapshot
 
-Defined in: [src/action/contracts.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L92)
+Defined in: [src/action/contracts.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L89)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/action/contracts.ts:92](https://github.com/footprintjs/hcifootp
 
 > `readonly` **complete**: `boolean`
 
-Defined in: [src/action/contracts.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L94)
+Defined in: [src/action/contracts.ts:91](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L91)
 
 False means absent rows are unknown, never proof that a binding is missing.
 
@@ -22,4 +22,4 @@ False means absent rows are unknown, never proof that a binding is missing.
 
 > `readonly` **rows**: readonly [`ActionBindingContractRow`](/api/testing/interfaces/ActionBindingContractRow)\<`string`\>[]
 
-Defined in: [src/action/contracts.ts:95](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L95)
+Defined in: [src/action/contracts.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L92)

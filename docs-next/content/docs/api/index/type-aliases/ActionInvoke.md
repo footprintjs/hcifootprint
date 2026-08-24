@@ -4,9 +4,9 @@ title: ActionInvoke<F, Id, HasInputReader, Mode>
 
 # Type Alias: ActionInvoke\<F, Id, HasInputReader, Mode\>
 
-> **ActionInvoke**\<`F`, `Id`, `HasInputReader`, `Mode`\> = `Mode` *extends* `"host"` ? `never` : `Mode` *extends* `"inputless"` ? () => [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`\> : `Mode` *extends* `"scalar"` ? `HasInputReader` *extends* `true` ? () => [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`\> : (`input`) => [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`\> : `never`
+> **ActionInvoke**\<`F`, `Id`, `HasInputReader`, `Mode`\> = `Mode` *extends* `"host"` ? `never` : `Mode` *extends* `"inputless"` ? () => [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`, `"mutation"`\> : `Mode` *extends* `"scalar"` ? `HasInputReader` *extends* `true` ? () => [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`, `"mutation"`\> : (`input`) => [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`, `"mutation"`\> : `never`
 
-Defined in: [src/action/types.ts:402](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L402)
+Defined in: [src/action/types.ts:628](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L628)
 
 Direct invocation is intentionally a scalar-payload door. Host listeners
 with a receiver or several arguments use `invokeContinuation`, which keeps

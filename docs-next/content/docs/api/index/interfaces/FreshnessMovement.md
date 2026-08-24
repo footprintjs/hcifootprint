@@ -18,7 +18,7 @@ wrong.
 
 ### axis
 
-> **axis**: `"writes"` \| `"reads"` \| `"guard"` \| `"position"`
+> **axis**: `"guard"` \| `"writes"` \| `"reads"` \| `"position"`
 
 Defined in: [src/atom/types.ts:1545](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1545)
 

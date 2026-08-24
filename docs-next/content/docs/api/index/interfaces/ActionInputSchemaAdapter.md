@@ -4,7 +4,7 @@ title: ActionInputSchemaAdapter
 
 # Interface: ActionInputSchemaAdapter
 
-Defined in: [src/action/types.ts:479](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L479)
+Defined in: [src/action/types.ts:705](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L705)
 
 Synchronous enforcement port for declaration formats without their own
 `.safeParse`/`.parse` method, such as JSON Schema plus an Ajv instance.
@@ -15,7 +15,7 @@ Synchronous enforcement port for declaration formats without their own
 
 > **supports**(`schema`): `boolean`
 
-Defined in: [src/action/types.ts:480](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L480)
+Defined in: [src/action/types.ts:706](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L706)
 
 #### Parameters
 
@@ -33,7 +33,7 @@ Defined in: [src/action/types.ts:480](https://github.com/footprintjs/hcifootprin
 
 > **validate**(`schema`, `input`, `context`): [`ActionInputSchemaResult`](/api/index/type-aliases/ActionInputSchemaResult)
 
-Defined in: [src/action/types.ts:481](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L481)
+Defined in: [src/action/types.ts:707](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L707)
 
 #### Parameters
 

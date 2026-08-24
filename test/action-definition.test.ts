@@ -5,274 +5,201 @@ import {
   isDefinedAction,
 } from '../src/index.js';
 
-describe('defineAction — one callable definition, ordinary JavaScript behavior', () => {
-  const defineUnchecked = (contract: unknown) =>
-    Reflect.apply(defineAction, undefined, [
-      'unchecked.action',
-      contract,
-      () => undefined,
-    ]);
+describe('defineAction — grouped v2 declaration and exact callable behavior', () => {
+  const defineUnchecked = (options: unknown) =>
+    Reflect.apply(defineAction, undefined, ['unchecked.action', options]);
 
   it('preserves this, arguments, return identity, name, and arity', () => {
     const result = { exact: true };
-    function archive(this: { prefix: string }, orderId: string, reason: string) {
+    function archive(
+      this: { prefix: string },
+      orderId: string,
+      reason: string,
+    ) {
       expect(this.prefix).toBe('orders');
       expect(orderId).toBe('o-57');
       expect(reason).toBe('duplicate');
       return result;
     }
 
-    const action = defineAction(
-      'orders.archive',
-      { does: 'Archive this order', invocation: 'host' },
-      archive,
-    );
+    const action = defineAction('orders.archive', {
+      does: 'Archive this order',
+      invocation: 'host',
+      mutate: archive,
+    });
 
     expect(action.call({ prefix: 'orders' }, 'o-57', 'duplicate')).toBe(result);
+    expect(action.apply({ prefix: 'orders' }, ['o-57', 'duplicate'])).toBe(
+      result,
+    );
+    expect(action.bind({ prefix: 'orders' })('o-57', 'duplicate')).toBe(result);
     expect(action.name).toBe(archive.name);
     expect(action.length).toBe(archive.length);
     expect(Object.getPrototypeOf(action)).toBe(Object.getPrototypeOf(archive));
-  });
-
-  it('leaves native call, apply, and bind untouched', () => {
-    function label(this: { prefix: string }, value: string) {
-      return `${this.prefix}:${value}`;
-    }
-    const action = defineAction(
-      'labels.make',
-      { does: 'Make a label', invocation: 'host' },
-      label,
-    );
-
-    expect(action.call({ prefix: 'call' }, 'x')).toBe('call:x');
-    expect(action.apply({ prefix: 'apply' }, ['y'])).toBe('apply:y');
-    expect(action.bind({ prefix: 'bind' })('z')).toBe('bind:z');
     expect(Object.hasOwn(action, 'call')).toBe(false);
-    expect(Object.hasOwn(action, 'apply')).toBe(false);
-    expect(Object.hasOwn(action, 'bind')).toBe(false);
   });
 
-  it('returns the exact Promise or thenable and rethrows the exact error', () => {
+  it('returns exact promises and thenables, and rethrows the exact error', () => {
     const promise = Promise.resolve('done');
-    const promised = defineAction(
-      'jobs.promise',
-      { does: 'Return the promise', invocation: 'inputless' },
-      () => promise,
-    );
+    const promised = defineAction('jobs.promise', {
+      does: 'Return the promise',
+      invocation: 'inputless',
+      mutate: () => promise,
+    });
     expect(promised()).toBe(promise);
 
     const thenable = { then: () => undefined };
-    const thenabled = defineAction(
-      'jobs.thenable',
-      { does: 'Return the thenable', invocation: 'inputless' },
-      () => thenable,
-    );
+    const thenabled = defineAction('jobs.thenable', {
+      does: 'Return the thenable',
+      invocation: 'inputless',
+      mutate: () => thenable,
+    });
     expect(thenabled()).toBe(thenable);
 
     const error = new Error('exact failure');
-    const throwing = defineAction(
-      'jobs.throw',
-      { does: 'Throw the error', invocation: 'inputless' },
-      () => {
+    const throwing = defineAction('jobs.throw', {
+      does: 'Throw the error',
+      invocation: 'inputless',
+      mutate: () => {
         throw error;
       },
-    );
+    });
     expect(() => throwing()).toThrow(error);
   });
 
-  it('carries one frozen, non-enumerable definition — never a mutable current binding', () => {
+  it('brands a frozen contract that excludes mutate and all live binding facts', () => {
     const writes = ['orders.openIds'];
-    const action = defineAction(
-      'orders.archive',
-      { does: 'Archive this order', invocation: 'scalar', writes },
-      (input: { orderId: string }) => input.orderId,
-    );
+    const mutate = (input: { orderId: string }) => input.orderId;
+    const action = defineAction('orders.archive', {
+      does: 'Archive this order',
+      invocation: 'scalar',
+      settle: { writes },
+      mutate,
+    });
     writes.push('attacker.added');
 
-    const definition = actionDefinitionOf(action);
+    const definition = actionDefinitionOf(action)!;
     expect(definition).toMatchObject({
       ref: { kind: 'action-definition', definitionId: 'orders.archive' },
       contract: {
         does: 'Archive this order',
         invocation: 'scalar',
-        writes: ['orders.openIds'],
+        settle: { writes: ['orders.openIds'] },
       },
     });
+    expect('mutate' in definition.contract).toBe(false);
+    expect('currentBinding' in action).toBe(false);
     expect(Object.isFrozen(definition)).toBe(true);
     expect(Object.isFrozen(definition.ref)).toBe(true);
     expect(Object.isFrozen(definition.contract)).toBe(true);
+    expect(Object.isFrozen(definition.contract.settle)).toBe(true);
+    expect(Object.isFrozen(definition.contract.settle?.writes)).toBe(true);
     expect(Object.keys(action)).toEqual([]);
-    expect('currentBinding' in action).toBe(false);
     expect(isDefinedAction(action)).toBe(true);
-    expect(isDefinedAction(() => undefined)).toBe(false);
+    expect(isDefinedAction(mutate)).toBe(false);
   });
 
-  it('owns nested declaration records while leaving opaque validators by reference', () => {
-    const enabledWhen = { ready: { eq: true } };
-    const mayInvoke: Array<'human' | 'agent'> = ['human'];
-    const humanDecides = {
-      about: 'which order',
-      doneWhen: { chosen: { eq: true } },
-    };
+  it('owns grouped declarations while retaining reader, predicate, and schema identities', () => {
+    const when = { page: { eq: 'orders' } };
+    const blockedBecause = () => ({
+      says: 'Wait for the archive job',
+      clearedBy: 'app' as const,
+    });
+    const verify = () => true;
     const inputSchema = { safeParse: () => ({ success: true as const }) };
-    const action = defineAction(
-      'orders.choose',
-      {
-        does: 'Choose the order',
-        invocation: 'scalar',
-        enabledWhen,
-        principalPolicy: { mayInvoke },
-        humanDecides,
-        inputSchema,
-      },
-      (_input?: unknown) => undefined,
-    );
+    const channelSchema = { type: 'string' };
+    const mayInvoke: Array<'human' | 'agent'> = ['human'];
 
-    enabledWhen.ready.eq = false;
+    const action = defineAction('orders.archive-owned', {
+      does: 'Archive this order',
+      invocation: 'scalar',
+      inputSchema,
+      guard: { when, blockedBecause },
+      settle: {
+        verify,
+        progress: { stages: ['queued', 'stored'], required: true },
+      },
+      principal: { mayInvoke },
+      needs: { subject: { kind: 'order', schema: channelSchema } },
+      produces: { kind: 'archive-receipt', schema: channelSchema },
+      mutate: (input: string) => input,
+    });
+
+    when.page.eq = 'attacker';
     mayInvoke.push('agent');
-    humanDecides.doneWhen.chosen.eq = false;
     const contract = actionDefinitionOf(action)!.contract;
-
-    expect(contract.enabledWhen).toEqual({ ready: { eq: true } });
-    expect(contract.principalPolicy?.mayInvoke).toEqual(['human']);
-    expect(contract.humanDecides?.doneWhen).toEqual({ chosen: { eq: true } });
+    expect(contract.guard?.when).toEqual({ page: { eq: 'orders' } });
+    expect(contract.principal?.mayInvoke).toEqual(['human']);
     expect(contract.inputSchema).toBe(inputSchema);
-    expect(Object.isFrozen(contract.enabledWhen)).toBe(true);
-    expect(Object.isFrozen(contract.enabledWhen?.ready)).toBe(true);
+    expect(contract.guard?.blockedBecause).toBe(blockedBecause);
+    expect(contract.settle?.verify).toBe(verify);
+    expect(contract.needs?.subject.schema).toBe(channelSchema);
+    expect(contract.produces?.schema).toBe(channelSchema);
+    expect(Object.isFrozen(contract.guard)).toBe(true);
+    expect(Object.isFrozen(contract.guard?.when)).toBe(true);
+    expect(Object.isFrozen(contract.principal)).toBe(true);
+    expect(Object.isFrozen(contract.settle?.progress)).toBe(true);
+    expect(Object.isFrozen(contract.settle?.progress?.stages)).toBe(true);
+    expect(Object.isFrozen(inputSchema)).toBe(false);
+    expect(Object.isFrozen(channelSchema)).toBe(false);
   });
 
-  it('owns and freezes inert channel declarations and plain input schemas', () => {
-    const needs = {
-      subject: {
-        kind: 'order',
-        schema: { type: 'string', minLength: 1 },
-        from: 'selection',
-      },
-    };
-    const produces = {
-      kind: 'archive-receipt',
-      schema: { type: 'object', required: ['orderId'] },
-    };
-    const inputSchema = {
-      type: 'object',
-      properties: { orderId: { type: 'string' } },
-      required: ['orderId'],
-    };
-    const action = defineAction(
-      'orders.archive-declarations',
-      {
-        does: 'Archive an order',
-        invocation: 'scalar',
-        needs,
-        produces,
-        inputSchema,
-      },
-      ({ orderId }: { orderId: string }) => orderId,
-    );
-
-    needs.subject.kind = 'attacker-kind';
-    needs.subject.schema.type = 'number';
-    produces.kind = 'attacker-output';
-    produces.schema.required.push('attacker');
-    inputSchema.properties.orderId.type = 'number';
-    inputSchema.required.push('attacker');
-
-    const contract = actionDefinitionOf(action)!.contract;
-    expect(contract.needs).toEqual({
-      subject: {
-        kind: 'order',
-        schema: { type: 'string', minLength: 1 },
-        from: 'selection',
-      },
-    });
-    expect(contract.produces).toEqual({
-      kind: 'archive-receipt',
-      schema: { type: 'object', required: ['orderId'] },
-    });
-    expect(contract.inputSchema).toEqual({
-      type: 'object',
-      properties: { orderId: { type: 'string' } },
-      required: ['orderId'],
-    });
-    expect(Object.isFrozen(contract.needs)).toBe(true);
-    expect(Object.isFrozen(contract.needs?.subject)).toBe(true);
-    expect(Object.isFrozen(contract.needs?.subject.schema)).toBe(true);
-    expect(Object.isFrozen(contract.produces)).toBe(true);
-    expect(Object.isFrozen(contract.produces?.schema)).toBe(true);
-    expect(Object.isFrozen(contract.inputSchema)).toBe(true);
-    const frozenInputSchema = contract.inputSchema as {
-      readonly properties: {
-        readonly orderId: { readonly type: string };
-      };
-      readonly required: readonly string[];
-    };
-    expect(Object.isFrozen(frozenInputSchema.properties)).toBe(true);
-    expect(Object.isFrozen(frozenInputSchema.properties.orderId)).toBe(true);
-    expect(Object.isFrozen(frozenInputSchema.required)).toBe(true);
-    const frozenProducedSchema = contract.produces?.schema as {
-      readonly required: readonly string[];
-    };
-    expect(Object.isFrozen(frozenProducedSchema.required)).toBe(true);
-  });
-
-  it('preserves an own __proto__ schema key without turning it into the clone prototype', () => {
+  it('owns a plain JSON Schema and preserves an own __proto__ key safely', () => {
     const inputSchema = JSON.parse(
       '{"type":"object","properties":{"__proto__":{"type":"string","polluted":true}}}',
     ) as Record<string, unknown>;
-    const action = defineAction(
-      'schemas.prototype-key',
-      { does: 'Accept a prototype-named field', invocation: 'scalar', inputSchema },
-      (_input: unknown) => undefined,
-    );
-
-    const frozenSchema = actionDefinitionOf(action)!.contract.inputSchema as {
-      readonly properties: Record<string, unknown>;
-    };
-    expect(Object.getPrototypeOf(frozenSchema.properties)).toBe(Object.prototype);
-    expect(Object.hasOwn(frozenSchema.properties, '__proto__')).toBe(true);
-    expect(frozenSchema.properties['__proto__']).toEqual({
-      type: 'string',
-      polluted: true,
+    const action = defineAction('schemas.prototype-key', {
+      does: 'Accept a prototype-named field',
+      invocation: 'scalar',
+      inputSchema,
+      mutate: (_input: unknown) => undefined,
     });
-    expect(frozenSchema.properties['polluted']).toBeUndefined();
-    expect(Object.isFrozen(frozenSchema.properties)).toBe(true);
+
+    const retained = actionDefinitionOf(action)!.contract.inputSchema as {
+      properties: Record<string, unknown>;
+    };
+    expect(retained).not.toBe(inputSchema);
+    expect(Object.hasOwn(retained.properties, '__proto__')).toBe(true);
+    expect(retained.properties.polluted).toBeUndefined();
+    expect(Object.isFrozen(retained)).toBe(true);
+    expect(Object.isFrozen(retained.properties)).toBe(true);
   });
 
-  it('recognises the Symbol.for brand a second installed copy would read', () => {
-    const original = defineAction(
-      'shared.action',
-      { does: 'Run the shared action', invocation: 'inputless' },
-      () => 'ok',
-    );
+  it('recognises a frozen Symbol.for brand from a second installed copy', () => {
+    const original = defineAction('shared.action', {
+      does: 'Run the shared action',
+      invocation: 'inputless',
+      mutate: () => 'ok',
+    });
     const foreignCopy = () => 'ok';
     Object.defineProperty(
       foreignCopy,
-      Symbol.for('hcifootprint.action-definition.v1'),
-      {
-        value: actionDefinitionOf(original),
-        enumerable: false,
-      },
+      Symbol.for('hcifootprint.action-definition.v2'),
+      { value: actionDefinitionOf(original), enumerable: false },
     );
 
     expect(isDefinedAction(foreignCopy)).toBe(true);
-    expect(actionDefinitionOf(foreignCopy)?.ref.definitionId).toBe('shared.action');
+    expect(actionDefinitionOf(foreignCopy)?.ref.definitionId).toBe(
+      'shared.action',
+    );
   });
 
-  it('rejects a mutable lookalike brand while accepting frozen cross-copy bytes', () => {
+  it('rejects mutable or malformed branded lookalikes and hostile brand readers', () => {
     const forged = () => 'not-defined';
     Object.defineProperty(
       forged,
-      Symbol.for('hcifootprint.action-definition.v1'),
+      Symbol.for('hcifootprint.action-definition.v2'),
       {
         value: {
           ref: { kind: 'action-definition', definitionId: 'forged.action' },
-          contract: { does: 'Pretend to be an action' },
+          contract: {
+            does: 'Pretend to be an action',
+            invocation: 'inputless',
+          },
         },
       },
     );
-
     expect(isDefinedAction(forged)).toBe(false);
-    expect(actionDefinitionOf(forged)).toBeUndefined();
 
     const frozenMalformed = () => 'still-not-defined';
     const malformedRecord = {
@@ -283,31 +210,25 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
       contract: Object.freeze({
         does: 'Pretend to be frozen',
         invocation: 'inputless',
-        confirm: 'yes',
+        confirm: true,
       }),
     };
     Object.defineProperty(
       malformedRecord,
-      Symbol.for('hcifootprint.action-definition.validated.v1'),
-      {
-        value: true,
-        enumerable: false,
-      },
+      Symbol.for('hcifootprint.action-definition.validated.v2'),
+      { value: true, enumerable: false },
     );
     Object.freeze(malformedRecord);
     Object.defineProperty(
       frozenMalformed,
-      Symbol.for('hcifootprint.action-definition.v1'),
-      {
-        value: malformedRecord,
-      },
+      Symbol.for('hcifootprint.action-definition.v2'),
+      { value: malformedRecord },
     );
     expect(isDefinedAction(frozenMalformed)).toBe(false);
-    expect(actionDefinitionOf(frozenMalformed)).toBeUndefined();
 
     const hostile = new Proxy(() => undefined, {
       get(target, property, receiver) {
-        if (property === Symbol.for('hcifootprint.action-definition.v1')) {
+        if (property === Symbol.for('hcifootprint.action-definition.v2')) {
           throw new Error('hostile brand getter');
         }
         return Reflect.get(target, property, receiver);
@@ -317,283 +238,287 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
     expect(actionDefinitionOf(hostile)).toBeUndefined();
   });
 
-  it('refuses empty ids and double wrapping instead of creating two identities', () => {
+  it('requires one id plus one options record with mutate, and refuses double wrapping', () => {
     expect(() =>
-      defineAction(
-        '   ',
-        { does: 'No identity', invocation: 'inputless' },
-        () => undefined,
-      ),
+      defineAction('   ', {
+        does: 'No identity',
+        invocation: 'inputless',
+        mutate: () => undefined,
+      }),
     ).toThrow(/non-empty definition id/);
-
-    const action = defineAction(
-      'once',
-      { does: 'Run once', invocation: 'inputless' },
-      () => undefined,
-    );
     expect(() =>
-      defineAction(
-        'twice',
-        { does: 'Wrap twice', invocation: 'inputless' },
-        action,
-      ),
+      defineUnchecked({ does: 'Missing mutate', invocation: 'inputless' }),
+    ).toThrow(/options\.mutate to be a function/);
+    expect(() =>
+      Reflect.apply(defineAction, undefined, [
+        'legacy.three-arguments',
+        { does: 'Old contract', invocation: 'inputless' },
+        () => undefined,
+      ]),
+    ).toThrow(/takes exactly two arguments/);
+
+    const action = defineAction('once', {
+      does: 'Run once',
+      invocation: 'inputless',
+      mutate: () => undefined,
+    });
+    expect(() =>
+      defineAction('twice', {
+        does: 'Wrap twice',
+        invocation: 'inputless',
+        mutate: action,
+      }),
     ).toThrow(/already an action definition/);
   });
 
-  it('rejects live-site binding and unknown fields presented through plain JavaScript', () => {
+  it.each([
+    'when',
+    'writes',
+    'verify',
+    'principalPolicy',
+    'confirm',
+    'humanDecides',
+    'freshness',
+    'concurrency',
+  ])('rejects removed or flat v1 field %s', (field) => {
     expect(() =>
       defineUnchecked({
         does: 'Archive the order',
         invocation: 'inputless',
-        binding: { kind: 'programmatic', provider: 'orders' },
+        mutate: () => undefined,
+        [field]: field === 'writes' ? [] : {},
       }),
-    ).toThrow(/live-site 'binding'.*connectAction\(\)\/attach\(\)/);
+    ).toThrow(new RegExp(`unknown field '${field}'`));
+  });
+
+  it('rejects unknown and accessor fields at every authored record boundary', () => {
+    let reads = 0;
+    const guard = Object.defineProperty({}, 'when', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return { ready: { eq: true } };
+      },
+    });
+    expect(() =>
+      defineUnchecked({
+        does: 'Archive the order',
+        invocation: 'inputless',
+        guard,
+        mutate: () => undefined,
+      }),
+    ).toThrow(
+      /contract\.guard field 'when' must be an enumerable data property/,
+    );
+    expect(reads).toBe(0);
 
     expect(() =>
       defineUnchecked({
         does: 'Archive the order',
         invocation: 'inputless',
-        enabledWen: { ready: { eq: true } },
+        settle: { writes: [], guessed: true },
+        mutate: () => undefined,
       }),
-    ).toThrow(/unknown contract field 'enabledWen'/);
+    ).toThrow(/contract\.settle declares unknown field 'guessed'/);
 
+    const blockedBecause = Object.defineProperty(
+      { says: 'Wait', clearedBy: 'app' },
+      'extra',
+      { value: true, enumerable: true },
+    );
     expect(() =>
       defineUnchecked({
         does: 'Archive the order',
         invocation: 'inputless',
-        input: { safeParse: () => ({ success: true }) },
+        guard: { blockedBecause },
+        mutate: () => undefined,
       }),
-    ).toThrow(/definitions use 'inputSchema'.*live invocation-time value reader/);
+    ).toThrow(/blockedBecause.*unknown field 'extra'/);
 
     const symbolField = Symbol('private-site-handle');
     expect(() =>
       defineUnchecked({
         does: 'Archive the order',
         invocation: 'inputless',
+        mutate: () => undefined,
         [symbolField]: {},
       }),
-    ).toThrow(/unknown contract field 'Symbol\(private-site-handle\)'/);
+    ).toThrow(/unknown field 'Symbol\(private-site-handle\)'/);
   });
 
-  it('rejects accessor and hidden contract fields before branding a callable', () => {
-    let doesReads = 0;
-    const accessorContract = Object.defineProperty({}, 'does', {
-      enumerable: true,
-      get() {
-        doesReads += 1;
-        return doesReads < 3 ? 'A changing sentence' : 42;
-      },
-    });
+  it.each([
+    ['guard', { guard: {} }],
+    ['settle', { settle: {} }],
+    ['principal', { principal: {} }],
+    ['guard with only undefined', { guard: { when: undefined } }],
+    ['settle with only undefined', { settle: { writes: undefined } }],
+    [
+      'principal with only undefined',
+      { principal: { decisionOwner: undefined } },
+    ],
+  ])('rejects an empty %s group at the JavaScript door', (_name, extra) => {
+    expect(() =>
+      defineUnchecked({
+        does: 'Archive the order',
+        invocation: 'inputless',
+        mutate: () => undefined,
+        ...extra,
+      }),
+    ).toThrow(/must declare at least one clause; omit the group/);
+  });
 
-    expect(() => defineUnchecked(accessorContract)).toThrow(
-      /contract field 'does' must be an enumerable data property/,
-    );
-    expect(doesReads).toBe(0);
+  it('accepts non-empty unique write and read key declarations', () => {
+    expect(() =>
+      defineUnchecked({
+        does: 'Archive the order',
+        invocation: 'inputless',
+        settle: {
+          writes: ['orders.archived'],
+          reads: ['orders.selection'],
+        },
+        mutate: () => undefined,
+      }),
+    ).not.toThrow();
+  });
 
-    const hiddenContract = Object.defineProperty(
-      { does: 'Archive the order', invocation: 'inputless' },
-      'writes',
-      { value: ['orders.openIds'], enumerable: false },
-    );
-    expect(() => defineUnchecked(hiddenContract)).toThrow(
-      /contract field 'writes' must be an enumerable data property/,
-    );
+  it.each([
+    ['empty writes', { writes: [] }],
+    ['empty reads', { reads: [] }],
+    ['blank writes', { writes: [' '] }],
+    ['blank reads', { reads: ['orders.selection', '\t'] }],
+    ['duplicate writes', { writes: ['orders.archived', 'orders.archived'] }],
+    ['duplicate reads', { reads: ['orders.selection', 'orders.selection'] }],
+    ['non-string writes', { writes: ['orders.archived', 42] }],
+    ['non-array reads', { reads: 'orders.selection' }],
+  ])('rejects %s', (_name, settle) => {
+    expect(() =>
+      defineUnchecked({
+        does: 'Archive the order',
+        invocation: 'inputless',
+        settle,
+        mutate: () => undefined,
+      }),
+    ).toThrow(/non-empty array of unique, non-blank state-key strings/);
   });
 
   it.each([
     [
       'guard operator',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        when: { ready: { equals: true } },
-      },
+      { guard: { when: { ready: { equals: true } } } },
       /unknown operator 'equals'/,
     ],
     [
       'empty enabledWhen',
-      { does: 'Archive the order', invocation: 'inputless', enabledWhen: {} },
-      /empty enabledWhen/,
+      { guard: { enabledWhen: {} } },
+      /empty guard\.enabledWhen/,
     ],
     [
       'input schema',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        inputSchema: { notAValidator: true },
-      },
+      { inputSchema: { notAValidator: true } },
       /unrecognized input schema/,
     ],
     [
       'principal policy',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        principalPolicy: { mayInvoke: ['user'] },
-      },
+      { principal: { mayInvoke: ['user'] } },
       /write 'human'/,
     ],
     [
       'observability coherence',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        observability: 'postcondition',
-      },
+      { settle: { observability: 'postcondition' } },
       /does not declare.*verify/,
     ],
-    [
-      'freshness vocabulary',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        freshness: { readsChanged: 'refuse' },
-      },
-      /unknown freshness axis 'readsChanged'/,
-    ],
-    [
-      'concurrency vocabulary',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        concurrency: { mode: 'single-fight' },
-      },
-      /concurrency mode 'single-fight'/,
-    ],
-    [
-      'canonical role',
-      { does: 'Archive the order', invocation: 'inputless', role: 'primary' },
-      /role must be one of/,
-    ],
-    [
-      'empty needs',
-      { does: 'Archive the order', invocation: 'inputless', needs: {} },
-      /needs must name at least one input/,
-    ],
-    [
-      'need kind',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        needs: { subject: { kind: ' ' } },
-      },
-      /needs\.subject\.kind must be a non-empty string/,
-    ],
+    ['canonical role', { role: 'primary' }, /role must be one of/],
+    ['empty needs', { needs: {} }, /needs must name at least one input/],
     [
       'need vocabulary',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        needs: { subject: { kind: 'order', source: 'selection' } },
-      },
+      { needs: { subject: { kind: 'order', source: 'selection' } } },
       /needs\.subject declares unknown field 'source'/,
     ],
     [
       'produces kind',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        produces: { kind: '' },
-      },
+      { produces: { kind: '' } },
       /produces\.kind must be a non-empty string/,
     ],
-  ])('rejects a malformed JS-shaped %s contract', (_name, contract, error) => {
-    expect(() => defineUnchecked(contract)).toThrow(error);
-  });
-
-  it.each([
     [
-      'when',
-      { does: 'Archive the order', invocation: 'inputless', when: null },
+      'duplicate progress',
+      { settle: { progress: { stages: ['sent', 'sent'] } } },
+      /stages must be unique/,
     ],
-    [
-      'writes',
-      {
-        does: 'Archive the order',
-        invocation: 'inputless',
-        writes: 'orders.openIds',
-      },
-    ],
-    [
-      'goTo',
-      { does: 'Archive the order', invocation: 'inputless', goTo: 42 },
-    ],
-    [
-      'confirm',
-      { does: 'Archive the order', invocation: 'inputless', confirm: 'yes' },
-    ],
-    [
-      'freshness',
-      { does: 'Archive the order', invocation: 'inputless', freshness: null },
-    ],
-    [
-      'concurrency',
-      { does: 'Archive the order', invocation: 'inputless', concurrency: [] },
-    ],
-  ])('rejects a wrong runtime shape for %s', (field, contract) => {
-    expect(() => defineUnchecked(contract)).toThrow(
-      new RegExp(`${field} must be`),
-    );
-  });
-
-  it('rejects contradictory invocation declarations through plain JavaScript', () => {
-    expect(() =>
-      defineUnchecked({ does: 'Missing an invocation declaration' }),
-    ).toThrow(/invocation must be inputless, scalar, or host/);
-
+  ])('rejects a malformed JS-shaped %s contract', (_name, extra, error) => {
     expect(() =>
       defineUnchecked({
-        does: 'Use an unknown invocation declaration',
-        invocation: 'automatic',
+        does: 'Archive the order',
+        invocation: 'inputless',
+        mutate: () => undefined,
+        ...extra,
       }),
+    ).toThrow(error);
+  });
+
+  it('enforces invocation, schema, and lifecycle laws at the JavaScript door', () => {
+    expect(() =>
+      defineUnchecked({ does: 'Missing invocation', mutate: () => undefined }),
     ).toThrow(/invocation must be inputless, scalar, or host/);
-
     expect(() =>
-      Reflect.apply(defineAction, undefined, [
-        'unchecked.inputless-slot',
-        { does: 'Contradict a visible slot', invocation: 'inputless' },
-        (_value: unknown) => undefined,
-      ]),
-    ).toThrow(/declares invocation: 'inputless'.*1 positional input slot/);
-
+      defineUnchecked({
+        does: 'Contradict a visible slot',
+        invocation: 'inputless',
+        mutate: (_value: unknown) => undefined,
+      }),
+    ).toThrow(/inputless.*mutate exposes 1 positional slot/);
     expect(() =>
-      Reflect.apply(defineAction, undefined, [
-        'unchecked.scalar-slots',
-        { does: 'Contradict several slots', invocation: 'scalar' },
-        (_left: unknown, _right: unknown) => undefined,
-      ]),
-    ).toThrow(/declares invocation: 'scalar'.*2 positional input slots/);
-
+      defineUnchecked({
+        does: 'Contradict several slots',
+        invocation: 'scalar',
+        mutate: (_left: unknown, _right: unknown) => undefined,
+      }),
+    ).toThrow(/scalar.*mutate exposes 2 positional slots/);
+    expect(() =>
+      defineUnchecked({
+        does: 'Allow an opted-in lifecycle',
+        invocation: 'inputless',
+        settle: { progress: { stages: ['sent'] } },
+        mutate: (_lifecycle: unknown) => undefined,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      defineUnchecked({
+        does: 'Forbid lifecycle without progress',
+        invocation: 'inputless',
+        mutate: (_lifecycle: unknown) => undefined,
+      }),
+    ).toThrow(/Declare settle\.progress/);
     expect(() =>
       defineUnchecked({
         does: 'Contradict inputless schema',
         invocation: 'inputless',
         inputSchema: { safeParse: () => ({ success: true }) },
+        mutate: () => undefined,
       }),
     ).toThrow(/inputless invocation with an input schema/);
-
     expect(() =>
-      Reflect.apply(defineAction, undefined, [
-        'unchecked.scalar-none',
-        {
-          does: 'Contradict scalar schema',
-          invocation: 'scalar',
-          inputSchema: 'none',
-        },
-        (_value: unknown) => undefined,
-      ]),
+      defineUnchecked({
+        does: 'Contradict scalar schema',
+        invocation: 'scalar',
+        inputSchema: 'none',
+        mutate: (_value: unknown) => undefined,
+      }),
     ).toThrow(/scalar invocation with inputSchema: 'none'/);
-
     expect(() =>
-      Reflect.apply(defineAction, undefined, [
-        'unchecked.host-schema',
-        {
-          does: 'Contradict host schema',
-          invocation: 'host',
-          inputSchema: { safeParse: () => ({ success: true }) },
-        },
-        (_value: unknown) => undefined,
-      ]),
+      defineUnchecked({
+        does: 'Contradict host schema',
+        invocation: 'host',
+        inputSchema: { safeParse: () => ({ success: true }) },
+        mutate: (_value: unknown) => undefined,
+      }),
     ).toThrow(/host invocation with an input schema/);
+    expect(() =>
+      defineUnchecked({
+        does: 'Host cannot receive a lifecycle',
+        invocation: 'host',
+        settle: { progress: { stages: ['sent'] } },
+        mutate: (_value: unknown) => undefined,
+      }),
+    ).toThrow(/host invocation cannot declare settle\.progress/);
   });
 });

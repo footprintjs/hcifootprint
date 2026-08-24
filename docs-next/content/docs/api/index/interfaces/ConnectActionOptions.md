@@ -4,7 +4,7 @@ title: ConnectActionOptions<Input, Output, Id>
 
 # Interface: ConnectActionOptions\<Input, Output, Id\>
 
-Defined in: [src/action/types.ts:193](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L193)
+Defined in: [src/action/types.ts:309](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L309)
 
 Facts supplied when opening one live binding.
 
@@ -32,7 +32,7 @@ Facts supplied when opening one live binding.
 
 > `readonly` `optional` **busy?**: () => `string` \| `undefined`
 
-Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L178)
+Defined in: [src/action/types.ts:296](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L296)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **coverage?**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L179)
+Defined in: [src/action/types.ts:297](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L297)
 
 #### Inherited from
 
@@ -60,7 +60,7 @@ Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **enabled?**: () => `boolean` \| `undefined`
 
-Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L177)
+Defined in: [src/action/types.ts:295](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L295)
 
 #### Returns
 
@@ -76,7 +76,7 @@ Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: [src/action/types.ts:181](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L181)
+Defined in: [src/action/types.ts:299](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L299)
 
 #### Inherited from
 
@@ -88,10 +88,11 @@ Defined in: [src/action/types.ts:181](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **input?**: () => `Input`
 
-Defined in: [src/action/types.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L176)
+Defined in: [src/action/types.ts:294](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L294)
 
 Live value reader. Direct connection invocation reads it at invocation;
-`available()` reads and retains it while minting an exact bound offer.
+a principal port's `offers()` reads and retains it while minting an exact
+bound offer.
 The definition-side payload shape is `inputSchema`.
 
 #### Returns
@@ -108,7 +109,7 @@ The definition-side payload shape is `inputSchema`.
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: [src/action/types.ts:200](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L200)
+Defined in: [src/action/types.ts:315](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L315)
 
 ***
 
@@ -116,7 +117,7 @@ Defined in: [src/action/types.ts:200](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **locators?**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: [src/action/types.ts:180](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L180)
+Defined in: [src/action/types.ts:298](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L298)
 
 #### Inherited from
 
@@ -128,7 +129,7 @@ Defined in: [src/action/types.ts:180](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **node**: `string`
 
-Defined in: [src/action/types.ts:199](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L199)
+Defined in: [src/action/types.ts:314](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L314)
 
 ***
 
@@ -136,15 +137,17 @@ Defined in: [src/action/types.ts:199](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **onInvocation?**: (`invocation`, `settlement`) => `void` \| `PromiseLike`\<`void`\>
 
-Defined in: [src/action/types.ts:202](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L202)
+Defined in: [src/action/types.ts:321](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L321)
 
-Observe every direct, brokered, or host-continuation invocation.
+Observe every invocation without pretending a host listener returns the
+action mutation's output. Core does not own the host callback type, so its
+host branch is deliberately `unknown`; framework bindings may refine it.
 
 #### Parameters
 
 ##### invocation
 
-[`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Output`, `Id`\>
+[`ActionObservedInvocation`](/api/index/type-aliases/ActionObservedInvocation)\<`Output`, `unknown`, `Id`\>
 
 ##### settlement
 
@@ -160,7 +163,7 @@ Observe every direct, brokered, or host-continuation invocation.
 
 > `readonly` `optional` **onInvocationError?**: (`error`) => `void` \| `PromiseLike`\<`void`\>
 
-Defined in: [src/action/types.ts:207](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L207)
+Defined in: [src/action/types.ts:326](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L326)
 
 Optional sink for observer failures; neither observer can replace app behavior.
 

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { ActionBindingRef } from '../src/index.js';
+import type { ActionBindingRef, ActionDefinitionRef } from '../src/index.js';
 import { ActionRegistry } from '../src/registry/registry.js';
+
+const definition: ActionDefinitionRef<'orders.archive'> = Object.freeze({
+  kind: 'action-definition',
+  definitionId: 'orders.archive',
+});
 
 const binding = (
   bindingId: string,
@@ -8,10 +13,7 @@ const binding = (
 ): ActionBindingRef<'orders.archive'> => ({
   kind: 'action-binding',
   bindingId,
-  definition: {
-    kind: 'action-definition',
-    definitionId: 'orders.archive',
-  },
+  definition,
   node: 'orders.rows',
   ...(instance !== undefined ? { instance } : {}),
 });
@@ -31,7 +33,7 @@ describe('the canonical registry stores live bindings, not one mutable site per 
     expect(registry.handlerForBinding(secondRef)).toBe(second);
     expect(
       registry
-        .bindingsFor('orders.archive')
+        .bindingsFor(firstRef.definition)
         .map((row) => row.binding.bindingId),
     ).toEqual(['binding#1', 'binding#2']);
     // The legacy action-level projection remains last-wins for existing callers.
@@ -46,7 +48,7 @@ describe('the canonical registry stores live bindings, not one mutable site per 
     registry.registerBinding('opaque-row', ref, () => undefined);
 
     expect(registry.registrationFor(ref)?.binding.instance).toBe(instance);
-    expect(registry.bindingsFor('orders.archive')[0]?.binding.instance).toBe(
+    expect(registry.bindingsFor(ref.definition)[0]?.binding.instance).toBe(
       instance,
     );
   });
@@ -89,14 +91,17 @@ describe('the canonical registry stores live bindings, not one mutable site per 
     registry.registerBinding('row-60', secondRef, () => 'second');
     registry.register('legacy-b', 'orders.archive', () => 'legacy-b');
 
-    expect(registry.bindingsFor('orders.archive')).toHaveLength(2);
+    expect(registry.bindingsFor(firstRef.definition)).toHaveLength(2);
     expect(registry.handlerForBinding(firstRef)?.()).toBe('first');
     expect(registry.handlerForBinding(secondRef)?.()).toBe('second');
     expect(registry.handlerFor('orders.archive')?.()).toBe('legacy-b');
     expect(
       registry
         .registrations()
-        .filter((row) => row.binding === undefined && row.affordanceId === 'orders.archive'),
+        .filter(
+          (row) =>
+            row.binding === undefined && row.affordanceId === 'orders.archive',
+        ),
     ).toHaveLength(1);
   });
 

@@ -4,7 +4,7 @@ title: ActionRegistry
 
 # Class: ActionRegistry
 
-Defined in: [src/registry/registry.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L112)
+Defined in: [src/registry/registry.ts:116](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L116)
 
 ## Constructors
 
@@ -12,7 +12,7 @@ Defined in: [src/registry/registry.ts:112](https://github.com/footprintjs/hcifoo
 
 > **new ActionRegistry**(`warn?`): `ActionRegistry`
 
-Defined in: [src/registry/registry.ts:122](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L122)
+Defined in: [src/registry/registry.ts:126](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L126)
 
 #### Parameters
 
@@ -30,7 +30,7 @@ Defined in: [src/registry/registry.ts:122](https://github.com/footprintjs/hcifoo
 
 > **bindingRegistrations**(): [`BindingRegistration`](/api/index/interfaces/BindingRegistration)[]
 
-Defined in: [src/registry/registry.ts:301](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L301)
+Defined in: [src/registry/registry.ts:307](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L307)
 
 Every structured live binding, without the legacy compatibility rows.
 
@@ -42,17 +42,17 @@ Every structured live binding, without the legacy compatibility rows.
 
 ### bindingsFor()
 
-> **bindingsFor**(`definitionId`): [`BindingRegistration`](/api/index/interfaces/BindingRegistration)[]
+> **bindingsFor**(`definition`): [`BindingRegistration`](/api/index/interfaces/BindingRegistration)[]
 
-Defined in: [src/registry/registry.ts:332](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L332)
+Defined in: [src/registry/registry.ts:334](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L334)
 
 Every live binding of one definition, in connection order.
 
 #### Parameters
 
-##### definitionId
+##### definition
 
-`string`
+[`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)
 
 #### Returns
 
@@ -64,7 +64,7 @@ Every live binding of one definition, in connection order.
 
 > **busyOf**(`affordanceId`): `string` \| `undefined`
 
-Defined in: [src/registry/registry.ts:259](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L259)
+Defined in: [src/registry/registry.ts:265](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L265)
 
 The app's own busy label for a registered tool, or undefined if it has not said.
 
@@ -84,7 +84,7 @@ The app's own busy label for a registered tool, or undefined if it has not said.
 
 > **handlerFor**(`affordanceId`): [`ActionHandler`](/api/index/type-aliases/ActionHandler) \| `undefined`
 
-Defined in: [src/registry/registry.ts:281](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L281)
+Defined in: [src/registry/registry.ts:287](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L287)
 
 #### Parameters
 
@@ -102,7 +102,7 @@ Defined in: [src/registry/registry.ts:281](https://github.com/footprintjs/hcifoo
 
 > **handlerForBinding**(`binding`): [`ActionHandler`](/api/index/type-aliases/ActionHandler) \| `undefined`
 
-Defined in: [src/registry/registry.ts:315](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L315)
+Defined in: [src/registry/registry.ts:321](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L321)
 
 Resolve the handler for one exact structured binding.
 
@@ -110,7 +110,7 @@ Resolve the handler for one exact structured binding.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 #### Returns
 
@@ -122,7 +122,7 @@ Resolve the handler for one exact structured binding.
 
 > **hasAny**(): `boolean`
 
-Defined in: [src/registry/registry.ts:290](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L290)
+Defined in: [src/registry/registry.ts:296](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L296)
 
 True when anything is registered — the signal that materialization is meaningful.
 
@@ -136,7 +136,7 @@ True when anything is registered — the signal that materialization is meaningf
 
 > **isEnabled**(`affordanceId`): `boolean` \| `undefined`
 
-Defined in: [src/registry/registry.ts:254](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L254)
+Defined in: [src/registry/registry.ts:260](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L260)
 
 Whether a registered tool is currently clickable. Undefined if not registered.
 
@@ -156,7 +156,7 @@ Whether a registered tool is currently clickable. Undefined if not registered.
 
 > **isRegistered**(`affordanceId`): `boolean`
 
-Defined in: [src/registry/registry.ts:285](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L285)
+Defined in: [src/registry/registry.ts:291](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L291)
 
 #### Parameters
 
@@ -174,7 +174,7 @@ Defined in: [src/registry/registry.ts:285](https://github.com/footprintjs/hcifoo
 
 > **register**(`group`, `affordanceId`, `handler`, `enabled?`, `busy?`): `void`
 
-Defined in: [src/registry/registry.ts:126](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L126)
+Defined in: [src/registry/registry.ts:130](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L130)
 
 #### Parameters
 
@@ -208,7 +208,7 @@ Defined in: [src/registry/registry.ts:126](https://github.com/footprintjs/hcifoo
 
 > **registerBinding**(`group`, `binding`, `handler`, `enabled?`, `busy?`, `options?`): `void`
 
-Defined in: [src/registry/registry.ts:168](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L168)
+Defined in: [src/registry/registry.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L174)
 
 Register one exact live binding. Unlike the compatibility door above, a
 second binding of the same definition coexists and receives no duplicate
@@ -238,7 +238,33 @@ warning: one definition mounted in many rows is the intended shape.
 
 ##### options?
 
-[`BindingRegistrationOptions`](/api/index/interfaces/BindingRegistrationOptions) = `{}`
+###### attached?
+
+`boolean`
+
+###### coverage?
+
+[`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
+
+###### humanReporting?
+
+[`HumanReporting`](/api/index/type-aliases/HumanReporting)
+
+###### input?
+
+() => `unknown`
+
+###### locators?
+
+readonly [`Binding`](/api/index/type-aliases/Binding)[]
+
+###### readBusy?
+
+() => `string` \| `undefined`
+
+###### readEnabled?
+
+() => `boolean` \| `undefined`
 
 #### Returns
 
@@ -250,7 +276,7 @@ warning: one definition mounted in many rows is the intended shape.
 
 > **registrationFor**(`binding`): [`BindingRegistration`](/api/index/interfaces/BindingRegistration) \| `undefined`
 
-Defined in: [src/registry/registry.ts:322](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L322)
+Defined in: [src/registry/registry.ts:326](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L326)
 
 A copy of one exact structured registration, or nothing once disconnected.
 
@@ -258,7 +284,7 @@ A copy of one exact structured registration, or nothing once disconnected.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 #### Returns
 
@@ -270,7 +296,7 @@ A copy of one exact structured registration, or nothing once disconnected.
 
 > **registrations**(): [`Registration`](/api/index/interfaces/Registration)[]
 
-Defined in: [src/registry/registry.ts:294](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L294)
+Defined in: [src/registry/registry.ts:300](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L300)
 
 #### Returns
 
@@ -282,7 +308,7 @@ Defined in: [src/registry/registry.ts:294](https://github.com/footprintjs/hcifoo
 
 > **setBindingBusy**(`binding`, `busy`): `boolean`
 
-Defined in: [src/registry/registry.ts:363](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L363)
+Defined in: [src/registry/registry.ts:362](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L362)
 
 Set or clear the busy label on one binding without changing any sibling.
 
@@ -290,7 +316,7 @@ Set or clear the busy label on one binding without changing any sibling.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 ##### busy
 
@@ -306,7 +332,7 @@ Set or clear the busy label on one binding without changing any sibling.
 
 > **setBindingEnabled**(`binding`, `enabled`): `boolean`
 
-Defined in: [src/registry/registry.ts:351](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L351)
+Defined in: [src/registry/registry.ts:353](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L353)
 
 Flip enabledness on one binding without changing any sibling.
 
@@ -314,7 +340,7 @@ Flip enabledness on one binding without changing any sibling.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 ##### enabled
 
@@ -330,7 +356,7 @@ Flip enabledness on one binding without changing any sibling.
 
 > **setBusy**(`affordanceId`, `busy`): `boolean`
 
-Defined in: [src/registry/registry.ts:244](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L244)
+Defined in: [src/registry/registry.ts:250](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L250)
 
 Say (or stop saying) that a registered tool is working right now. Same
 contract as setEnabled: true only on a real change, so the caller bumps the
@@ -357,7 +383,7 @@ absence is how this library spells "the app has not said".
 
 > **setEnabled**(`affordanceId`, `enabled`): `boolean`
 
-Defined in: [src/registry/registry.ts:230](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L230)
+Defined in: [src/registry/registry.ts:236](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L236)
 
 Flip a registered tool between clickable and greyed-out. Returns true if
 the state actually changed (so the caller can bump the version / emit only
@@ -383,7 +409,7 @@ on a real change). No-op + false if the id isn't registered.
 
 > **touchBinding**(`binding`): `boolean`
 
-Defined in: [src/registry/registry.ts:431](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L431)
+Defined in: [src/registry/registry.ts:430](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L430)
 
 Mark an attachment-host replacement whose public facts are otherwise equal.
 
@@ -391,7 +417,7 @@ Mark an attachment-host replacement whose public facts are otherwise equal.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 #### Returns
 
@@ -403,7 +429,7 @@ Mark an attachment-host replacement whose public facts are otherwise equal.
 
 > **unregisterBinding**(`binding`): `boolean`
 
-Defined in: [src/registry/registry.ts:439](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L439)
+Defined in: [src/registry/registry.ts:438](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L438)
 
 Disconnect one exact binding. Idempotent.
 
@@ -411,7 +437,7 @@ Disconnect one exact binding. Idempotent.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 #### Returns
 
@@ -423,7 +449,7 @@ Disconnect one exact binding. Idempotent.
 
 > **unregisterGroup**(`group`): `string`[]
 
-Defined in: [src/registry/registry.ts:264](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L264)
+Defined in: [src/registry/registry.ts:270](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L270)
 
 Remove every registration currently owned by `group`. Returns the removed ids.
 
@@ -443,7 +469,7 @@ Remove every registration currently owned by `group`. Returns the removed ids.
 
 > **updateBinding**(`binding`, `update`): `boolean`
 
-Defined in: [src/registry/registry.ts:376](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L376)
+Defined in: [src/registry/registry.ts:372](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L372)
 
 Replace committed facts for one stable binding identity.
 
@@ -451,11 +477,37 @@ Replace committed facts for one stable binding identity.
 
 ##### binding
 
-`string` \| [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
+[`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
 ##### update
 
-[`BindingRegistrationOptions`](/api/index/interfaces/BindingRegistrationOptions)
+###### attached?
+
+`boolean`
+
+###### coverage?
+
+[`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
+
+###### humanReporting?
+
+[`HumanReporting`](/api/index/type-aliases/HumanReporting)
+
+###### input?
+
+() => `unknown`
+
+###### locators?
+
+readonly [`Binding`](/api/index/type-aliases/Binding)[]
+
+###### readBusy?
+
+() => `string` \| `undefined`
+
+###### readEnabled?
+
+() => `boolean` \| `undefined`
 
 #### Returns
 

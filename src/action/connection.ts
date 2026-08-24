@@ -1,28 +1,35 @@
-import type { Binding } from '../atom/types.js';
+import type { Binding, Principal } from '../atom/types.js';
 import {
   ActionRegistry,
   type ActionHandler,
   type BindingRegistration,
 } from '../registry/registry.js';
 import { takesNoInput } from '../traverse/expects.js';
+import { checkPrincipalPolicy } from '../traverse/principal-policy.js';
 import { actionDefinitionOf } from './definition.js';
 import { assertBindingCoverage } from './coverage.js';
 import type {
   ActionDefinitionRef,
   ActionDefinitionRecord,
   ActionBindingRef,
-  ActionBindingRuntime,
-  ActionBindingRuntimeOptions,
+  ActionRuntime,
+  ActionRuntimeOptions,
   ActionBindingSnapshot,
   ActionBindingUpdate,
   ActionConnection,
   ActionContractActivation,
+  ActionAbandonmentAuthority,
   ActionEffectSettlement,
   ActionEffectSettlementInput,
   ActionInvocation,
   ActionInvocationInput,
   ActionInvocationSettlement,
   ActionInvocationMode,
+  ActionObservedInvocation,
+  ActionLifecycle,
+  ActionProgress,
+  ActionProgressObservation,
+  ActionProgressSnapshot,
   ActionInputRef,
   ActionInputSchemaAdapter,
   ActionInputSource,
@@ -33,14 +40,11 @@ import type {
   ActionTransitionSnapshot,
   BindingCoverage,
   BindingProjection,
-  BoundActionOffer,
   ConnectActionOptions,
   DefinedAction,
   HumanReporting,
-  InputlessActionOffer,
-  OpenActionOffer,
+  PrincipalActionPort,
   ReadonlyActionDefinitionContract,
-  ActionOfferFor,
 } from './types.js';
 
 const COVERAGE_RANK: Readonly<Record<BindingCoverage, number>> = Object.freeze({
@@ -71,15 +75,26 @@ interface StoredTransition {
   readonly ref: ActionTransitionRef;
   readonly input: ActionInvocationInput;
   readonly coverage: BindingCoverage;
+  /** Whether the definition named an authoritative way to prove its effect. */
+  readonly verificationDeclared: boolean;
   invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
-  effectStatus: 'unverified' | 'verified' | 'refused';
+  effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
   effectSettling?: boolean;
   produced?: unknown;
   error?: unknown;
   evidence?: unknown;
   reason?: unknown;
+  authority?: ActionAbandonmentAuthority;
+  progress?: TransitionProgress;
   effectSettlement?: ActionEffectSettlement;
   resolveEffect?: (settlement: ActionEffectSettlement<any>) => void;
+}
+
+interface TransitionProgress {
+  readonly channel: ActionProgress;
+  readonly lifecycle?: ActionLifecycle;
+  snapshot(): ActionProgressSnapshot;
+  close(): void;
 }
 
 interface CachedOffer {
@@ -101,12 +116,32 @@ interface RuntimeBindingInvoker {
     offer: ActionOfferRef,
     hasExplicitInput: boolean,
     input: unknown,
-  ) => ActionInvocation<unknown>;
+  ) => ActionInvocation<unknown, string, 'mutation'>;
 }
 
-type FirstParameter<F extends (...args: any[]) => any> = Parameters<F> extends []
-  ? undefined
-  : Parameters<F>[0];
+type FirstParameter<F extends (...args: any[]) => any> =
+  Parameters<F> extends [] ? undefined : Parameters<F>[0];
+
+const INVOCATION_OBSERVER_CAPTURE = Symbol(
+  'hcifootprint.invocation-observer-capture',
+);
+
+/**
+ * Internal adapter protocol for snapshotting a dynamic observer generation
+ * before application behavior begins, without changing the public callback.
+ * @internal
+ */
+export function withObserverCapture<
+  Observer extends (...args: any[]) => unknown,
+>(observer: Observer, capture: () => Observer | undefined): Observer {
+  Object.defineProperty(observer, INVOCATION_OBSERVER_CAPTURE, {
+    configurable: false,
+    enumerable: false,
+    value: capture,
+    writable: false,
+  });
+  return observer;
+}
 
 /** Structured refusal produced when an exact invocation payload fails its declared schema. */
 export class ActionInputValidationError extends TypeError {
@@ -150,10 +185,10 @@ export class ActionInputValidationError extends TypeError {
 }
 
 /** Create an isolated framework-neutral action-binding runtime. */
-export function createActionBindingRuntime(
-  options: ActionBindingRuntimeOptions = {},
-): ActionBindingRuntime {
-  return new DefaultActionBindingRuntime(options);
+export function createActionRuntime(
+  options: ActionRuntimeOptions = {},
+): ActionRuntime {
+  return new DefaultActionRuntime(options);
 }
 
 /**
@@ -170,14 +205,10 @@ export function connectAction<
   Id extends string,
   Mode extends ActionInvocationMode,
 >(
-  runtime: ActionBindingRuntime,
+  runtime: ActionRuntime,
   definition: DefinedAction<F, Id, Mode>,
   options: Mode extends 'scalar'
-    ? ConnectActionOptions<
-        Parameters<F>[0],
-        Awaited<ReturnType<F>>,
-        Id
-      > & {
+    ? ConnectActionOptions<Parameters<F>[0], Awaited<ReturnType<F>>, Id> & {
         readonly input: () => Parameters<F>[0];
       }
     : never,
@@ -187,38 +218,34 @@ export function connectAction<
   Id extends string,
   Mode extends ActionInvocationMode,
 >(
-  runtime: ActionBindingRuntime,
+  runtime: ActionRuntime,
   definition: DefinedAction<F, Id, Mode>,
-  options: Mode extends 'scalar'
-    ? ConnectActionOptions<
-        Parameters<F>[0],
-        Awaited<ReturnType<F>>,
-        Id
-      >
-    : Omit<
-        ConnectActionOptions<undefined, Awaited<ReturnType<F>>, Id>,
-        'input'
-      > & {
-          readonly input?: never;
-        },
+  options: Omit<
+    ConnectActionOptions<
+      Mode extends 'scalar' ? Parameters<F>[0] : undefined,
+      Awaited<ReturnType<F>>,
+      Id
+    >,
+    'input'
+  > & {
+    readonly input?: never;
+  },
 ): ActionConnection<F, Id, false, Mode>;
 export function connectAction<
   F extends (...args: any[]) => any,
   Id extends string,
   Mode extends ActionInvocationMode,
 >(
-  runtime: ActionBindingRuntime,
+  runtime: ActionRuntime,
   definition: DefinedAction<F, Id, Mode>,
   options: ConnectActionOptions<
     Mode extends 'scalar' ? Parameters<F>[0] : undefined,
     Awaited<ReturnType<F>>,
     Id
   >,
-):
-  | ActionConnection<F, Id, true, Mode>
-  | ActionConnection<F, Id, false, Mode> {
+): ActionConnection<F, Id, true, Mode> | ActionConnection<F, Id, false, Mode> {
   const connect = runtime.connect as (
-    this: ActionBindingRuntime,
+    this: ActionRuntime,
     selected: DefinedAction<F, Id, Mode>,
     selectedOptions: ConnectActionOptions<
       Mode extends 'scalar' ? Parameters<F>[0] : undefined,
@@ -231,12 +258,12 @@ export function connectAction<
   return connect.call(runtime, definition, options);
 }
 
-class DefaultActionBindingRuntime implements ActionBindingRuntime {
+class DefaultActionRuntime implements ActionRuntime {
   readonly #contractActivation: ActionContractActivation;
   readonly #inputSchemaAdapter: ActionInputSchemaAdapter | undefined;
   readonly #registry = new ActionRegistry();
   readonly #offers = new Map<string, ActionOffer>();
-  readonly #offerByBinding = new Map<string, CachedOffer>();
+  readonly #offerByBinding = new Map<string, Map<Principal, CachedOffer>>();
   readonly #invokers = new Map<string, RuntimeBindingInvoker>();
   readonly #transitions = new Map<string, StoredTransition>();
   readonly #definitions = new Map<string, DefinedAction>();
@@ -246,7 +273,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
   #inputSequence = 0;
   #transitionSequence = 0;
 
-  constructor(options: ActionBindingRuntimeOptions) {
+  constructor(options: ActionRuntimeOptions) {
     const activation = options.contractActivation ?? 'require-active';
     if (activation !== 'require-active' && activation !== 'disclosure') {
       throw new TypeError(
@@ -285,6 +312,22 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
 
   get contractActivation(): ActionContractActivation {
     return this.#contractActivation;
+  }
+
+  forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P> {
+    assertPrincipal(principal, 'forPrincipal()');
+    const invoke = ((offer: ActionOffer, ...input: unknown[]) =>
+      this.#invokeOffer(
+        principal,
+        offer,
+        input,
+      )) as PrincipalActionPort<P>['invoke'];
+    const offers = ((definition?: ActionDefinitionRef | DefinedAction) =>
+      this.#availableFor(
+        principal,
+        definition,
+      )) as PrincipalActionPort<P>['offers'];
+    return Object.freeze({ principal, invoke, offers });
   }
 
   connect<
@@ -391,6 +434,9 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
       this.#contractActivation,
       inputValidation,
     );
+    const verificationDeclared = hasEvidenceBearingSettlement(
+      record.contract.settle,
+    );
     const canonical = this.#definitions.get(record.ref.definitionId);
     if (canonical !== undefined && canonical !== definition) {
       throw new TypeError(
@@ -407,14 +453,11 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
     });
     const base: MutableBindingFacts<FirstParameter<F>> = {
       coverage: initialCoverage,
-      locators:
-        locators === undefined ? NO_BINDINGS : freezeBindings(locators),
+      locators: locators === undefined ? NO_BINDINGS : freezeBindings(locators),
       ...(input !== undefined ? { input } : {}),
       ...(enabled !== undefined ? { enabled } : {}),
       ...(busy !== undefined ? { busy } : {}),
-      ...(humanReporting !== undefined
-        ? { humanReporting }
-        : {}),
+      ...(humanReporting !== undefined ? { humanReporting } : {}),
     };
     const inputReaderPresent = base.input !== undefined;
     const invocationMode = record.contract.invocation;
@@ -475,8 +518,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         coverage: effective?.coverage ?? base.coverage,
         attached: effective !== undefined,
         locators: effective?.locators ?? base.locators,
-        humanReporting:
-          effective?.humanReporting ?? base.humanReporting,
+        humanReporting: effective?.humanReporting ?? base.humanReporting,
         input: base.input,
         readEnabled: base.enabled,
         readBusy: base.busy,
@@ -485,61 +527,124 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
       if (changed || forceRevision) runtime.#invalidateOffers(binding);
     };
 
-    const reportObserverError = (error: unknown): void => {
-      if (onInvocationError === undefined) return;
+    const reportObserverError = (
+      errorSink: typeof onInvocationError,
+      error: unknown,
+    ): void => {
+      if (errorSink === undefined) return;
       try {
-        void Promise.resolve(onInvocationError(error)).catch(() => undefined);
+        void Promise.resolve(errorSink(error)).catch(() => undefined);
       } catch {
         // Instrumentation failures never replace the application result.
       }
     };
 
-    const publishInvocation = (
-      invocation: ActionInvocation<Awaited<ReturnType<F>>, Id>,
-    ): ActionInvocation<Awaited<ReturnType<F>>, Id> => {
-      if (onInvocation === undefined) return invocation;
+    const captureObserver = <Observer extends (...args: any[]) => unknown>(
+      observer: Observer | undefined,
+      onCaptureError: (error: unknown) => void = () => undefined,
+    ): Observer | undefined => {
+      if (observer === undefined) return undefined;
+      const capture = (
+        observer as Observer & {
+          readonly [INVOCATION_OBSERVER_CAPTURE]?: () => Observer | undefined;
+        }
+      )[INVOCATION_OBSERVER_CAPTURE];
+      if (capture === undefined) return observer;
+      try {
+        const captured = capture();
+        if (captured === undefined || typeof captured === 'function') {
+          return captured;
+        }
+        onCaptureError(
+          new TypeError(
+            'hcifootprint: an invocation observer capture must return a callback or undefined.',
+          ),
+        );
+      } catch (error) {
+        onCaptureError(error);
+      }
+      return undefined;
+    };
+
+    const publishInvocation = <
+      Output,
+      Behavior extends 'mutation' | 'host-continuation',
+    >(
+      invocation: ActionInvocation<Output, Id, Behavior>,
+      observer: typeof onInvocation,
+      reportInstrumentationError: (error: unknown) => void,
+    ): ActionInvocation<Output, Id, Behavior> => {
+      if (observer === undefined) return invocation;
       const settlement = Object.freeze({
         binding,
         settle: (effect: ActionEffectSettlementInput) =>
           runtime.#settle(invocation.transition, effect),
       });
       try {
-        void Promise.resolve(onInvocation(invocation, settlement)).catch(
-          reportObserverError,
-        );
+        void Promise.resolve(
+          observer(
+            invocation as ActionObservedInvocation<
+              Awaited<ReturnType<F>>,
+              unknown,
+              Id
+            >,
+            settlement,
+          ),
+        ).catch(reportInstrumentationError);
       } catch (error) {
-        reportObserverError(error);
+        reportInstrumentationError(error);
       }
       return invocation;
     };
 
-    const openInvocation = (
+    const openInvocation = <
+      Behavior extends 'mutation' | 'host-continuation',
+      Output = Awaited<ReturnType<F>>,
+    >(
       handler: ActionHandler,
       hasInput: boolean,
       input: unknown,
       offer: ActionOfferRef<Id> | undefined,
-      invocationInput: ActionInvocationInput,
+      behavior: Behavior,
+      invocationInput: Behavior extends 'host-continuation'
+        ? Extract<ActionInvocationInput, { readonly source: 'host' }>
+        : Exclude<ActionInvocationInput, { readonly source: 'host' }>,
       coverage: BindingCoverage,
       phase: 'handler' | 'preflight' = 'handler',
-    ): ActionInvocation<Awaited<ReturnType<F>>, Id> =>
-      publishInvocation(
-        runtime.#invoke<Awaited<ReturnType<F>>, Id>(
-          binding,
-          handler,
-          hasInput,
-          input,
-          offer,
-          invocationInput,
-          coverage,
-          phase,
-        ),
+    ): ActionInvocation<Output, Id, Behavior> => {
+      const errorSink = captureObserver(onInvocationError);
+      const reportInstrumentationError = (error: unknown): void =>
+        reportObserverError(errorSink, error);
+      const observer = captureObserver(
+        onInvocation,
+        reportInstrumentationError,
       );
+      const invocation = runtime.#invoke<Output, Id, Behavior>(
+        binding,
+        handler,
+        hasInput,
+        input,
+        offer,
+        behavior,
+        invocationInput,
+        coverage,
+        phase,
+        verificationDeclared,
+        record.contract.settle?.progress,
+        reportInstrumentationError,
+      );
+      return publishInvocation(
+        invocation,
+        observer,
+        reportInstrumentationError,
+      );
+    };
 
     const invokeSelected = (
       hasExplicitInput: boolean,
       input: FirstParameter<F> | undefined,
       offered: ActionOfferRef<Id> | undefined,
-    ): ActionInvocation<Awaited<ReturnType<F>>, Id> => {
+    ): ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'> => {
       let registration = assertConnected();
       let enabled: boolean | undefined;
       try {
@@ -613,6 +718,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
             false,
             undefined,
             undefined,
+            'mutation',
             Object.freeze({ source: 'bound', provided: false }),
             registration.coverage,
             'preflight',
@@ -683,6 +789,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
             false,
             undefined,
             selectedOffer?.offer.ref as ActionOfferRef<Id> | undefined,
+            'mutation',
             invocationInput,
             registration.coverage,
             'preflight',
@@ -694,6 +801,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         hasInput,
         capturedInput,
         selectedOffer?.offer.ref as ActionOfferRef<Id> | undefined,
+        'mutation',
         invocationInput,
         registration.coverage,
       );
@@ -734,8 +842,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         const projectedHumanReporting = projection.humanReporting;
         if (
           interactive === null ||
-          (typeof interactive !== 'object' &&
-            typeof interactive !== 'function')
+          (typeof interactive !== 'object' && typeof interactive !== 'function')
         ) {
           throw new TypeError(
             'hcifootprint: attach() needs an already-resolved interactive host.',
@@ -766,9 +873,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         attachment = {
           token,
           coverage: projectedCoverage,
-          ...(frozenLocators !== undefined
-            ? { locators: frozenLocators }
-            : {}),
+          ...(frozenLocators !== undefined ? { locators: frozenLocators } : {}),
           ...(projectedHumanReporting !== undefined
             ? { humanReporting: projectedHumanReporting }
             : {}),
@@ -792,7 +897,9 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
           typeof update !== 'object' ||
           Array.isArray(update)
         ) {
-          throw new TypeError('hcifootprint: update() needs a binding-facts record.');
+          throw new TypeError(
+            'hcifootprint: update() needs a binding-facts record.',
+          );
         }
         const hasInputUpdate = 'input' in update;
         const hasEnabledUpdate = 'enabled' in update;
@@ -808,7 +915,12 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
           ? update.humanReporting
           : undefined;
 
-        if (hasInputUpdate && nextInput !== undefined) {
+        if (hasInputUpdate) {
+          if (nextInput === undefined) {
+            throw new TypeError(
+              `hcifootprint: binding '${binding.bindingId}' cannot remove its input reader through update(); reconnect to change that capability.`,
+            );
+          }
           assertOptionalReader(nextInput, 'input', 'update()');
         }
         if (hasEnabledUpdate) {
@@ -861,13 +973,11 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         // a different committed application generation. No reader is run.
         sync(true);
       },
-      invoke: (function (
-        input?: FirstParameter<F>,
-      ) {
+      invoke: function (input?: FirstParameter<F>) {
         assertDirectScalarDoor(arguments.length);
         return invokeSelected(arguments.length > 0, input, undefined);
-      }) as ActionConnection<F, Id, true, Mode>['invoke'],
-      invokeContinuation: (continuation: () => ReturnType<F>) => {
+      } as ActionConnection<F, Id, true, Mode>['invoke'],
+      invokeContinuation: <HostResult>(continuation: () => HostResult) => {
         const registration = assertConnected();
         if (typeof continuation !== 'function') {
           throw new TypeError(
@@ -883,11 +993,12 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         // already happening. Enabledness gates offers/direct protocol invokes;
         // instrumentation must not suppress an existing custom-component
         // listener merely because its app-owned disabled reader says false.
-        return openInvocation(
+        return openInvocation<'host-continuation', Awaited<HostResult>>(
           continuation as ActionHandler,
           false,
           undefined,
           undefined,
+          'host-continuation',
           Object.freeze({ source: 'host', provided: false }),
           registration.coverage,
         );
@@ -943,15 +1054,19 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
     return Object.freeze(connection);
   }
 
-  bindings(
-    definition?: { readonly definitionId: string } | string,
-  ): ActionBindingSnapshot[] {
-    const definitionId =
-      typeof definition === 'string' ? definition : definition?.definitionId;
+  bindings(definition?: ActionDefinitionRef): ActionBindingSnapshot[] {
+    if (definition !== undefined) {
+      const canonical = this.#definitionRecords.get(definition.definitionId);
+      if (canonical?.ref !== definition) {
+        throw new Error(
+          `hcifootprint: definition ref '${definition.definitionId}' is unknown or forged.`,
+        );
+      }
+    }
     const rows =
-      definitionId === undefined
+      definition === undefined
         ? this.#registry.bindingRegistrations()
-        : this.#registry.bindingsFor(definitionId);
+        : this.#registry.bindingsFor(definition);
     const snapshots: ActionBindingSnapshot[] = [];
     for (const row of rows) {
       const snapshot = this.#snapshotCurrentBinding(row);
@@ -960,51 +1075,50 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
     return snapshots;
   }
 
-  bindingFor(
-    binding: ActionBindingRef | string,
-  ): ActionBindingSnapshot | undefined {
+  bindingFor(binding: ActionBindingRef): ActionBindingSnapshot | undefined {
     const row = this.#registry.registrationFor(binding);
     return row === undefined ? undefined : this.#snapshotCurrentBinding(row);
   }
 
-  invoke<
-    F extends (...args: any[]) => any,
-    Id extends string = string,
-  >(
-    offer: BoundActionOffer<Id, F> | InputlessActionOffer<Id, F>,
-  ): ActionInvocation<Awaited<ReturnType<F>>, Id>;
-  invoke<
-    F extends (...args: any[]) => any,
-    Id extends string = string,
-  >(
-    offer: OpenActionOffer<Id, F>,
-    input: Parameters<F>[0],
-  ): ActionInvocation<Awaited<ReturnType<F>>, Id>;
-  invoke<
-    F extends (...args: any[]) => any,
-    Id extends string = string,
-  >(
-    offer: ActionOffer<Id, F>,
-    ...input: [input?: Parameters<F> extends [] ? never : Parameters<F>[0]]
-  ): ActionInvocation<Awaited<ReturnType<F>>, Id> {
+  #invokeOffer(
+    principal: Principal,
+    offer: ActionOffer,
+    input: readonly unknown[],
+  ): ActionInvocation<unknown, string, 'mutation'> {
     if (offer === null || typeof offer !== 'object') {
       throw new TypeError(
-        'hcifootprint: runtime.invoke() needs an exact offer returned by available().',
+        'hcifootprint: invoke() needs an exact offer returned for this principal authority.',
       );
     }
     const ref = (offer as Partial<ActionOffer>).ref;
     if (
       ref === undefined ||
       this.#offers.get(ref.offerId) !== offer ||
-      this.#offerByBinding.get(ref.binding.bindingId)?.offer !== offer
+      this.#offerByBinding.get(ref.binding.bindingId)?.get(ref.principal)
+        ?.offer !== offer
     ) {
       throw new Error(
         `hcifootprint: offer '${ref?.offerId ?? 'unknown'}' is stale, foreign, or forged.`,
       );
     }
+    if (ref.principal !== principal) {
+      throw new Error(
+        `hcifootprint: offer '${ref.offerId}' belongs to principal '${ref.principal}', not '${principal}'. Invoke it through authority for the principal that received it.`,
+      );
+    }
+    const principalVerdict = verdictForPrincipal(
+      offer.definition.contract,
+      principal,
+    );
+    if (!principalVerdict.ok) {
+      this.#invalidateOffers(ref.binding, principal);
+      throw new Error(
+        `hcifootprint: offer '${ref.offerId}' is no longer permitted for principal '${principal}'.`,
+      );
+    }
     if (input.length > 1) {
       throw new TypeError(
-        'hcifootprint: runtime.invoke() accepts at most one payload slot.',
+        'hcifootprint: principal invoke() accepts at most one payload slot.',
       );
     }
     if (offer.inputMode !== 'open' && input.length > 0) {
@@ -1026,32 +1140,18 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         `hcifootprint: binding '${ref.binding.bindingId}' is disconnected.`,
       );
     }
-    return invoker.invoke(ref, input.length === 1, input[0]) as ActionInvocation<
-      Awaited<ReturnType<F>>,
-      Id
-    >;
+    return invoker.invoke(ref, input.length === 1, input[0]);
   }
 
-  available<
-    F extends (...args: any[]) => any,
-    Id extends string,
-    Mode extends ActionInvocationMode,
-  >(
-    definition: DefinedAction<F, Id, Mode>,
-  ): readonly ActionOfferFor<DefinedAction<F, Id, Mode>, Id, Mode>[];
-  available<Ref extends ActionDefinitionRef>(
-    definition: Ref,
-  ): readonly ActionOffer<Ref['definitionId']>[];
-  available<Id extends string>(definition: Id): readonly ActionOffer<Id>[];
-  available(): readonly ActionOffer[];
-  available<Id extends string = string>(
-    definition?: ActionDefinitionRef<Id> | DefinedAction | Id,
-  ): readonly ActionOffer<Id>[] {
+  #availableFor<P extends Principal, Id extends string = string>(
+    principal: P,
+    definition?: ActionDefinitionRef<Id> | DefinedAction,
+  ): readonly ActionOffer<Id, (...args: any[]) => any, P>[] {
     if (typeof definition === 'function') {
       const record = actionDefinitionOf(definition);
       if (record === undefined) {
         throw new TypeError(
-          'hcifootprint: available() received a function that was not created by defineAction().',
+          'hcifootprint: offers() received a function that was not created by defineAction().',
         );
       }
       const canonical = this.#definitions.get(record.ref.definitionId);
@@ -1060,18 +1160,43 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
           `hcifootprint: definition '${record.ref.definitionId}' belongs to another callable in this runtime. Pass the exact defineAction() result that was connected.`,
         );
       }
+    } else if (definition !== undefined) {
+      const canonical = this.#definitionRecords.get(definition.definitionId);
+      if (canonical?.ref !== definition) {
+        throw new Error(
+          `hcifootprint: definition ref '${definition.definitionId}' is unknown or forged.`,
+        );
+      }
     }
-    const definitionId = resolveDefinitionId(definition);
+    const definitionRef =
+      typeof definition === 'function'
+        ? actionDefinitionOf(definition)?.ref
+        : definition;
     const rows =
-      definitionId === undefined
+      definitionRef === undefined
         ? this.#registry.bindingRegistrations()
-        : this.#registry.bindingsFor(definitionId);
-    const offers: ActionOffer<Id>[] = [];
+        : this.#registry.bindingsFor(definitionRef);
+    const offers: ActionOffer<Id, (...args: any[]) => any, P>[] = [];
     for (const snapshot of rows) {
       assertBindingCoverage(
         snapshot.coverage,
         `binding '${snapshot.binding.bindingId}'`,
       );
+      const definitionRecord = this.#definitionRecords.get(
+        snapshot.binding.definition.definitionId,
+      );
+      if (
+        !this.#definitions.has(snapshot.binding.definition.definitionId) ||
+        definitionRecord === undefined
+      ) {
+        throw new Error(
+          `hcifootprint: definition '${snapshot.binding.definition.definitionId}' is unavailable in this runtime generation.`,
+        );
+      }
+      if (!verdictForPrincipal(definitionRecord.contract, principal).ok) {
+        this.#invalidateOffers(snapshot.binding, principal);
+        continue;
+      }
       let enabled: boolean | undefined;
       try {
         enabled = readEnabled(snapshot);
@@ -1109,65 +1234,79 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         this.#invalidateOffers(row.binding);
         continue;
       }
-      const cached = this.#offerByBinding.get(row.binding.bindingId);
-      if (
-        cached !== undefined &&
-        cached.revision === row.revision &&
-        cached.enabled === enabled &&
-        cached.busy === busy &&
-        cached.coverage === row.coverage &&
-        cached.locators === row.locators
-      ) {
-        offers.push(cached.offer as ActionOffer<Id>);
+      let byPrincipal = this.#offerByBinding.get(row.binding.bindingId);
+      const offerRevision = row.revision;
+      const offerCoverage = row.coverage;
+      const offerLocators = row.locators;
+      const matchesGeneration = (candidate: CachedOffer): boolean =>
+        candidate.revision === offerRevision &&
+        candidate.enabled === enabled &&
+        candidate.busy === busy &&
+        candidate.coverage === offerCoverage &&
+        candidate.locators === offerLocators;
+      const cached = byPrincipal?.get(principal);
+      if (cached !== undefined && matchesGeneration(cached)) {
+        offers.push(
+          cached.offer as ActionOffer<Id, (...args: any[]) => any, P>,
+        );
         continue;
       }
-      this.#invalidateOffers(row.binding);
-      const callable = this.#definitions.get(row.binding.definition.definitionId);
-      const definition = this.#definitionRecords.get(
-        row.binding.definition.definitionId,
-      );
-      if (callable === undefined || definition === undefined) {
-        throw new Error(
-          `hcifootprint: definition '${row.binding.definition.definitionId}' is unavailable in this runtime generation.`,
-        );
+      if (
+        byPrincipal !== undefined &&
+        [...byPrincipal.values()].some(
+          (candidate) => !matchesGeneration(candidate),
+        )
+      ) {
+        this.#invalidateOffers(row.binding);
+        byPrincipal = undefined;
       }
 
       let inputMode: ActionOffer['inputMode'];
       let capturedInput: unknown;
       let inputRef: ActionInputRef | undefined;
       if (row.input !== undefined) {
-        try {
-          capturedInput = row.input();
-          row = this.#requireCurrent(
-            row.binding,
-            row,
-            'capturing offered input',
-          );
-          validateActionInput(
-            row.binding,
-            invoker.inputSchema,
-            true,
-            capturedInput,
-            'bound',
-            this.#inputSchemaAdapter,
-            invoker.inputValidation,
-          );
-          row = this.#requireCurrent(
-            row.binding,
-            row,
-            'validating offered input',
-          );
-        } catch (error) {
-          this.#invalidateOffers(row.binding);
-          throw error;
+        const shared = [...(byPrincipal?.values() ?? [])].find(
+          (candidate) =>
+            candidate.offer.inputMode === 'bound' &&
+            matchesGeneration(candidate),
+        );
+        if (shared?.offer.inputMode === 'bound') {
+          capturedInput = shared.capturedInput;
+          inputRef = shared.offer.input;
+        } else {
+          try {
+            capturedInput = row.input();
+            row = this.#requireCurrent(
+              row.binding,
+              row,
+              'capturing offered input',
+            );
+            validateActionInput(
+              row.binding,
+              invoker.inputSchema,
+              true,
+              capturedInput,
+              'bound',
+              this.#inputSchemaAdapter,
+              invoker.inputValidation,
+            );
+            row = this.#requireCurrent(
+              row.binding,
+              row,
+              'validating offered input',
+            );
+          } catch (error) {
+            this.#invalidateOffers(row.binding);
+            throw error;
+          }
+          inputRef = this.#newInputRef('bound');
         }
         inputMode = 'bound';
-        inputRef = this.#newInputRef('bound');
       } else if (
         this.#invokers.get(row.binding.bindingId)?.takesNoInput === true
       ) {
         inputMode = 'none';
-      } else if (definition.contract.inputSchema === undefined) {
+      } else if (definitionRecord.contract.inputSchema === undefined) {
         // The direct connection still accepts its application-owned scalar
         // input, but a broker cannot ask a user/agent to construct an
         // undeclared payload honestly. A bound reader remains offerable above.
@@ -1179,12 +1318,13 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         kind: 'action-offer' as const,
         offerId: `offer#${(this.#offerSequence += 1)}`,
         binding: row.binding,
+        principal,
         revision: row.revision,
         ...(inputRef !== undefined ? { input: inputRef } : {}),
       });
       const offer = Object.freeze({
         ref,
-        definition,
+        definition: definitionRecord,
         locators: row.locators,
         coverage: row.coverage,
         contractActivation: this.#contractActivation,
@@ -1192,9 +1332,12 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         inputMode,
         ...(inputMode === 'open' ? { inputRequired: true } : {}),
         ...(inputRef !== undefined ? { input: inputRef } : {}),
-      }) as ActionOffer;
+      }) as ActionOffer<Id, (...args: any[]) => any, P>;
       this.#offers.set(ref.offerId, offer);
-      this.#offerByBinding.set(row.binding.bindingId, {
+      byPrincipal =
+        this.#offerByBinding.get(row.binding.bindingId) ??
+        new Map<Principal, CachedOffer>();
+      byPrincipal.set(principal, {
         revision: row.revision,
         enabled,
         busy,
@@ -1203,21 +1346,17 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         offer,
         ...(inputMode === 'bound' ? { capturedInput } : {}),
       });
-      offers.push(offer as ActionOffer<Id>);
+      this.#offerByBinding.set(row.binding.bindingId, byPrincipal);
+      offers.push(offer);
     }
     return Object.freeze(offers);
   }
 
   transitionFor(
-    transition: ActionTransitionRef | string,
+    transition: ActionTransitionRef,
   ): ActionTransitionSnapshot | undefined {
-    const transitionId =
-      typeof transition === 'string' ? transition : transition.transitionId;
-    const stored = this.#transitions.get(transitionId);
-    if (
-      stored === undefined ||
-      (typeof transition !== 'string' && stored.ref !== transition)
-    ) {
+    const stored = this.#transitions.get(transition.transitionId);
+    if (stored === undefined || stored.ref !== transition) {
       return undefined;
     }
     return snapshotTransition(stored);
@@ -1246,7 +1385,9 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
   ): CachedOffer | undefined {
     if (offer === undefined) return undefined;
     const stored = this.#offers.get(offer.offerId);
-    const cached = this.#offerByBinding.get(binding.bindingId);
+    const cached = this.#offerByBinding
+      .get(binding.bindingId)
+      ?.get(offer.principal);
     let busy: string | undefined;
     try {
       busy = readBusy(registration);
@@ -1275,10 +1416,22 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
     return cached;
   }
 
-  #invalidateOffers(binding: ActionBindingRef): void {
-    const cached = this.#offerByBinding.get(binding.bindingId);
-    if (cached === undefined) return;
-    this.#offers.delete(cached.offer.ref.offerId);
+  #invalidateOffers(binding: ActionBindingRef, principal?: Principal): void {
+    const byPrincipal = this.#offerByBinding.get(binding.bindingId);
+    if (byPrincipal === undefined) return;
+    if (principal !== undefined) {
+      const cached = byPrincipal.get(principal);
+      if (cached === undefined) return;
+      this.#offers.delete(cached.offer.ref.offerId);
+      byPrincipal.delete(principal);
+      if (byPrincipal.size === 0) {
+        this.#offerByBinding.delete(binding.bindingId);
+      }
+      return;
+    }
+    for (const cached of byPrincipal.values()) {
+      this.#offers.delete(cached.offer.ref.offerId);
+    }
     this.#offerByBinding.delete(binding.bindingId);
   }
 
@@ -1352,35 +1505,61 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
     return undefined;
   }
 
-  #invoke<Output, Id extends string>(
+  #invoke<
+    Output,
+    Id extends string,
+    Behavior extends 'mutation' | 'host-continuation',
+  >(
     binding: ActionBindingRef<Id>,
     handler: ActionHandler,
     hasInput: boolean,
     input: unknown,
     offer: ActionOfferRef<Id> | undefined,
-    invocationInput: ActionInvocationInput,
+    behavior: Behavior,
+    invocationInput: Behavior extends 'host-continuation'
+      ? Extract<ActionInvocationInput, { readonly source: 'host' }>
+      : Exclude<ActionInvocationInput, { readonly source: 'host' }>,
     coverage: BindingCoverage,
     phase: 'handler' | 'preflight' = 'handler',
-  ): ActionInvocation<Output, Id> {
+    verificationDeclared = false,
+    progressDeclaration?: NonNullable<
+      ReadonlyActionDefinitionContract['settle']
+    >['progress'],
+    reportInstrumentationError: (error: unknown) => void = () => undefined,
+  ): ActionInvocation<Output, Id, Behavior> {
     const transition = Object.freeze({
       kind: 'action-transition' as const,
       transitionId: `transition#${(this.#transitionSequence += 1)}`,
       binding,
+      principal: offer?.principal ?? 'unknown',
       ...(offer !== undefined ? { offer } : {}),
       ...('ref' in invocationInput && invocationInput.ref !== undefined
         ? { input: invocationInput.ref }
         : {}),
     });
     let resolveEffect!: (settlement: ActionEffectSettlement<Id>) => void;
-    const whenEffectSettled = new Promise<ActionEffectSettlement<Id>>((resolve) => {
-      resolveEffect = resolve;
-    });
+    const whenEffectSettled = new Promise<ActionEffectSettlement<Id>>(
+      (resolve) => {
+        resolveEffect = resolve;
+      },
+    );
+    const progress =
+      behavior === 'host-continuation' || progressDeclaration === undefined
+        ? undefined
+        : createTransitionProgress(
+            transition,
+            progressDeclaration,
+            phase === 'handler',
+            reportInstrumentationError,
+          );
     const stored: StoredTransition = {
       ref: transition,
       input: invocationInput,
       coverage,
+      verificationDeclared,
       invocationStatus: 'pending',
       effectStatus: 'unverified',
+      ...(progress !== undefined ? { progress } : {}),
       resolveEffect: resolveEffect as (
         settlement: ActionEffectSettlement<any>,
       ) => void,
@@ -1389,11 +1568,18 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
 
     let produced: unknown;
     try {
-      produced = hasInput ? handler(input) : handler();
+      if (progress?.lifecycle !== undefined) {
+        produced = hasInput
+          ? Reflect.apply(handler, undefined, [input, progress.lifecycle])
+          : Reflect.apply(handler, undefined, [progress.lifecycle]);
+      } else {
+        produced = hasInput ? handler(input) : handler();
+      }
     } catch (error) {
       const status = phase === 'preflight' ? 'refused' : 'failed';
       stored.invocationStatus = status;
       stored.error = error;
+      progress?.close();
       const outcome = Object.freeze({
         status,
         transition,
@@ -1401,10 +1587,12 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
       }) as ActionInvocationSettlement<Output, Id>;
       const invocation = Object.freeze({
         transition,
+        behavior,
         input: invocationInput,
         whenInvoked: Promise.resolve(outcome),
         whenEffectSettled,
-      });
+        ...(progress !== undefined ? { progress: progress.channel } : {}),
+      }) as ActionInvocation<Output, Id, Behavior>;
       if (phase === 'preflight') {
         this.#settle(transition, {
           status: 'refused',
@@ -1422,6 +1610,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         (value) => {
           stored.invocationStatus = 'performed';
           stored.produced = value;
+          progress?.close();
           return Object.freeze({
             status: 'performed' as const,
             transition,
@@ -1431,6 +1620,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
         (error: unknown) => {
           stored.invocationStatus = 'failed';
           stored.error = error;
+          progress?.close();
           return Object.freeze({
             status: 'failed' as const,
             transition,
@@ -1440,10 +1630,12 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
       );
     return Object.freeze({
       transition,
+      behavior,
       input: invocationInput,
       whenInvoked,
       whenEffectSettled,
-    });
+      ...(progress !== undefined ? { progress: progress.channel } : {}),
+    }) as ActionInvocation<Output, Id, Behavior>;
   }
 
   #settle<Id extends string>(
@@ -1470,10 +1662,16 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
     stored.effectSettling = true;
     try {
       if (input === null || typeof input !== 'object') {
-        throw new TypeError('hcifootprint: settle() needs a settlement record.');
+        throw new TypeError(
+          'hcifootprint: settle() needs a settlement record.',
+        );
       }
       const status = (input as { readonly status?: unknown }).status;
-      if (status !== 'verified' && status !== 'refused') {
+      if (
+        status !== 'verified' &&
+        status !== 'refused' &&
+        status !== 'abandoned'
+      ) {
         throw new TypeError(
           `hcifootprint: invalid effect settlement status '${String(status)}'.`,
         );
@@ -1481,12 +1679,25 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
       const payload =
         status === 'verified'
           ? (input as { readonly evidence?: unknown }).evidence
-          : (input as { readonly reason?: unknown }).reason;
-      if (payload === undefined) {
+          : status === 'refused'
+            ? (input as { readonly reason?: unknown }).reason
+            : undefined;
+      if (status !== 'abandoned' && payload === undefined) {
         throw new TypeError(
           status === 'verified'
             ? 'hcifootprint: a verified effect settlement needs evidence.'
             : 'hcifootprint: a refused effect settlement needs a reason.',
+        );
+      }
+      const authority =
+        status === 'abandoned'
+          ? snapshotAbandonmentAuthority(
+              (input as { readonly authority?: unknown }).authority,
+            )
+          : undefined;
+      if (status === 'verified' && !stored.verificationDeclared) {
+        throw new Error(
+          `hcifootprint: transition '${transition.transitionId}' cannot be verified because its action definition declares no evidence-bearing settle contract. Declare writes, goTo, verify, or an observable evidence channel before reporting verified.`,
         );
       }
       if (status === 'verified' && stored.coverage !== 'verifiable') {
@@ -1502,17 +1713,25 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
               transition: transitionRef,
               evidence: snapshotDeclaration(payload),
             })
-          : Object.freeze({
-              status: 'refused',
-              transition: transitionRef,
-              reason: snapshotDeclaration(payload),
-            });
+          : status === 'refused'
+            ? Object.freeze({
+                status: 'refused',
+                transition: transitionRef,
+                reason: snapshotDeclaration(payload),
+              })
+            : Object.freeze({
+                status: 'abandoned',
+                transition: transitionRef,
+                authority: authority as ActionAbandonmentAuthority,
+              });
       stored.effectSettlement = settlement;
       stored.effectStatus = status;
       if (settlement.status === 'verified') {
         stored.evidence = settlement.evidence;
-      } else {
+      } else if (settlement.status === 'refused') {
         stored.reason = settlement.reason;
+      } else {
+        stored.authority = settlement.authority;
       }
       const resolveEffect = stored.resolveEffect;
       stored.resolveEffect = undefined;
@@ -1525,8 +1744,7 @@ class DefaultActionBindingRuntime implements ActionBindingRuntime {
 }
 
 function readEnabled(row: BindingRegistration): boolean | undefined {
-  const value =
-    row.readEnabled === undefined ? row.enabled : row.readEnabled();
+  const value = row.readEnabled === undefined ? row.enabled : row.readEnabled();
   if (value !== undefined && typeof value !== 'boolean') {
     throw new TypeError(
       `hcifootprint: enabled reader for binding '${row.binding.bindingId}' returned ${typeof value}; expected boolean or undefined.`,
@@ -1564,7 +1782,169 @@ function snapshotBindingFacts(
   });
 }
 
-function snapshotTransition(stored: StoredTransition): ActionTransitionSnapshot {
+function createTransitionProgress(
+  transition: ActionTransitionRef,
+  declaration: NonNullable<
+    NonNullable<ReadonlyActionDefinitionContract['settle']>['progress']
+  >,
+  started: boolean,
+  reportInstrumentationError: (error: unknown) => void,
+): TransitionProgress {
+  const declared = Object.freeze([...declaration.stages]);
+  const allowed = new Set(declared);
+  const observed: ActionProgressObservation[] = [];
+  type ProgressListener = (snapshot: ActionProgressSnapshot) => void;
+  const listeners = new Set<ProgressListener>();
+  const pendingPublications: Array<{
+    readonly snapshot: ActionProgressSnapshot;
+    readonly recipients: readonly ProgressListener[];
+  }> = [];
+  let publishing = false;
+  let open = started;
+  let current: ActionProgressSnapshot = started
+    ? Object.freeze({
+        disposition: 'open' as const,
+        declared,
+        observed: Object.freeze([]) as readonly ActionProgressObservation[],
+      })
+    : Object.freeze({
+        disposition: 'not-started' as const,
+        declared,
+        observed: Object.freeze([]) as readonly [],
+      });
+
+  const report = (error: unknown): void => {
+    try {
+      reportInstrumentationError(error);
+    } catch {
+      // A diagnostics sink is instrumentation too; neither rail owns app behavior.
+    }
+  };
+  const deliver = (
+    snapshot: ActionProgressSnapshot,
+    recipients: readonly ProgressListener[],
+  ): void => {
+    pendingPublications.push({ snapshot, recipients });
+    if (publishing) return;
+    publishing = true;
+    try {
+      for (let index = 0; index < pendingPublications.length; index += 1) {
+        const publication = pendingPublications[index]!;
+        for (const listener of publication.recipients) {
+          try {
+            listener(publication.snapshot);
+          } catch (error) {
+            report(error);
+          }
+        }
+      }
+    } finally {
+      pendingPublications.length = 0;
+      publishing = false;
+    }
+  };
+  const publish = (snapshot: ActionProgressSnapshot): void => {
+    deliver(snapshot, [...listeners]);
+  };
+  const channel: ActionProgress = Object.freeze({
+    snapshot: () => current,
+    subscribe: (listener: (snapshot: ActionProgressSnapshot) => void) => {
+      if (typeof listener !== 'function') {
+        throw new TypeError(
+          'hcifootprint: progress.subscribe() needs a snapshot listener.',
+        );
+      }
+      let subscribed = open;
+      if (subscribed) listeners.add(listener);
+      deliver(current, [listener]);
+      return () => {
+        if (!subscribed) return;
+        subscribed = false;
+        listeners.delete(listener);
+      };
+    },
+  });
+  const lifecycle: ActionLifecycle | undefined = started
+    ? Object.freeze({
+        transition,
+        reportProgress(stage: string, detail?: unknown): void {
+          try {
+            if (!open) return;
+            if (typeof stage !== 'string' || !allowed.has(stage)) {
+              report(
+                Object.freeze(
+                  Object.assign(
+                    new Error(
+                      `hcifootprint: progress stage '${String(stage)}' is not declared for transition '${transition.transitionId}'.`,
+                    ),
+                    {
+                      code: 'ACTION_PROGRESS_STAGE_UNKNOWN' as const,
+                      stage,
+                      transition,
+                    },
+                  ),
+                ),
+              );
+              return;
+            }
+            let capturedDetail: unknown;
+            let hasDetail = detail !== undefined;
+            if (hasDetail) {
+              try {
+                capturedDetail = snapshotDeclaration(detail);
+              } catch (error) {
+                hasDetail = false;
+                report(error);
+              }
+            }
+            observed.push(
+              Object.freeze({
+                stage,
+                ...(hasDetail ? { detail: capturedDetail } : {}),
+              }),
+            );
+            current = Object.freeze({
+              disposition: 'open' as const,
+              declared,
+              observed: Object.freeze([...observed]),
+            });
+            publish(current);
+          } catch (error) {
+            report(error);
+          }
+        },
+      })
+    : undefined;
+
+  return Object.freeze({
+    channel,
+    ...(lifecycle !== undefined ? { lifecycle } : {}),
+    snapshot: () => current,
+    close: () => {
+      if (!open) return;
+      open = false;
+      const seen = new Set(observed.map((entry) => entry.stage));
+      const unreported = Object.freeze(
+        declared.filter((stage) => !seen.has(stage)),
+      );
+      current = Object.freeze({
+        disposition: 'closed' as const,
+        declared,
+        observed: Object.freeze([...observed]),
+        unreported,
+        ...(declaration.required === true && observed.length === 0
+          ? { integrity: 'unmet' as const }
+          : {}),
+      });
+      publish(current);
+      listeners.clear();
+    },
+  });
+}
+
+function snapshotTransition(
+  stored: StoredTransition,
+): ActionTransitionSnapshot {
   return Object.freeze({
     ref: stored.ref,
     input: stored.input,
@@ -1578,8 +1958,16 @@ function snapshotTransition(stored: StoredTransition): ActionTransitionSnapshot 
     stored.invocationStatus === 'failed'
       ? { error: stored.error }
       : {}),
-    ...(stored.effectStatus === 'verified' ? { evidence: stored.evidence } : {}),
+    ...(stored.effectStatus === 'verified'
+      ? { evidence: stored.evidence }
+      : {}),
     ...(stored.effectStatus === 'refused' ? { reason: stored.reason } : {}),
+    ...(stored.effectStatus === 'abandoned'
+      ? { authority: stored.authority }
+      : {}),
+    ...(stored.progress !== undefined
+      ? { progress: stored.progress.snapshot() }
+      : {}),
   });
 }
 
@@ -1601,14 +1989,9 @@ function freezeBinding(binding: Binding): Binding {
       typeof binding.locator.role !== 'string' ||
       typeof binding.locator.name !== 'string' ||
       (binding.actuation !== undefined &&
-        ![
-          'click',
-          'type',
-          'select',
-          'hover',
-          'drag',
-          'press',
-        ].includes(binding.actuation))
+        !['click', 'type', 'select', 'hover', 'drag', 'press'].includes(
+          binding.actuation,
+        ))
     ) {
       throw new TypeError(
         'hcifootprint: an element locator needs string role/name fields and a supported actuation.',
@@ -1622,10 +2005,7 @@ function freezeBinding(binding: Binding): Binding {
   if (binding.kind === 'keychord' && typeof binding.chord === 'string') {
     return Object.freeze({ ...binding });
   }
-  if (
-    binding.kind === 'programmatic' &&
-    typeof binding.provider === 'string'
-  ) {
+  if (binding.kind === 'programmatic' && typeof binding.provider === 'string') {
     return Object.freeze({ ...binding });
   }
   if (binding.kind === 'url' && typeof binding.href === 'string') {
@@ -1651,6 +2031,46 @@ function assertOptionalReader(
   }
 }
 
+function assertPrincipal(
+  value: unknown,
+  context: string,
+): asserts value is Principal {
+  if (
+    value !== 'user' &&
+    value !== 'agent' &&
+    value !== 'system' &&
+    value !== 'unknown'
+  ) {
+    throw new TypeError(
+      `hcifootprint: ${context} principal must be user, agent, system, or unknown.`,
+    );
+  }
+}
+
+function verdictForPrincipal(
+  contract: ReadonlyActionDefinitionContract,
+  principal: Principal,
+): ReturnType<typeof checkPrincipalPolicy> {
+  const declaration = contract.principal;
+  const policy =
+    declaration === undefined
+      ? undefined
+      : {
+          ...(declaration.mayInvoke !== undefined
+            ? { mayInvoke: [...declaration.mayInvoke] }
+            : {}),
+          ...(declaration.decisionOwner !== undefined
+            ? { decisionOwner: declaration.decisionOwner }
+            : {}),
+          ...(declaration.requiresHumanApproval !== undefined
+            ? {
+                requiresHumanApproval: declaration.requiresHumanApproval,
+              }
+            : {}),
+        };
+  return checkPrincipalPolicy({ policy, principal, enforcing: true });
+}
+
 function assertHumanReporting(
   value: unknown,
   context: string,
@@ -1662,6 +2082,24 @@ function assertHumanReporting(
   }
 }
 
+/**
+ * A `verified` verdict is meaningful only when the definition named what
+ * authoritative evidence could prove the effect. Reads describe dependencies
+ * and progress describes execution; neither proves that the effect settled.
+ */
+function hasEvidenceBearingSettlement(
+  settle: ReadonlyActionDefinitionContract['settle'],
+): boolean {
+  if (settle === undefined) return false;
+  if (settle.writes !== undefined && settle.writes.length > 0) return true;
+  if (settle.goTo !== undefined) return true;
+  if (settle.verify !== undefined) return true;
+  return (
+    settle.observability !== undefined &&
+    settle.observability !== 'unobservable'
+  );
+}
+
 function assertContractActivation(
   definitionId: string,
   contract: ReadonlyActionDefinitionContract,
@@ -1670,36 +2108,22 @@ function assertContractActivation(
 ): void {
   if (activation === 'disclosure') return;
   const clauses: string[] = [];
-  if (contract.when !== undefined) clauses.push('when');
-  if (contract.enabledWhen !== undefined) clauses.push('enabledWhen');
-  if (contract.confirm === true) clauses.push('confirm');
+  if (contract.guard?.when !== undefined) clauses.push('guard.when');
+  if (contract.guard?.enabledWhen !== undefined) {
+    clauses.push('guard.enabledWhen');
+  }
   if (inputValidation === 'disclosure') {
     clauses.push('inputSchema');
   }
-  if (contract.verify !== undefined) clauses.push('verify');
-  if (contract.principalPolicy?.mayInvoke !== undefined) {
-    clauses.push('principalPolicy.mayInvoke');
+  if (contract.settle?.verify !== undefined) {
+    clauses.push('settle.verify');
   }
-  if (contract.principalPolicy?.requiresHumanApproval === true) {
-    clauses.push('principalPolicy.requiresHumanApproval');
-  }
-  if (
-    contract.freshness !== undefined &&
-    Object.values(contract.freshness).some(
-      (response) => response !== undefined && response !== 'disclose',
-    )
-  ) {
-    clauses.push('freshness');
-  }
-  if (
-    contract.concurrency !== undefined &&
-    contract.concurrency.mode !== 'parallel'
-  ) {
-    clauses.push('concurrency');
+  if (contract.principal?.requiresHumanApproval === true) {
+    clauses.push('principal.requiresHumanApproval');
   }
   if (clauses.length === 0) return;
   throw new Error(
-    `hcifootprint: action definition '${definitionId}' has enforceable contract clause(s) ${clauses.join(', ')} that this framework-neutral runtime cannot activate. Provide inputSchemaAdapter for a schema format without its own validator, use the graph Session surface for state/principal/approval clauses, or createActionBindingRuntime({ contractActivation: 'disclosure' }) to opt in visibly to metadata-only behavior.`,
+    `hcifootprint: action definition '${definitionId}' has enforceable contract clause(s) ${clauses.join(', ')} that this framework-neutral runtime cannot activate. Provide inputSchemaAdapter for a schema format without its own validator, use the graph Session surface for state/approval clauses, or createActionRuntime({ contractActivation: 'disclosure' }) to opt in visibly to metadata-only behavior.`,
   );
 }
 
@@ -1730,24 +2154,6 @@ function resolveInputValidation(
   return inputSchemaAdapter?.supports(schema) === true
     ? 'active'
     : 'disclosure';
-}
-
-function resolveDefinitionId(
-  definition: ActionDefinitionRef | DefinedAction | string | undefined,
-): string | undefined {
-  if (definition === undefined || typeof definition === 'string') {
-    return definition;
-  }
-  if (typeof definition === 'function') {
-    const record = actionDefinitionOf(definition);
-    if (record === undefined) {
-      throw new TypeError(
-        'hcifootprint: available() received a function that was not created by defineAction().',
-      );
-    }
-    return record.ref.definitionId;
-  }
-  return definition.definitionId;
 }
 
 /** Gate a direct payload without replacing it with a parser transformation. */
@@ -1783,7 +2189,8 @@ function validateActionInput(
       const result = validator.safeParse(input);
       if (isThenable(result)) {
         silenceRejectedThenable(result);
-        issues = 'safeParse() must return synchronously, not a Promise/thenable';
+        issues =
+          'safeParse() must return synchronously, not a Promise/thenable';
       } else if (result?.success === true) {
         return;
       } else {
@@ -1797,10 +2204,7 @@ function validateActionInput(
       } else {
         return;
       }
-    } else if (
-      disposition === 'active' &&
-      inputSchemaAdapter !== undefined
-    ) {
+    } else if (disposition === 'active' && inputSchemaAdapter !== undefined) {
       const checked = inputSchemaAdapter.validate(
         schema,
         input,
@@ -1839,9 +2243,10 @@ function validateActionInput(
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
   return (
-    (typeof value === 'object' && value !== null) ||
-    typeof value === 'function'
-  ) && typeof (value as { readonly then?: unknown }).then === 'function';
+    ((typeof value === 'object' && value !== null) ||
+      typeof value === 'function') &&
+    typeof (value as { readonly then?: unknown }).then === 'function'
+  );
 }
 
 /** Prevent an invalid async validator's rejection from escaping as a process-level event. */
@@ -1858,6 +2263,74 @@ function isSelfValidatingSchema(schema: unknown): boolean {
   return (
     typeof validator.safeParse === 'function' ||
     typeof validator.parse === 'function'
+  );
+}
+
+function snapshotAbandonmentAuthority(
+  value: unknown,
+): ActionAbandonmentAuthority {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(
+      'hcifootprint: an abandoned effect settlement needs an explicit authority record.',
+    );
+  }
+  const kind = (value as { readonly kind?: unknown }).kind;
+  if (kind === 'cancelled') {
+    const reason = (value as { readonly reason?: unknown }).reason;
+    if (reason === undefined) {
+      throw new TypeError(
+        'hcifootprint: cancelled abandonment authority needs a reason.',
+      );
+    }
+    return Object.freeze({
+      kind,
+      reason: snapshotDeclaration(reason),
+    });
+  }
+  if (kind === 'deadline') {
+    const deadlineAt = (value as { readonly deadlineAt?: unknown }).deadlineAt;
+    if (typeof deadlineAt !== 'number' || !Number.isFinite(deadlineAt)) {
+      throw new TypeError(
+        'hcifootprint: deadline abandonment authority needs a finite deadlineAt.',
+      );
+    }
+    if (deadlineAt > Date.now()) {
+      throw new TypeError(
+        'hcifootprint: a deadline cannot authorize abandonment before it has elapsed.',
+      );
+    }
+    return Object.freeze({ kind, deadlineAt });
+  }
+  if (kind === 'evidence-exhausted') {
+    const sources = (value as { readonly sources?: unknown }).sources;
+    if (!Array.isArray(sources)) {
+      throw new TypeError(
+        'hcifootprint: evidence-exhausted abandonment authority needs at least one named source.',
+      );
+    }
+    const sourceCount = sources.length;
+    if (!Number.isSafeInteger(sourceCount) || sourceCount <= 0) {
+      throw new TypeError(
+        'hcifootprint: evidence-exhausted abandonment authority needs at least one named source.',
+      );
+    }
+    const capturedSources: string[] = [];
+    for (let index = 0; index < sourceCount; index += 1) {
+      const source = sources[index];
+      if (typeof source !== 'string' || source.trim().length === 0) {
+        throw new TypeError(
+          'hcifootprint: evidence-exhausted abandonment authority needs at least one named source.',
+        );
+      }
+      capturedSources.push(source);
+    }
+    return Object.freeze({
+      kind,
+      sources: Object.freeze(capturedSources),
+    });
+  }
+  throw new TypeError(
+    `hcifootprint: invalid abandonment authority '${String(kind)}'; expected cancelled, deadline, or evidence-exhausted.`,
   );
 }
 

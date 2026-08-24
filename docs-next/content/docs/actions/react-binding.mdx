@@ -57,19 +57,20 @@ element. The hook opens one binding only after the ref commits; render itself re
 import type { MouseEvent } from 'react';
 import {
   composeActionInvocation,
-  createActionBindingRuntime,
+  createActionRuntime,
   defineAction,
   type ActionHostAdapter,
   type ActionInvocationMiddleware,
 } from 'hcifootprint';
 import { useActionBinding } from 'hcifootprint/react';
 
-const runtime = createActionBindingRuntime();
-const save = defineAction(
-  'draft.save',
-  { does: 'Save the draft', invocation: 'inputless' },
-  () => saveDraft(),
-);
+const runtime = createActionRuntime();
+const save = defineAction('draft.save', {
+  does: 'Save the draft',
+  invocation: 'inputless',
+  settle: { writes: ['draft.savedRevision'] },
+  mutate: () => saveDraft(),
+});
 
 interface SaveProps {
   disabled: boolean;
@@ -149,17 +150,27 @@ and never serialized or used as identity. `attachmentKey` has a different job: h
 locator projection.
 
 When the key changes, the commit atomically installs a reader owned by that exact render and retires
-old offers. Same-key rerenders keep existing offers live only when the adapter has no availability
-readers or also receives an unchanged explicit `availabilityKey`; omitting that availability key
-deliberately retires offers on every commit. The reader runs once when
-`runtime.available()` mints a new bound offer—never during render or commit—and
-`runtime.invoke(offer)` uses that capture without rereading it. A failed publication disconnects the
-binding, so an instrumentation failure cannot leave an old offer pointing at new committed props.
+old offers. This closes the exact stale-input race: replacing `latest.current` from the `o-57` render
+with the `o-58` render without advancing the binding revision would let an offer minted against the
+old revision invoke through the new reader. The hook now publishes a fresh revision as part of that
+commit, so the old offer fails stale before the `o-58` reader can be used. Same-key rerenders keep
+offers live only when the adapter has no availability readers or also receives an unchanged explicit
+`availabilityKey`; omitting that availability key deliberately retires offers on every commit.
+
+The reader runs once when `runtime.forPrincipal(principal).offers()` mints a new bound offer—never
+during render or commit—and `invoke(offer)` under authority for that same principal uses the capture
+without rereading it. Recreating a port for the principal is equivalent. A failed publication
+disconnects the binding, so an instrumentation failure cannot leave an old offer pointing at new
+committed props.
 
 Parseable `inputSchema` declarations are enforced directly. Other formats such as plain JSON Schema
 need the runtime's synchronous `inputSchemaAdapter`; disclosure mode is the explicit metadata-only
 alternative. See [Live bindings](doc:live-bindings) for the bound/open/none offer modes and adapter
-example.
+example. That page also lists the grouped `guard`, `settle`, and `principal` contracts. In this
+framework-neutral runtime, strict activation rejects `guard.when`, `guard.enabledWhen`,
+`settle.verify`, and `principal.requiresHumanApproval` because no state, evidence, or approval port
+exists here; disclosure carries them without claiming enforcement. `principal.mayInvoke` is always
+enforced before live readers run.
 
 Coverage is a fail-closed boundary. The hook connects and projects sensor ownership only
 for explicit `executable` or `verifiable` coverage. Missing, `identity`, or `semantic`
@@ -181,8 +192,30 @@ binding. `onInvocation` receives the exact invocation and a frozen
 invocation's effect rail. Observer failures are severed from the application result and can
 be routed through `onInvocationError`. Neither observer can replace the listener's return
 value or thrown value. The observer is installed on the core connection, so it receives both the
-human host continuation and `runtime.invoke(offer)` from an agent; verification does not disappear
-when the same React binding is driven through the broker.
+human host continuation and `runtime.forPrincipal('agent').invoke(offer)` from an agent;
+verification does not disappear when the same React binding is driven through the broker. Broker
+code obtains offers and invokes them only through that principal-scoped port. Runtime history
+lookups use structured definition, binding, and transition refs; the string fields inside them are
+display projections, not lookup doors.
+
+Those two invocation doors do not have to return the same type. `invocation.behavior` is
+`'host-continuation'` for the composed UI callback and `'mutation'` for direct or brokered execution,
+and narrows `whenInvoked` to the corresponding result. The React adapter supplies the host callback
+type; the action definition supplies the mutation type. A void `onClick` may therefore support an
+async action without either result being widened or misreported as the other.
+
+The capability accepts `status: 'verified'` only when two independent facts agree: the definition
+authored nonempty `settle.writes`, `settle.goTo`, `settle.verify`, or observable
+`settle.observability`, and that exact invocation ran with `verifiable` live coverage. Reads,
+progress stages, and `observability: 'unobservable'` do not establish an evidence contract. The
+example above satisfies both gates with `writes` on the definition and `verifiable` from the adapter.
+
+If the definition declares `settle.progress`, brokered or direct definition invocation receives its
+transition-owned lifecycle and may report declared stages. Closed progress records exact
+`declared`, `observed`, and `unreported`; `required: true` with no observation is a silent
+`integrity: 'unmet'` finding and never changes the listener result. Detaching or unmounting the React
+host does not abandon an in-flight transition. Abandonment requires explicit cancellation, deadline,
+or exhausted-evidence authority, and the first effect terminal wins.
 
 ## The value your component already holds
 

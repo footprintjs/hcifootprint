@@ -6,13 +6,85 @@ title: defineAction
 
 ## Call Signature
 
-> **defineAction**\<`Id`, `F`\>(`definitionId`, `contract`, `implementation`, ...`invalidArity`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `"inputless"`\>
+> **defineAction**\<`Id`, `Stages`, `Output`\>(`definitionId`, `options`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<() => `Output`, `Id`, `"inputless"`\>
 
-Defined in: [src/action/definition.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L173)
+Defined in: [src/action/definition.ts:280](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L280)
 
-Declare an application action once while keeping it an ordinary callable.
-Reachability, instances, enabledness, and hosts are deliberately absent: they
-belong to each live Action Binding, not to this one definition.
+### Type Parameters
+
+#### Id
+
+`Id` *extends* `string`
+
+#### Stages
+
+`Stages` *extends* readonly `string`[]
+
+#### Output
+
+`Output`
+
+### Parameters
+
+#### definitionId
+
+`Id`
+
+#### options
+
+[`DefineActionOptions`](/api/index/type-aliases/DefineActionOptions)\<`"inputless"`, `true`, () => `Output`, `Id`, `Stages`\>
+
+### Returns
+
+[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<() => `Output`, `Id`, `"inputless"`\>
+
+## Call Signature
+
+> **defineAction**\<`Id`, `Stages`, `Input`, `Output`, `F`\>(`definitionId`, `options`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<(`input`) => `ReturnType`\<`F`\>, `Id`, `"scalar"`\>
+
+Defined in: [src/action/definition.ts:288](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L288)
+
+### Type Parameters
+
+#### Id
+
+`Id` *extends* `string`
+
+#### Stages
+
+`Stages` *extends* readonly `string`[]
+
+#### Input
+
+`Input`
+
+#### Output
+
+`Output`
+
+#### F
+
+`F` *extends* (`input`, `lifecycle?`) => `Output`
+
+### Parameters
+
+#### definitionId
+
+`Id`
+
+#### options
+
+[`DefineActionOptions`](/api/index/type-aliases/DefineActionOptions)\<`"scalar"`, `true`, `F`, `Id`, `Stages`, `Input`, `Output`\>
+
+### Returns
+
+[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<(`input`) => `ReturnType`\<`F`\>, `Id`, `"scalar"`\>
+
+## Call Signature
+
+> **defineAction**\<`Id`, `F`\>(`definitionId`, `options`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `"inputless"`\>
+
+Defined in: [src/action/definition.ts:301](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L301)
 
 ### Type Parameters
 
@@ -30,29 +102,9 @@ belong to each live Action Binding, not to this one definition.
 
 `Id`
 
-Stable capability name inside a runtime generation.
+#### options
 
-#### contract
-
-`Omit`\<[`ActionDefinitionContract`](/api/index/type-aliases/ActionDefinitionContract), `"invocation"` \| `"inputSchema"`\> & `object`
-
-Must explicitly declare `invocation`: `inputless` permits
-only `inputSchema: 'none'`, `scalar` accepts an object input schema, and
-`host` forbids a broker input schema.
-
-#### implementation
-
-`F`
-
-Exact application callable; direct JavaScript behavior
-is preserved.
-
-#### invalidArity
-
-...`unknown` *extends* `ThisParameterType`\<`F`\> ? `Parameters`\<`F`\> *extends* \[\] ? \[\] : \[`never`\] : \[`never`\]
-
-Type-only compile-time arity guard; callers never supply
-this argument.
+[`DefineActionOptions`](/api/index/type-aliases/DefineActionOptions)\<`"inputless"`, `false`, `F`, `Id`\>
 
 ### Returns
 
@@ -60,13 +112,9 @@ this argument.
 
 ## Call Signature
 
-> **defineAction**\<`Id`, `F`\>(`definitionId`, `contract`, `implementation`, ...`invalidArity`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `"scalar"`\>
+> **defineAction**\<`Id`, `F`\>(`definitionId`, `options`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `"scalar"`\>
 
-Defined in: [src/action/definition.ts:189](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L189)
-
-Declare an application action once while keeping it an ordinary callable.
-Reachability, instances, enabledness, and hosts are deliberately absent: they
-belong to each live Action Binding, not to this one definition.
+Defined in: [src/action/definition.ts:308](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L308)
 
 ### Type Parameters
 
@@ -84,29 +132,9 @@ belong to each live Action Binding, not to this one definition.
 
 `Id`
 
-Stable capability name inside a runtime generation.
+#### options
 
-#### contract
-
-`Omit`\<[`ActionDefinitionContract`](/api/index/type-aliases/ActionDefinitionContract), `"invocation"` \| `"inputSchema"`\> & `object`
-
-Must explicitly declare `invocation`: `inputless` permits
-only `inputSchema: 'none'`, `scalar` accepts an object input schema, and
-`host` forbids a broker input schema.
-
-#### implementation
-
-`F`
-
-Exact application callable; direct JavaScript behavior
-is preserved.
-
-#### invalidArity
-
-...`unknown` *extends* `ThisParameterType`\<`F`\> ? `Parameters`\<`F`\> *extends* \[\] ? \[`never`\] : `Parameters`\<`F`\> *extends* \[`unknown`\] \| \[`unknown`?\] ? \[\] : \[`never`\] : \[`never`\]
-
-Type-only compile-time arity guard; callers never supply
-this argument.
+[`DefineActionOptions`](/api/index/type-aliases/DefineActionOptions)\<`"scalar"`, `false`, `F`, `Id`\>
 
 ### Returns
 
@@ -114,13 +142,9 @@ this argument.
 
 ## Call Signature
 
-> **defineAction**\<`Id`, `F`\>(`definitionId`, `contract`, `implementation`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `"host"`\>
+> **defineAction**\<`Id`, `F`\>(`definitionId`, `options`): [`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `"host"`\>
 
-Defined in: [src/action/definition.ts:207](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L207)
-
-Declare an application action once while keeping it an ordinary callable.
-Reachability, instances, enabledness, and hosts are deliberately absent: they
-belong to each live Action Binding, not to this one definition.
+Defined in: [src/action/definition.ts:315](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L315)
 
 ### Type Parameters
 
@@ -138,22 +162,9 @@ belong to each live Action Binding, not to this one definition.
 
 `Id`
 
-Stable capability name inside a runtime generation.
+#### options
 
-#### contract
-
-`Omit`\<[`ActionDefinitionContract`](/api/index/type-aliases/ActionDefinitionContract), `"invocation"` \| `"inputSchema"`\> & `object`
-
-Must explicitly declare `invocation`: `inputless` permits
-only `inputSchema: 'none'`, `scalar` accepts an object input schema, and
-`host` forbids a broker input schema.
-
-#### implementation
-
-`F`
-
-Exact application callable; direct JavaScript behavior
-is preserved.
+[`DefineActionOptions`](/api/index/type-aliases/DefineActionOptions)\<`"host"`, `false`, `F`, `Id`\>
 
 ### Returns
 

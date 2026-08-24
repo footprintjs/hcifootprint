@@ -5,7 +5,8 @@
  * whether the selected runtime can actually enforce it. This module joins those
  * two facts without reading a Session, invoking application code, or importing
  * any runtime engine. Missing facts remain unresolved unless the corresponding
- * inventory explicitly says it is complete.
+ * inventory explicitly says it is complete. Input-schema activation is not part
+ * of this environment model; ActionRuntime owns that validation boundary.
  */
 import type {
   ActionBindingRef,
@@ -25,9 +26,9 @@ export type ActionContractKind =
   | 'principal-may-invoke'
   | 'principal-decision-owner'
   | 'principal-human-approval'
+  | 'guard-when'
   | 'enabled-when'
   | 'verify'
-  | 'concurrency'
   | 'pointing'
   | 'agent-execution'
   | 'high-effect-verification'
@@ -43,13 +44,10 @@ export type ActionContractReason =
   | 'evidence-producer-present'
   | 'evidence-producer-missing'
   | 'evidence-inventory-incomplete'
-  | 'predicate-verifier-present'
+  | 'predicate-verification-active'
+  | 'predicate-verification-disabled'
+  | 'predicate-verification-unresolved'
   | 'empty-state-contract'
-  | 'runtime-concurrency-active'
-  | 'runtime-concurrency-disabled'
-  | 'instance-binding-present'
-  | 'instance-binding-missing'
-  | 'binding-inventory-incomplete'
   | 'coverage-sufficient'
   | 'coverage-insufficient'
   | 'interactive-host-resolved'
@@ -57,8 +55,7 @@ export type ActionContractReason =
   | 'interactive-host-unresolved'
   | 'verification-path-active'
   | 'verification-path-missing'
-  | 'verification-path-unresolved'
-  | 'high-effect-verification-disabled';
+  | 'verification-path-unresolved';
 
 /** The immutable definition projection accepted by the checker. */
 export interface ActionContractDeclaration<Id extends string = string> {
@@ -135,15 +132,15 @@ export type ActionContractRuntimeSnapshot =
       readonly complete: true;
       readonly principalEnforcement: boolean;
       readonly humanApprovalGate: boolean;
-      readonly concurrencyEnforcement: boolean;
-      readonly highEffectVerification: boolean;
+      /** Whether this environment will execute function-valued settle.verify clauses. */
+      readonly predicateVerification: boolean;
     }
   | {
       readonly complete: false;
       readonly principalEnforcement?: boolean;
       readonly humanApprovalGate?: boolean;
-      readonly concurrencyEnforcement?: boolean;
-      readonly highEffectVerification?: boolean;
+      /** Omitted when predicate-executor activation is not yet known. */
+      readonly predicateVerification?: boolean;
     };
 
 export interface ActionContractEnvironment {
@@ -166,7 +163,7 @@ export interface ActionContractResult {
 }
 
 export interface ActionContractReport {
-  /** True only when every contract is active or intentionally disclosure-only. */
+  /** True only when every emitted activation check is active or disclosure-only. */
   readonly ok: boolean;
   /** False whenever at least one contract could not be decided from the snapshot. */
   readonly conclusive: boolean;
@@ -191,9 +188,9 @@ const KIND_ORDER: Readonly<Record<ActionContractKind, number>> = Object.freeze({
   'principal-may-invoke': 0,
   'principal-decision-owner': 1,
   'principal-human-approval': 2,
-  'enabled-when': 3,
-  verify: 4,
-  concurrency: 5,
+  'guard-when': 3,
+  'enabled-when': 4,
+  verify: 5,
   pointing: 6,
   'agent-execution': 7,
   'high-effect-verification': 8,
@@ -245,12 +242,30 @@ interface VerificationPathVerdict {
     | 'verification-path-active'
     | 'verification-path-missing'
     | 'verification-path-unresolved'
+    | 'predicate-verification-active'
+    | 'predicate-verification-disabled'
+    | 'predicate-verification-unresolved'
+  >;
+}
+
+interface PredicateVerificationVerdict {
+  readonly disposition: Extract<
+    ActionContractDisposition,
+    'active' | 'unresolved' | 'inert'
+  >;
+  readonly reason: Extract<
+    ActionContractReason,
+    | 'predicate-verification-active'
+    | 'predicate-verification-disabled'
+    | 'predicate-verification-unresolved'
   >;
 }
 
 /**
- * Classify every enforceable or intentionally descriptive clause carried by
- * the definitions and explicitly requested by their binding rows.
+ * Classify every activation clause modeled by the supplied runtime, binding,
+ * and evidence snapshots, plus capabilities explicitly requested by binding
+ * rows. `ok` covers only the checks this function emits. In particular,
+ * input-schema activation belongs to ActionRuntime and is not modeled here.
  */
 export function checkActionContracts(
   declarations: readonly ActionContractDeclaration[],
@@ -305,11 +320,10 @@ export function checkActionContracts(
     const definition = declaration.ref;
     const contract = declaration.contract;
     const definitionBindings = bindings.filter(
-      (row) =>
-        row.ref.definition.definitionId === definition.definitionId,
+      (row) => row.ref.definition.definitionId === definition.definitionId,
     );
 
-    const principal = contract.principalPolicy;
+    const principal = contract.principal;
     if (principal?.mayInvoke !== undefined) {
       const enabled = environment.runtime.principalEnforcement;
       if (enabled === true) {
@@ -351,7 +365,7 @@ export function checkActionContracts(
         reason: 'decision-owner-is-disclosure',
         message: `Decision ownership for '${definition.definitionId}' is intentionally descriptive.`,
         remedy:
-          "Declare mayInvoke when ownership must also constrain who can execute the action.",
+          'Declare mayInvoke when ownership must also constrain who can execute the action.',
       });
     }
 
@@ -389,10 +403,28 @@ export function checkActionContracts(
       }
     }
 
-    if (contract.enabledWhen !== undefined) {
+    if (contract.guard?.when !== undefined) {
       const verdict = checkStateContract(
         definition.definitionId,
-        Object.keys(contract.enabledWhen),
+        Object.keys(contract.guard.when),
+        'availability',
+        environment.evidence,
+      );
+      pending.push({
+        definition,
+        kind: 'guard-when',
+        disposition: verdict.disposition,
+        reason: verdict.reason,
+        keys: verdict.keys,
+        message: stateMessage(definition.definitionId, 'when', verdict),
+        remedy: stateRemedy(verdict),
+      });
+    }
+
+    if (contract.guard?.enabledWhen !== undefined) {
+      const verdict = checkStateContract(
+        definition.definitionId,
+        Object.keys(contract.guard.enabledWhen),
         'availability',
         environment.evidence,
       );
@@ -402,29 +434,20 @@ export function checkActionContracts(
         disposition: verdict.disposition,
         reason: verdict.reason,
         keys: verdict.keys,
-        message: stateMessage(
-          definition.definitionId,
-          'enabledWhen',
-          verdict,
-        ),
+        message: stateMessage(definition.definitionId, 'enabledWhen', verdict),
         remedy: stateRemedy(verdict),
       });
     }
 
-    if (contract.verify !== undefined) {
-      if (typeof contract.verify === 'function') {
-        pending.push({
-          definition,
-          kind: 'verify',
-          disposition: 'active',
-          reason: 'predicate-verifier-present',
-          message: `Action '${definition.definitionId}' carries an executable verify predicate.`,
-          remedy: 'No change is required.',
-        });
+    if (contract.settle?.verify !== undefined) {
+      if (typeof contract.settle.verify === 'function') {
+        pending.push(
+          predicateVerificationResult(definition, environment.runtime),
+        );
       } else {
         const verdict = checkStateContract(
           definition.definitionId,
-          Object.keys(contract.verify),
+          Object.keys(contract.settle.verify),
           'settlement',
           environment.evidence,
         );
@@ -434,134 +457,30 @@ export function checkActionContracts(
           disposition: verdict.disposition,
           reason: verdict.reason,
           keys: verdict.keys,
-          message: stateMessage(
-            definition.definitionId,
-            'verify',
-            verdict,
-          ),
+          message: stateMessage(definition.definitionId, 'verify', verdict),
           remedy: stateRemedy(verdict),
         });
       }
     }
 
-    if (contract.concurrency !== undefined) {
-      const mode = contract.concurrency.mode;
-      const enforcement = environment.runtime.concurrencyEnforcement;
-      if (mode === 'parallel') {
-        pending.push({
-          definition,
-          kind: 'concurrency',
-          disposition: 'active',
-          reason: 'runtime-concurrency-active',
-          message: `Parallel concurrency for '${definition.definitionId}' needs no exclusion gate.`,
-          remedy: 'No change is required.',
-        });
-      } else if (enforcement === false) {
-        pending.push({
-          definition,
-          kind: 'concurrency',
-          disposition: 'inert',
-          reason: 'runtime-concurrency-disabled',
-          message: `Action '${definition.definitionId}' declares ${mode} concurrency, but runtime concurrency enforcement is disabled.`,
-          remedy:
-            'Enable concurrency enforcement for this runtime, or remove the non-parallel policy.',
-        });
-      } else if (enforcement === undefined) {
-        pending.push({
-          definition,
-          kind: 'concurrency',
-          disposition: 'unresolved',
-          reason: 'runtime-policy-unresolved',
-          message: `Whether '${definition.definitionId}' enforces its ${mode} concurrency policy is unknown.`,
-          remedy: 'Provide a complete runtime-policy snapshot.',
-        });
-      } else if (contract.concurrency.scope === 'instance') {
-        const missing = definitionBindings.find(
-          (row) => row.ref.instance === undefined,
-        );
-        if (missing !== undefined) {
-          pending.push({
-            definition,
-            binding: missing.ref,
-            kind: 'concurrency',
-            disposition: 'inert',
-            reason: 'instance-binding-missing',
-            message: `Instance-scoped concurrency for '${definition.definitionId}' has a binding with no instance identity.`,
-            remedy:
-              'Connect every live row with its opaque instance identity, or use action-scoped concurrency.',
-          });
-        } else if (!environment.bindings.complete) {
-          pending.push({
-            definition,
-            kind: 'concurrency',
-            disposition: 'unresolved',
-            reason: 'binding-inventory-incomplete',
-            message: `The binding inventory is incomplete, so instance scope for '${definition.definitionId}' cannot be proven.`,
-            remedy: 'Check again with a complete binding snapshot.',
-          });
-        } else if (definitionBindings.length === 0) {
-          pending.push({
-            definition,
-            kind: 'concurrency',
-            disposition: 'inert',
-            reason: 'instance-binding-missing',
-            message: `Instance-scoped concurrency for '${definition.definitionId}' has no instance-capable binding.`,
-            remedy:
-              'Connect at least one instance-bearing binding, or use action-scoped concurrency.',
-          });
-        } else {
-          pending.push({
-            definition,
-            kind: 'concurrency',
-            disposition: 'active',
-            reason: 'instance-binding-present',
-            message: `Every known binding for '${definition.definitionId}' carries instance identity.`,
-            remedy: 'No change is required.',
-          });
-        }
-      } else {
-        pending.push({
-          definition,
-          kind: 'concurrency',
-          disposition: 'active',
-          reason: 'runtime-concurrency-active',
-          message: `${mode} concurrency for '${definition.definitionId}' is enforced directly by the runtime.`,
-          remedy: 'No change is required.',
-        });
-      }
-    }
-
-    const explicitVerificationBindings = new Set<string>();
     for (const row of definitionBindings) {
-      const requested = [
-        ...new Set(row.requestedCapabilities ?? []),
-      ].sort((left, right) => compare(left, right));
+      const requested = [...new Set(row.requestedCapabilities ?? [])].sort(
+        (left, right) => compare(left, right),
+      );
       for (const capability of requested) {
         if (capability === 'pointing') {
-          pending.push(
-            coverageResult(
-              definition,
-              row,
-              'pointing',
-              'identity',
-            ),
-          );
+          pending.push(coverageResult(definition, row, 'pointing', 'identity'));
         } else if (capability === 'agent-execution') {
           pending.push(
-            coverageResult(
-              definition,
-              row,
-              'agent-execution',
-              'executable',
-            ),
+            coverageResult(definition, row, 'agent-execution', 'executable'),
           );
         } else {
-          explicitVerificationBindings.add(row.ref.bindingId);
           pending.push(
             highEffectResult(
               declaration,
               row,
               environment.evidence,
+              environment.runtime,
             ),
           );
         }
@@ -571,76 +490,16 @@ export function checkActionContracts(
         pending.push(hostResult(definition, row));
       }
     }
-
-    if (contract.confirm === true) {
-      const policy = environment.runtime.highEffectVerification;
-      if (policy === undefined) {
-        pending.push({
-          definition,
-          kind: 'high-effect-verification',
-          disposition: 'unresolved',
-          reason: 'runtime-policy-unresolved',
-          message: `Whether high-effect verification is required for '${definition.definitionId}' is unknown.`,
-          remedy: 'Provide the effective high-effect verification policy.',
-        });
-      } else if (policy === false) {
-        pending.push({
-          definition,
-          kind: 'high-effect-verification',
-          disposition: 'inert',
-          reason: 'high-effect-verification-disabled',
-          message: `Action '${definition.definitionId}' requires confirmation, but runtime high-effect verification is disabled.`,
-          remedy:
-            'Enable high-effect verification for this runtime, or remove the confirmation requirement.',
-        });
-      } else if (policy === true) {
-        for (const row of definitionBindings) {
-          if (!explicitVerificationBindings.has(row.ref.bindingId)) {
-            pending.push(
-              highEffectResult(
-                declaration,
-                row,
-                environment.evidence,
-              ),
-            );
-          }
-        }
-        if (definitionBindings.length === 0) {
-          pending.push({
-            definition,
-            kind: 'high-effect-verification',
-            disposition: environment.bindings.complete
-              ? 'inert'
-              : 'unresolved',
-            reason: environment.bindings.complete
-              ? 'verification-path-missing'
-              : 'binding-inventory-incomplete',
-            message: environment.bindings.complete
-              ? `High-effect action '${definition.definitionId}' has no binding with a verification path.`
-              : `Bindings for high-effect action '${definition.definitionId}' are not completely known.`,
-            remedy: environment.bindings.complete
-              ? 'Connect a verifiable binding with an authoritative effect path.'
-              : 'Check again with a complete binding snapshot.',
-          });
-        } else if (!environment.bindings.complete) {
-          pending.push({
-            definition,
-            kind: 'high-effect-verification',
-            disposition: 'unresolved',
-            reason: 'binding-inventory-incomplete',
-            message: `Additional bindings for high-effect action '${definition.definitionId}' may be unknown.`,
-            remedy: 'Check again with a complete binding snapshot.',
-          });
-        }
-      }
-    }
   }
 
   pending.sort(compareResults);
   const contracts = Object.freeze(pending.map(freezeResult));
   const counts = countDispositions(contracts);
   const byDisposition = groupDispositions(contracts);
-  const ok = counts.inert === 0 && counts.unresolved === 0;
+  const ok = contracts.every(
+    ({ disposition }) =>
+      disposition === 'active' || disposition === 'disclosure-only',
+  );
   const conclusive = counts.unresolved === 0;
   const summary =
     `Action contracts — ${counts.active} active, ` +
@@ -696,6 +555,60 @@ function checkStateContract(
         reason: 'evidence-inventory-incomplete',
         keys: Object.freeze(missing),
       };
+}
+
+function predicateVerificationResult(
+  definition: ActionDefinitionRef,
+  runtime: ActionContractRuntimeSnapshot,
+): ResultInput {
+  const verdict = predicateVerificationVerdict(runtime);
+  if (verdict.disposition === 'active') {
+    return {
+      definition,
+      kind: 'verify',
+      ...verdict,
+      message: `The runtime predicate executor is active for '${definition.definitionId}'.`,
+      remedy: 'No change is required.',
+    };
+  }
+  if (verdict.disposition === 'inert') {
+    return {
+      definition,
+      kind: 'verify',
+      ...verdict,
+      message: `Action '${definition.definitionId}' declares a verify predicate, but runtime predicate verification is disabled.`,
+      remedy:
+        'Enable predicate verification for this runtime, or treat the predicate as disclosure rather than an active check.',
+    };
+  }
+  return {
+    definition,
+    kind: 'verify',
+    ...verdict,
+    message: `Whether '${definition.definitionId}' can execute its verify predicate is unknown.`,
+    remedy: 'Provide the effective predicate-verification runtime value.',
+  };
+}
+
+function predicateVerificationVerdict(
+  runtime: ActionContractRuntimeSnapshot,
+): PredicateVerificationVerdict {
+  if (runtime.predicateVerification === true) {
+    return {
+      disposition: 'active',
+      reason: 'predicate-verification-active',
+    };
+  }
+  if (runtime.predicateVerification === false) {
+    return {
+      disposition: 'inert',
+      reason: 'predicate-verification-disabled',
+    };
+  }
+  return {
+    disposition: 'unresolved',
+    reason: 'predicate-verification-unresolved',
+  };
 }
 
 function hasStateProducer(
@@ -792,6 +705,7 @@ function highEffectResult(
   declaration: ActionContractDeclaration,
   row: ActionBindingContractRow,
   evidence: ActionEvidenceSnapshot,
+  runtime: ActionContractRuntimeSnapshot,
 ): ResultInput {
   if (COVERAGE_RANK[row.coverage] < COVERAGE_RANK.verifiable) {
     return {
@@ -808,7 +722,7 @@ function highEffectResult(
     };
   }
 
-  const path = verificationPath(declaration, evidence);
+  const path = verificationPath(declaration, evidence, runtime);
   return {
     definition: declaration.ref,
     binding: row.ref,
@@ -817,36 +731,28 @@ function highEffectResult(
     reason: path.reason,
     requiredCoverage: 'verifiable',
     actualCoverage: row.coverage,
-    message:
-      path.disposition === 'active'
-        ? `Binding '${row.ref.bindingId}' has a usable authoritative verification path.`
-        : path.disposition === 'unresolved'
-          ? `The authoritative verification path for binding '${row.ref.bindingId}' is not completely known.`
-          : `Binding '${row.ref.bindingId}' has no usable authoritative verification path.`,
-    remedy:
-      path.disposition === 'active'
-        ? 'No change is required.'
-        : 'Provide the declared postcondition, navigation, or external-effect producer.',
+    message: verificationPathMessage(row.ref.bindingId, path),
+    remedy: verificationPathRemedy(path),
   };
 }
 
 function verificationPath(
   declaration: ActionContractDeclaration,
   evidence: ActionEvidenceSnapshot,
+  runtime: ActionContractRuntimeSnapshot,
 ): VerificationPathVerdict {
   const contract = declaration.contract;
   const definitionId = declaration.ref.definitionId;
-  if (contract.observability === 'postcondition') {
-    if (contract.verify === undefined) return missingVerificationPath(evidence);
-    if (typeof contract.verify === 'function') {
-      return {
-        disposition: 'active',
-        reason: 'verification-path-active',
-      };
+  if (contract.settle?.observability === 'postcondition') {
+    if (contract.settle.verify === undefined) {
+      return missingVerificationPath(evidence);
+    }
+    if (typeof contract.settle.verify === 'function') {
+      return predicateVerificationVerdict(runtime);
     }
     const state = checkStateContract(
       definitionId,
-      Object.keys(contract.verify),
+      Object.keys(contract.settle.verify),
       'settlement',
       evidence,
     );
@@ -860,24 +766,57 @@ function verificationPath(
         : { disposition: 'inert', reason: 'verification-path-missing' };
   }
 
-  if (contract.observability === 'navigation' && contract.goTo !== undefined) {
+  if (
+    contract.settle?.observability === 'navigation' &&
+    contract.settle.goTo !== undefined
+  ) {
     return producerPath(evidence, definitionId, 'navigation');
   }
-  if (contract.observability === 'external') {
+  if (contract.settle?.observability === 'external') {
     return producerPath(evidence, definitionId, 'external-effect');
   }
   return missingVerificationPath(evidence, true);
 }
 
+function verificationPathMessage(
+  bindingId: string,
+  path: VerificationPathVerdict,
+): string {
+  if (path.reason === 'predicate-verification-disabled') {
+    return `Binding '${bindingId}' declares a verify predicate, but runtime predicate verification is disabled.`;
+  }
+  if (path.reason === 'predicate-verification-unresolved') {
+    return `Whether binding '${bindingId}' can execute its verify predicate is unknown.`;
+  }
+  return path.disposition === 'active'
+    ? `Binding '${bindingId}' has a usable authoritative verification path.`
+    : path.disposition === 'unresolved'
+      ? `The authoritative verification path for binding '${bindingId}' is not completely known.`
+      : `Binding '${bindingId}' has no usable authoritative verification path.`;
+}
+
+function verificationPathRemedy(path: VerificationPathVerdict): string {
+  if (path.disposition === 'active') return 'No change is required.';
+  if (path.reason === 'predicate-verification-disabled') {
+    return 'Enable predicate verification for this runtime.';
+  }
+  if (path.reason === 'predicate-verification-unresolved') {
+    return 'Provide the effective predicate-verification runtime value.';
+  }
+  return 'Provide the declared postcondition, navigation, or external-effect producer.';
+}
+
 function producerPath(
   evidence: ActionEvidenceSnapshot,
   definitionId: string,
-  kind: Extract<ActionEvidenceProducer['kind'], 'navigation' | 'external-effect'>,
+  kind: Extract<
+    ActionEvidenceProducer['kind'],
+    'navigation' | 'external-effect'
+  >,
 ): VerificationPathVerdict {
   const present = evidence.producers.some(
     (producer) =>
-      producer.kind === kind &&
-      appliesTo(producer.definitionId, definitionId),
+      producer.kind === kind && appliesTo(producer.definitionId, definitionId),
   );
   if (present) {
     return {
@@ -915,7 +854,7 @@ function appliesTo(
 
 function stateMessage(
   definitionId: string,
-  name: 'enabledWhen' | 'verify',
+  name: 'when' | 'enabledWhen' | 'verify',
   verdict: StateContractVerdict,
 ): string {
   if (verdict.disposition === 'active') {
@@ -966,9 +905,7 @@ function freezeResult(input: ResultInput): ActionContractResult {
   });
 }
 
-function freezeDefinitionRef(
-  ref: ActionDefinitionRef,
-): ActionDefinitionRef {
+function freezeDefinitionRef(ref: ActionDefinitionRef): ActionDefinitionRef {
   return Object.freeze({
     kind: 'action-definition' as const,
     definitionId: ref.definitionId,
@@ -1012,7 +949,8 @@ function groupDispositions(
     unresolved: [],
     inert: [],
   };
-  for (const contract of contracts) grouped[contract.disposition].push(contract);
+  for (const contract of contracts)
+    grouped[contract.disposition].push(contract);
   for (const disposition of DISPOSITIONS) {
     Object.freeze(grouped[disposition]);
   }

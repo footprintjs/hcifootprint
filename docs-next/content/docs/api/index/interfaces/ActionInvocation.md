@@ -1,10 +1,10 @@
 ---
-title: ActionInvocation<Output, Id>
+title: ActionInvocation<Output, Id, Behavior>
 ---
 
-# Interface: ActionInvocation\<Output, Id\>
+# Interface: ActionInvocation\<Output, Id, Behavior\>
 
-Defined in: [src/action/types.ts:272](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L272)
+Defined in: [src/action/types.ts:459](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L459)
 
 ## Type Parameters
 
@@ -16,15 +16,39 @@ Defined in: [src/action/types.ts:272](https://github.com/footprintjs/hcifootprin
 
 `Id` *extends* `string` = `string`
 
+### Behavior
+
+`Behavior` *extends* `"mutation"` \| `"host-continuation"` = `"mutation"` \| `"host-continuation"`
+
 ## Properties
+
+### behavior
+
+> `readonly` **behavior**: `Behavior`
+
+Defined in: [src/action/types.ts:468](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L468)
+
+Which application behavior this occurrence executed.
+
+***
 
 ### input
 
-> `readonly` **input**: [`ActionInvocationInput`](/api/index/type-aliases/ActionInvocationInput)
+> `readonly` **input**: `Behavior` *extends* `"host-continuation"` ? `object` : `Behavior` *extends* `"mutation"` ? \{ `provided`: `false`; `source`: `"none"`; \} \| \{ `provided`: `true`; `ref`: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"bound"`\>; `source`: `"bound"`; \} \| \{ `provided`: `false`; `source`: `"bound"`; \} \| \{ `provided`: `true`; `ref`: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"caller"`\>; `source`: `"caller"`; \} \| \{ `provided`: `false`; `source`: `"caller"`; \} : [`ActionInvocationInput`](/api/index/type-aliases/ActionInvocationInput)
 
-Defined in: [src/action/types.ts:275](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L275)
+Defined in: [src/action/types.ts:470](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L470)
 
 Auditable input origin; the payload value itself is deliberately not disclosed.
+
+***
+
+### progress?
+
+> `readonly` `optional` **progress?**: `Behavior` *extends* `"host-continuation"` ? `never` : [`ActionProgress`](/api/index/interfaces/ActionProgress)
+
+Defined in: [src/action/types.ts:480](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L480)
+
+Present only for a mutation whose definition declared progress stages.
 
 ***
 
@@ -32,7 +56,7 @@ Auditable input origin; the payload value itself is deliberately not disclosed.
 
 > `readonly` **transition**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:273](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L273)
+Defined in: [src/action/types.ts:466](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L466)
 
 ***
 
@@ -40,7 +64,7 @@ Defined in: [src/action/types.ts:273](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **whenEffectSettled**: `Promise`\<[`ActionEffectSettlement`](/api/index/type-aliases/ActionEffectSettlement)\<`Id`\>\>
 
-Defined in: [src/action/types.ts:279](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L279)
+Defined in: [src/action/types.ts:478](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L478)
 
 Authoritative effect observation. Handler completion never settles it.
 
@@ -50,6 +74,6 @@ Authoritative effect observation. Handler completion never settles it.
 
 > `readonly` **whenInvoked**: `Promise`\<[`ActionInvocationSettlement`](/api/index/type-aliases/ActionInvocationSettlement)\<`Output`, `Id`\>\>
 
-Defined in: [src/action/types.ts:277](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L277)
+Defined in: [src/action/types.ts:476](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L476)
 
 Invocation outcome. This promise always resolves; refusal/failure are data.

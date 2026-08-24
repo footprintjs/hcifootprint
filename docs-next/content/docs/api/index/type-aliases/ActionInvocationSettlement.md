@@ -6,7 +6,7 @@ title: ActionInvocationSettlement<Output, Id>
 
 > **ActionInvocationSettlement**\<`Output`, `Id`\> = \{ `produced`: `Output`; `status`: `"performed"`; `transition`: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`Id`\>; \} \| \{ `error`: `unknown`; `status`: `"refused"`; `transition`: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`Id`\>; \} \| \{ `error`: `unknown`; `status`: `"failed"`; `transition`: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`Id`\>; \}
 
-Defined in: [src/action/types.ts:214](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L214)
+Defined in: [src/action/types.ts:333](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L333)
 
 ## Type Parameters
 
