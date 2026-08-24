@@ -6,9 +6,9 @@ title: connectAction
 
 ## Call Signature
 
-> **connectAction**\<`F`, `Id`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`\>
+> **connectAction**\<`F`, `Id`, `Mode`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
-Defined in: [src/action/connection.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L94)
+Defined in: [src/action/connection.ts:168](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L168)
 
 Connect one stable live binding of an already-declared callable action.
 
@@ -22,29 +22,41 @@ Connect one stable live binding of an already-declared callable action.
 
 `Id` *extends* `string`
 
+#### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
 ### Parameters
 
 #### runtime
 
 [`ActionBindingRuntime`](/api/index/interfaces/ActionBindingRuntime)
 
+Isolated owner of bindings, offers, and transitions.
+
 #### definition
 
-[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`\>
+[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `Mode`\>
+
+Exact callable returned by `defineAction()`.
 
 #### options
 
-`Parameters`\<`F`\> *extends* \[\] ? `never` : [`ConnectActionOptions`](/api/index/interfaces/ConnectActionOptions)\<`Parameters`\<`F`\>\[`0`\]\> & `object`
+`Mode` *extends* `"scalar"` ? [`ConnectActionOptions`](/api/index/interfaces/ConnectActionOptions)\<`Parameters`\<`F`\>\[`0`\], `Awaited`\<`ReturnType`\<`F`\>\>, `Id`\> & `object` : `never`
+
+Always requires `node`. The overload returning an
+input-reader connection is scalar-only and requires `input: () => payload`;
+inputless and host definitions forbid that reader.
 
 ### Returns
 
-[`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`\>
+[`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
 ## Call Signature
 
-> **connectAction**\<`F`, `Id`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`\>
+> **connectAction**\<`F`, `Id`, `Mode`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>
 
-Defined in: [src/action/connection.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L106)
+Defined in: [src/action/connection.ts:185](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L185)
 
 Connect one stable live binding of an already-declared callable action.
 
@@ -58,20 +70,32 @@ Connect one stable live binding of an already-declared callable action.
 
 `Id` *extends* `string`
 
+#### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
 ### Parameters
 
 #### runtime
 
 [`ActionBindingRuntime`](/api/index/interfaces/ActionBindingRuntime)
 
+Isolated owner of bindings, offers, and transitions.
+
 #### definition
 
-[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`\>
+[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `Mode`\>
+
+Exact callable returned by `defineAction()`.
 
 #### options
 
-`Parameters`\<`F`\> *extends* \[\] ? `Omit`\<[`ConnectActionOptions`](/api/index/interfaces/ConnectActionOptions)\<`undefined`\>, `"input"`\> & `object` : [`ConnectActionOptions`](/api/index/interfaces/ConnectActionOptions)\<`Parameters`\<`F`\>\[`0`\]\>
+`Mode` *extends* `"scalar"` ? [`ConnectActionOptions`](/api/index/interfaces/ConnectActionOptions)\<`Parameters`\<`F`\>\[`0`\], `Awaited`\<`ReturnType`\<`F`\>\>, `Id`\> : `Omit`\<[`ConnectActionOptions`](/api/index/interfaces/ConnectActionOptions)\<`undefined`, `Awaited`\<`ReturnType`\<`F`\>\>, `Id`\>, `"input"`\> & `object`
+
+Always requires `node`. The overload returning an
+input-reader connection is scalar-only and requires `input: () => payload`;
+inputless and host definitions forbid that reader.
 
 ### Returns
 
-[`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`\>
+[`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>

@@ -1,12 +1,12 @@
 ---
-title: DefinedAction<F, Id>
+title: DefinedAction<F, Id, Mode>
 ---
 
-# Type Alias: DefinedAction\<F, Id\>
+# Type Alias: DefinedAction\<F, Id, Mode\>
 
-> **DefinedAction**\<`F`, `Id`\> = `F` & `object`
+> **DefinedAction**\<`F`, `Id`, `Mode`\> = `F` & `object`
 
-Defined in: [src/action/types.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L89)
+Defined in: [src/action/types.ts:146](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L146)
 
 A callable carrying an action-definition identity. The marker is type-only;
 runtime recognition uses a non-enumerable `Symbol.for` property.
@@ -15,7 +15,15 @@ runtime recognition uses a non-enumerable `Symbol.for` property.
 
 ### \[DEFINED\_ACTION\_TYPE\]
 
-> `readonly` **\[DEFINED\_ACTION\_TYPE\]**: `Id`
+> `readonly` **\[DEFINED\_ACTION\_TYPE\]**: `object`
+
+#### \[DEFINED\_ACTION\_TYPE\].definitionId
+
+> `readonly` **definitionId**: `Id`
+
+#### \[DEFINED\_ACTION\_TYPE\].invocation
+
+> `readonly` **invocation**: `Mode`
 
 ## Type Parameters
 
@@ -26,3 +34,7 @@ runtime recognition uses a non-enumerable `Symbol.for` property.
 ### Id
 
 `Id` *extends* `string` = `string`
+
+### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode) = [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)

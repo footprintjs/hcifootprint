@@ -297,9 +297,30 @@ degraded.
 
 Definition-side payload contract: Zod, JSON Schema, a `.safeParse`/`.parse`
 validator, or `'none'`. Omission means the shape is not declared. The
-framework-neutral runtime cannot enforce this clause: supply an enforcing
-port or opt visibly into `contractActivation: 'disclosure'`. Live binding
-values use invocation-time `input` readers instead.
+Action Binding runtime enforces parseable schemas before the handler
+runs. Other formats need `inputSchemaAdapter` or explicit disclosure mode.
+Bound values are checked while minting an offer and caller values are
+checked by `runtime.invoke()`. Live binding values use `input` readers.
+
+#### invocation
+
+> `readonly` **invocation**: [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
+Explicit runtime call shape. `inputless` and `scalar` may be invoked
+directly and brokered; `host` is recordable only through the exact host
+continuation, preserving receivers and multi-argument listener calls.
+
+#### needs?
+
+> `readonly` `optional` **needs?**: `object`
+
+Inert, named inputs reserved for a future channel broker. Layer 1 stores
+these declarations but never matches a surface, collects a value, or
+changes action availability from them.
+
+##### Index Signature
+
+\[`key`: `string`\]: `object`
 
 #### observability?
 
@@ -375,6 +396,21 @@ CONSENT STATUS — this action needs a recorded human approval, whether or not
 it is marked `confirm`. Under enforcement it is held to the SAME gate
 [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) applies to high-effect actions,
 and it mints NO new refusal word: the `APPROVAL_*` set is unchanged.
+
+#### produces?
+
+> `readonly` `optional` **produces?**: `object`
+
+Inert output declaration reserved for a future channel broker. Layer 1
+records it without routing or rendering it.
+
+##### produces.kind
+
+> `readonly` **kind**: `string`
+
+##### produces.schema?
+
+> `readonly` `optional` **schema?**: `unknown`
 
 #### reads?
 

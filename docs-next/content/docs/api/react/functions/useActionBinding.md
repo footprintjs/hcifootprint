@@ -4,9 +4,9 @@ title: useActionBinding
 
 # Function: useActionBinding()
 
-> **useActionBinding**\<`F`, `Id`, `Props`, `Host`, `Interactive`, `ValueElement`, `This`, `EventArgs`, `ComposedProps`\>(`runtime`, `definition`, `props`, `adapter`, `options`): [`UseActionBindingResult`](/api/react/interfaces/UseActionBindingResult)\<`Host`, `ComposedProps`, `Id`\>
+> **useActionBinding**\<`F`, `Id`, `Mode`, `Props`, `Host`, `Interactive`, `ValueElement`, `This`, `EventArgs`, `ComposedProps`\>(`runtime`, `definition`, `props`, `adapter`, `options`): [`UseActionBindingResult`](/api/react/interfaces/UseActionBindingResult)\<`Host`, `ComposedProps`, `Id`\>
 
-Defined in: [src/react/use-action-binding.ts:149](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L149)
+Defined in: [src/react/use-action-binding.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L162)
 
 Connect a callable action to one committed React host.
 
@@ -23,6 +23,10 @@ readers without touching a host or changing binding identity.
 ### Id
 
 `Id` *extends* `string`
+
+### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
 
 ### Props
 
@@ -60,7 +64,7 @@ readers without touching a host or changing binding identity.
 
 ### definition
 
-[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`\>
+[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `Mode`\>
 
 ### props
 
@@ -72,7 +76,7 @@ readers without touching a host or changing binding identity.
 
 ### options
 
-`Parameters`\<`F`\> *extends* \[\] ? `Omit`\<[`UseActionBindingOptions`](/api/react/interfaces/UseActionBindingOptions)\<`Props`, `undefined`, `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>\>, `"input"`\> & `object` : [`UseActionBindingOptions`](/api/react/interfaces/UseActionBindingOptions)\<`Props`, `Parameters`\<`F`\>\[`0`\], `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>\>
+[`UseActionBindingOptions`](/api/react/type-aliases/UseActionBindingOptions)\<`Props`, `Mode` *extends* `"scalar"` ? `Parameters`\<`F`\>\[`0`\] : `undefined`, `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>\> & `Mode` *extends* `"scalar"` ? `unknown` : `object`
 
 ## Returns
 

@@ -4,15 +4,111 @@ import {
   connectAction,
   createActionBindingRuntime,
   defineAction,
+  type ActionBindingRuntime,
   type ActionConnection,
+  type ActionInvocation,
+  type ActionOffer,
 } from '../src/index.js';
 
+function invokeOffer(
+  runtime: ActionBindingRuntime,
+  offer: ActionOffer,
+  ...input: [] | [unknown]
+): ActionInvocation<unknown> {
+  return Reflect.apply(runtime.invoke, runtime, [offer, ...input]) as ActionInvocation<unknown>;
+}
+
 describe('connectAction — one definition, many exact live bindings', () => {
+  it('captures each caller-owned connection option exactly once', async () => {
+    const reads = new Map<string, number>();
+    const changing = (name: string, first: unknown, later: unknown) => ({
+      enumerable: true,
+      get() {
+        const count = (reads.get(name) ?? 0) + 1;
+        reads.set(name, count);
+        return count === 1 ? first : later;
+      },
+    });
+    let observed = 0;
+    const input = () => 'captured-input';
+    const enabled = () => true;
+    const busy = () => 'captured-busy';
+    const locator = { kind: 'programmatic' as const, provider: 'captured' };
+    const options = Object.defineProperties({}, {
+      node: changing('node', 'captured-node', 42),
+      instance: changing('instance', 'captured-instance', 42),
+      input: changing('input', input, 42),
+      enabled: changing('enabled', enabled, 42),
+      busy: changing('busy', busy, 42),
+      coverage: changing('coverage', 'verifiable', 'invalid'),
+      locators: changing('locators', [locator], 42),
+      humanReporting: changing('humanReporting', 'connection', 'invalid'),
+      onInvocation: changing(
+        'onInvocation',
+        () => {
+          observed += 1;
+        },
+        42,
+      ),
+      onInvocationError: changing('onInvocationError', () => undefined, 42),
+    });
+    const action = defineAction(
+      'options.snapshot',
+      { does: 'Use one options snapshot', invocation: 'scalar' },
+      (value: string) => value,
+    );
+    const runtime = createActionBindingRuntime();
+    const connection = Reflect.apply(connectAction, undefined, [
+      runtime,
+      action,
+      options,
+    ]) as ActionConnection<
+      (value: string) => string,
+      'options.snapshot',
+      true,
+      'scalar'
+    >;
+
+    expect(Object.fromEntries(reads)).toEqual({
+      node: 1,
+      instance: 1,
+      input: 1,
+      enabled: 1,
+      busy: 1,
+      coverage: 1,
+      locators: 1,
+      humanReporting: 1,
+      onInvocation: 1,
+      onInvocationError: 1,
+    });
+    expect(connection.binding).toMatchObject({
+      node: 'captured-node',
+      instance: 'captured-instance',
+    });
+    expect(runtime.bindingFor(connection.binding)).toMatchObject({
+      enabled: true,
+      busy: 'captured-busy',
+      coverage: 'verifiable',
+      locators: [locator],
+      humanReporting: 'connection',
+    });
+    expect(await connection.invoke().whenInvoked).toMatchObject({
+      status: 'performed',
+      produced: 'captured-input',
+    });
+    expect(observed).toBe(1);
+    expect([...reads.values()].every((count) => count === 1)).toBe(true);
+  });
+
   it('keeps simultaneous instances independently addressable without string recovery', async () => {
     const calls: string[] = [];
     const archive = defineAction(
       'orders.archive',
-      { does: 'Archive this order', writes: ['orders.openIds'] },
+      {
+        does: 'Archive this order',
+        invocation: 'scalar',
+        writes: ['orders.openIds'],
+      },
       ({ orderId }: { orderId: string }) => {
         calls.push(orderId);
         return { archived: orderId };
@@ -51,7 +147,8 @@ describe('connectAction — one definition, many exact live bindings', () => {
     first.disconnect();
     expect(runtime.bindings('orders.archive')).toHaveLength(1);
     expect(runtime.bindings('orders.archive')[0]?.ref).toBe(second.binding);
-    await second.invoke({ orderId: 'o-61' }).whenInvoked;
+    second.update({ input: () => ({ orderId: 'o-61' }) });
+    await second.invoke().whenInvoked;
     expect(calls.at(-1)).toBe('o-61');
   });
 
@@ -59,7 +156,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const seen: string[] = [];
     const send = defineAction(
       'compose.send',
-      { does: 'Send the message' },
+      { does: 'Send the message', invocation: 'scalar' },
       ({ message }: { message: string }) => seen.push(message),
     );
     const runtime = createActionBindingRuntime();
@@ -80,7 +177,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
   it('keeps invocation completion and authoritative effect settlement on separate rails', async () => {
     const save = defineAction(
       'draft.save',
-      { does: 'Save the draft', writes: ['draft.saved'] },
+      {
+        does: 'Save the draft',
+        invocation: 'inputless',
+        writes: ['draft.saved'],
+      },
       () => 'handler-complete',
     );
     const runtime = createActionBindingRuntime();
@@ -116,22 +217,26 @@ describe('connectAction — one definition, many exact live bindings', () => {
     });
   });
 
-  it('records invocation refusal without laundering it into an effect verdict', async () => {
+  it('records invocation failure without laundering it into an effect verdict', async () => {
     const error = new Error('API unavailable');
-    const fail = defineAction('draft.fail', { does: 'Fail to save' }, () => {
-      throw error;
-    });
+    const fail = defineAction(
+      'draft.fail',
+      { does: 'Fail to save', invocation: 'inputless' },
+      () => {
+        throw error;
+      },
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, fail, { node: 'draft' });
 
     const invocation = connection.invoke();
     expect(await invocation.whenInvoked).toEqual({
-      status: 'refused',
+      status: 'failed',
       transition: invocation.transition,
       error,
     });
     expect(runtime.transitionFor(invocation.transition)).toMatchObject({
-      invocationStatus: 'refused',
+      invocationStatus: 'failed',
       effectStatus: 'unverified',
       error,
     });
@@ -144,7 +249,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
     });
     const action = defineAction(
       'draft.publish',
-      { does: 'Publish the draft' },
+      { does: 'Publish the draft', invocation: 'inputless' },
       () => pending,
     );
     const runtime = createActionBindingRuntime();
@@ -177,7 +282,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
   it('offers only executable bindings and joins an invocation to the exact offer', async () => {
     const action = defineAction(
       'orders.archive',
-      { does: 'Archive this order' },
+      { does: 'Archive this order', invocation: 'inputless' },
       () => 'done',
     );
     const runtime = createActionBindingRuntime();
@@ -213,13 +318,17 @@ describe('connectAction — one definition, many exact live bindings', () => {
     expect(Object.isFrozen(offers[0]?.ref)).toBe(true);
     expect(() => identityOnly.invoke()).toThrow(/not executable/);
 
-    const invocation = executable.invokeOffered({ offer: offers[0]!.ref });
+    const invocation = invokeOffer(runtime, offers[0]!);
     await invocation.whenInvoked;
     expect(invocation.transition.offer).toBe(offers[0]?.ref);
   });
 
   it('distinguishes absence from disabledness', () => {
-    const action = defineAction('orders.archive', { does: 'Archive' }, () => 1);
+    const action = defineAction(
+      'orders.archive',
+      { does: 'Archive', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const disabled = connectAction(runtime, action, {
       node: 'orders',
@@ -238,7 +347,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
   });
 
   it('uses token-owned attachments and projects locators from the surviving binding', () => {
-    const action = defineAction('orders.archive', { does: 'Archive' }, () => 1);
+    const action = defineAction(
+      'orders.archive',
+      { does: 'Archive', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, { node: 'orders' });
     const first = connection.attach({
@@ -280,7 +393,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const pending = new Promise<string>((resolve) => {
       release = resolve;
     });
-    const action = defineAction('jobs.run', { does: 'Run the job' }, () => pending);
+    const action = defineAction(
+      'jobs.run',
+      { does: 'Run the job', invocation: 'inputless' },
+      () => pending,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'jobs',
@@ -310,7 +427,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const seen: string[] = [];
     const action = defineAction(
       'orders.archive',
-      { does: 'Archive the order' },
+      { does: 'Archive the order', invocation: 'scalar' },
       ({ id }: { id: string }) => seen.push(id),
     );
     const runtime = createActionBindingRuntime();
@@ -323,9 +440,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
     expect(runtime.available(connection.definition)[0]).toBe(first);
 
     connection.update({ input: () => ({ id: 'second' }) });
-    expect(() =>
-      connection.invokeOffered({ offer: first.ref }),
-    ).toThrow(/does not select/);
+    expect(() => invokeOffer(runtime, first)).toThrow(/stale|foreign|forged/);
     const second = runtime.available(connection.definition)[0]!;
     expect(second.ref).not.toBe(first.ref);
     expect(second.ref.revision).toBeGreaterThan(first.ref.revision);
@@ -334,30 +449,28 @@ describe('connectAction — one definition, many exact live bindings', () => {
       interactive: {},
       coverage: 'executable',
     });
-    expect(() =>
-      connection.invokeOffered({ offer: second.ref }),
-    ).toThrow(/does not select/);
+    expect(() => invokeOffer(runtime, second)).toThrow(/stale|foreign|forged/);
     const third = runtime.available(connection.definition)[0]!;
     attached.detach();
-    expect(() =>
-      connection.invokeOffered({ offer: third.ref }),
-    ).toThrow(/does not select/);
+    expect(() => invokeOffer(runtime, third)).toThrow(/stale|foreign|forged/);
 
     const current = runtime.available(connection.definition)[0]!;
-    await connection.invokeOffered({ offer: current.ref }).whenInvoked;
+    await invokeOffer(runtime, current).whenInvoked;
     expect(seen).toEqual(['second']);
     connection.disconnect();
     expect(runtime.available(connection.definition)).toEqual([]);
-    expect(() =>
-      connection.invokeOffered({ offer: current.ref }),
-    ).toThrow(/disconnected/);
+    expect(() => invokeOffer(runtime, current)).toThrow(/stale|foreign|forged/);
   });
 
   it('fails closed on invalid coverage at connect, update, and attach', () => {
     let calls = 0;
-    const action = defineAction('coverage.run', { does: 'Run' }, () => {
-      calls += 1;
-    });
+    const action = defineAction(
+      'coverage.run',
+      { does: 'Run', invocation: 'inputless' },
+      () => {
+        calls += 1;
+      },
+    );
     const runtime = createActionBindingRuntime();
 
     expect(() =>
@@ -383,6 +496,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
       'funds.transfer',
       {
         does: 'Transfer the balance',
+        invocation: 'inputless',
         confirm: true,
         principalPolicy: {
           mayInvoke: ['human'],
@@ -411,6 +525,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
       'funds.choose',
       {
         does: 'Choose the transfer',
+        invocation: 'inputless',
         principalPolicy: { decisionOwner: 'human' },
         freshness: { readChanges: 'disclose' },
       },
@@ -421,15 +536,19 @@ describe('connectAction — one definition, many exact live bindings', () => {
     ).not.toThrow();
   });
 
-  it('names inputSchema as the inactive definition clause, not the live input reader', () => {
+  it('enforces inputSchema independently from the live input reader', () => {
     const action = defineAction(
       'search.run',
       {
         does: 'Search the catalogue',
+        invocation: 'scalar',
         inputSchema: {
-          type: 'object',
-          properties: { query: { type: 'string' } },
-          required: ['query'],
+          safeParse: (value: unknown) => ({
+            success:
+              typeof value === 'object' &&
+              value !== null &&
+              typeof (value as { query?: unknown }).query === 'string',
+          }),
         },
       },
       (input: { query: string }) => input.query,
@@ -440,7 +559,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
         node: 'search',
         input: () => ({ query: 'boots' }),
       }),
-    ).toThrow(/inputSchema.*cannot activate/);
+    ).not.toThrow();
 
     const disclosure = createActionBindingRuntime({
       contractActivation: 'disclosure',
@@ -454,7 +573,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
   });
 
   it('validates and snapshots settlement evidence before resolving the effect rail', async () => {
-    const action = defineAction('jobs.finish', { does: 'Finish the job' }, () => 1);
+    const action = defineAction(
+      'jobs.finish',
+      { does: 'Finish the job', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'jobs',
@@ -498,9 +621,47 @@ describe('connectAction — one definition, many exact live bindings', () => {
     expect(await invalid.whenEffectSettled).toBe(settled);
   });
 
+  it('preserves an own __proto__ evidence key without surfacing inherited claims', () => {
+    const action = defineAction(
+      'effect.prototype-key',
+      { does: 'Snapshot a prototype-named evidence field', invocation: 'inputless' },
+      () => undefined,
+    );
+    const runtime = createActionBindingRuntime();
+    const connection = connectAction(runtime, action, {
+      node: 'effect',
+      coverage: 'verifiable',
+    });
+    const invocation = connection.invoke();
+    const evidence = JSON.parse(
+      '{"__proto__":{"verified":true}}',
+    ) as Record<string, unknown>;
+
+    const settled = connection.settle(invocation.transition, {
+      status: 'verified',
+      evidence,
+    });
+    expect(settled.status).toBe('verified');
+    if (settled.status !== 'verified') throw new Error('expected verified evidence');
+    const snapshot = settled.evidence as Record<string, unknown>;
+    expect(Object.getPrototypeOf(snapshot)).toBe(Object.prototype);
+    expect(Object.hasOwn(snapshot, '__proto__')).toBe(true);
+    expect(snapshot['__proto__']).toEqual({ verified: true });
+    expect(snapshot['verified']).toBeUndefined();
+    expect(Object.isFrozen(snapshot)).toBe(true);
+  });
+
   it('retains canonical definition identity for the whole runtime generation', () => {
-    const first = defineAction('shared.run', { does: 'Run' }, () => 'first');
-    const second = defineAction('shared.run', { does: 'Run' }, () => 'second');
+    const first = defineAction(
+      'shared.run',
+      { does: 'Run', invocation: 'inputless' },
+      () => 'first',
+    );
+    const second = defineAction(
+      'shared.run',
+      { does: 'Run', invocation: 'inputless' },
+      () => 'second',
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, first, { node: 'shared' });
     connection.disconnect();
@@ -512,38 +673,50 @@ describe('connectAction — one definition, many exact live bindings', () => {
 
   it('preserves zero-argument and explicit-undefined call arity without sentinels', async () => {
     const arities: number[] = [];
-    const zero = defineAction('arity.zero', { does: 'Read arity' }, function () {
+    const readZeroArity: () => void = function () {
       arities.push(arguments.length);
-    });
+    };
+    const zero = defineAction(
+      'arity.zero',
+      { does: 'Read arity', invocation: 'inputless' },
+      readZeroArity,
+    );
     const runtime = createActionBindingRuntime();
     const zeroConnection = connectAction(runtime, zero, { node: 'arity' });
     const offer = runtime.available(zeroConnection.definition)[0]!;
     await zeroConnection.invoke().whenInvoked;
-    await zeroConnection.invokeOffered({ offer: offer.ref }).whenInvoked;
+    await invokeOffer(runtime, offer).whenInvoked;
     expect(arities).toEqual([0, 0]);
 
     const received: Array<{ readonly arity: number; readonly value?: string }> = [];
+    const readOptionalArity: (value?: string) => void = function (value?: string) {
+      received.push({
+        arity: arguments.length,
+        ...(value !== undefined ? { value } : {}),
+      });
+    };
     const optional = defineAction(
       'arity.optional',
-      { does: 'Read an optional input' },
-      function (value?: string) {
-        received.push({
-          arity: arguments.length,
-          ...(value !== undefined ? { value } : {}),
-        });
+      {
+        does: 'Read an optional input',
+        invocation: 'scalar',
+        inputSchema: { safeParse: () => ({ success: true as const }) },
       },
+      readOptionalArity,
     );
-    const optionalConnection = connectAction(runtime, optional, {
+    const optionalWithReader = connectAction(runtime, optional, {
       node: 'arity',
       input: () => 'reader',
     });
-    await optionalConnection.invoke().whenInvoked;
+    await optionalWithReader.invoke().whenInvoked;
+    const optionalConnection = connectAction(runtime, optional, {
+      node: 'arity-open',
+    });
     await optionalConnection.invoke(undefined).whenInvoked;
-    const optionalOffer = runtime.available(optionalConnection.definition)[0]!;
-    await optionalConnection.invokeOffered(
-      { offer: optionalOffer.ref },
-      undefined,
-    ).whenInvoked;
+    const optionalOffer = runtime
+      .available(optionalConnection.definition)
+      .find((candidate) => candidate.ref.binding === optionalConnection.binding)!;
+    await invokeOffer(runtime, optionalOffer, undefined).whenInvoked;
     expect(received).toEqual([
       { arity: 1, value: 'reader' },
       { arity: 1 },
@@ -552,7 +725,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
   });
 
   it('can explicitly release fully settled transition history', async () => {
-    const action = defineAction('history.run', { does: 'Run' }, () => 'done');
+    const action = defineAction(
+      'history.run',
+      { does: 'Run', invocation: 'inputless' },
+      () => 'done',
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'history',
@@ -575,7 +752,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
   it('keeps strict contract activation immutable at runtime', () => {
     const restricted = defineAction(
       'policy.delete',
-      { does: 'Delete the record', confirm: true },
+      { does: 'Delete the record', invocation: 'inputless', confirm: true },
       () => undefined,
     );
     const runtime = createActionBindingRuntime();
@@ -606,7 +783,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
   });
 
   it('requires verifiable coverage before accepting verified evidence', async () => {
-    const action = defineAction('effect.run', { does: 'Run the effect' }, () => 1);
+    const action = defineAction(
+      'effect.run',
+      { does: 'Run the effect', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'effect',
@@ -629,7 +810,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
   });
 
   it('claims settlement before reading getters and snapshots each branch exactly once', () => {
-    const action = defineAction('effect.snapshot', { does: 'Snapshot evidence' }, () => 1);
+    const action = defineAction(
+      'effect.snapshot',
+      { does: 'Snapshot evidence', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'effect',
@@ -677,7 +862,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
 
   it('releases a failed settlement claim so the transition remains settleable', () => {
     const failure = new Error('evidence getter failed');
-    const action = defineAction('effect.retry', { does: 'Retry evidence' }, () => 1);
+    const action = defineAction(
+      'effect.retry',
+      { does: 'Retry evidence', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'effect',
@@ -706,7 +895,11 @@ describe('connectAction — one definition, many exact live bindings', () => {
 
   it('invalidates an offer when disabledness is observed before returning true again', () => {
     let enabled = true;
-    const action = defineAction('offer.run', { does: 'Run the offer' }, () => 1);
+    const action = defineAction(
+      'offer.run',
+      { does: 'Run the offer', invocation: 'inputless' },
+      () => 1,
+    );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, {
       node: 'offer',
@@ -715,22 +908,18 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const stale = runtime.available(connection.definition)[0]!;
 
     enabled = false;
-    expect(() =>
-      connection.invokeOffered({ offer: stale.ref }),
-    ).toThrow(/disabled/);
+    expect(() => invokeOffer(runtime, stale)).toThrow(/disabled/);
     enabled = true;
-    expect(() =>
-      connection.invokeOffered({ offer: stale.ref }),
-    ).toThrow(/does not select/);
+    expect(() => invokeOffer(runtime, stale)).toThrow(/stale|foreign|forged/);
     expect(runtime.available(connection.definition)[0]?.ref).not.toBe(stale.ref);
   });
 
-  it('invalidates an offer when an unchanged reader publishes transient disabledness', () => {
+  it('invalidates an offer when touch publishes transient disabledness', () => {
     let enabled = true;
     const readEnabled = () => enabled;
     const action = defineAction(
       'offer.transient',
-      { does: 'Run the transient offer' },
+      { does: 'Run the transient offer', invocation: 'inputless' },
       () => 1,
     );
     const runtime = createActionBindingRuntime();
@@ -741,12 +930,10 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const stale = runtime.available(connection.definition)[0]!;
 
     enabled = false;
-    connection.update({ enabled: readEnabled });
+    connection.touch();
     enabled = true;
 
-    expect(() =>
-      connection.invokeOffered({ offer: stale.ref }),
-    ).toThrow(/does not select/);
+    expect(() => invokeOffer(runtime, stale)).toThrow(/stale|foreign|forged/);
     expect(runtime.available(connection.definition)[0]?.ref.revision).toBeGreaterThan(
       stale.ref.revision,
     );
@@ -754,10 +941,15 @@ describe('connectAction — one definition, many exact live bindings', () => {
 
   it('fails closed when committed readers mutate or disconnect their own binding', () => {
     let directCalls = 0;
-    let direct!: ActionConnection<() => void, 'race.direct'>;
+    let direct!: ActionConnection<
+      () => void,
+      'race.direct',
+      false,
+      'inputless'
+    >;
     const directAction = defineAction(
       'race.direct',
-      { does: 'Run directly' },
+      { does: 'Run directly', invocation: 'inputless' },
       () => {
         directCalls += 1;
       },
@@ -773,11 +965,16 @@ describe('connectAction — one definition, many exact live bindings', () => {
     expect(() => direct.invoke()).toThrow(/disconnected while reading enabledness/);
     expect(directCalls).toBe(0);
 
-    let offered!: ActionConnection<() => undefined, 'race.offer'>;
+    let offered!: ActionConnection<
+      () => undefined,
+      'race.offer',
+      false,
+      'inputless'
+    >;
     const offeredRuntime = createActionBindingRuntime();
     const offeredAction = defineAction(
       'race.offer',
-      { does: 'Expose an offer' },
+      { does: 'Expose an offer', invocation: 'inputless' },
       () => undefined,
     );
     offered = connectAction(offeredRuntime, offeredAction, {
@@ -794,12 +991,13 @@ describe('connectAction — one definition, many exact live bindings', () => {
     let withInput!: ActionConnection<
       (value: string) => void,
       'race.input',
-      true
+      true,
+      'scalar'
     >;
     const inputRuntime = createActionBindingRuntime();
     const inputAction = defineAction(
       'race.input',
-      { does: 'Read committed input' },
+      { does: 'Read committed input', invocation: 'scalar' },
       (_value: string) => {
         inputCalls += 1;
       },
@@ -825,10 +1023,15 @@ describe('connectAction — one definition, many exact live bindings', () => {
       provider: 'new',
     };
     let firstRead = true;
-    let connection!: ActionConnection<() => undefined, 'race.snapshot'>;
+    let connection!: ActionConnection<
+      () => undefined,
+      'race.snapshot',
+      false,
+      'inputless'
+    >;
     const action = defineAction(
       'race.snapshot',
-      { does: 'Inspect the binding' },
+      { does: 'Inspect the binding', invocation: 'inputless' },
       () => undefined,
     );
     const runtime = createActionBindingRuntime();
@@ -859,7 +1062,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const seen: string[] = [];
     const action = defineAction(
       'input.stable',
-      { does: 'Use stable input' },
+      { does: 'Use stable input', invocation: 'scalar' },
       (value: string) => seen.push(value),
     );
     const runtime = createActionBindingRuntime();
@@ -891,7 +1094,7 @@ describe('connectAction — one definition, many exact live bindings', () => {
     };
     const action = defineAction(
       'update.atomic',
-      { does: 'Keep the committed projection' },
+      { does: 'Keep the committed projection', invocation: 'inputless' },
       () => undefined,
     );
     const runtime = createActionBindingRuntime();
@@ -922,11 +1125,16 @@ describe('connectAction — one definition, many exact live bindings', () => {
   it('does not publish an attachment when its projection disconnects the binding', () => {
     const action = defineAction(
       'attach.atomic',
-      { does: 'Attach an exact host projection' },
+      { does: 'Attach an exact host projection', invocation: 'inputless' },
       () => undefined,
     );
     const runtime = createActionBindingRuntime();
-    let connection!: ActionConnection<() => undefined, 'attach.atomic'>;
+    let connection!: ActionConnection<
+      () => undefined,
+      'attach.atomic',
+      false,
+      'inputless'
+    >;
     connection = connectAction(runtime, action, { node: 'atomic' });
 
     const projection = {
@@ -947,25 +1155,20 @@ describe('connectAction — one definition, many exact live bindings', () => {
     const received: unknown[][] = [];
     const action = defineAction(
       'arity.several',
-      { does: 'Run a host listener with several arguments' },
-      function (left: string, right: number) {
-        received.push([left, right, arguments.length]);
+      { does: 'Run a host listener with several arguments', invocation: 'host' },
+      (left: string, right: number) => {
+        received.push([left, right, 2]);
       },
     );
     const runtime = createActionBindingRuntime();
     const connection = connectAction(runtime, action, { node: 'arity' });
     const invoke = connection.invoke as unknown as (...args: unknown[]) => unknown;
 
-    expect(() => invoke('left')).toThrow(/several positional parameters/);
+    expect(() => invoke('left')).toThrow(/host-only.*invokeContinuation/);
     expect(() => invoke('left', 2)).toThrow(/at most one payload slot/);
 
-    const offer = runtime.available(connection.definition)[0]!;
-    const invokeOffered = connection.invokeOffered as unknown as (
-      ...args: unknown[]
-    ) => unknown;
-    expect(() => invokeOffered({ offer: offer.ref }, 'left', 2)).toThrow(
-      /at most one payload slot/,
-    );
+    expect(runtime.available(connection.definition)).toEqual([]);
+    expect(runtime.available()).toEqual([]);
     expect(received).toEqual([]);
   });
 });

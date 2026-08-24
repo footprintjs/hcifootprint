@@ -74,9 +74,9 @@ export type {
   ActionBindingProjection,
   ActionBindingProjector,
   ActionBindingRefCallback,
-  ActionSettlementCapability,
   UseActionBindingOptions,
   UseActionBindingResult,
 } from './use-action-binding.js';
+export type { ActionSettlementCapability } from '../action/types.js';
 export { useWorking } from './use-working.js';
 export type { BusyControl, WorkingSession, WorkingSpec } from './use-working.js';

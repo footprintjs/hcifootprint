@@ -12,10 +12,9 @@ import type {
   ActionBindingRef,
   ActionBindingRuntime,
   ActionConnection,
-  ActionEffectSettlement,
-  ActionEffectSettlementInput,
   ActionInvocation,
-  ActionTransitionRef,
+  ActionInvocationMode,
+  ActionSettlementCapability,
   BindingCoverage,
   ConnectActionOptions,
   DefinedAction,
@@ -48,25 +47,30 @@ export interface ActionBindingProjector<
   ): ActionAttachment;
 }
 
-/** Stable identity and explicit host facts for one React binding. */
-export interface UseActionBindingOptions<
+/** Stable identity, host facts, and explicit input ownership for one React binding. */
+export type UseActionBindingOptions<
   Props,
   Input,
   Interactive extends object,
   Id extends string = string,
   Output = unknown,
-> {
+> = {
   readonly node: string;
   readonly instance?: string;
   /** Explicit fallback when coverage belongs to the call site rather than the adapter. */
   readonly coverage?: BindingCoverage;
-  /** Application-owned input for direct agent invocation; never scraped from the host. */
-  readonly input?: (props: Readonly<Props>) => Input;
   /**
    * A deliberate ref-identity key for props that change descendant resolution,
    * projected coverage, or locators. Ordinary props do not reattach.
    */
   readonly attachmentKey?: unknown;
+  /**
+   * Committed generation for adapter-owned enabled/busy readers. Change it
+   * whenever those facts can change. Without it, bindings with either reader
+   * conservatively publish a new revision after every committed render.
+   * Supplying it when the adapter has neither reader is a configuration error.
+   */
+  readonly availabilityKey?: unknown;
   /** The watcher/projector that owns a portal's physical interactive root. */
   readonly projector?: ActionBindingProjector<Interactive, Id> | null;
   /**
@@ -79,16 +83,18 @@ export interface UseActionBindingOptions<
   ) => void | PromiseLike<void>;
   /** Optional sink for an `onInvocation` observer failure. */
   readonly onInvocationError?: (error: unknown) => void | PromiseLike<void>;
-}
-
-/** The only connection authority exposed to an effect observer. */
-export interface ActionSettlementCapability<Id extends string = string> {
-  readonly binding: ActionBindingRef<Id>;
-  settle(
-    transition: ActionTransitionRef<Id>,
-    settlement: ActionEffectSettlementInput,
-  ): ActionEffectSettlement<Id>;
-}
+} & (
+  | { readonly input?: undefined; readonly inputKey?: never }
+  | {
+      /** Application-owned payload selected by this live binding. */
+      readonly input: (props: Readonly<Props>) => Input;
+      /**
+       * Opaque semantic generation for `input`. Keep it stable while the
+       * reader means the same value; change it whenever that value can change.
+       */
+      readonly inputKey: unknown;
+    }
+);
 
 /** React 18-compatible callback ref; null is the teardown door. */
 export type ActionBindingRefCallback<Host> = (host: Host | null) => void;
@@ -111,18 +117,25 @@ export interface UseActionBindingResult<
 interface HeldBinding<
   F extends (...args: any[]) => any,
   Id extends string,
+  Mode extends ActionInvocationMode,
 > {
   readonly owner: object;
   readonly connection:
-    | ActionConnection<F, Id, true>
-    | ActionConnection<F, Id, false>;
+    | ActionConnection<F, Id, true, Mode>
+    | ActionConnection<F, Id, false, Mode>;
   readonly attachment: ActionAttachment;
   readonly projection?: ActionAttachment;
+  readonly inputKey?: unknown;
+  readonly availabilityKeyPresent: boolean;
+  readonly availabilityKey?: unknown;
 }
 
 interface LatestRender<Props, Input, Output, Id extends string> {
   readonly props: Readonly<Props>;
   readonly input: ((props: Readonly<Props>) => Input) | undefined;
+  readonly inputKey?: unknown;
+  readonly availabilityKeyPresent: boolean;
+  readonly availabilityKey?: unknown;
   readonly onInvocation:
     | ((
         invocation: ActionInvocation<Output, Id>,
@@ -149,6 +162,7 @@ type ContinuationOutcome<Result> =
 export function useActionBinding<
   F extends (...args: any[]) => any,
   Id extends string,
+  Mode extends ActionInvocationMode,
   Props,
   Host,
   Interactive extends object,
@@ -158,7 +172,7 @@ export function useActionBinding<
   ComposedProps,
 >(
   runtime: ActionBindingRuntime,
-  definition: DefinedAction<F, Id>,
+  definition: DefinedAction<F, Id, Mode>,
   props: Readonly<Props>,
   adapter: ActionHostAdapter<
     Props,
@@ -169,26 +183,18 @@ export function useActionBinding<
     ComposedProps,
     Binding
   >,
-  options: Parameters<F> extends []
-    ? Omit<
-        UseActionBindingOptions<
-          Props,
-          undefined,
-          Interactive,
-          Id,
-          Awaited<ReturnType<F>>
-        >,
-        'input'
-      > & { readonly input?: never }
-    : UseActionBindingOptions<
-        Props,
-        Parameters<F>[0],
-        Interactive,
-        Id,
-        Awaited<ReturnType<F>>
-      >,
+  options: UseActionBindingOptions<
+    Props,
+    Mode extends 'scalar' ? Parameters<F>[0] : undefined,
+    Interactive,
+    Id,
+    Awaited<ReturnType<F>>
+  > &
+    (Mode extends 'scalar'
+      ? unknown
+      : { readonly input?: never; readonly inputKey?: never }),
 ): UseActionBindingResult<Host, ComposedProps, Id> {
-  const held = useRef<HeldBinding<F, Id> | null>(null);
+  const held = useRef<HeldBinding<F, Id, Mode> | null>(null);
   const latest = useRef<
     LatestRender<
       Props,
@@ -199,20 +205,16 @@ export function useActionBinding<
   >({
     props,
     input: options.input,
+    ...('inputKey' in options ? { inputKey: options.inputKey } : {}),
+    availabilityKeyPresent: Object.prototype.hasOwnProperty.call(
+      options,
+      'availabilityKey',
+    ),
+    ...('availabilityKey' in options
+      ? { availabilityKey: options.availabilityKey }
+      : {}),
     onInvocation: options.onInvocation,
     onInvocationError: options.onInvocationError,
-  });
-
-  // No host work belongs here. This is only the commit barrier for lazy facts:
-  // an abandoned render can compose props, but it never becomes readable by a
-  // live connection.
-  useInsertionEffect(() => {
-    latest.current = {
-      props,
-      input: options.input,
-      onInvocation: options.onInvocation,
-      onInvocationError: options.onInvocationError,
-    };
   });
 
   const release = useCallback((owner?: object): void => {
@@ -236,6 +238,23 @@ export function useActionBinding<
   }, []);
 
   const hasInput = options.input !== undefined;
+  const hasInputKey = Object.prototype.hasOwnProperty.call(options, 'inputKey');
+  if (hasInput !== hasInputKey) {
+    throw new TypeError(
+      'hcifootprint: useActionBinding() requires input and inputKey together; inputKey names the committed semantic input generation.',
+    );
+  }
+  const hasAvailabilityReaders =
+    adapter.readEnabled !== undefined || adapter.readBusy !== undefined;
+  const hasAvailabilityKey = Object.prototype.hasOwnProperty.call(
+    options,
+    'availabilityKey',
+  );
+  if (hasAvailabilityKey && !hasAvailabilityReaders) {
+    throw new TypeError(
+      'hcifootprint: useActionBinding() availabilityKey requires an adapter readEnabled/readBusy reader.',
+    );
+  }
   const projector = options.projector ?? null;
   const { attachmentKey, coverage, instance, node } = options;
 
@@ -252,19 +271,81 @@ export function useActionBinding<
       instance,
       coverage,
       hasInput,
+      hasAvailabilityKey,
       attachmentKey,
       projector,
     ],
   );
 
-  // The stable input reader below closes over `latest`. Once a same-owner
-  // render commits, publish a fresh binding generation so an offer minted
-  // against the previous committed props cannot read this commit's input.
-  // Input stays lazy: neither commit nor availability executes the reader.
+  // Commit the newest observers and, only when the semantic input key changes,
+  // atomically replace the bound reader with one owned by this exact render.
+  // An abandoned render never reaches this barrier.
   useInsertionEffect(() => {
+    const rendered: LatestRender<
+      Props,
+      FirstParameter<F>,
+      Awaited<ReturnType<F>>,
+      Id
+    > = {
+      props,
+      input: options.input,
+      ...(hasInputKey ? { inputKey: options.inputKey } : {}),
+      availabilityKeyPresent: hasAvailabilityKey,
+      ...(hasAvailabilityKey
+        ? { availabilityKey: options.availabilityKey }
+        : {}),
+      onInvocation: options.onInvocation,
+      onInvocationError: options.onInvocationError,
+    };
     const current = held.current;
-    if (!hasInput || current === null || current.owner !== owner) return;
-    current.connection.update({});
+    let nextHeld = current;
+    let publishedRevision = false;
+    if (
+      hasInput &&
+      current !== null &&
+      current.owner === owner &&
+      !Object.is(current.inputKey, options.inputKey)
+    ) {
+      const readInput = () =>
+        rendered.input?.(rendered.props) as FirstParameter<F>;
+      try {
+        (current.connection as ActionConnection<F, Id, true, Mode>).update({
+          input: readInput,
+        });
+      } catch (error) {
+        release(owner);
+        throw error;
+      }
+      nextHeld = {
+        ...current,
+        inputKey: options.inputKey,
+      };
+      publishedRevision = true;
+    }
+    if (
+      current !== null &&
+      current.owner === owner &&
+      hasAvailabilityReaders &&
+      (!hasAvailabilityKey ||
+        current.availabilityKeyPresent !== true ||
+        !Object.is(current.availabilityKey, options.availabilityKey))
+    ) {
+      try {
+        if (!publishedRevision) current.connection.touch();
+      } catch (error) {
+        release(owner);
+        throw error;
+      }
+      nextHeld = {
+        ...(nextHeld ?? current),
+        availabilityKeyPresent: hasAvailabilityKey,
+        ...(hasAvailabilityKey
+          ? { availabilityKey: options.availabilityKey }
+          : {}),
+      };
+    }
+    if (nextHeld !== current) held.current = nextHeld;
+    latest.current = rendered;
   });
 
   const invocation = useCallback(
@@ -280,7 +361,7 @@ export function useActionBinding<
       const captured: {
         outcome: ContinuationOutcome<ReturnType<F>>;
       } = { outcome: { kind: 'none' } };
-      const opened = connection.invokeContinuation(() => {
+      connection.invokeContinuation(() => {
         try {
           const value = proceed();
           captured.outcome = { kind: 'returned', value };
@@ -290,44 +371,6 @@ export function useActionBinding<
           throw error;
         }
       });
-      const settlementCapability: ActionSettlementCapability<Id> = Object.freeze({
-        binding: connection.binding,
-        settle: (
-          transition: ActionTransitionRef<Id>,
-          settlement: ActionEffectSettlementInput,
-        ): ActionEffectSettlement<Id> => {
-          if (transition !== opened.transition) {
-            throw new Error(
-              `hcifootprint: this settlement capability belongs to transition '${opened.transition.transitionId}', not '${transition.transitionId}'.`,
-            );
-          }
-          return connection.settle(transition, settlement);
-        },
-      });
-      const committedObserver = latest.current;
-      const observer = committedObserver.onInvocation;
-      if (observer !== undefined) {
-        const reportObserverError = (error: unknown): void => {
-          const sink = committedObserver.onInvocationError;
-          if (sink === undefined) return;
-          try {
-            // A rejected async error sink is instrumentation failure too. Mark it
-            // handled without letting it become an unhandled rejection.
-            void Promise.resolve(sink(error)).catch(() => undefined);
-          } catch {
-            // Instrumentation observers never replace the application
-            // listener's own return value or thrown value.
-          }
-        };
-        try {
-          void Promise.resolve(observer(opened, settlementCapability)).catch(
-            reportObserverError,
-          );
-        } catch (error) {
-          reportObserverError(error);
-        }
-      }
-
       const outcome = captured.outcome;
       if (outcome.kind === 'returned') return outcome.value;
       if (outcome.kind === 'threw') throw outcome.error;
@@ -382,7 +425,37 @@ export function useActionBinding<
         valueElement: resolved.valueElement,
       });
 
-      const connectOptions: ConnectActionOptions<FirstParameter<F>> = {
+      const observeInvocation = (
+        opened: ActionInvocation<Awaited<ReturnType<F>>, Id>,
+        settlement: ActionSettlementCapability<Id>,
+      ): void => {
+        // The observer and its error sink are one committed pair for this
+        // invocation. An async failure from an old render/binding must never be
+        // delivered to a successor render's sink.
+        const committedObservers = latest.current;
+        const observer = committedObservers.onInvocation;
+        const errorSink = committedObservers.onInvocationError;
+        if (observer === undefined) return;
+        const report = (error: unknown): void => {
+          if (errorSink === undefined) return;
+          try {
+            void Promise.resolve(errorSink(error)).catch(() => undefined);
+          } catch {
+            // Observer diagnostics never replace application behavior.
+          }
+        };
+        try {
+          void Promise.resolve(observer(opened, settlement)).catch(report);
+        } catch (error) {
+          report(error);
+        }
+      };
+
+      const connectOptions: ConnectActionOptions<
+        FirstParameter<F>,
+        Awaited<ReturnType<F>>,
+        Id
+      > = {
         node,
         ...(instance !== undefined ? { instance } : {}),
         coverage: bindingCoverage,
@@ -390,10 +463,11 @@ export function useActionBinding<
           ? { locators: resolved.locators }
           : {}),
         humanReporting: 'connection',
+        onInvocation: observeInvocation,
         ...(hasInput
           ? {
               input: () =>
-                latest.current.input?.(latest.current.props) as FirstParameter<F>,
+                committed.input?.(committed.props) as FirstParameter<F>,
             }
           : {}),
         ...(adapter.readEnabled !== undefined
@@ -405,19 +479,23 @@ export function useActionBinding<
       };
 
       let connection:
-        | ActionConnection<F, Id, true>
-        | ActionConnection<F, Id, false>
+        | ActionConnection<F, Id, true, Mode>
+        | ActionConnection<F, Id, false, Mode>
         | undefined;
       let attachment: ActionAttachment | undefined;
       let projected: ActionAttachment | undefined;
       try {
         const connectCommitted = connectAction as (
           selectedRuntime: ActionBindingRuntime,
-          selectedDefinition: DefinedAction<F, Id>,
-          selectedOptions: ConnectActionOptions<FirstParameter<F>>,
+          selectedDefinition: DefinedAction<F, Id, Mode>,
+          selectedOptions: ConnectActionOptions<
+            FirstParameter<F>,
+            Awaited<ReturnType<F>>,
+            Id
+          >,
         ) =>
-          | ActionConnection<F, Id, true>
-          | ActionConnection<F, Id, false>;
+          | ActionConnection<F, Id, true, Mode>
+          | ActionConnection<F, Id, false, Mode>;
         connection = connectCommitted(runtime, definition, connectOptions);
         attachment = connection.attach({
           interactive: resolved.interactive,
@@ -438,6 +516,11 @@ export function useActionBinding<
           owner,
           connection,
           attachment,
+          ...(hasInputKey ? { inputKey: committed.inputKey } : {}),
+          availabilityKeyPresent: committed.availabilityKeyPresent,
+          ...(committed.availabilityKeyPresent
+            ? { availabilityKey: committed.availabilityKey }
+            : {}),
           ...(projected !== undefined ? { projection: projected } : {}),
         };
       } catch (error) {

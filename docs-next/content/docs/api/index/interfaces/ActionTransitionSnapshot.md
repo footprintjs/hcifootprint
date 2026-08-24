@@ -4,7 +4,7 @@ title: ActionTransitionSnapshot
 
 # Interface: ActionTransitionSnapshot
 
-Defined in: [src/action/types.ts:187](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L187)
+Defined in: [src/action/types.ts:385](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L385)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/action/types.ts:187](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:189](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L189)
+Defined in: [src/action/types.ts:388](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L388)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: [src/action/types.ts:189](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **effectStatus**: `"verified"` \| `"refused"` \| `"unverified"`
 
-Defined in: [src/action/types.ts:191](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L191)
+Defined in: [src/action/types.ts:390](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L390)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/action/types.ts:191](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **error?**: `unknown`
 
-Defined in: [src/action/types.ts:193](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L193)
+Defined in: [src/action/types.ts:392](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L392)
 
 ***
 
@@ -36,15 +36,23 @@ Defined in: [src/action/types.ts:193](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **evidence?**: `unknown`
 
-Defined in: [src/action/types.ts:194](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L194)
+Defined in: [src/action/types.ts:393](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L393)
+
+***
+
+### input
+
+> `readonly` **input**: [`ActionInvocationInput`](/api/index/type-aliases/ActionInvocationInput)
+
+Defined in: [src/action/types.ts:387](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L387)
 
 ***
 
 ### invocationStatus
 
-> `readonly` **invocationStatus**: `"refused"` \| `"performed"` \| `"pending"`
+> `readonly` **invocationStatus**: `"refused"` \| `"performed"` \| `"failed"` \| `"pending"`
 
-Defined in: [src/action/types.ts:190](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L190)
+Defined in: [src/action/types.ts:389](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L389)
 
 ***
 
@@ -52,7 +60,7 @@ Defined in: [src/action/types.ts:190](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **produced?**: `unknown`
 
-Defined in: [src/action/types.ts:192](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L192)
+Defined in: [src/action/types.ts:391](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L391)
 
 ***
 
@@ -60,7 +68,7 @@ Defined in: [src/action/types.ts:192](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **reason?**: `unknown`
 
-Defined in: [src/action/types.ts:195](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L195)
+Defined in: [src/action/types.ts:394](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L394)
 
 ***
 
@@ -68,4 +76,4 @@ Defined in: [src/action/types.ts:195](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **ref**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)
 
-Defined in: [src/action/types.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L188)
+Defined in: [src/action/types.ts:386](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L386)

@@ -6,9 +6,9 @@ title: actionDefinitionOf
 
 ## Call Signature
 
-> **actionDefinitionOf**\<`F`, `Id`\>(`value`): [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`\>
+> **actionDefinitionOf**\<`F`, `Id`, `Mode`\>(`value`): [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`, `Mode`\>
 
-Defined in: [src/action/definition.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L101)
+Defined in: [src/action/definition.ts:130](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L130)
 
 Read the definition carried by a callable, including one branded by another package copy.
 
@@ -22,21 +22,25 @@ Read the definition carried by a callable, including one branded by another pack
 
 `Id` *extends* `string`
 
+#### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
 ### Parameters
 
 #### value
 
-[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`\>
+[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `Mode`\>
 
 ### Returns
 
-[`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`\>
+[`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`, `Mode`\>
 
 ## Call Signature
 
-> **actionDefinitionOf**(`value`): [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`string`\> \| `undefined`
+> **actionDefinitionOf**(`value`): [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`string`, [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)\> \| `undefined`
 
-Defined in: [src/action/definition.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L105)
+Defined in: [src/action/definition.ts:135](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L135)
 
 Read the definition carried by a callable, including one branded by another package copy.
 
@@ -48,4 +52,4 @@ Read the definition carried by a callable, including one branded by another pack
 
 ### Returns
 
-[`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`string`\> \| `undefined`
+[`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`string`, [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)\> \| `undefined`

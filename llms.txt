@@ -2,7 +2,7 @@
 
 > Agents and humans: this single page is meant to be read INSTEAD of the source. It is
 > verified against the code; where a claim cites a source file, that file is the authority.
-> Package: `hcifootprint` 1.0. Zero-dependency core.
+> Package: `hcifootprint` 1.13.0. Zero-dependency core.
 
 ## What this is
 
@@ -26,12 +26,14 @@ reaches the runtime with one throws `GraphValidationError` naming the key to wri
 Everything below §1 is the ROOT entry point. The other five are separate imports so nothing you do
 not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships).
 
-- `hcifootprint` — authoring, session, serving, graph sources. §1–§7 below.
+- `hcifootprint` — authoring, callable Action Bindings, session, serving, graph sources. §1–§7 below.
 - `hcifootprint/mcp` — `mcpServer(session, opts?)`, `McpServerOptions`. A real MCP server; needs the
   `@modelcontextprotocol/sdk` peer dep, which is why it is not in the root (§5 covers `settleWithinMs`).
-- `hcifootprint/react` — `ControlSurfaceProvider`, `useControlSurface`, `useControl`, `useWorking`;
-  types `ControlSurfaceProviderProps`, `ControlRef`, `ControlSpec`, `BusyControl`, `WorkingSession`,
-  `WorkingSpec`. `useWorking({ busy, label, error?, actions?, session, transitionId? })` puts the flag a
+- `hcifootprint/react` — `ControlSurfaceProvider`, `useControlSurface`, `useControl`,
+  `useActionBinding`, `useWorking`; types `ControlSurfaceProviderProps`, `ControlRef`, `ControlSpec`,
+  `ActionBindingProjection`, `ActionBindingProjector`, `ActionBindingRefCallback`,
+  `UseActionBindingOptions`, `UseActionBindingResult`, `ActionSettlementCapability`, `BusyControl`,
+  `WorkingSession`, `WorkingSpec`. `useWorking({ busy, label, error?, actions?, session, transitionId? })` puts the flag a
   component already has on the work ledger; **`actions:` here is the 1.0 spelling of what was `tools:`.**
 - `hcifootprint/sensor` — `watchPage(session, opts)` and its types (`WatchOptions`, `PageWatch`, `SensorReport`,
   `SensorSession`, `Coverage`, `EdgeCoverage`, `BlockedBy`, `Cadence`, `ControlDeclaration`,
@@ -540,6 +542,93 @@ with no handler to wrap: a TRUSTED click inside the anchor opens a record-only f
   `declineConfirm` records a REPORT and closes nothing whatever `principal` it is handed (the row is
   marked `relayed`); the human's no is `declineAsk(askId, {by})`, which outranks a standing grant for
   the action+instance+input the person was shown, with or without the pointer.
+
+---
+
+## 2A. Callable Action Binding — one definition, exact live controls
+
+This is a framework-neutral surface beside the graph/Session API. It does not create a Session
+affordance or MCP tool automatically. Use it when a framework adapter, interaction broker, test, or
+developer tool must address and invoke the exact mounted instance.
+
+Root runtime exports: `defineAction`, `actionDefinitionOf`, `isDefinedAction`,
+`createActionBindingRuntime`, `connectAction`, `ActionInputValidationError`,
+`assertBindingCoverage`, `isBindingCoverage`, `composeActionInvocation`, and `resolveActionHost`.
+Root types: `ActionDefinitionRef`, `ActionBindingRef`, `ActionOfferRef`, `ActionInputRef`,
+`ActionTransitionRef`, `ActionDefinitionContract`, `ReadonlyActionDefinitionContract`,
+`ActionDefinitionRecord`, `DefinedAction`, `DeepReadonly`, `ActionInvocationMode`,
+`ActionBindingRuntime`, `ActionBindingRuntimeOptions`, `ActionBindingSnapshot`,
+`ActionBindingUpdate`, `ActionConnection`, `ConnectActionOptions`, `ActionAttachment`,
+`ActionOffer`, `ActionOfferFor`, `BoundActionOffer`, `OpenActionOffer`,
+`InputlessActionOffer`, `ActionInputSource`, `ActionInvocationInput`,
+`ActionInputValidationDisposition`, `ActionInputSchemaAdapter`, `ActionInputSchemaContext`,
+`ActionInputSchemaResult`, `ActionInvocation`, `ActionInvocationSettlement`, `ActionInvoke`,
+`ActionEffectSettlement`, `ActionEffectSettlementInput`, `ActionTransitionSnapshot`,
+`ActionSettlementCapability`, `BindingCoverage`, `BindingProjection`, `HumanReporting`,
+`ActionContractActivation`, `ActionHostAdapter`, `ActionHostContext`, `ActionHostListener`,
+`ActionHostResolution`, `ActionHostTargetResolution`, `ActionHostUnresolvedReason`,
+`ActionInvocationMiddleware`, `ResolvedActionHost`, `ResolvedActionHostTarget`,
+`UnresolvedActionHost`, and `UnresolvedActionHostTarget`.
+
+```ts
+const archiveOrder = defineAction(
+  'orders.archive',
+  {
+    does: 'Archive this order',
+    invocation: 'scalar',
+    inputSchema: orderIdSchema,
+    needs: { subject: { kind: 'order', from: 'selection' } },
+    produces: { kind: 'archive-receipt' },
+  },
+  (orderId: string) => api.archive(orderId),
+);
+
+const runtime = createActionBindingRuntime();
+const connection = connectAction(runtime, archiveOrder, {
+  node: 'orders',
+  instance: 'o-57',
+  input: () => 'o-57',
+});
+
+const offer = runtime.available(archiveOrder)[0];
+if (offer?.inputMode === 'bound') runtime.invoke(offer);
+```
+
+Every definition authors one invocation mode; the runtime never guesses it from `Function.length`:
+
+- `inputless` — direct/broker invocation has no payload slot; offers use `inputMode: 'none'`.
+- `scalar` — exactly one deliberate payload slot. A live `input` reader produces a `bound` offer;
+  otherwise a declared `inputSchema` produces an `open` offer whose caller must supply one slot.
+  `require-active` requires enforcement; disclosure mode exposes unsupported formats as unvalidated
+  metadata. Explicit `undefined` is a slot; omission is not. An unbound scalar with no schema is
+  withheld.
+- `host` — only `invokeContinuation()` records the exact application listener; it is never offered.
+
+`needs: Record<string, { kind, schema?, from? }>` and `produces: { kind, schema? }` are validated,
+detached, frozen Layer-1 metadata. No channel kind matching, UI rendering, value collection, or output
+routing happens yet.
+
+The runtime enforces synchronous `.safeParse`/`.parse` schemas. Plain JSON Schema needs an
+application `inputSchemaAdapter`; strict activation rejects a schema it cannot enforce, while
+`contractActivation: 'disclosure'` explicitly carries it as metadata. Validators and adapters gate
+the exact payload and never replace it with parser output.
+
+An offer is a retained **in-process capability**. Do not serialize or reconstruct it across FE/BE.
+The interaction broker retains the full offer and transports only an opaque handle plus a serializable
+UI projection; returned input is applied to that retained offer. Generated ids are runtime-local.
+
+`whenInvoked` is `performed` when the handler returned/resolved, `refused` only when it never started,
+and `failed` when it started then threw/rejected. Effect truth is a separate `whenEffectSettled` rail;
+only authoritative evidence may verify it. A preflight refusal automatically refuses the effect as
+not attempted. Once both rails are terminal, `forgetTransition(ref)` is the retention boundary.
+
+In React, `useActionBinding(runtime, definition, props, adapter, options)` returns
+`{ ref, hostProps, getBinding }`. A bound `input` requires `inputKey`; change the key whenever that
+reader's committed semantic value changes. When the adapter reads enabled/busy facts, provide
+`availabilityKey` and change it with those facts; omitting it conservatively retires offers after
+every committed render. Supplying it to an adapter with no availability reader throws. The hook's
+`onInvocation` observes both host events and brokered agent invocations through the same narrow
+`ActionSettlementCapability`.
 
 ---
 

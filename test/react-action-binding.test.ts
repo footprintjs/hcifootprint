@@ -15,13 +15,17 @@ import type {
   ActionBindingRuntime,
   ActionConnection,
   ActionInvocation,
+  ActionOffer,
+  BoundActionOffer,
   BindingCoverage,
   DefinedAction,
+  InputlessActionOffer,
 } from '../src/action/types.js';
 import {
   useActionBinding,
   type ActionBindingProjector,
   type ActionSettlementCapability,
+  type UseActionBindingOptions,
   type UseActionBindingResult,
 } from '../src/react/index.js';
 // Reuse the React test environment flag and its once-only renderer notice.
@@ -43,6 +47,15 @@ interface Interactive {
 interface ValueElement {
   readonly kind: 'input';
   readonly id: string;
+}
+
+function closedOffer(
+  offer: ActionOffer,
+): BoundActionOffer | InputlessActionOffer {
+  if (offer.inputMode === 'open') {
+    throw new Error('Expected an offer whose invocation input is already closed.');
+  }
+  return offer;
 }
 
 interface Host {
@@ -126,6 +139,8 @@ interface BoundProps<Result> {
   readonly projector?: ActionBindingProjector<Interactive>;
   readonly attachmentKey?: unknown;
   readonly input?: (props: Readonly<HostProps<Result>>) => PressEvent;
+  readonly inputKey?: unknown;
+  readonly availabilityKey?: unknown;
   readonly onInvocation?: (
     invocation: ActionInvocation<Awaited<Result>>,
     settlement: ActionSettlementCapability,
@@ -139,27 +154,39 @@ interface BoundProps<Result> {
 }
 
 function Bound<Result>(props: BoundProps<Result>): ReactElement {
+  const options = {
+    node: props.node ?? 'screen.actions',
+    ...(props.instance !== undefined ? { instance: props.instance } : {}),
+    ...(props.coverage !== undefined ? { coverage: props.coverage } : {}),
+    ...(props.projector !== undefined ? { projector: props.projector } : {}),
+    ...(props.attachmentKey !== undefined
+      ? { attachmentKey: props.attachmentKey }
+      : {}),
+    ...(props.input !== undefined
+      ? { input: props.input, inputKey: props.inputKey }
+      : {}),
+    ...(props.availabilityKey !== undefined
+      ? { availabilityKey: props.availabilityKey }
+      : {}),
+    ...(props.onInvocation !== undefined
+      ? { onInvocation: props.onInvocation }
+      : {}),
+    ...(props.onInvocationError !== undefined
+      ? { onInvocationError: props.onInvocationError }
+      : {}),
+  } as UseActionBindingOptions<
+    HostProps<Result>,
+    PressEvent,
+    Interactive,
+    string,
+    Awaited<Result>
+  >;
   const binding = useActionBinding(
     props.runtime,
     props.action,
     props.actionProps,
     props.adapter,
-    {
-      node: props.node ?? 'screen.actions',
-      ...(props.instance !== undefined ? { instance: props.instance } : {}),
-      ...(props.coverage !== undefined ? { coverage: props.coverage } : {}),
-      ...(props.projector !== undefined ? { projector: props.projector } : {}),
-      ...(props.attachmentKey !== undefined
-        ? { attachmentKey: props.attachmentKey }
-        : {}),
-      ...(props.input !== undefined ? { input: props.input } : {}),
-      ...(props.onInvocation !== undefined
-        ? { onInvocation: props.onInvocation }
-        : {}),
-      ...(props.onInvocationError !== undefined
-        ? { onInvocationError: props.onInvocationError }
-        : {}),
-    },
+    options,
   );
   props.expose?.(binding);
   return createElement('div', {
@@ -231,7 +258,7 @@ describe('useActionBinding', () => {
     let calls = 0;
     const action = defineAction(
       'draft.save',
-      { does: 'Save the draft' },
+      { does: 'Save the draft', invocation: 'host' },
       function (this: Receiver, received: PressEvent) {
         calls += 1;
         expect(this).toBe(receiver);
@@ -282,7 +309,7 @@ describe('useActionBinding', () => {
     const runtime = createActionBindingRuntime();
     const action = defineAction(
       'draft.verify-save',
-      { does: 'Save and verify the draft' },
+      { does: 'Save and verify the draft', invocation: 'inputless' },
       () => 'saved',
     );
     let observed: ActionInvocation<string> | undefined;
@@ -312,18 +339,7 @@ describe('useActionBinding', () => {
     expect(capability).not.toHaveProperty('disconnect');
     expect(capability?.binding).toBe(observed?.transition.binding);
 
-    const foreignTransition = Object.freeze({
-      ...observed!.transition,
-      transitionId: 'transition#foreign',
-    });
-    expect(() =>
-      capability!.settle(foreignTransition, {
-        status: 'verified',
-        evidence: { source: 'wrong-transition' },
-      }),
-    ).toThrow(/belongs to transition 'transition#1'/);
-
-    const settled = capability!.settle(observed!.transition, {
+    const settled = capability!.settle({
       status: 'verified',
       evidence: { source: 'application-store' },
     });
@@ -332,6 +348,153 @@ describe('useActionBinding', () => {
       status: 'verified',
       evidence: { source: 'application-store' },
     });
+    expect(settled.transition).toBe(observed!.transition);
+  });
+
+  it('delivers an agent-brokered offer to the same React effect observer', async () => {
+    const runtime = createActionBindingRuntime();
+    let calls = 0;
+    const action = defineAction(
+      'draft.verify-agent-save',
+      { does: 'Save and verify through the broker', invocation: 'inputless' },
+      () => {
+        calls += 1;
+        return 'saved-by-agent';
+      },
+    );
+    let observed: ActionInvocation<string> | undefined;
+    let capability: ActionSettlementCapability | undefined;
+    const tree = mount(
+      bound({
+        runtime,
+        action,
+        adapter: hostAdapter<string>(),
+        host: wrapper('Verify agent save'),
+        actionProps: { enabled: true, onPress: action },
+        availabilityKey: 'available',
+        coverage: 'verifiable',
+        onInvocation(invocation, settlement) {
+          observed = invocation;
+          capability = settlement;
+        },
+      }),
+    );
+    const offer = runtime.available(action)[0]!;
+
+    const invocation = runtime.invoke(offer);
+    await expect(invocation.whenInvoked).resolves.toMatchObject({
+      status: 'performed',
+      produced: 'saved-by-agent',
+    });
+    expect(calls).toBe(1);
+    expect(observed).toBe(invocation);
+    expect(capability?.binding).toBe(invocation.transition.binding);
+    const settled = capability!.settle({
+      status: 'verified',
+      evidence: { source: 'react-store' },
+    });
+    await expect(invocation.whenEffectSettled).resolves.toBe(settled);
+    tree.unmount();
+  });
+
+  it('routes a retained broker offer through the latest committed React observers', async () => {
+    const runtime = createActionBindingRuntime();
+    const action = defineAction(
+      'draft.latest-agent-observer',
+      { does: 'Use the latest committed observer', invocation: 'inputless' },
+      () => 'saved',
+    );
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Latest agent observer');
+    const observerError = new Error('latest observer failed');
+    const observed: string[] = [];
+    const reported: Array<{ generation: string; error: unknown }> = [];
+    const view = (generation: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+        availabilityKey: 'stable',
+        onInvocation() {
+          observed.push(generation);
+          throw observerError;
+        },
+        onInvocationError(error) {
+          reported.push({ generation, error });
+        },
+      });
+
+    const tree = mount(view('first'));
+    const offer = runtime.available(action)[0]!;
+    tree.render(view('second'));
+    expect(runtime.available(action)[0]).toBe(offer);
+
+    const invocation = runtime.invoke(offer);
+    await expect(invocation.whenInvoked).resolves.toMatchObject({
+      status: 'performed',
+      produced: 'saved',
+    });
+    expect(observed).toEqual(['second']);
+    expect(reported).toEqual([{ generation: 'second', error: observerError }]);
+
+    tree.unmount();
+    expect(() => runtime.invoke(offer)).toThrow(/stale|foreign|forged/);
+  });
+
+  it('keeps each async observer failure with that invocation\'s committed error sink', async () => {
+    const runtime = createActionBindingRuntime();
+    const action = defineAction(
+      'draft.async-observer-generation',
+      { does: 'Keep observer diagnostics generation-owned', invocation: 'inputless' },
+      () => 'saved',
+    );
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Async observer generation');
+    const observerError = new Error('old observer rejected');
+    let rejectObserver!: (error: unknown) => void;
+    let reportError!: (reported: {
+      generation: string;
+      error: unknown;
+    }) => void;
+    const reported = new Promise<{ generation: string; error: unknown }>(
+      (resolve) => {
+        reportError = resolve;
+      },
+    );
+    const view = (instance: string, generation: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        instance,
+        actionProps: { enabled: true, onPress: action },
+        availabilityKey: 'stable',
+        onInvocation() {
+          if (generation !== 'first') return;
+          return new Promise<void>((_resolve, reject) => {
+            rejectObserver = reject;
+          });
+        },
+        onInvocationError(error) {
+          reportError({ generation, error });
+        },
+      });
+
+    const tree = mount(view('draft-1', 'first'));
+    const invocation = runtime.invoke(runtime.available(action)[0]!);
+    await invocation.whenInvoked;
+    tree.render(view('draft-2', 'second'));
+    expect(runtime.bindings()[0]?.ref.instance).toBe('draft-2');
+
+    rejectObserver(observerError);
+    await expect(reported).resolves.toEqual({
+      generation: 'first',
+      error: observerError,
+    });
+    tree.unmount();
   });
 
   it.each(['synchronous', 'asynchronous'] as const)(
@@ -347,7 +510,10 @@ describe('useActionBinding', () => {
       let calls = 0;
       const action = defineAction(
         `observer.${mode}`,
-        { does: 'Keep observer failure off the application path' },
+        {
+          does: 'Keep observer failure off the application path',
+          invocation: 'inputless',
+        },
         () => {
           calls += 1;
           return 'application-result';
@@ -395,7 +561,7 @@ describe('useActionBinding', () => {
     let calls = 0;
     const action = defineAction(
       'draft.fail',
-      { does: 'Fail to save' },
+      { does: 'Fail to save', invocation: 'inputless' },
       () => {
         calls += 1;
         throw error;
@@ -414,7 +580,7 @@ describe('useActionBinding', () => {
     expect(() => press(tree.renderer, { name: 'toolbar' }, { id: 'press' })).toThrow(error);
     expect(calls).toBe(1);
     expect(runtime.transitionFor('transition#1')).toMatchObject({
-      invocationStatus: 'refused',
+      invocationStatus: 'failed',
       error,
       effectStatus: 'unverified',
     });
@@ -423,7 +589,11 @@ describe('useActionBinding', () => {
   it('projects the actual interactive descendant to the physical-root owner and cleans it token-safely', () => {
     const runtime = createActionBindingRuntime();
     const host = wrapper('Portal Save');
-    const action = defineAction('portal.save', { does: 'Save' }, () => 'saved');
+    const action = defineAction(
+      'portal.save',
+      { does: 'Save', invocation: 'inputless' },
+      () => 'saved',
+    );
     let projected:
       | { readonly binding: ActionBindingRef; readonly element: Interactive }
       | undefined;
@@ -470,7 +640,11 @@ describe('useActionBinding', () => {
     'creates no live binding when the committed target is %s',
     (resolution) => {
       const runtime = createActionBindingRuntime();
-      const action = defineAction('missing.save', { does: 'Save' }, () => 'saved');
+      const action = defineAction(
+        'missing.save',
+        { does: 'Save', invocation: 'inputless' },
+        () => 'saved',
+      );
       let exposed: UseActionBindingResult<Host, HostProps<string>, string> | undefined;
 
       mount(
@@ -494,10 +668,14 @@ describe('useActionBinding', () => {
   it('does not turn successful element resolution into inferred executable coverage', () => {
     const runtime = createActionBindingRuntime();
     let calls = 0;
-    const action = defineAction('unknown.save', { does: 'Save' }, () => {
-      calls += 1;
-      return 'saved';
-    });
+    const action = defineAction(
+      'unknown.save',
+      { does: 'Save', invocation: 'inputless' },
+      () => {
+        calls += 1;
+        return 'saved';
+      },
+    );
     const { readCoverage: _omitted, ...withoutCoverage } =
       hostAdapter<string>();
     const tree = mount(
@@ -525,7 +703,7 @@ describe('useActionBinding', () => {
       let projectionCalls = 0;
       const action = defineAction(
         `coverage.${coverage}`,
-        { does: 'Keep the application listener' },
+        { does: 'Keep the application listener', invocation: 'inputless' },
         () => {
           calls += 1;
           return coverage;
@@ -561,7 +739,11 @@ describe('useActionBinding', () => {
 
   it('creates no binding when a server-shaped renderer supplies no host refs', () => {
     const runtime = createActionBindingRuntime();
-    const action = defineAction('ssr.save', { does: 'Save' }, () => 'saved');
+    const action = defineAction(
+      'ssr.save',
+      { does: 'Save', invocation: 'inputless' },
+      () => 'saved',
+    );
     const tree = mount(
       bound({
         runtime,
@@ -580,7 +762,11 @@ describe('useActionBinding', () => {
 
   it('reads the latest committed enabled and busy props without replacing binding identity', () => {
     const runtime = createActionBindingRuntime();
-    const action = defineAction('draft.save', { does: 'Save' }, () => 'saved');
+    const action = defineAction(
+      'draft.save',
+      { does: 'Save', invocation: 'inputless' },
+      () => 'saved',
+    );
     const adapter = hostAdapter<string>();
     const host = wrapper('Save');
     let duringRender = -1;
@@ -626,33 +812,81 @@ describe('useActionBinding', () => {
     expect(runtime.available()).toEqual([]);
   });
 
+  it('retires an offer across unobserved enabled and busy round trips', () => {
+    const runtime = createActionBindingRuntime();
+    const action = defineAction(
+      'draft.transient-availability',
+      { does: 'Save after transient availability', invocation: 'inputless' },
+      () => 'saved',
+    );
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Transient availability');
+    const view = (enabled: boolean, busy?: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: {
+          enabled,
+          ...(busy !== undefined ? { busy } : {}),
+          onPress: action,
+        },
+      });
+
+    const tree = mount(view(true));
+    const beforeEnabledRoundTrip = runtime.available()[0]!;
+    tree.render(view(false));
+    tree.render(view(true));
+    expect(() => runtime.invoke(closedOffer(beforeEnabledRoundTrip))).toThrow(
+      /stale|foreign|forged/,
+    );
+
+    const beforeBusyRoundTrip = runtime.available()[0]!;
+    tree.render(view(true, 'Saving'));
+    tree.render(view(true));
+    expect(() => runtime.invoke(closedOffer(beforeBusyRoundTrip))).toThrow(
+      /stale|foreign|forged/,
+    );
+  });
+
+  it('uses availabilityKey as the exact committed availability generation', () => {
+    const runtime = createActionBindingRuntime();
+    const action = defineAction(
+      'draft.keyed-availability',
+      { does: 'Save under keyed availability', invocation: 'inputless' },
+      () => 'saved',
+    );
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Keyed availability');
+    const view = (availabilityKey: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+        availabilityKey,
+      });
+
+    const tree = mount(view('generation-1'));
+    const first = runtime.available()[0]!;
+    tree.render(view('generation-1'));
+    expect(runtime.available()[0]).toBe(first);
+    tree.render(view('generation-2'));
+    expect(() => runtime.invoke(closedOffer(first))).toThrow(
+      /stale|foreign|forged/,
+    );
+    expect(runtime.available()[0]!.ref.revision).toBe(first.ref.revision + 1);
+  });
+
   it('retires an offer before a committed render can replace the input it selects', async () => {
-    const baseRuntime = createActionBindingRuntime();
-    let connection:
-      | ActionConnection<(event: PressEvent) => string, string, true>
-      | undefined;
-    const runtime = new Proxy(baseRuntime, {
-      get(target, property) {
-        const value = Reflect.get(target, property, target) as unknown;
-        if (property === 'connect' && typeof value === 'function') {
-          return (...args: unknown[]) => {
-            const opened = Reflect.apply(value, target, args) as ActionConnection<
-              (event: PressEvent) => string,
-              string,
-              true
-            >;
-            connection = opened;
-            return opened;
-          };
-        }
-        return typeof value === 'function' ? value.bind(target) : value;
-      },
-    }) as ActionBindingRuntime;
+    const runtime = createActionBindingRuntime();
     const seen: string[] = [];
     let inputReads = 0;
     const action = defineAction(
       'orders.archive-from-react',
-      { does: 'Archive this order' },
+      { does: 'Archive this order', invocation: 'scalar' },
       (event: PressEvent) => {
         seen.push(event.id);
         return event.id;
@@ -671,13 +905,15 @@ describe('useActionBinding', () => {
           inputReads += 1;
           return { id: orderId };
         },
+        inputKey: orderId,
       });
 
     const tree = mount(view('o-57'));
     const binding = runtime.bindings()[0]!.ref;
     const first = runtime.available()[0]!;
-    let duringRender: (typeof first) | undefined;
-    expect(inputReads).toBe(0);
+    if (first.inputMode !== 'bound') throw new Error('expected bound input');
+    let duringRender: unknown;
+    expect(inputReads).toBe(1);
 
     tree.render(
       createElement(
@@ -694,22 +930,226 @@ describe('useActionBinding', () => {
 
     expect(duringRender).toBe(first);
     expect(runtime.bindings()[0]?.ref).toBe(binding);
-    expect(inputReads).toBe(0);
-    expect(() =>
-      connection!.invokeOffered({ offer: first.ref }),
-    ).toThrow(/does not select/);
-    expect(inputReads).toBe(0);
-    const second = runtime.available()[0]!;
-    expect(second.ref.revision).toBeGreaterThan(first.ref.revision);
-    expect(inputReads).toBe(0);
-    await connection!.invokeOffered({ offer: second.ref }).whenInvoked;
-    expect(seen).toEqual(['o-58']);
     expect(inputReads).toBe(1);
+    expect(() => runtime.invoke(first)).toThrow(/stale|foreign|forged/);
+    expect(inputReads).toBe(1);
+    const second = runtime.available()[0]!;
+    if (second.inputMode !== 'bound') throw new Error('expected bound input');
+    expect(second.ref.revision).toBeGreaterThan(first.ref.revision);
+    expect(inputReads).toBe(2);
+    const invocation = runtime.invoke(second);
+    await invocation.whenInvoked;
+    expect(seen).toEqual(['o-58']);
+    expect(inputReads).toBe(2);
+    expect(invocation.input).toEqual({
+      source: 'bound',
+      provided: true,
+      ref: second.ref.input,
+    });
+  });
+
+  it('reuses a captured input offer across unrelated commits with the same input key', async () => {
+    const runtime = createActionBindingRuntime();
+    const seen: string[] = [];
+    let reads = 0;
+    const action = defineAction(
+      'orders.archive-stable-react',
+      { does: 'Archive this order', invocation: 'scalar' },
+      (event: PressEvent) => seen.push(event.id),
+    );
+    const adapter = hostAdapter<number>();
+    const host = wrapper('Archive stable');
+    const view = (): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+        input: () => {
+          reads += 1;
+          return { id: 'o-57' };
+        },
+        inputKey: 'o-57',
+        availabilityKey: 'available',
+      });
+
+    const tree = mount(view());
+    const offer = runtime.available()[0]!;
+    if (offer.inputMode !== 'bound') throw new Error('expected bound input');
+    tree.render(view());
+
+    expect(runtime.available()[0]).toBe(offer);
+    expect(reads).toBe(1);
+    await runtime.invoke(offer).whenInvoked;
+    expect(reads).toBe(1);
+    expect(seen).toEqual(['o-57']);
+  });
+
+  it('publishes one changed input generation under StrictMode without replacing the binding', async () => {
+    const runtime = createActionBindingRuntime();
+    const seen: string[] = [];
+    let reads = 0;
+    const action = defineAction(
+      'orders.archive-strict-react',
+      { does: 'Archive this order', invocation: 'scalar' },
+      (event: PressEvent) => seen.push(event.id),
+    );
+    const adapter = hostAdapter<number>();
+    const host = wrapper('Archive strict');
+    const view = (orderId: string): ReactElement =>
+      createElement(
+        StrictMode,
+        null,
+        bound({
+          runtime,
+          action,
+          adapter,
+          host,
+          actionProps: { enabled: true, onPress: action },
+          input: () => {
+            reads += 1;
+            return { id: orderId };
+          },
+          inputKey: orderId,
+          availabilityKey: orderId,
+        }),
+      );
+
+    const tree = mount(view('o-57'));
+    const binding = runtime.bindings()[0]!.ref;
+    const first = runtime.available()[0]!;
+    if (first.inputMode !== 'bound') throw new Error('expected bound input');
+
+    tree.render(view('o-58'));
+    const second = runtime.available()[0]!;
+    if (second.inputMode !== 'bound') throw new Error('expected bound input');
+
+    expect(runtime.bindings()).toHaveLength(1);
+    expect(runtime.bindings()[0]?.ref).toBe(binding);
+    expect(second.ref.revision).toBe(first.ref.revision + 1);
+    expect(reads).toBe(2);
+    await runtime.invoke(second).whenInvoked;
+    expect(seen).toEqual(['o-58']);
+  });
+
+  it('disconnects fail-closed when an input-generation publication fails', () => {
+    const failure = new Error('publication failed');
+    const baseRuntime = createActionBindingRuntime();
+    let rejectUpdates = false;
+    const runtime = new Proxy(baseRuntime, {
+      get(target, property) {
+        const value = Reflect.get(target, property, target) as unknown;
+        if (property === 'connect' && typeof value === 'function') {
+          return (...args: unknown[]) => {
+            const opened = Reflect.apply(value, target, args) as ActionConnection<
+              (event: PressEvent) => number,
+              string,
+              true
+            >;
+            return Object.freeze({
+              ...opened,
+              update(update: Parameters<typeof opened.update>[0]) {
+                if (rejectUpdates) throw failure;
+                opened.update(update);
+              },
+            });
+          };
+        }
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    }) as ActionBindingRuntime;
+    const action = defineAction(
+      'orders.archive-failed-react',
+      { does: 'Archive this order', invocation: 'scalar' },
+      (_event: PressEvent) => 1,
+    );
+    const adapter = hostAdapter<number>();
+    const host = wrapper('Archive failed');
+    const view = (orderId: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+        input: () => ({ id: orderId }),
+        inputKey: orderId,
+      });
+
+    const tree = mount(view('o-57'));
+    const oldOffer = runtime.available()[0]!;
+    if (oldOffer.inputMode !== 'bound') throw new Error('expected bound input');
+    rejectUpdates = true;
+
+    expect(() => tree.render(view('o-58'))).toThrow(failure);
+    expect(baseRuntime.bindings()).toEqual([]);
+    expect(() => baseRuntime.invoke(closedOffer(oldOffer))).toThrow(
+      /stale|foreign|forged/,
+    );
+  });
+
+  it('disconnects fail-closed when an availability-generation publication fails', () => {
+    const failure = new Error('availability publication failed');
+    const baseRuntime = createActionBindingRuntime();
+    let rejectTouches = false;
+    const runtime = new Proxy(baseRuntime, {
+      get(target, property) {
+        const value = Reflect.get(target, property, target) as unknown;
+        if (property === 'connect' && typeof value === 'function') {
+          return (...args: unknown[]) => {
+            const opened = Reflect.apply(value, target, args) as ActionConnection<
+              () => string,
+              string,
+              false,
+              'inputless'
+            >;
+            return Object.freeze({
+              ...opened,
+              touch() {
+                if (rejectTouches) throw failure;
+                opened.touch();
+              },
+            });
+          };
+        }
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    }) as ActionBindingRuntime;
+    const action = defineAction(
+      'draft.failed-availability-publication',
+      { does: 'Publish availability', invocation: 'inputless' },
+      () => 'saved',
+    );
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Failed availability');
+    const view = (availabilityKey: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+        availabilityKey,
+      });
+
+    const tree = mount(view('generation-1'));
+    const oldOffer = runtime.available()[0]!;
+    rejectTouches = true;
+    expect(() => tree.render(view('generation-2'))).toThrow(failure);
+    expect(baseRuntime.bindings()).toEqual([]);
+    expect(() => baseRuntime.invoke(closedOffer(oldOffer))).toThrow(
+      /stale|foreign|forged/,
+    );
   });
 
   it('reuses an offer across a same-owner commit with no input reader', () => {
     const runtime = createActionBindingRuntime();
-    const action = defineAction('draft.save', { does: 'Save' }, () => 'saved');
+    const action = defineAction(
+      'draft.save',
+      { does: 'Save', invocation: 'inputless' },
+      () => 'saved',
+    );
     const adapter = hostAdapter<string>();
     const host = wrapper('Save');
     const view = (): ReactElement =>
@@ -719,6 +1159,7 @@ describe('useActionBinding', () => {
         adapter,
         host,
         actionProps: { enabled: true, onPress: action },
+        availabilityKey: 'available',
       });
 
     const tree = mount(view());
@@ -733,7 +1174,10 @@ describe('useActionBinding', () => {
     let calls = 0;
     const action = defineAction(
       'custom-output.save',
-      { does: 'Record the custom component output' },
+      {
+        does: 'Record the custom component output',
+        invocation: 'inputless',
+      },
       () => {
         calls += 1;
         return exact;
@@ -764,7 +1208,11 @@ describe('useActionBinding', () => {
   it('disconnects the old runtime on replacement and ignores a stale ref cleanup', () => {
     const first = createActionBindingRuntime();
     const second = createActionBindingRuntime();
-    const action = defineAction('draft.save', { does: 'Save' }, () => 'saved');
+    const action = defineAction(
+      'draft.save',
+      { does: 'Save', invocation: 'inputless' },
+      () => 'saved',
+    );
     const adapter = hostAdapter<string>();
     const host = wrapper('Save');
     let exposed: UseActionBindingResult<Host, HostProps<string>, string> | undefined;
@@ -796,7 +1244,7 @@ describe('useActionBinding', () => {
     const runtime = createActionBindingRuntime();
     const action = defineAction(
       'rows.open',
-      { does: 'Open this row' },
+      { does: 'Open this row', invocation: 'scalar' },
       (_event: PressEvent) => 'definition-listener',
     );
     const adapter = hostAdapter<string>();
@@ -844,7 +1292,7 @@ describe('useActionBinding', () => {
     const calls: string[] = [];
     const action = defineAction(
       'orders.archive',
-      { does: 'Archive this order' },
+      { does: 'Archive this order', invocation: 'scalar' },
       (event: PressEvent) => {
         calls.push(event.id);
         return event.id;
@@ -889,7 +1337,11 @@ describe('useActionBinding', () => {
     const pending = new Promise<string>((resolve) => {
       release = resolve;
     });
-    const action = defineAction('jobs.run', { does: 'Run the job' }, () => pending);
+    const action = defineAction(
+      'jobs.run',
+      { does: 'Run the job', invocation: 'inputless' },
+      () => pending,
+    );
     const tree = mount(
       bound({
         runtime,

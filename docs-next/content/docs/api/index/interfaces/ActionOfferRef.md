@@ -24,6 +24,16 @@ Defined in: [src/action/types.ts:32](https://github.com/footprintjs/hcifootprint
 
 ***
 
+### input?
+
+> `readonly` `optional` **input?**: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"bound"`\>
+
+Defined in: [src/action/types.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L36)
+
+Opaque identity for an input captured as part of this exact offer.
+
+***
+
 ### kind
 
 > `readonly` **kind**: `"action-offer"`

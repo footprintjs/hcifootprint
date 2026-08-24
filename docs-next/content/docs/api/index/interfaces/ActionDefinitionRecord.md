@@ -1,10 +1,10 @@
 ---
-title: ActionDefinitionRecord<Id>
+title: ActionDefinitionRecord<Id, Mode>
 ---
 
-# Interface: ActionDefinitionRecord\<Id\>
+# Interface: ActionDefinitionRecord\<Id, Mode\>
 
-Defined in: [src/action/types.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L78)
+Defined in: [src/action/types.ts:130](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L130)
 
 The immutable metadata carried under the callable definition's Symbol.for brand.
 
@@ -14,15 +14,21 @@ The immutable metadata carried under the callable definition's Symbol.for brand.
 
 `Id` *extends* `string` = `string`
 
+### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode) = [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
 ## Properties
 
 ### contract
 
-> `readonly` **contract**: `object`
+> `readonly` **contract**: `object` & `object`
 
-Defined in: [src/action/types.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L80)
+Defined in: [src/action/types.ts:135](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L135)
 
-#### blockedBecause?
+#### Type Declaration
+
+##### blockedBecause?
 
 > `readonly` `optional` **blockedBecause?**: (() => [`BlockedBecause`](/api/index/interfaces/BlockedBecause) \| `undefined`) \| \{ `clearedBy`: `"app"` \| `"user"` \| `"invalid"`; `says`: `string`; \}
 
@@ -58,7 +64,7 @@ It never disables anything: declaring it on a control nothing has switched
 off changes not one byte of what is served. Say WHY here; say WHETHER with
 `enabledWhen`, `enabled:`, `setEnabled`, or a live store row.
 
-##### Union Members
+###### Union Members
 
 ###### Function
 
@@ -82,7 +88,7 @@ Who clears it: 'app' → the agent waits; 'user' → interrupt the person; 'inva
 
 Registration-site app text — the same string class, and the same trust tier, as `does`.
 
-#### concurrency?
+##### concurrency?
 
 > `readonly` `optional` **concurrency?**: `object`
 
@@ -102,7 +108,7 @@ doors that can settle it. It clears on settlement and on nothing else — no
 timeout, no second look, and not the caller reporting it done. See
 [ConcurrencyPolicy](/api/index/interfaces/ConcurrencyPolicy).
 
-##### concurrency.mode
+###### concurrency.mode
 
 > `readonly` **mode**: `"parallel"` \| `"single-flight"` \| `"once"`
 
@@ -116,7 +122,7 @@ settles, the repeat is refused `DUPLICATE_EXECUTION` with the receipt in
 hand. A REFUSED occurrence never counts — it provably did not execute.
 See `traverse/once.ts` for the whole of the law.
 
-##### concurrency.scope?
+###### concurrency.scope?
 
 > `readonly` `optional` **scope?**: `"instance"` \| `"action"` \| `"payload"`
 
@@ -132,19 +138,19 @@ WHAT COUNTS AS "THE SAME FIRE AGAIN". Default `'action'`.
   an unprovable difference is not a difference — the same stance
   `traverse/same-input.ts` takes, for the same reason.
 
-#### confirm?
+##### confirm?
 
 > `readonly` `optional` **confirm?**: `boolean`
 
 Requires explicit confirmation (the high-effect gate).
 
-#### does
+##### does
 
 > `readonly` **does**: `string`
 
 AUTHORED intent, one string two readers (consumer label = agent tool description).
 
-#### enabledWhen?
+##### enabledWhen?
 
 > `readonly` `optional` **enabledWhen?**: `object`
 
@@ -160,11 +166,11 @@ never disable anything — the library does not guess a control greyed out.
 NOT composed with ancestor `when`s: this is the control's own state, not
 its position in the tree.
 
-##### Index Signature
+###### Index Signature
 
 \[`key`: `string`\]: \{ `eq?`: `unknown`; `gt?`: `unknown`; `gte?`: `unknown`; `in?`: readonly `unknown`[]; `lt?`: `unknown`; `lte?`: `unknown`; `ne?`: `unknown`; `notIn?`: readonly `unknown`[]; \} \| `undefined`
 
-#### freshness?
+##### freshness?
 
 > `readonly` `optional` **freshness?**: `object`
 
@@ -186,7 +192,7 @@ session default AXIS BY AXIS, and an enforcing axis makes one new demand of
 the caller: cite the offer you planned against
 ([FireOptions.offerId](/api/index/interfaces/FireOptions#offerid)). See [FreshnessPolicy](/api/index/interfaces/FreshnessPolicy).
 
-##### freshness.guardChanges?
+###### freshness.guardChanges?
 
 > `readonly` `optional` **guardChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
@@ -194,7 +200,7 @@ A key this control's GUARD is judged on has been committed since the offer.
 The guard still passes — a guard that stopped passing is `GUARD_FAILED`,
 which fires first and is not this.
 
-##### freshness.positionChanges?
+###### freshness.positionChanges?
 
 > `readonly` `optional` **positionChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
@@ -202,25 +208,25 @@ The cursor is on a different page than when the row was served, or the
 served structure has changed under it (`structureVersion`). Both halves are
 "the row you planned against is not the surface you are firing into".
 
-##### freshness.readChanges?
+###### freshness.readChanges?
 
 > `readonly` `optional` **readChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
 A key the app declared this control's outcome READS has been committed since the offer.
 
-##### freshness.writeChanges?
+###### freshness.writeChanges?
 
 > `readonly` `optional` **writeChanges?**: [`FreshnessResponse`](/api/index/type-aliases/FreshnessResponse)
 
 A key the app declared this control WRITES has been committed since the offer.
 
-#### goTo?
+##### goTo?
 
 > `readonly` `optional` **goTo?**: `string`
 
 Page this action claims to navigate to (a top-level page id).
 
-#### humanDecides?
+##### humanDecides?
 
 > `readonly` `optional` **humanDecides?**: `object`
 
@@ -247,7 +253,7 @@ that names it — a per-journey split would let two lists disagree about one
 control's owner. It is DISCLOSURE: nothing is refused, and no refusal word
 exists for it. See [HumanDecides](/api/index/interfaces/HumanDecides).
 
-##### humanDecides.about?
+###### humanDecides.about?
 
 > `readonly` `optional` **about?**: `string`
 
@@ -264,7 +270,7 @@ Capped at 200 characters and refused LOUDLY at build when over — the same
 cap every app string that crosses under, and a build-time refusal is kinder
 than silent truncation for a string the author can fix once.
 
-##### humanDecides.doneWhen?
+###### humanDecides.doneWhen?
 
 > `readonly` `optional` **doneWhen?**: `object`
 
@@ -291,17 +297,38 @@ degraded.
 
 \[`key`: `string`\]: \{ `eq?`: `unknown`; `gt?`: `unknown`; `gte?`: `unknown`; `in?`: readonly `unknown`[]; `lt?`: `unknown`; `lte?`: `unknown`; `ne?`: `unknown`; `notIn?`: readonly `unknown`[]; \} \| `undefined`
 
-#### inputSchema?
+##### inputSchema?
 
 > `readonly` `optional` **inputSchema?**: `unknown`
 
 Definition-side payload contract: Zod, JSON Schema, a `.safeParse`/`.parse`
 validator, or `'none'`. Omission means the shape is not declared. The
-framework-neutral runtime cannot enforce this clause: supply an enforcing
-port or opt visibly into `contractActivation: 'disclosure'`. Live binding
-values use invocation-time `input` readers instead.
+Action Binding runtime enforces parseable schemas before the handler
+runs. Other formats need `inputSchemaAdapter` or explicit disclosure mode.
+Bound values are checked while minting an offer and caller values are
+checked by `runtime.invoke()`. Live binding values use `input` readers.
 
-#### observability?
+##### invocation
+
+> `readonly` **invocation**: [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
+Explicit runtime call shape. `inputless` and `scalar` may be invoked
+directly and brokered; `host` is recordable only through the exact host
+continuation, preserving receivers and multi-argument listener calls.
+
+##### needs?
+
+> `readonly` `optional` **needs?**: `object`
+
+Inert, named inputs reserved for a future channel broker. Layer 1 stores
+these declarations but never matches a surface, collects a value, or
+changes action availability from them.
+
+###### Index Signature
+
+\[`key`: `string`\]: `object`
+
+##### observability?
 
 > `readonly` `optional` **observability?**: [`Observability`](/api/index/type-aliases/Observability)
 
@@ -318,7 +345,7 @@ Two coherence rules are refused HERE, at authoring, whether or not any
 session enforces anything: `'postcondition'` needs a `verify`, and
 `'navigation'` needs a `goTo`.
 
-#### principalPolicy?
+##### principalPolicy?
 
 > `readonly` `optional` **principalPolicy?**: `object`
 
@@ -343,7 +370,7 @@ files an act under a principal (`'user'`). Writing `mayInvoke: ['user']` is
 refused at this door with the correction, rather than silently locking a
 person out of their own control. See [PrincipalPolicy](/api/index/interfaces/PrincipalPolicy).
 
-##### principalPolicy.decisionOwner?
+###### principalPolicy.decisionOwner?
 
 > `readonly` `optional` **decisionOwner?**: `"human"` \| `"agent"` \| `"either"`
 
@@ -355,7 +382,7 @@ and means it.
 
 `'either'` is a real answer, not a shrug: the app looked and says both may.
 
-##### principalPolicy.mayInvoke?
+###### principalPolicy.mayInvoke?
 
 > `readonly` `optional` **mayInvoke?**: readonly [`ActorKind`](/api/index/type-aliases/ActorKind)[]
 
@@ -367,7 +394,7 @@ Omitted means the app said nothing, never "everyone" as a decision — the
 refusal only exists where a list does. `[]` is refused at authoring: an
 action nobody may ever perform is an action not to declare.
 
-##### principalPolicy.requiresHumanApproval?
+###### principalPolicy.requiresHumanApproval?
 
 > `readonly` `optional` **requiresHumanApproval?**: `boolean`
 
@@ -376,7 +403,22 @@ it is marked `confirm`. Under enforcement it is held to the SAME gate
 [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) applies to high-effect actions,
 and it mints NO new refusal word: the `APPROVAL_*` set is unchanged.
 
-#### reads?
+##### produces?
+
+> `readonly` `optional` **produces?**: `object`
+
+Inert output declaration reserved for a future channel broker. Layer 1
+records it without routing or rendering it.
+
+###### produces.kind
+
+> `readonly` **kind**: `string`
+
+###### produces.schema?
+
+> `readonly` `optional` **schema?**: `unknown`
+
+##### reads?
 
 > `readonly` `optional` **reads?**: readonly `string`[]
 
@@ -392,11 +434,11 @@ Not `when`: that decides whether the control is HERE. This says what the
 outcome is computed FROM. Declared, never inferred — see [Effect.reads](/api/index/interfaces/Effect#reads)
 for the law and for what the serving layer does with it.
 
-#### role?
+##### role?
 
 > `readonly` `optional` **role?**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
 
-#### verify?
+##### verify?
 
 > `readonly` `optional` **verify?**: \{\[`key`: `string`\]: \{ `eq?`: `unknown`; `gt?`: `unknown`; `gte?`: `unknown`; `in?`: readonly `unknown`[]; `lt?`: `unknown`; `lte?`: `unknown`; `ne?`: `unknown`; `notIn?`: readonly `unknown`[]; \} \| `undefined`; \} \| ((`state`) => `boolean`)
 
@@ -406,21 +448,27 @@ into an honest refusal. Either a filter over projected state
 (`{ 'wizard.recipe': { ne: '' } }`) or a synchronous predicate whose closure
 may read whatever the app can see, the DOM included.
 
-#### when?
+##### when?
 
 > `readonly` `optional` **when?**: `object`
 
 Availability guard over projected state (AND-composed with every ancestor `when`).
 
-##### Index Signature
+###### Index Signature
 
 \[`key`: `string`\]: \{ `eq?`: `unknown`; `gt?`: `unknown`; `gte?`: `unknown`; `in?`: readonly `unknown`[]; `lt?`: `unknown`; `lte?`: `unknown`; `ne?`: `unknown`; `notIn?`: readonly `unknown`[]; \} \| `undefined`
 
-#### writes?
+##### writes?
 
 > `readonly` `optional` **writes?**: readonly `string`[]
 
 State keys this action claims to change.
+
+#### Type Declaration
+
+##### invocation
+
+> `readonly` **invocation**: `Mode`
 
 ***
 
@@ -428,4 +476,4 @@ State keys this action claims to change.
 
 > `readonly` **ref**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:79](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L79)
+Defined in: [src/action/types.ts:134](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L134)

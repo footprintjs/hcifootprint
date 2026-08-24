@@ -8,9 +8,7 @@ title: react
 
 - [ActionBindingProjection](/api/react/interfaces/ActionBindingProjection)
 - [ActionBindingProjector](/api/react/interfaces/ActionBindingProjector)
-- [ActionSettlementCapability](/api/react/interfaces/ActionSettlementCapability)
 - [ControlSurfaceProviderProps](/api/react/interfaces/ControlSurfaceProviderProps)
-- [UseActionBindingOptions](/api/react/interfaces/UseActionBindingOptions)
 - [UseActionBindingResult](/api/react/interfaces/UseActionBindingResult)
 - [WorkingSpec](/api/react/interfaces/WorkingSpec)
 
@@ -20,6 +18,7 @@ title: react
 - [BusyControl](/api/react/type-aliases/BusyControl)
 - [ControlRef](/api/react/type-aliases/ControlRef)
 - [ControlSpec](/api/react/type-aliases/ControlSpec)
+- [UseActionBindingOptions](/api/react/type-aliases/UseActionBindingOptions)
 - [WorkingSession](/api/react/type-aliases/WorkingSession)
 
 ## Functions
@@ -29,3 +28,9 @@ title: react
 - [useControl](/api/react/functions/useControl)
 - [useControlSurface](/api/react/functions/useControlSurface)
 - [useWorking](/api/react/functions/useWorking)
+
+## References
+
+### ActionSettlementCapability
+
+Re-exports [ActionSettlementCapability](/api/index/interfaces/ActionSettlementCapability)

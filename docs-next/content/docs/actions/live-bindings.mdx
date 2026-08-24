@@ -1,6 +1,6 @@
 ---
-title: Live bindings & fromLiveStore
-description: Components register what they have when they render — and if your app keeps a live action store, fromLiveStore does the subscribe-and-register bookkeeping for you.
+title: Callable action bindings & live stores
+description: Declare callable actions, bind exact live controls, broker agent or HITL input, and connect existing live action stores to Sessions.
 ---
 
 ## Two live-binding surfaces, with different jobs
@@ -25,15 +25,28 @@ callable. Calling that function directly preserves normal JavaScript `this`, arg
 throws, and thenables. Reachability, instance identity, enabledness, host state, and locators belong to
 each live connection instead of the definition.
 
+Every definition also declares its runtime call shape. `invocation: 'inputless'` exposes a no-payload
+direct door, `invocation: 'scalar'` exposes exactly one deliberate payload slot, and
+`invocation: 'host'` is recordable only around the application's exact host continuation. This is
+authored metadata—not a guess from mutable `Function.length`—so default parameters, rest arguments,
+and receiver-sensitive listeners cannot accidentally become agent actions.
+
+Definitions may also carry `needs` (named `{ kind, schema?, from? }` inputs) and one `produces`
+`{ kind, schema? }` declaration. Layer 1 validates, detaches, freezes, and exposes these as inert
+metadata only. It does not match a UI surface, collect a value, or route output from them; that kind
+broker belongs to the later Channels layer.
+
 The two input-shaped fields deliberately have different names. `inputSchema` on the callable
-definition describes the payload shape; `input` on `connectAction(...)` is a lazy reader for the
-current invocation-time value. The older navigation-graph and Session surface continues to use
+definition describes the payload shape; `input` on `connectAction(...)` is a lazy live reader. A
+direct connection invocation reads it at invocation time, while `available()` reads and retains it
+once when minting a bound offer. The older navigation-graph and Session surface continues to use
 `ActionDef.input` for its schema—only callable definitions use the new spelling.
 
-The isolated runtime defaults to `contractActivation: 'require-active'`: it rejects enforceable
-clauses for which this small runtime has no enforcement port instead of silently treating them as
-active. `createActionBindingRuntime({ contractActivation: 'disclosure' })` is the explicit opt-in to
-carry those clauses as metadata only.
+The isolated runtime defaults to `contractActivation: 'require-active'`: it enforces `inputSchema`
+itself and rejects other enforceable clauses for which this small runtime has no state, approval, or
+principal port. `createActionBindingRuntime({ contractActivation: 'disclosure' })` is the explicit
+opt-in to carry those other clauses as metadata only. Use the graph `Session` surface when those
+clauses must be active.
 
 ```ts
 import {
@@ -46,12 +59,20 @@ declare const saveButton: HTMLButtonElement;
 declare function persistDraft(id: string): Promise<void>;
 declare function readSavedRevision(id: string): Promise<number>;
 
-let draftId = 'draft-42';
+const draftId = 'draft-42';
 let saving = false;
+const draftIdSchema = {
+  safeParse: (value: unknown) => ({ success: typeof value === 'string' }),
+};
 
 const saveDraft = defineAction(
   'draft.save',
-  { does: 'Save the open draft', writes: ['draft.savedRevision'] },
+  {
+    does: 'Save the open draft',
+    invocation: 'scalar',
+    writes: ['draft.savedRevision'],
+    inputSchema: draftIdSchema,
+  },
   (id: string) => persistDraft(id),
 );
 
@@ -76,10 +97,11 @@ const attachment = connection.attach({
   ],
 });
 
-const [offer] = runtime.available(connection.definition);
+const [offer] = runtime.available(saveDraft);
 if (!offer) throw new Error('Save is not currently available');
+if (offer.inputMode !== 'bound') throw new Error('The live control should own this input');
 
-const invocation = connection.invokeOffered({ offer: offer.ref });
+const invocation = runtime.invoke(offer);
 const outcome = await invocation.whenInvoked;
 if (outcome.status === 'performed') {
   const revision = await readSavedRevision(draftId); // authoritative app observation
@@ -97,8 +119,10 @@ connection.disconnect();
 
 One definition can have many simultaneous connections. Every connection keeps its own generated
 binding reference, opaque `instance`, committed input/enabled/busy readers, host attachment, and
-locators. `update(...)` replaces committed readers without changing binding identity; reconnect to
-add or remove the input-reader capability. `disconnect()` is idempotent.
+locators. `update(...)` replaces committed readers without changing binding identity and advances
+the revision only when those facts actually change. Call `touch()` when stable reader identities now
+refer to a different committed application generation. Reconnect to add or remove the input-reader
+capability. `disconnect()` is idempotent.
 
 Coverage is ordered and says only what this binding can substantiate:
 
@@ -110,14 +134,76 @@ Coverage is ordered and says only what this binding can substantiate:
 | `verifiable` | it also has an authoritative effect-observation path |
 
 `runtime.available(...)` returns only bindings at `executable` or `verifiable` coverage whose
-enabled reader is not `false`. It returns immutable offers for exact binding revisions. Use
-`connection.invoke()` to invoke that binding directly, or `invokeOffered({ offer: offer.ref })` to
-join the invocation to the exact offer a consumer previously saw. A stale, superseded, foreign, or
-lookalike offer fails closed rather than being recovered from its strings.
+enabled reader is not `false`. Host-only definitions are never offered. An unbound scalar definition
+without `inputSchema` is also withheld: a broker cannot ask a person or model to construct an
+undeclared payload honestly. A bound scalar remains offerable because its live binding already owns
+the exact payload. Each frozen offer carries its authored definition, contract, locators, coverage,
+contract-activation posture, input-validation posture, exact binding revision, and one explicit
+input mode:
+
+| `inputMode` | who owns the payload | invocation |
+| --- | --- | --- |
+| `none` | the definition takes no direct payload | `runtime.invoke(offer)` |
+| `bound` | the live binding captures its reader once when the offer is minted | `runtime.invoke(offer)` |
+| `open` | the caller must supply exactly one schema-shaped slot, often after HITL UI | `runtime.invoke(offer, input)` |
+
+A bound value is not exposed on the offer. The offer carries only an opaque `ActionInputRef`; the
+transition reuses that exact ref so an audit can prove which capture was invoked without recording a
+secret payload. Repeated `available()` calls reuse the same capture while committed facts are
+unchanged. Invocation never rereads it and never accepts a replacement payload. For open input,
+`runtime.invoke()` validates the caller value against `offer.definition.contract.inputSchema` before
+the handler runs and creates a caller-origin input receipt. An open offer never permits an omitted
+slot; pass `undefined` explicitly when that is the intended schema-valid value.
+
+Invoke the full offer, not a recovered binding id. The runtime resolves it by retained object
+identity and fails stale, superseded, foreign, cloned, or forged offers before any schema or handler
+code runs. `connection.invoke()` remains the application/test direct door.
+`runtime.invoke(offer)` is the only offered-invocation door, so React and other framework bindings
+never need to leak their private connection.
+
+The full offer is an **in-process capability**, not an FE/BE JSON DTO. It deliberately uses retained
+object identity and its definition may contain functions or opaque validator capabilities. A network
+interaction broker keeps the full offer beside the runtime and sends the frontend an opaque handle
+plus a serializable projection of the form/choice metadata. The frontend returns that handle and its
+user input; the broker invokes the retained offer. Generated ids such as `offer#1` and
+`transition#1` are likewise runtime-local labels, not durable cross-runtime audit identifiers.
+
+Schemas with their own synchronous `.safeParse` or `.parse` method are enforced directly. A plain
+JSON Schema describes excellent UI but carries no validator, so strict mode requires an explicit
+`inputSchemaAdapter`—for example, the small wrapper around the Ajv instance your application already
+owns:
+
+```ts
+const runtime = createActionBindingRuntime({
+  inputSchemaAdapter: {
+    supports: (schema) => isJsonSchema(schema),
+    validate: (schema, input) =>
+      ajv.validate(schema, input)
+        ? { valid: true }
+        : { valid: false, issues: ajv.errors },
+  },
+});
+```
+
+The adapter is synchronous, gates execution, and never transforms the payload handed to the
+application handler. Without it, a non-parseable schema is rejected by `require-active`; disclosure
+mode carries it honestly as metadata without claiming validation. The runtime captures adapter and
+self-validating schema methods for the binding generation; opaque validators may still own mutable
+application state and must be replaced through a new binding/runtime generation when that state is
+part of validation semantics. Plain declarative schemas are detached and frozen.
 
 Invocation completion and effect verification are separate rails. `whenInvoked` reports whether the
-application handler performed or refused; a returned or resolved Promise does not prove that React
-committed, navigation arrived, or state changed. `whenEffectSettled` remains pending until an
+application handler `performed`, was rejected before it started (`refused`), or started and then
+threw/rejected (`failed`). A returned or resolved Promise does not prove that React committed,
+navigation arrived, or state changed. A valid exact offer whose caller input fails validation returns
+a structured `ActionInputValidationError` as a refused invocation; bound-input diagnostics are
+redacted because validators can echo secrets. Caller diagnostic arrays and plain records are
+detached and frozen, opaque values retain identity, and diagnostics that cannot be snapshotted are
+reported with `issuesDisposition: 'unavailable'`. The same still-current offer may be retried with
+corrected input, and the never-started effect is immediately settled as refused so the transition
+can be forgotten. Protocol misuse—wrong input mode, missing open slot, stale/foreign offer,
+disabledness, or insufficient coverage—throws synchronously before allocating a transition.
+`whenEffectSettled` otherwise remains pending until an
 authoritative observer calls `settle(...)`, and a `verified` settlement is accepted only for an
 invocation that ran with `verifiable` coverage. Once both rails have settled,
 `forgetTransition(...)` is the explicit history-retention boundary.

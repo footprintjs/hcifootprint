@@ -100,6 +100,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('marks an unenforced principal policy inert, and the same policy active when enforcement is on', () => {
     const action = declaration('orders.archive', {
       does: 'Archive the order',
+      invocation: 'inputless',
       principalPolicy: { mayInvoke: ['human'] },
     });
 
@@ -137,6 +138,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('keeps decision ownership disclosure-only and requires both approval switches', () => {
     const action = declaration('orders.transfer', {
       does: 'Transfer the balance',
+      invocation: 'inputless',
       principalPolicy: {
         decisionOwner: 'human',
         requiresHumanApproval: true,
@@ -180,6 +182,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('distinguishes missing evidence from an incomplete evidence inventory', () => {
     const action = declaration('draft.save', {
       does: 'Save the draft',
+      invocation: 'inputless',
       enabledWhen: { ready: { eq: true } },
       verify: { saved: { eq: true } },
     });
@@ -242,6 +245,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('marks instance-scoped concurrency inert without binding identity', () => {
     const action = declaration('orders.archive', {
       does: 'Archive the order',
+      invocation: 'inputless',
       concurrency: { mode: 'single-flight', scope: 'instance' },
     });
 
@@ -295,6 +299,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('requires an explicit runtime concurrency gate before certifying non-parallel policy', () => {
     const action = declaration('jobs.run', {
       does: 'Run the job',
+      invocation: 'inputless',
       concurrency: { mode: 'single-flight' },
     });
     const disabled = checkActionContracts(
@@ -329,6 +334,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('refuses identity-only agent execution and activates executable coverage', () => {
     const action = declaration('orders.archive', {
       does: 'Archive the order',
+      invocation: 'inputless',
     });
     const identityOnly = checkActionContracts(
       [action],
@@ -378,6 +384,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('requires verifiable coverage and a usable authoritative path for high-effect verification', () => {
     const action = declaration('payments.charge', {
       does: 'Charge the card',
+      invocation: 'inputless',
       confirm: true,
       observability: 'external',
     });
@@ -444,6 +451,7 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('reports a confirmation contract inert when high-effect verification is disabled', () => {
     const action = declaration('payments.refund', {
       does: 'Refund the payment',
+      invocation: 'inputless',
       confirm: true,
     });
     const report = checkActionContracts([action], environment());
@@ -458,7 +466,10 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   });
 
   it('reports an adapter that cannot resolve its required interactive host', () => {
-    const action = declaration('dialog.submit', { does: 'Submit the dialog' });
+    const action = declaration('dialog.submit', {
+      does: 'Submit the dialog',
+      invocation: 'inputless',
+    });
     const report = checkActionContracts(
       [action],
       environment({
@@ -480,7 +491,10 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   });
 
   it('rejects a contradictory not-required interactive-host snapshot', () => {
-    const action = declaration('dialog.confirm', { does: 'Confirm' });
+    const action = declaration('dialog.confirm', {
+      does: 'Confirm',
+      invocation: 'inputless',
+    });
     const report = checkActionContracts(
       [action],
       environment({
@@ -505,10 +519,12 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   it('is deterministic, freezes its report, and never reorders caller arrays', () => {
     const alpha = declaration('alpha', {
       does: 'Alpha',
+      invocation: 'inputless',
       principalPolicy: { decisionOwner: 'human' },
     });
     const zulu = declaration('zulu', {
       does: 'Zulu',
+      invocation: 'inputless',
       principalPolicy: { mayInvoke: ['agent'] },
     });
     const declarations = [zulu, alpha];
@@ -531,7 +547,10 @@ describe('checkActionContracts — a declaration is not mistaken for activation'
   });
 
   it('fails closed on malformed coverage at the public checker boundary', () => {
-    const action = declaration('coverage.invalid', { does: 'Run' });
+    const action = declaration('coverage.invalid', {
+      does: 'Run',
+      invocation: 'inputless',
+    });
     expect(() =>
       checkActionContracts(
         [action],

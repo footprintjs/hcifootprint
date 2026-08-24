@@ -207,7 +207,7 @@ describe('structural Angular action binding', () => {
     const seen: string[] = [];
     const action = defineAction(
       'angular.save',
-      { does: 'Save the draft' },
+      { does: 'Save the draft', invocation: 'scalar' },
       ({ value }: { value: string }) => seen.push(value),
     );
     const runtime = createActionBindingRuntime();
@@ -282,7 +282,7 @@ describe('structural Angular action binding', () => {
     const calls: string[] = [];
     const action = defineAction(
       'angular.submit',
-      { does: 'Submit the form' },
+      { does: 'Submit the form', invocation: 'scalar' },
       ({ source }: { source: string }) => calls.push(source),
     );
     const runtime = createActionBindingRuntime();
@@ -334,7 +334,7 @@ describe('structural Angular action binding', () => {
     });
     const action = defineAction(
       'angular.export',
-      { does: 'Export the report' },
+      { does: 'Export the report', invocation: 'scalar' },
       (_input: { format: string }) => {
         calls += 1;
         return pending;
@@ -376,7 +376,7 @@ describe('structural Angular action binding', () => {
     const calls: string[] = [];
     const action = defineAction(
       'angular.isolated',
-      { does: 'Run in this application root' },
+      { does: 'Run in this application root', invocation: 'scalar' },
       ({ root }: { root: string }) => calls.push(root),
     );
     const firstRuntime = createActionBindingRuntime();

@@ -93,7 +93,7 @@ Defined in: [src/atom/types.ts:3180](https://github.com/footprintjs/hcifootprint
 
 ### standing
 
-> **standing**: `"declined"` \| `"done"` \| `"blocked"` \| `"in-progress"` \| `"awaiting-human"` \| `"with-the-human"` \| `"failed"`
+> **standing**: `"failed"` \| `"declined"` \| `"done"` \| `"blocked"` \| `"in-progress"` \| `"awaiting-human"` \| `"with-the-human"`
 
 Defined in: [src/atom/types.ts:3197](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3197)
 

@@ -39,6 +39,11 @@ remain public projections. Internal protocol joins carry the structured
 reference that owns the string instead of recovering another identity by
 slicing or concatenating it.
 
+Generated ids are unique only inside one runtime generation. Exact in-process
+joins use frozen reference identity; durable logs or a network broker must add
+their own runtime/session generation instead of treating `transition#1` as a
+global id.
+
 ### Invariant: no recovered control identity
 
 Given a binding or transition, its definition and binding are available through
@@ -68,18 +73,40 @@ calling the implementation. `Function.prototype.bind`, `call`, and `apply`
 remain untouched; the protocol adds no methods with those names.
 
 The callable definition names its payload declaration `inputSchema`. Live
-connections and framework bindings name their invocation-time value reader
-`input`. Keeping those names distinct prevents a schema from being mistaken for
-a current value source. The legacy navigation-graph `ActionDef.input` spelling
+connections and framework bindings name their live value reader `input`.
+Direct connection invocation reads that reader at invocation time; offer
+minting reads and retains it once for the bound offer generation. Keeping those
+names distinct prevents a schema from being mistaken for a current value
+source. The legacy navigation-graph `ActionDef.input` spelling
 remains unchanged; this distinction belongs only to the callable Action Binding
 surface.
 
-The brand owns immutable authored metadata and the structured definition
-reference. A second copy of the package can recognize it through the global
+Every definition declares `invocation: 'inputless' | 'scalar' | 'host'`.
+`inputless` and `scalar` are direct/broker shapes; scalar means exactly one
+deliberate payload slot. `host` is available only through
+`invokeContinuation()`, preserving receiver and multi-argument listener
+semantics. This mode is frozen branded metadata. The runtime never infers it
+from mutable and lossy `Function.length`.
+
+`needs` and `produces` are accepted as inert, kind-based declarations for the
+future Channels layer. Layer 1 validates and freezes them but performs no kind
+matching, UI selection, input collection, output routing, or degradation.
+
+The brand owns a frozen authored record and the structured definition
+reference. Plain declaration containers, including JSON Schema, are detached
+and frozen. Functions and opaque validator capabilities retain application
+identity/state and are explicitly a trust boundary rather than immutable data.
+A second copy of the package can recognize the record through the global
 symbol registry without treating unbranded functions or malformed mutable
 lookalikes as definitions. The brand is a cross-copy capability marker, not a
 cryptographic forge-resistance boundary; frozen records are still validated
 before recognition.
+
+The symbol is `hcifootprint.action-definition.v1`. Its suffix versions the
+in-process branded-record shape, not the npm major. This is the first public
+callable Action Binding shape; it names the definition-side field
+`inputSchema`. Navigation `ActionDef.input` remains a separate, compatible
+graph declaration spelling.
 
 ### Invariant: JavaScript behavior is preserved
 
@@ -94,17 +121,22 @@ native `bind`, sync throws, promises, and non-Promise thenables.
 lifecycle is:
 
 ```text
-connect -> attach -> update -> invoke -> settle -> disconnect
+connect -> attach/update/touch -> available -> runtime.invoke -> settle -> disconnect
 ```
 
 - `connect` allocates the binding identity and stores authored/runtime facts.
 - `attach` resolves the actual interactive host through an adapter.
 - `update` replaces committed runtime readers and state without replacing the
-  binding identity. Input-reader presence is stable for the connection's type
+  binding identity. An equal patch is inert. `touch` explicitly publishes a
+  new fact generation for stable readers whose meaning changed, and executes
+  none of them. Input-reader presence is stable for the connection's type
   state; reconnect to add or remove that capability.
-- `invoke` runs the exact binding and creates a transition reference;
-  `invokeOffered` does the same under one exact prior offer without using an
-  `undefined` argument-slot sentinel.
+- `available` mints a self-describing offer. It captures a bound input once,
+  marks an inputless offer `none`, or marks a schema-declared unbound scalar
+  `open`. Host-only and unschematized open actions are withheld.
+- `runtime.invoke(offer, input)` resolves the exact retained offer and creates
+  a transition. It is the sole offered-invocation door. `connection.invoke`
+  remains the direct application/test door and never accepts an offer.
 - `settle` records authoritative effect evidence independently of invocation
   completion.
 - `disconnect` is idempotent and releases every host/runtime resource owned by
@@ -116,13 +148,17 @@ disconnect only from committed lifecycle hooks or ref callbacks.
 ### Invariant: invocation and effect are separate rails
 
 An implementation returning or its Promise resolving proves only that the
-invocation completed. It does not prove React committed, Angular rendered, the
-router arrived, or authoritative application state changed.
+invocation completed. `performed` means it returned/resolved; `failed` means it
+started and threw/rejected; `refused` is reserved for a rejection before the
+application handler started. None proves React committed, Angular rendered,
+the router arrived, or authoritative application state changed.
 
 Failure example: marking a payment verified because its handler Promise
 resolved. Regression test: an invocation may be `performed` while its effect is
 `unverified`; only an explicit authoritative observation may move the effect to
-`verified` or `refused`.
+`verified` or `refused`. A preflight input refusal is the one exception: the
+runtime authoritatively knows the handler never started, immediately refuses the
+effect as not attempted, and permits collection of the fully terminal record.
 
 ## Binding coverage
 
@@ -177,12 +213,16 @@ visibly. Existing low-level session defaults remain compatible and are reported
 as disclosure/inert rather than silently reinterpreted.
 
 The framework-neutral runtime therefore defaults to
-`contractActivation: 'require-active'`. It rejects `when`, `enabledWhen`,
-`inputSchema`, verification declarations, confirmation, enforceable
-principal-policy fields, enforcing freshness axes, and non-parallel concurrency
-because it has no state, principal, approval, or policy port with which to
-enforce them. Decision ownership and `'disclose'` freshness remain descriptive.
-A caller may explicitly construct
+`contractActivation: 'require-active'`. It directly enforces schemas carrying a
+synchronous `.safeParse`/`.parse` validator. A plain JSON Schema (or another
+format without its own checker) becomes active only through the runtime's
+synchronous `inputSchemaAdapter`; the adapter gates execution but never replaces
+the exact application payload with a parser transformation. The runtime still
+rejects `when`, `enabledWhen`, verification declarations, confirmation,
+enforceable principal-policy fields, enforcing freshness axes, and non-parallel
+concurrency because it has no state, principal, approval, or policy port with
+which to enforce them. Decision ownership and `'disclose'` freshness remain
+descriptive. A caller may explicitly construct
 `createActionBindingRuntime({ contractActivation: 'disclosure' })` to carry
 those clauses as metadata. The runtime exposes that immutable choice through a
 read-only accessor; it is never an invisible fallback and cannot be flipped by
@@ -192,18 +232,44 @@ plain JavaScript after construction.
 
 An offer carries the exact binding reference plus its committed-fact revision.
 Repeated availability reads under unchanged facts reuse one frozen offer.
-Updates, host replacement, attachment cleanup, disconnect, and enabled/busy
-changes observed by availability or direct invocation retire it. Invocation
-checks the offer object, binding object, revision, and current facts; an old or
-lookalike offer fails closed. Enabled/busy readers are pull-based: an application
-that needs an unobserved transient change to retire offers must publish it
-through `update` (or replace the attachment), rather than changing away and back
-between reads.
+Updates, `touch`, host replacement, attachment cleanup, and disconnect retire
+it directly. `available()` and `runtime.invoke(offer)` compare the current
+enabled/busy facts to the minted generation and retire mismatches. Direct
+`connection.invoke()` only gates on current enabledness and does not validate
+an unrelated retained offer. Invocation through an offer checks the offer
+object, binding object, revision, and current facts; an old or lookalike offer
+fails closed. Core enabled/busy readers are pull-based: an application that
+needs an unobserved transient change to retire offers publishes it through
+`update`, explicit `touch`, or attachment replacement. React makes this rule
+scheduling-safe with `availabilityKey`; without a key it conservatively touches
+after every committed render.
 
-Input readers remain lazy and run only at invocation. A framework adapter whose
-reader closes over rendered props must nevertheless publish a fresh binding
-revision after each relevant commit. That publication retires prior offers
-without executing, snapshotting, comparing, or serializing the input.
+Input ownership is explicit per offer:
+
+- `none` accepts no payload slot;
+- `bound` executes the committed reader once while minting a new offer, retains
+  that exact value privately, and carries an opaque `ActionInputRef`;
+- `open` captures nothing until the caller supplies exactly one payload slot to
+  `runtime.invoke`; explicit `undefined` is a slot, omission is protocol misuse.
+
+Repeated availability reads under one revision reuse the bound capture.
+Invocation never rereads it and rejects every attempted replacement. A bound
+transition reuses the offer's exact input ref; an open invocation creates a
+caller-origin ref. Transition history records only this non-secret receipt, not
+the payload value. For an opaque mutable payload the guarantee is reference
+identity; applications needing value immutability must return an immutable
+value from the reader.
+
+A framework adapter whose reader closes over rendered props publishes a fresh
+binding revision only after a relevant committed input generation. React makes
+that generation explicit as `inputKey` and atomically replaces the reader on a
+key change. Adapter enabled/busy facts use the separate `availabilityKey`. It
+does not serialize, compare, or infer either payload or availability facts.
+
+Full offers are retained in-process capabilities, not wire DTOs. A FE/BE
+interaction broker retains the offer and sends only an opaque handle plus a
+serializable UI projection. Returning the handle selects that exact retained
+capability; cloning or reconstructing the offer is intentionally invalid.
 
 Transitions deliberately outlive disconnect so an in-flight invocation can
 still receive authoritative effect evidence. Once both invocation and effect
@@ -249,6 +315,11 @@ only explicit facts onto the binding record. Pointing, tests, the sensor, agent
 exposure, and developer tooling read that same record; there is no second
 selector registry.
 
+Invocation observation belongs to the core connection, not only the framework
+listener wrapper. A binding observer therefore receives direct, brokered, and
+host-continuation invocations through the same narrow settlement capability;
+observer failures are severed from application return/throw behavior.
+
 ### Human reporting ownership
 
 A binding-aware page watcher accepts an ephemeral element-to-binding ownership
@@ -269,9 +340,17 @@ an explicit provenance rail.
 ### React
 
 The React skin is generation-owned, registers only from committed callback refs,
-keeps render-time props behind a commit barrier, survives StrictMode cleanup,
-preserves stale-listener behavior without successor attribution, and releases a
-binding during an async invocation without changing that invocation's result.
+keeps render-time props behind a commit barrier, requires `inputKey` with every
+bound reader, survives StrictMode cleanup, preserves stale-listener behavior
+without successor attribution, and releases a binding during an async
+invocation without changing that invocation's result. Same-`inputKey` rerenders
+reuse offers only with no availability readers or an unchanged explicit
+`availabilityKey`; a changed key publishes exactly one committed generation. Adapter
+enabled/busy readers use `availabilityKey`; without one, every commit
+conservatively advances the generation. Input and availability changes in the
+same commit advance it once. The core connection owns invocation observation,
+so agent-driven offers and host events reach the same settlement observer.
+Publication failure disconnects fail-closed.
 The physical-root projector and no-host renderer prove the portal/SSR seams
 structurally. A real `react-dom` portal plus server hydration fixture is deferred
 rather than claimed by this change.

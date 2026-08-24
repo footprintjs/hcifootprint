@@ -67,8 +67,8 @@ import { useActionBinding } from 'hcifootprint/react';
 const runtime = createActionBindingRuntime();
 const save = defineAction(
   'draft.save',
-  { does: 'Save the draft' },
-  (_event: MouseEvent<HTMLButtonElement>) => saveDraft(),
+  { does: 'Save the draft', invocation: 'inputless' },
+  () => saveDraft(),
 );
 
 interface SaveProps {
@@ -101,11 +101,12 @@ const buttonAdapter: ActionHostAdapter<
 function SaveButton(props: SaveProps) {
   const binding = useActionBinding(runtime, save, props, buttonAdapter, {
     node: 'draft',
+    availabilityKey: props.disabled,
     onInvocation: async (invocation, effects) => {
       const performed = await invocation.whenInvoked;
       if (performed.status !== 'performed') return;
       const evidence = await readSavedRevision();
-      effects.settle(invocation.transition, { status: 'verified', evidence });
+      effects.settle({ status: 'verified', evidence });
     },
     onInvocationError: reportInstrumentationError,
   });
@@ -119,14 +120,46 @@ the application-owned equivalents). Ordinary prop changes update committed reade
 replacing binding identity. Use `attachmentKey` only when a prop changes descendant
 resolution, coverage, or locator projection.
 
+If the adapter exposes `readEnabled` or `readBusy`, `availabilityKey` is the committed generation
+of every fact those readers can observe. Change it whenever availability meaning changes. With a
+stable explicit key, unrelated rerenders preserve current offers; a changed key retires them. If the
+key is omitted, the hook conservatively publishes a new revision on every committed render so an
+unobserved false→true or busy→idle round trip can never revive an old offer. If `inputKey` and
+`availabilityKey` change together, the hook publishes exactly one revision. Supplying
+`availabilityKey` to an adapter with neither `readEnabled` nor `readBusy` throws because that key
+would name no runtime fact.
+
 When a callable definition declares an allowed payload shape, it names that declaration
-`inputSchema`; the `input: (props) => value` hook option is instead the lazy current-value reader.
-The isolated runtime cannot enforce a schema yet, so its default `require-active` mode refuses that
-definition. Supply an enforcing session/port, or construct the runtime with
-`contractActivation: 'disclosure'` to opt visibly into carrying the schema as metadata. The reader
-runs only against the newest committed props and only when invoked. Each input-bearing commit
-advances the offer revision, so an offer produced for an earlier render is refused instead of
-silently consuming the new value.
+`inputSchema`; the hook's `input: (props) => value` instead makes this live control own a bound
+payload. Supply `inputKey` with it:
+
+```tsx
+useActionBinding(runtime, archiveOrder, props, buttonAdapter, {
+  node: 'orders',
+  instance: props.order.id,
+  input: () => props.order.id,
+  inputKey: props.order.id,
+});
+```
+
+`inputKey` is the opaque semantic generation of everything the reader can observe. Keep it stable
+while the reader means the same payload and change it whenever props or closed-over store state can
+change that payload. It is required with `input`, forbidden without it, compared with `Object.is`,
+and never serialized or used as identity. `attachmentKey` has a different job: host resolution and
+locator projection.
+
+When the key changes, the commit atomically installs a reader owned by that exact render and retires
+old offers. Same-key rerenders keep existing offers live only when the adapter has no availability
+readers or also receives an unchanged explicit `availabilityKey`; omitting that availability key
+deliberately retires offers on every commit. The reader runs once when
+`runtime.available()` mints a new bound offer—never during render or commit—and
+`runtime.invoke(offer)` uses that capture without rereading it. A failed publication disconnects the
+binding, so an instrumentation failure cannot leave an old offer pointing at new committed props.
+
+Parseable `inputSchema` declarations are enforced directly. Other formats such as plain JSON Schema
+need the runtime's synchronous `inputSchemaAdapter`; disclosure mode is the explicit metadata-only
+alternative. See [Live bindings](doc:live-bindings) for the bound/open/none offer modes and adapter
+example.
 
 Coverage is a fail-closed boundary. The hook connects and projects sensor ownership only
 for explicit `executable` or `verifiable` coverage. Missing, `identity`, or `semantic`
@@ -147,7 +180,9 @@ binding. `onInvocation` receives the exact invocation and a frozen
 `ActionSettlementCapability` containing only `binding` and `settle`; it can settle only that
 invocation's effect rail. Observer failures are severed from the application result and can
 be routed through `onInvocationError`. Neither observer can replace the listener's return
-value or thrown value.
+value or thrown value. The observer is installed on the core connection, so it receives both the
+human host continuation and `runtime.invoke(offer)` from an agent; verification does not disappear
+when the same React binding is driven through the broker.
 
 ## The value your component already holds
 

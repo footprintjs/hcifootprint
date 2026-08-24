@@ -4,7 +4,7 @@ title: BindingProjection
 
 # Interface: BindingProjection
 
-Defined in: [src/action/types.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L98)
+Defined in: [src/action/types.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L161)
 
 A host adapter's already-resolved, commit-time projection.
 
@@ -14,7 +14,7 @@ A host adapter's already-resolved, commit-time projection.
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L101)
+Defined in: [src/action/types.ts:164](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L164)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [src/action/types.ts:101](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: [src/action/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L103)
+Defined in: [src/action/types.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L166)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/action/types.ts:103](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **interactive**: `object`
 
-Defined in: [src/action/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L99)
+Defined in: [src/action/types.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L162)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/action/types.ts:99](https://github.com/footprintjs/hcifootprint
 
 > `readonly` `optional` **locators?**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: [src/action/types.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L102)
+Defined in: [src/action/types.ts:165](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L165)
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: [src/action/types.ts:102](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **valueElement?**: `object`
 
-Defined in: [src/action/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L100)
+Defined in: [src/action/types.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L163)

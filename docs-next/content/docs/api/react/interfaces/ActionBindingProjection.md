@@ -4,7 +4,7 @@ title: ActionBindingProjection<Interactive, Id>
 
 # Interface: ActionBindingProjection\<Interactive, Id\>
 
-Defined in: [src/react/use-action-binding.ts:29](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L29)
+Defined in: [src/react/use-action-binding.ts:28](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L28)
 
 The exact interactive-element projection understood by a physical root.
 
@@ -24,7 +24,7 @@ The exact interactive-element projection understood by a physical root.
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/react/use-action-binding.ts:33](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L33)
+Defined in: [src/react/use-action-binding.ts:32](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L32)
 
 ***
 
@@ -32,4 +32,4 @@ Defined in: [src/react/use-action-binding.ts:33](https://github.com/footprintjs/
 
 > `readonly` **element**: `Interactive`
 
-Defined in: [src/react/use-action-binding.ts:34](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L34)
+Defined in: [src/react/use-action-binding.ts:33](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L33)

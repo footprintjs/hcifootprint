@@ -22,11 +22,22 @@ import { validateConcurrency } from '../traverse/single-flight.js';
 import type {
   ActionDefinitionContract,
   ActionDefinitionRecord,
+  ActionInvocationMode,
   DefinedAction,
   ReadonlyActionDefinitionContract,
 } from './types.js';
 
+// This is the first public branded-record shape. It names the definition-side
+// payload contract `inputSchema`; the pre-public branch had no consumers whose
+// bytes need a compatibility reader.
 const ACTION_DEFINITION = Symbol.for('hcifootprint.action-definition.v1');
+// Cross-copy recognition must not re-run application-owned validators. This
+// frozen attestation says the record passed this brand version's authoring laws
+// when it was created; like the public brand, it is a capability marker rather
+// than a security boundary.
+const ACTION_DEFINITION_VALIDATED = Symbol.for(
+  'hcifootprint.action-definition.validated.v1',
+);
 
 /**
  * The definition half of ActionDef, total over its type so a newly-added field
@@ -42,6 +53,9 @@ const ACTION_CONTRACT_FIELDS = new Set(
     reads: true,
     goTo: true,
     confirm: true,
+    invocation: true,
+    needs: true,
+    produces: true,
     inputSchema: true,
     verify: true,
     humanDecides: true,
@@ -72,22 +86,37 @@ const ACTION_ROLES = new Set(
 function isRecord(value: unknown): value is ActionDefinitionRecord {
   if (typeof value !== 'object' || value === null) return false;
   try {
-    const candidate = value as Partial<ActionDefinitionRecord>;
+    const candidate = value as Partial<ActionDefinitionRecord> &
+      Record<symbol, unknown>;
     if (!(
       Object.isFrozen(value) &&
+      candidate[ACTION_DEFINITION_VALIDATED] === true &&
+      typeof candidate.ref === 'object' &&
+      candidate.ref !== null &&
       Object.isFrozen(candidate.ref) &&
+      typeof candidate.contract === 'object' &&
+      candidate.contract !== null &&
       Object.isFrozen(candidate.contract) &&
       candidate.ref?.kind === 'action-definition' &&
       typeof candidate.ref.definitionId === 'string' &&
       candidate.ref.definitionId.trim().length > 0 &&
       typeof candidate.contract?.does === 'string' &&
-      candidate.contract.does.trim().length > 0
+      candidate.contract.does.trim().length > 0 &&
+      (candidate.contract.invocation === 'inputless' ||
+        candidate.contract.invocation === 'scalar' ||
+        candidate.contract.invocation === 'host')
     )) {
       return false;
     }
+    // Recheck every immutable authored law so an attestation marker cannot
+    // bless malformed bytes. The only excluded check is recognition of the
+    // application-owned validator method itself: that capability is captured
+    // and validated when a binding connects, and may mutate afterward without
+    // erasing the definition's identity.
     validateActionDefinitionContract(
       candidate.ref.definitionId,
       candidate.contract as ActionDefinitionContract,
+      { validateInputSchemaShape: false },
     );
     return true;
   } catch {
@@ -101,7 +130,8 @@ function isRecord(value: unknown): value is ActionDefinitionRecord {
 export function actionDefinitionOf<
   F extends (...args: any[]) => any,
   Id extends string,
->(value: DefinedAction<F, Id>): ActionDefinitionRecord<Id>;
+  Mode extends ActionInvocationMode,
+>(value: DefinedAction<F, Id, Mode>): ActionDefinitionRecord<Id, Mode>;
 export function actionDefinitionOf(
   value: unknown,
 ): ActionDefinitionRecord | undefined;
@@ -130,7 +160,61 @@ export function isDefinedAction(
  * Declare an application action once while keeping it an ordinary callable.
  * Reachability, instances, enabledness, and hosts are deliberately absent: they
  * belong to each live Action Binding, not to this one definition.
+ *
+ * @param definitionId Stable capability name inside a runtime generation.
+ * @param contract Must explicitly declare `invocation`: `inputless` permits
+ * only `inputSchema: 'none'`, `scalar` accepts an object input schema, and
+ * `host` forbids a broker input schema.
+ * @param implementation Exact application callable; direct JavaScript behavior
+ * is preserved.
+ * @param invalidArity Type-only compile-time arity guard; callers never supply
+ * this argument.
  */
+export function defineAction<
+  const Id extends string,
+  F extends (...args: any[]) => any,
+>(
+  definitionId: Id,
+  contract: Omit<ActionDefinitionContract, 'invocation' | 'inputSchema'> & {
+    readonly invocation: 'inputless';
+    readonly inputSchema?: 'none';
+  },
+  implementation: F,
+  ...invalidArity: unknown extends ThisParameterType<F>
+    ? Parameters<F> extends []
+      ? []
+      : [never]
+    : [never]
+): DefinedAction<F, Id, 'inputless'>;
+export function defineAction<
+  const Id extends string,
+  F extends (...args: any[]) => any,
+>(
+  definitionId: Id,
+  contract: Omit<ActionDefinitionContract, 'invocation' | 'inputSchema'> & {
+    readonly invocation: 'scalar';
+    readonly inputSchema?: object;
+  },
+  implementation: F,
+  ...invalidArity: unknown extends ThisParameterType<F>
+    ? Parameters<F> extends []
+      ? [never]
+      : Parameters<F> extends [unknown] | [unknown?]
+        ? []
+        : [never]
+    : [never]
+): DefinedAction<F, Id, 'scalar'>;
+export function defineAction<
+  const Id extends string,
+  F extends (...args: any[]) => any,
+>(
+  definitionId: Id,
+  contract: Omit<ActionDefinitionContract, 'invocation' | 'inputSchema'> & {
+    readonly invocation: 'host';
+    readonly inputSchema?: never;
+  },
+  implementation: F,
+): DefinedAction<F, Id, 'host'>;
 export function defineAction<
   const Id extends string,
   F extends (...args: any[]) => any,
@@ -138,7 +222,7 @@ export function defineAction<
   definitionId: Id,
   contract: ActionDefinitionContract,
   implementation: F,
-): DefinedAction<F, Id> {
+): DefinedAction<F, Id, ActionInvocationMode> {
   if (typeof definitionId !== 'string' || definitionId.trim().length === 0) {
     throw new TypeError(
       'hcifootprint: defineAction() needs a non-empty definition id.',
@@ -162,6 +246,16 @@ export function defineAction<
     contract,
   );
   const frozenContract = freezeContract(capturedContract);
+  if (frozenContract.invocation === 'inputless' && implementation.length > 0) {
+    throw new GraphValidationError(
+      `action definition '${definitionId}' declares invocation: 'inputless', but its implementation exposes ${implementation.length} positional input slot(s). Declare scalar or host invocation instead.`,
+    );
+  }
+  if (frozenContract.invocation === 'scalar' && implementation.length > 1) {
+    throw new GraphValidationError(
+      `action definition '${definitionId}' declares invocation: 'scalar', but its implementation exposes ${implementation.length} positional input slots. Scalar actions accept exactly one payload slot; declare host invocation for listener-shaped functions.`,
+    );
+  }
   validateActionDefinitionContract(
     definitionId,
     frozenContract as ActionDefinitionContract,
@@ -171,7 +265,14 @@ export function defineAction<
     kind: 'action-definition' as const,
     definitionId,
   });
-  const definition = Object.freeze({ ref, contract: frozenContract });
+  const definitionRecord = { ref, contract: frozenContract };
+  Object.defineProperty(definitionRecord, ACTION_DEFINITION_VALIDATED, {
+    value: true,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  const definition = Object.freeze(definitionRecord);
 
   const callable = function (this: unknown, ...args: unknown[]): unknown {
     return Reflect.apply(implementation, this, args);
@@ -194,7 +295,7 @@ export function defineAction<
     writable: false,
   });
 
-  return callable as DefinedAction<F, Id>;
+  return callable as DefinedAction<F, Id, ActionInvocationMode>;
 }
 
 /**
@@ -206,6 +307,7 @@ export function defineAction<
 function validateActionDefinitionContract(
   definitionId: string,
   contract: ActionDefinitionContract,
+  options: { readonly validateInputSchemaShape?: boolean } = {},
 ): void {
   const owner = `action definition '${definitionId}'`;
 
@@ -255,6 +357,16 @@ function validateActionDefinitionContract(
     );
   }
 
+  if (
+    contract.invocation !== 'inputless' &&
+    contract.invocation !== 'scalar' &&
+    contract.invocation !== 'host'
+  ) {
+    throw new GraphValidationError(
+      `${owner}: invocation must be inputless, scalar, or host.`,
+    );
+  }
+
   if (contract.when !== undefined) {
     validateFilter(owner, 'when', contract.when);
   }
@@ -273,6 +385,7 @@ function validateActionDefinitionContract(
 
   validateStringList(owner, 'writes', contract.writes);
   validateStringList(owner, 'reads', contract.reads);
+  validateChannelDeclarations(owner, contract.needs, contract.produces);
 
   if (
     contract.goTo !== undefined &&
@@ -288,6 +401,7 @@ function validateActionDefinitionContract(
     );
   }
   if (
+    options.validateInputSchemaShape !== false &&
     contract.inputSchema !== undefined &&
     !takesNoInput(contract.inputSchema) &&
     detectSchema(contract.inputSchema) === 'none'
@@ -295,6 +409,29 @@ function validateActionDefinitionContract(
     throw new GraphValidationError(
       `${owner} has an unrecognized input schema — pass a Zod schema, a JSON Schema object, ` +
         `a validator with .safeParse/.parse, or the string 'none' for an action that takes no input.`,
+    );
+  }
+  if (
+    contract.invocation === 'inputless' &&
+    contract.inputSchema !== undefined &&
+    !takesNoInput(contract.inputSchema)
+  ) {
+    throw new GraphValidationError(
+      `${owner} declares inputless invocation with an input schema. Remove the schema or declare scalar invocation.`,
+    );
+  }
+  if (
+    contract.invocation === 'scalar' &&
+    contract.inputSchema !== undefined &&
+    takesNoInput(contract.inputSchema)
+  ) {
+    throw new GraphValidationError(
+      `${owner} declares scalar invocation with inputSchema: 'none'. Declare an input schema or inputless invocation.`,
+    );
+  }
+  if (contract.invocation === 'host' && contract.inputSchema !== undefined) {
+    throw new GraphValidationError(
+      `${owner} declares host invocation with an input schema. Host continuations preserve their own arguments and are not broker payload doors.`,
     );
   }
   if (contract.humanDecides !== undefined) {
@@ -359,6 +496,93 @@ function validateStringList(
       `${owner}: ${field} must be an array of state-key strings.`,
     );
   }
+}
+
+function validateChannelDeclarations(
+  owner: string,
+  needs: ActionDefinitionContract['needs'],
+  produces: ActionDefinitionContract['produces'],
+): void {
+  if (needs !== undefined) {
+    if (
+      typeof needs !== 'object' ||
+      needs === null ||
+      Array.isArray(needs) ||
+      !isPlainRecord(needs)
+    ) {
+      throw new GraphValidationError(
+        `${owner}: needs must be a record of named kind declarations.`,
+      );
+    }
+    const entries = Object.entries(needs);
+    if (entries.length === 0) {
+      throw new GraphValidationError(
+        `${owner}: needs must name at least one input; omit it when the action needs none.`,
+      );
+    }
+    for (const [name, declaration] of entries) {
+      if (name.trim().length === 0) {
+        throw new GraphValidationError(
+          `${owner}: needs keys must be non-empty names.`,
+        );
+      }
+      validateChannelDeclaration(
+        owner,
+        `needs.${name}`,
+        declaration,
+        true,
+      );
+    }
+  }
+  if (produces !== undefined) {
+    validateChannelDeclaration(owner, 'produces', produces, false);
+  }
+}
+
+function validateChannelDeclaration(
+  owner: string,
+  field: string,
+  declaration: unknown,
+  allowFrom: boolean,
+): void {
+  if (
+    typeof declaration !== 'object' ||
+    declaration === null ||
+    Array.isArray(declaration) ||
+    !isPlainRecord(declaration)
+  ) {
+    throw new GraphValidationError(
+      `${owner}: ${field} must be a plain kind declaration.`,
+    );
+  }
+  const allowed = new Set(allowFrom ? ['kind', 'schema', 'from'] : ['kind', 'schema']);
+  for (const key of Reflect.ownKeys(declaration)) {
+    if (typeof key !== 'string' || !allowed.has(key)) {
+      throw new GraphValidationError(
+        `${owner}: ${field} declares unknown field '${String(key)}'.`,
+      );
+    }
+  }
+  const candidate = declaration as { kind?: unknown; from?: unknown };
+  if (typeof candidate.kind !== 'string' || candidate.kind.trim().length === 0) {
+    throw new GraphValidationError(
+      `${owner}: ${field}.kind must be a non-empty string.`,
+    );
+  }
+  if (
+    allowFrom &&
+    candidate.from !== undefined &&
+    (typeof candidate.from !== 'string' || candidate.from.trim().length === 0)
+  ) {
+    throw new GraphValidationError(
+      `${owner}: ${field}.from must be a non-empty string when supplied.`,
+    );
+  }
+}
+
+function isPlainRecord(value: object): boolean {
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function validatePlainPolicy(
@@ -474,6 +698,16 @@ function freezeContract(
     ...(contract.reads !== undefined
       ? { reads: freezePlainDeclaration(contract.reads) }
       : {}),
+    ...(contract.needs !== undefined
+      ? { needs: freezePlainDeclaration(contract.needs) }
+      : {}),
+    ...(contract.produces !== undefined
+      ? { produces: freezePlainDeclaration(contract.produces) }
+      : {}),
+    ...(contract.inputSchema !== undefined &&
+    !isOpaqueInputValidator(contract.inputSchema)
+      ? { inputSchema: freezePlainDeclaration(contract.inputSchema) }
+      : {}),
     ...(contract.principalPolicy !== undefined
       ? {
           principalPolicy: freezePlainDeclaration(contract.principalPolicy),
@@ -493,6 +727,15 @@ function freezeContract(
       : {}),
   };
   return Object.freeze(copy) as ReadonlyActionDefinitionContract;
+}
+
+function isOpaqueInputValidator(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') return false;
+  const validator = value as { safeParse?: unknown; parse?: unknown };
+  return (
+    typeof validator.safeParse === 'function' ||
+    typeof validator.parse === 'function'
+  );
 }
 
 /**
@@ -516,7 +759,12 @@ function clonePlain<T>(value: T, seen: WeakMap<object, unknown>): T {
   const copy: Record<string, unknown> = {};
   seen.set(value, copy);
   for (const [key, entry] of Object.entries(value)) {
-    copy[key] = clonePlain(entry, seen);
+    Object.defineProperty(copy, key, {
+      value: clonePlain(entry, seen),
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
   }
   return Object.freeze(copy) as T;
 }

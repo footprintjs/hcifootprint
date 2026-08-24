@@ -24,7 +24,7 @@ describe('framework-neutral action host adapters', () => {
     let calls = 0;
     const action = defineAction(
       'orders.archive',
-      { does: 'Archive the order' },
+      { does: 'Archive the order', invocation: 'host' },
       function (this: { prefix: string }, orderId: string) {
         calls += 1;
         return `${this.prefix}:${orderId}`;

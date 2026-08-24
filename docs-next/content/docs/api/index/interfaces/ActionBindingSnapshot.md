@@ -4,7 +4,7 @@ title: ActionBindingSnapshot<Id>
 
 # Interface: ActionBindingSnapshot\<Id\>
 
-Defined in: [src/action/types.ts:171](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L171)
+Defined in: [src/action/types.ts:282](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L282)
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Defined in: [src/action/types.ts:171](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **attached**: `boolean`
 
-Defined in: [src/action/types.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L174)
+Defined in: [src/action/types.ts:285](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L285)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: [src/action/types.ts:174](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **busy?**: `string`
 
-Defined in: [src/action/types.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L176)
+Defined in: [src/action/types.ts:287](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L287)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: [src/action/types.ts:176](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L177)
+Defined in: [src/action/types.ts:288](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L288)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **enabled**: `boolean` \| `undefined`
 
-Defined in: [src/action/types.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L175)
+Defined in: [src/action/types.ts:286](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L286)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [src/action/types.ts:175](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L179)
+Defined in: [src/action/types.ts:290](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L290)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **locators**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L178)
+Defined in: [src/action/types.ts:289](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L289)
 
 ***
 
@@ -66,7 +66,7 @@ Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **present**: `true`
 
-Defined in: [src/action/types.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L173)
+Defined in: [src/action/types.ts:284](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L284)
 
 ***
 
@@ -74,4 +74,4 @@ Defined in: [src/action/types.ts:173](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **ref**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L172)
+Defined in: [src/action/types.ts:283](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L283)

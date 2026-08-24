@@ -4,7 +4,7 @@ title: ActionTransitionRef<Id>
 
 # Interface: ActionTransitionRef\<Id\>
 
-Defined in: [src/action/types.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L38)
+Defined in: [src/action/types.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L55)
 
 Which particular invocation of one exact binding occurred?
 
@@ -20,7 +20,17 @@ Which particular invocation of one exact binding occurred?
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L41)
+Defined in: [src/action/types.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L58)
+
+***
+
+### input?
+
+> `readonly` `optional` **input?**: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<[`ActionInputSource`](/api/index/type-aliases/ActionInputSource)\>
+
+Defined in: [src/action/types.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L61)
+
+The exact payload receipt used by this invocation, when it had one.
 
 ***
 
@@ -28,7 +38,7 @@ Defined in: [src/action/types.ts:41](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **kind**: `"action-transition"`
 
-Defined in: [src/action/types.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L39)
+Defined in: [src/action/types.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L56)
 
 ***
 
@@ -36,7 +46,7 @@ Defined in: [src/action/types.ts:39](https://github.com/footprintjs/hcifootprint
 
 > `readonly` `optional` **offer?**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L42)
+Defined in: [src/action/types.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L59)
 
 ***
 
@@ -44,4 +54,4 @@ Defined in: [src/action/types.ts:42](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **transitionId**: `string`
 
-Defined in: [src/action/types.ts:40](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L40)
+Defined in: [src/action/types.ts:57](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L57)
