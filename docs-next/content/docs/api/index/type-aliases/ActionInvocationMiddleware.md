@@ -6,7 +6,7 @@ title: ActionInvocationMiddleware<This, Args, Result>
 
 > **ActionInvocationMiddleware**\<`This`, `Args`, `Result`\> = (`this`, `proceed`, ...`args`) => `Result`
 
-Defined in: src/action/host-adapter.ts:280
+Defined in: [src/action/host-adapter.ts:292](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L292)
 
 One invocation door around an existing listener.
 

@@ -43,7 +43,16 @@ export interface ActionTransitionRef<Id extends string = string> {
 }
 
 /** Authored semantics carried by a definition. Reachability belongs to a live binding. */
-export type ActionDefinitionContract = Omit<ActionDef, 'binding'>;
+export type ActionDefinitionContract = Omit<ActionDef, 'binding' | 'input'> & {
+  /**
+   * Definition-side payload contract: Zod, JSON Schema, a `.safeParse`/`.parse`
+   * validator, or `'none'`. Omission means the shape is not declared. The
+   * framework-neutral runtime cannot enforce this clause: supply an enforcing
+   * port or opt visibly into `contractActivation: 'disclosure'`. Live binding
+   * values use invocation-time `input` readers instead.
+   */
+  readonly inputSchema?: ActionDef['input'];
+};
 
 /**
  * The declaration view exposed by a defined action. Functions and opaque
@@ -96,6 +105,7 @@ export interface BindingProjection {
 
 /** Mutable committed facts for one stable connection identity. */
 export interface ActionBindingUpdate<Input> {
+  /** Invocation-time value reader; the definition-side shape is `inputSchema`. */
   readonly input?: () => Input;
   readonly enabled?: () => boolean | undefined;
   readonly busy?: () => string | undefined;

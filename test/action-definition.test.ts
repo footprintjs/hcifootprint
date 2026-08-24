@@ -109,7 +109,7 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
       about: 'which order',
       doneWhen: { chosen: { eq: true } },
     };
-    const input = { safeParse: () => ({ success: true as const }) };
+    const inputSchema = { safeParse: () => ({ success: true as const }) };
     const action = defineAction(
       'orders.choose',
       {
@@ -117,7 +117,7 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
         enabledWhen,
         principalPolicy: { mayInvoke },
         humanDecides,
-        input,
+        inputSchema,
       },
       () => undefined,
     );
@@ -130,7 +130,7 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
     expect(contract.enabledWhen).toEqual({ ready: { eq: true } });
     expect(contract.principalPolicy?.mayInvoke).toEqual(['human']);
     expect(contract.humanDecides?.doneWhen).toEqual({ chosen: { eq: true } });
-    expect(contract.input).toBe(input);
+    expect(contract.inputSchema).toBe(inputSchema);
     expect(Object.isFrozen(contract.enabledWhen)).toBe(true);
     expect(Object.isFrozen(contract.enabledWhen?.ready)).toBe(true);
   });
@@ -229,6 +229,13 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
       }),
     ).toThrow(/unknown contract field 'enabledWen'/);
 
+    expect(() =>
+      defineUnchecked({
+        does: 'Archive the order',
+        input: { safeParse: () => ({ success: true }) },
+      }),
+    ).toThrow(/definitions use 'inputSchema'.*live invocation-time value reader/);
+
     const symbolField = Symbol('private-site-handle');
     expect(() =>
       defineUnchecked({
@@ -276,7 +283,7 @@ describe('defineAction — one callable definition, ordinary JavaScript behavior
     ],
     [
       'input schema',
-      { does: 'Archive the order', input: { notAValidator: true } },
+      { does: 'Archive the order', inputSchema: { notAValidator: true } },
       /unrecognized input schema/,
     ],
     [

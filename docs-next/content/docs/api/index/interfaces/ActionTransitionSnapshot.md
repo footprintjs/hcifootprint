@@ -4,7 +4,7 @@ title: ActionTransitionSnapshot
 
 # Interface: ActionTransitionSnapshot
 
-Defined in: src/action/types.ts:177
+Defined in: [src/action/types.ts:187](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L187)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/types.ts:177
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/types.ts:179
+Defined in: [src/action/types.ts:189](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L189)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: src/action/types.ts:179
 
 > `readonly` **effectStatus**: `"verified"` \| `"refused"` \| `"unverified"`
 
-Defined in: src/action/types.ts:181
+Defined in: [src/action/types.ts:191](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L191)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: src/action/types.ts:181
 
 > `readonly` `optional` **error?**: `unknown`
 
-Defined in: src/action/types.ts:183
+Defined in: [src/action/types.ts:193](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L193)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: src/action/types.ts:183
 
 > `readonly` `optional` **evidence?**: `unknown`
 
-Defined in: src/action/types.ts:184
+Defined in: [src/action/types.ts:194](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L194)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: src/action/types.ts:184
 
 > `readonly` **invocationStatus**: `"refused"` \| `"performed"` \| `"pending"`
 
-Defined in: src/action/types.ts:180
+Defined in: [src/action/types.ts:190](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L190)
 
 ***
 
@@ -52,7 +52,7 @@ Defined in: src/action/types.ts:180
 
 > `readonly` `optional` **produced?**: `unknown`
 
-Defined in: src/action/types.ts:182
+Defined in: [src/action/types.ts:192](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L192)
 
 ***
 
@@ -60,7 +60,7 @@ Defined in: src/action/types.ts:182
 
 > `readonly` `optional` **reason?**: `unknown`
 
-Defined in: src/action/types.ts:185
+Defined in: [src/action/types.ts:195](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L195)
 
 ***
 
@@ -68,4 +68,4 @@ Defined in: src/action/types.ts:185
 
 > `readonly` **ref**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)
 
-Defined in: src/action/types.ts:178
+Defined in: [src/action/types.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L188)

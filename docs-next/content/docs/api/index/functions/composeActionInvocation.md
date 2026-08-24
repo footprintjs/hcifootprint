@@ -6,7 +6,7 @@ title: composeActionInvocation
 
 > **composeActionInvocation**\<`This`, `Args`, `Result`\>(`existing`, `invoke`): [`ActionHostListener`](/api/index/type-aliases/ActionHostListener)\<`This`, `Args`, `Result`\>
 
-Defined in: src/action/host-adapter.ts:294
+Defined in: [src/action/host-adapter.ts:306](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L306)
 
 Compose a host-free invocation door without duplicating application work.
 

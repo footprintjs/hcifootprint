@@ -4,7 +4,7 @@ title: ActionBindingContractRow<Id>
 
 # Interface: ActionBindingContractRow\<Id\>
 
-Defined in: src/action/contracts.ts:82
+Defined in: [src/action/contracts.ts:82](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L82)
 
 One row from the canonical live-binding inventory.
 
@@ -20,7 +20,7 @@ One row from the canonical live-binding inventory.
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/contracts.ts:84
+Defined in: [src/action/contracts.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L84)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: src/action/contracts.ts:84
 
 > `readonly` `optional` **interactiveHost?**: [`InteractiveHostResolution`](/api/testing/type-aliases/InteractiveHostResolution)
 
-Defined in: src/action/contracts.ts:89
+Defined in: [src/action/contracts.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L89)
 
 The adapter's committed resolution result, never inferred from a locator.
 
@@ -38,7 +38,7 @@ The adapter's committed resolution result, never inferred from a locator.
 
 > `readonly` **ref**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: src/action/contracts.ts:83
+Defined in: [src/action/contracts.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L83)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: src/action/contracts.ts:83
 
 > `readonly` `optional` **requestedCapabilities?**: readonly [`ActionBindingCapability`](/api/testing/type-aliases/ActionBindingCapability)[]
 
-Defined in: src/action/contracts.ts:85
+Defined in: [src/action/contracts.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L85)
 
 ***
 
@@ -54,6 +54,6 @@ Defined in: src/action/contracts.ts:85
 
 > `readonly` `optional` **requiresInteractiveHost?**: `boolean`
 
-Defined in: src/action/contracts.ts:87
+Defined in: [src/action/contracts.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L87)
 
 Whether this adapter must resolve a real interactive descendant.

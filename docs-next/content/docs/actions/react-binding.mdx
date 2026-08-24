@@ -119,6 +119,15 @@ the application-owned equivalents). Ordinary prop changes update committed reade
 replacing binding identity. Use `attachmentKey` only when a prop changes descendant
 resolution, coverage, or locator projection.
 
+When a callable definition declares an allowed payload shape, it names that declaration
+`inputSchema`; the `input: (props) => value` hook option is instead the lazy current-value reader.
+The isolated runtime cannot enforce a schema yet, so its default `require-active` mode refuses that
+definition. Supply an enforcing session/port, or construct the runtime with
+`contractActivation: 'disclosure'` to opt visibly into carrying the schema as metadata. The reader
+runs only against the newest committed props and only when invoked. Each input-bearing commit
+advances the offer revision, so an offer produced for an earlier render is refused instead of
+silently consuming the new value.
+
 Coverage is a fail-closed boundary. The hook connects and projects sensor ownership only
 for explicit `executable` or `verifiable` coverage. Missing, `identity`, or `semantic`
 coverage leaves the original listener untouched and creates no binding; use `useControl`

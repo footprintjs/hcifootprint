@@ -4,7 +4,7 @@ title: UnresolvedActionHostTarget
 
 # Interface: UnresolvedActionHostTarget
 
-Defined in: src/action/host-adapter.ts:24
+Defined in: [src/action/host-adapter.ts:24](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L24)
 
 An honest failure to find one exact interactive target.
 
@@ -14,7 +14,7 @@ An honest failure to find one exact interactive target.
 
 > `readonly` **kind**: `"unresolved"`
 
-Defined in: src/action/host-adapter.ts:25
+Defined in: [src/action/host-adapter.ts:25](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L25)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: src/action/host-adapter.ts:25
 
 > `readonly` **reason**: [`ActionHostUnresolvedReason`](/api/index/type-aliases/ActionHostUnresolvedReason)
 
-Defined in: src/action/host-adapter.ts:26
+Defined in: [src/action/host-adapter.ts:26](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L26)

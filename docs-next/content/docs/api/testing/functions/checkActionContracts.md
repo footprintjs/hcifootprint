@@ -6,7 +6,7 @@ title: checkActionContracts
 
 > **checkActionContracts**(`declarations`, `environment`): [`ActionContractReport`](/api/testing/interfaces/ActionContractReport)
 
-Defined in: src/action/contracts.ts:255
+Defined in: [src/action/contracts.ts:255](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L255)
 
 Classify every enforceable or intentionally descriptive clause carried by
 the definitions and explicitly requested by their binding rows.

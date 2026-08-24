@@ -4,7 +4,7 @@ title: ActionInvokeOptions<Id>
 
 # Interface: ActionInvokeOptions\<Id\>
 
-Defined in: src/action/types.ts:118
+Defined in: [src/action/types.ts:128](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L128)
 
 ## Type Parameters
 
@@ -18,4 +18,4 @@ Defined in: src/action/types.ts:118
 
 > `readonly` **offer**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`\>
 
-Defined in: src/action/types.ts:119
+Defined in: [src/action/types.ts:129](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L129)

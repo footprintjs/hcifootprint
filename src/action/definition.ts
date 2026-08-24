@@ -42,7 +42,7 @@ const ACTION_CONTRACT_FIELDS = new Set(
     reads: true,
     goTo: true,
     confirm: true,
-    input: true,
+    inputSchema: true,
     verify: true,
     humanDecides: true,
     principalPolicy: true,
@@ -233,6 +233,12 @@ function validateActionDefinitionContract(
           `connectAction()/attach() own where each live binding exists. Remove 'binding' from the definition contract.`,
       );
     }
+    if (field === 'input') {
+      throw new GraphValidationError(
+        `${owner} declares 'input'. Callable action definitions use 'inputSchema' for the payload contract; ` +
+          `connectAction()/useActionBinding() use 'input' for the live invocation-time value reader.`,
+      );
+    }
     if (typeof field !== 'string' || !ACTION_CONTRACT_FIELDS.has(field)) {
       throw new GraphValidationError(
         `${owner} declares unknown contract field '${String(field)}'.`,
@@ -282,9 +288,9 @@ function validateActionDefinitionContract(
     );
   }
   if (
-    contract.input !== undefined &&
-    !takesNoInput(contract.input) &&
-    detectSchema(contract.input) === 'none'
+    contract.inputSchema !== undefined &&
+    !takesNoInput(contract.inputSchema) &&
+    detectSchema(contract.inputSchema) === 'none'
   ) {
     throw new GraphValidationError(
       `${owner} has an unrecognized input schema — pass a Zod schema, a JSON Schema object, ` +
@@ -407,6 +413,12 @@ function snapshotActionDefinitionContract(
       throw new GraphValidationError(
         `action definition '${definitionId}' declares a live-site 'binding'. A callable definition describes what the action does; ` +
           `connectAction()/attach() own where each live binding exists. Remove 'binding' from the definition contract.`,
+      );
+    }
+    if (field === 'input') {
+      throw new GraphValidationError(
+        `action definition '${definitionId}' declares 'input'. Callable action definitions use 'inputSchema' for the payload contract; ` +
+          `connectAction()/useActionBinding() use 'input' for the live invocation-time value reader.`,
       );
     }
     if (typeof field !== 'string' || !ACTION_CONTRACT_FIELDS.has(field)) {

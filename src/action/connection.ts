@@ -1154,7 +1154,7 @@ function assertContractActivation(
   if (contract.when !== undefined) clauses.push('when');
   if (contract.enabledWhen !== undefined) clauses.push('enabledWhen');
   if (contract.confirm === true) clauses.push('confirm');
-  if (contract.input !== undefined) clauses.push('input');
+  if (contract.inputSchema !== undefined) clauses.push('inputSchema');
   if (contract.verify !== undefined) clauses.push('verify');
   if (contract.principalPolicy?.mayInvoke !== undefined) {
     clauses.push('principalPolicy.mayInvoke');

@@ -4,7 +4,7 @@ title: ActionContractReport
 
 # Interface: ActionContractReport
 
-Defined in: src/action/contracts.ts:168
+Defined in: [src/action/contracts.ts:168](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L168)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/contracts.ts:168
 
 > `readonly` **bindingsChecked**: `number`
 
-Defined in: src/action/contracts.ts:174
+Defined in: [src/action/contracts.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L174)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: src/action/contracts.ts:174
 
 > `readonly` **byDisposition**: `Readonly`\<`Record`\<[`ActionContractDisposition`](/api/testing/type-aliases/ActionContractDisposition), readonly [`ActionContractResult`](/api/testing/interfaces/ActionContractResult)[]\>\>
 
-Defined in: src/action/contracts.ts:177
+Defined in: [src/action/contracts.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L177)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: src/action/contracts.ts:177
 
 > `readonly` **conclusive**: `boolean`
 
-Defined in: src/action/contracts.ts:172
+Defined in: [src/action/contracts.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L172)
 
 False whenever at least one contract could not be decided from the snapshot.
 
@@ -38,7 +38,7 @@ False whenever at least one contract could not be decided from the snapshot.
 
 > `readonly` **contracts**: readonly [`ActionContractResult`](/api/testing/interfaces/ActionContractResult)[]
 
-Defined in: src/action/contracts.ts:175
+Defined in: [src/action/contracts.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L175)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: src/action/contracts.ts:175
 
 > `readonly` **counts**: `Readonly`\<`Record`\<[`ActionContractDisposition`](/api/testing/type-aliases/ActionContractDisposition), `number`\>\>
 
-Defined in: src/action/contracts.ts:176
+Defined in: [src/action/contracts.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L176)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: src/action/contracts.ts:176
 
 > `readonly` **declarationsChecked**: `number`
 
-Defined in: src/action/contracts.ts:173
+Defined in: [src/action/contracts.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L173)
 
 ***
 
@@ -62,7 +62,7 @@ Defined in: src/action/contracts.ts:173
 
 > `readonly` **ok**: `boolean`
 
-Defined in: src/action/contracts.ts:170
+Defined in: [src/action/contracts.ts:170](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L170)
 
 True only when every contract is active or intentionally disclosure-only.
 
@@ -72,4 +72,4 @@ True only when every contract is active or intentionally disclosure-only.
 
 > `readonly` **summary**: `string`
 
-Defined in: src/action/contracts.ts:180
+Defined in: [src/action/contracts.ts:180](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L180)

@@ -25,6 +25,11 @@ callable. Calling that function directly preserves normal JavaScript `this`, arg
 throws, and thenables. Reachability, instance identity, enabledness, host state, and locators belong to
 each live connection instead of the definition.
 
+The two input-shaped fields deliberately have different names. `inputSchema` on the callable
+definition describes the payload shape; `input` on `connectAction(...)` is a lazy reader for the
+current invocation-time value. The older navigation-graph and Session surface continues to use
+`ActionDef.input` for its schema—only callable definitions use the new spelling.
+
 The isolated runtime defaults to `contractActivation: 'require-active'`: it rejects enforceable
 clauses for which this small runtime has no enforcement port instead of silently treating them as
 active. `createActionBindingRuntime({ contractActivation: 'disclosure' })` is the explicit opt-in to

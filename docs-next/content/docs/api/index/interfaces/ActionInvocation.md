@@ -4,7 +4,7 @@ title: ActionInvocation<Output, Id>
 
 # Interface: ActionInvocation\<Output, Id\>
 
-Defined in: src/action/types.ts:153
+Defined in: [src/action/types.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L163)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: src/action/types.ts:153
 
 > `readonly` **transition**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`Id`\>
 
-Defined in: src/action/types.ts:154
+Defined in: [src/action/types.ts:164](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L164)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: src/action/types.ts:154
 
 > `readonly` **whenEffectSettled**: `Promise`\<[`ActionEffectSettlement`](/api/index/type-aliases/ActionEffectSettlement)\<`Id`\>\>
 
-Defined in: src/action/types.ts:158
+Defined in: [src/action/types.ts:168](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L168)
 
 Authoritative effect observation. Handler completion never settles it.
 
@@ -40,6 +40,6 @@ Authoritative effect observation. Handler completion never settles it.
 
 > `readonly` **whenInvoked**: `Promise`\<[`ActionInvocationSettlement`](/api/index/type-aliases/ActionInvocationSettlement)\<`Output`, `Id`\>\>
 
-Defined in: src/action/types.ts:156
+Defined in: [src/action/types.ts:166](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L166)
 
 Application handler completion. This promise resolves; failure is data.

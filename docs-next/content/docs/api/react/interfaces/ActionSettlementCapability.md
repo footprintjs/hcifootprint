@@ -4,7 +4,7 @@ title: ActionSettlementCapability<Id>
 
 # Interface: ActionSettlementCapability\<Id\>
 
-Defined in: src/react/use-action-binding.ts:85
+Defined in: [src/react/use-action-binding.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L85)
 
 The only connection authority exposed to an effect observer.
 
@@ -20,7 +20,7 @@ The only connection authority exposed to an effect observer.
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: src/react/use-action-binding.ts:86
+Defined in: [src/react/use-action-binding.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L86)
 
 ## Methods
 
@@ -28,7 +28,7 @@ Defined in: src/react/use-action-binding.ts:86
 
 > **settle**(`transition`, `settlement`): [`ActionEffectSettlement`](/api/index/type-aliases/ActionEffectSettlement)\<`Id`\>
 
-Defined in: src/react/use-action-binding.ts:87
+Defined in: [src/react/use-action-binding.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L87)
 
 #### Parameters
 

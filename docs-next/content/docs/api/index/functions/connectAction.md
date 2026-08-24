@@ -8,7 +8,7 @@ title: connectAction
 
 > **connectAction**\<`F`, `Id`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`\>
 
-Defined in: src/action/connection.ts:94
+Defined in: [src/action/connection.ts:94](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L94)
 
 Connect one stable live binding of an already-declared callable action.
 
@@ -44,7 +44,7 @@ Connect one stable live binding of an already-declared callable action.
 
 > **connectAction**\<`F`, `Id`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`\>
 
-Defined in: src/action/connection.ts:106
+Defined in: [src/action/connection.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L106)
 
 Connect one stable live binding of an already-declared callable action.
 

@@ -4,7 +4,7 @@ title: BindingProjection
 
 # Interface: BindingProjection
 
-Defined in: src/action/types.ts:89
+Defined in: [src/action/types.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L98)
 
 A host adapter's already-resolved, commit-time projection.
 
@@ -14,7 +14,7 @@ A host adapter's already-resolved, commit-time projection.
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/types.ts:92
+Defined in: [src/action/types.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L101)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: src/action/types.ts:92
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: src/action/types.ts:94
+Defined in: [src/action/types.ts:103](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L103)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: src/action/types.ts:94
 
 > `readonly` **interactive**: `object`
 
-Defined in: src/action/types.ts:90
+Defined in: [src/action/types.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L99)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: src/action/types.ts:90
 
 > `readonly` `optional` **locators?**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: src/action/types.ts:93
+Defined in: [src/action/types.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L102)
 
 ***
 
@@ -46,4 +46,4 @@ Defined in: src/action/types.ts:93
 
 > `readonly` `optional` **valueElement?**: `object`
 
-Defined in: src/action/types.ts:91
+Defined in: [src/action/types.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L100)

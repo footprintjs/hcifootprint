@@ -4,7 +4,7 @@ title: ActionHostAdapter<Props, Host, Interactive, ValueElement, Invocation, Com
 
 # Interface: ActionHostAdapter\<Props, Host, Interactive, ValueElement, Invocation, ComposedProps, Locator\>
 
-Defined in: src/action/host-adapter.ts:61
+Defined in: [src/action/host-adapter.ts:61](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L61)
 
 A framework-neutral component adapter.
 
@@ -49,7 +49,7 @@ has a heuristic fallback; an omitted reader produces `undefined`.
 
 > **composeInvocation**(`props`, `invoke`): `ComposedProps`
 
-Defined in: src/action/host-adapter.ts:70
+Defined in: [src/action/host-adapter.ts:70](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L70)
 
 #### Parameters
 
@@ -71,7 +71,7 @@ Defined in: src/action/host-adapter.ts:70
 
 > `optional` **projectLocators**(`context`): readonly `Locator`[] \| `undefined`
 
-Defined in: src/action/host-adapter.ts:92
+Defined in: [src/action/host-adapter.ts:92](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L92)
 
 #### Parameters
 
@@ -89,7 +89,7 @@ readonly `Locator`[] \| `undefined`
 
 > `optional` **readBusy**(`context`): `string` \| `undefined`
 
-Defined in: src/action/host-adapter.ts:84
+Defined in: [src/action/host-adapter.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L84)
 
 #### Parameters
 
@@ -107,7 +107,7 @@ Defined in: src/action/host-adapter.ts:84
 
 > `optional` **readCoverage**(`context`): [`BindingCoverage`](/api/index/type-aliases/BindingCoverage) \| `undefined`
 
-Defined in: src/action/host-adapter.ts:88
+Defined in: [src/action/host-adapter.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L88)
 
 #### Parameters
 
@@ -125,7 +125,7 @@ Defined in: src/action/host-adapter.ts:88
 
 > `optional` **readEnabled**(`context`): `boolean` \| `undefined`
 
-Defined in: src/action/host-adapter.ts:80
+Defined in: [src/action/host-adapter.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L80)
 
 #### Parameters
 
@@ -143,7 +143,7 @@ Defined in: src/action/host-adapter.ts:80
 
 > **resolve**(`props`, `host`): [`ActionHostTargetResolution`](/api/index/type-aliases/ActionHostTargetResolution)\<`Interactive`, `ValueElement`\>
 
-Defined in: src/action/host-adapter.ts:75
+Defined in: [src/action/host-adapter.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L75)
 
 #### Parameters
 

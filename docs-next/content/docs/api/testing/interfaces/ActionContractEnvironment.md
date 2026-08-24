@@ -4,7 +4,7 @@ title: ActionContractEnvironment
 
 # Interface: ActionContractEnvironment
 
-Defined in: src/action/contracts.ts:149
+Defined in: [src/action/contracts.ts:149](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L149)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/contracts.ts:149
 
 > `readonly` **bindings**: [`ActionBindingContractSnapshot`](/api/testing/interfaces/ActionBindingContractSnapshot)
 
-Defined in: src/action/contracts.ts:151
+Defined in: [src/action/contracts.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L151)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: src/action/contracts.ts:151
 
 > `readonly` **evidence**: [`ActionEvidenceSnapshot`](/api/testing/interfaces/ActionEvidenceSnapshot)
 
-Defined in: src/action/contracts.ts:152
+Defined in: [src/action/contracts.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L152)
 
 ***
 
@@ -28,4 +28,4 @@ Defined in: src/action/contracts.ts:152
 
 > `readonly` **runtime**: [`ActionContractRuntimeSnapshot`](/api/testing/type-aliases/ActionContractRuntimeSnapshot)
 
-Defined in: src/action/contracts.ts:150
+Defined in: [src/action/contracts.ts:150](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L150)

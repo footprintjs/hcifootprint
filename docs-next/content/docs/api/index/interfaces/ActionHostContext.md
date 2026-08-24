@@ -4,7 +4,7 @@ title: ActionHostContext<Props, Host, Interactive, ValueElement>
 
 # Interface: ActionHostContext\<Props, Host, Interactive, ValueElement\>
 
-Defined in: src/action/host-adapter.ts:41
+Defined in: [src/action/host-adapter.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L41)
 
 The context explicit fact readers receive after one target has resolved.
 It is ephemeral adapter state; connections retain only their projection.
@@ -33,7 +33,7 @@ It is ephemeral adapter state; connections retain only their projection.
 
 > `readonly` **host**: `Host`
 
-Defined in: src/action/host-adapter.ts:48
+Defined in: [src/action/host-adapter.ts:48](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L48)
 
 ***
 
@@ -41,7 +41,7 @@ Defined in: src/action/host-adapter.ts:48
 
 > `readonly` **interactive**: `Interactive`
 
-Defined in: src/action/host-adapter.ts:49
+Defined in: [src/action/host-adapter.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L49)
 
 ***
 
@@ -49,7 +49,7 @@ Defined in: src/action/host-adapter.ts:49
 
 > `readonly` **props**: `Readonly`\<`Props`\>
 
-Defined in: src/action/host-adapter.ts:47
+Defined in: [src/action/host-adapter.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L47)
 
 ***
 
@@ -57,4 +57,4 @@ Defined in: src/action/host-adapter.ts:47
 
 > `readonly` **valueElement**: `ValueElement` \| `undefined`
 
-Defined in: src/action/host-adapter.ts:50
+Defined in: [src/action/host-adapter.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L50)

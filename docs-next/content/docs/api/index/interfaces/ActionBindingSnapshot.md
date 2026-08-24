@@ -4,7 +4,7 @@ title: ActionBindingSnapshot<Id>
 
 # Interface: ActionBindingSnapshot\<Id\>
 
-Defined in: src/action/types.ts:161
+Defined in: [src/action/types.ts:171](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L171)
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Defined in: src/action/types.ts:161
 
 > `readonly` **attached**: `boolean`
 
-Defined in: src/action/types.ts:164
+Defined in: [src/action/types.ts:174](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L174)
 
 ***
 
@@ -26,7 +26,7 @@ Defined in: src/action/types.ts:164
 
 > `readonly` `optional` **busy?**: `string`
 
-Defined in: src/action/types.ts:166
+Defined in: [src/action/types.ts:176](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L176)
 
 ***
 
@@ -34,7 +34,7 @@ Defined in: src/action/types.ts:166
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/types.ts:167
+Defined in: [src/action/types.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L177)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: src/action/types.ts:167
 
 > `readonly` **enabled**: `boolean` \| `undefined`
 
-Defined in: src/action/types.ts:165
+Defined in: [src/action/types.ts:175](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L175)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: src/action/types.ts:165
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: src/action/types.ts:169
+Defined in: [src/action/types.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L179)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: src/action/types.ts:169
 
 > `readonly` **locators**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: src/action/types.ts:168
+Defined in: [src/action/types.ts:178](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L178)
 
 ***
 
@@ -66,7 +66,7 @@ Defined in: src/action/types.ts:168
 
 > `readonly` **present**: `true`
 
-Defined in: src/action/types.ts:163
+Defined in: [src/action/types.ts:173](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L173)
 
 ***
 
@@ -74,4 +74,4 @@ Defined in: src/action/types.ts:163
 
 > `readonly` **ref**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: src/action/types.ts:162
+Defined in: [src/action/types.ts:172](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L172)

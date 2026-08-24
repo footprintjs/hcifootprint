@@ -4,7 +4,7 @@ title: ResolvedActionHostTarget<Interactive, ValueElement>
 
 # Interface: ResolvedActionHostTarget\<Interactive, ValueElement\>
 
-Defined in: src/action/host-adapter.ts:12
+Defined in: [src/action/host-adapter.ts:12](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L12)
 
 The commit-time result returned by an adapter that found its target.
 
@@ -24,7 +24,7 @@ The commit-time result returned by an adapter that found its target.
 
 > `readonly` **interactive**: `Interactive`
 
-Defined in: src/action/host-adapter.ts:18
+Defined in: [src/action/host-adapter.ts:18](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L18)
 
 The element that actually receives the interaction, not necessarily the ref host.
 
@@ -34,7 +34,7 @@ The element that actually receives the interaction, not necessarily the ref host
 
 > `readonly` **kind**: `"resolved"`
 
-Defined in: src/action/host-adapter.ts:16
+Defined in: [src/action/host-adapter.ts:16](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L16)
 
 ***
 
@@ -42,6 +42,6 @@ Defined in: src/action/host-adapter.ts:16
 
 > `readonly` `optional` **valueElement?**: `ValueElement`
 
-Defined in: src/action/host-adapter.ts:20
+Defined in: [src/action/host-adapter.ts:20](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L20)
 
 The independently resolved focus/value owner, when the component has one.

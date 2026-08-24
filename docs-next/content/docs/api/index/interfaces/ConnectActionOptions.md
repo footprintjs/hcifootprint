@@ -4,7 +4,7 @@ title: ConnectActionOptions<Input>
 
 # Interface: ConnectActionOptions\<Input\>
 
-Defined in: src/action/types.ts:108
+Defined in: [src/action/types.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L118)
 
 Facts supplied when opening one live binding.
 
@@ -24,7 +24,7 @@ Facts supplied when opening one live binding.
 
 > `readonly` `optional` **busy?**: () => `string` \| `undefined`
 
-Defined in: src/action/types.ts:101
+Defined in: [src/action/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L111)
 
 #### Returns
 
@@ -40,7 +40,7 @@ Defined in: src/action/types.ts:101
 
 > `readonly` `optional` **coverage?**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/types.ts:102
+Defined in: [src/action/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L112)
 
 #### Inherited from
 
@@ -52,7 +52,7 @@ Defined in: src/action/types.ts:102
 
 > `readonly` `optional` **enabled?**: () => `boolean` \| `undefined`
 
-Defined in: src/action/types.ts:100
+Defined in: [src/action/types.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L110)
 
 #### Returns
 
@@ -68,7 +68,7 @@ Defined in: src/action/types.ts:100
 
 > `readonly` `optional` **humanReporting?**: [`HumanReporting`](/api/index/type-aliases/HumanReporting)
 
-Defined in: src/action/types.ts:104
+Defined in: [src/action/types.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L114)
 
 #### Inherited from
 
@@ -80,7 +80,9 @@ Defined in: src/action/types.ts:104
 
 > `readonly` `optional` **input?**: () => `Input`
 
-Defined in: src/action/types.ts:99
+Defined in: [src/action/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L109)
+
+Invocation-time value reader; the definition-side shape is `inputSchema`.
 
 #### Returns
 
@@ -96,7 +98,7 @@ Defined in: src/action/types.ts:99
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: src/action/types.ts:111
+Defined in: [src/action/types.ts:121](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L121)
 
 ***
 
@@ -104,7 +106,7 @@ Defined in: src/action/types.ts:111
 
 > `readonly` `optional` **locators?**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: src/action/types.ts:103
+Defined in: [src/action/types.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L113)
 
 #### Inherited from
 
@@ -116,4 +118,4 @@ Defined in: src/action/types.ts:103
 
 > `readonly` **node**: `string`
 
-Defined in: src/action/types.ts:110
+Defined in: [src/action/types.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L120)

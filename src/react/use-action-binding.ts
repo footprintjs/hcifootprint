@@ -257,6 +257,16 @@ export function useActionBinding<
     ],
   );
 
+  // The stable input reader below closes over `latest`. Once a same-owner
+  // render commits, publish a fresh binding generation so an offer minted
+  // against the previous committed props cannot read this commit's input.
+  // Input stays lazy: neither commit nor availability executes the reader.
+  useInsertionEffect(() => {
+    const current = held.current;
+    if (!hasInput || current === null || current.owner !== owner) return;
+    current.connection.update({});
+  });
+
   const invocation = useCallback(
     function (
       this: This,

@@ -4,7 +4,7 @@ title: ActionBindingRuntime
 
 # Interface: ActionBindingRuntime
 
-Defined in: src/action/types.ts:310
+Defined in: [src/action/types.ts:320](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L320)
 
 Framework-neutral store and execution port for connected actions.
 
@@ -14,7 +14,7 @@ Framework-neutral store and execution port for connected actions.
 
 > `readonly` **contractActivation**: [`ActionContractActivation`](/api/index/type-aliases/ActionContractActivation)
 
-Defined in: src/action/types.ts:311
+Defined in: [src/action/types.ts:321](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L321)
 
 ## Methods
 
@@ -24,7 +24,7 @@ Defined in: src/action/types.ts:311
 
 > **available**\<`Ref`\>(`definition`): readonly [`ActionOffer`](/api/index/interfaces/ActionOffer)\<`Ref`\[`"definitionId"`\]\>[]
 
-Defined in: src/action/types.ts:338
+Defined in: [src/action/types.ts:348](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L348)
 
 ##### Type Parameters
 
@@ -46,7 +46,7 @@ readonly [`ActionOffer`](/api/index/interfaces/ActionOffer)\<`Ref`\[`"definition
 
 > **available**\<`Id`\>(`definition`): readonly [`ActionOffer`](/api/index/interfaces/ActionOffer)\<`Id`\>[]
 
-Defined in: src/action/types.ts:341
+Defined in: [src/action/types.ts:351](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L351)
 
 ##### Type Parameters
 
@@ -68,7 +68,7 @@ readonly [`ActionOffer`](/api/index/interfaces/ActionOffer)\<`Id`\>[]
 
 > **available**(): readonly [`ActionOffer`](/api/index/interfaces/ActionOffer)\<`string`\>[]
 
-Defined in: src/action/types.ts:342
+Defined in: [src/action/types.ts:352](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L352)
 
 ##### Returns
 
@@ -80,7 +80,7 @@ readonly [`ActionOffer`](/api/index/interfaces/ActionOffer)\<`string`\>[]
 
 > **bindingFor**(`binding`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\> \| `undefined`
 
-Defined in: src/action/types.ts:335
+Defined in: [src/action/types.ts:345](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L345)
 
 #### Parameters
 
@@ -98,7 +98,7 @@ Defined in: src/action/types.ts:335
 
 > **bindings**(`definition?`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\>[]
 
-Defined in: src/action/types.ts:334
+Defined in: [src/action/types.ts:344](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L344)
 
 #### Parameters
 
@@ -118,7 +118,7 @@ Defined in: src/action/types.ts:334
 
 > **connect**\<`F`, `Id`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`\>
 
-Defined in: src/action/types.ts:312
+Defined in: [src/action/types.ts:322](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L322)
 
 ##### Type Parameters
 
@@ -148,7 +148,7 @@ Defined in: src/action/types.ts:312
 
 > **connect**\<`F`, `Id`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`\>
 
-Defined in: src/action/types.ts:323
+Defined in: [src/action/types.ts:333](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L333)
 
 ##### Type Parameters
 
@@ -180,7 +180,7 @@ Defined in: src/action/types.ts:323
 
 > **forgetTransition**(`transition`): `boolean`
 
-Defined in: src/action/types.ts:347
+Defined in: [src/action/types.ts:357](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L357)
 
 Release a fully settled transition from runtime history.
 
@@ -200,7 +200,7 @@ Release a fully settled transition from runtime history.
 
 > **transitionFor**(`transition`): [`ActionTransitionSnapshot`](/api/index/interfaces/ActionTransitionSnapshot) \| `undefined`
 
-Defined in: src/action/types.ts:343
+Defined in: [src/action/types.ts:353](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L353)
 
 #### Parameters
 

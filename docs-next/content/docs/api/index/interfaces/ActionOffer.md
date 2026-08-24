@@ -4,7 +4,7 @@ title: ActionOffer<Id>
 
 # Interface: ActionOffer\<Id\>
 
-Defined in: src/action/types.ts:172
+Defined in: [src/action/types.ts:182](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L182)
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Defined in: src/action/types.ts:172
 
 > `readonly` **locators**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: src/action/types.ts:174
+Defined in: [src/action/types.ts:184](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L184)
 
 ***
 
@@ -26,4 +26,4 @@ Defined in: src/action/types.ts:174
 
 > `readonly` **ref**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`\>
 
-Defined in: src/action/types.ts:173
+Defined in: [src/action/types.ts:183](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L183)

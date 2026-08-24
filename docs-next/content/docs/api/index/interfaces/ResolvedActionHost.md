@@ -4,7 +4,7 @@ title: ResolvedActionHost<Host, Interactive, ValueElement, Locator>
 
 # Interface: ResolvedActionHost\<Host, Interactive, ValueElement, Locator\>
 
-Defined in: src/action/host-adapter.ts:98
+Defined in: [src/action/host-adapter.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L98)
 
 One exact committed target and only the facts its adapter explicitly read.
 
@@ -32,7 +32,7 @@ One exact committed target and only the facts its adapter explicitly read.
 
 > `readonly` **busy**: `string` \| `undefined`
 
-Defined in: src/action/host-adapter.ts:109
+Defined in: [src/action/host-adapter.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L109)
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: src/action/host-adapter.ts:109
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage) \| `undefined`
 
-Defined in: src/action/host-adapter.ts:110
+Defined in: [src/action/host-adapter.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L110)
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: src/action/host-adapter.ts:110
 
 > `readonly` **enabled**: `boolean` \| `undefined`
 
-Defined in: src/action/host-adapter.ts:108
+Defined in: [src/action/host-adapter.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L108)
 
 ***
 
@@ -56,7 +56,7 @@ Defined in: src/action/host-adapter.ts:108
 
 > `readonly` **host**: `Host`
 
-Defined in: src/action/host-adapter.ts:105
+Defined in: [src/action/host-adapter.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L105)
 
 ***
 
@@ -64,7 +64,7 @@ Defined in: src/action/host-adapter.ts:105
 
 > `readonly` **interactive**: `Interactive`
 
-Defined in: src/action/host-adapter.ts:106
+Defined in: [src/action/host-adapter.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L106)
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: src/action/host-adapter.ts:106
 
 > `readonly` **kind**: `"resolved"`
 
-Defined in: src/action/host-adapter.ts:104
+Defined in: [src/action/host-adapter.ts:104](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L104)
 
 ***
 
@@ -80,7 +80,7 @@ Defined in: src/action/host-adapter.ts:104
 
 > `readonly` **locators**: readonly `Locator`[] \| `undefined`
 
-Defined in: src/action/host-adapter.ts:111
+Defined in: [src/action/host-adapter.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L111)
 
 ***
 
@@ -88,4 +88,4 @@ Defined in: src/action/host-adapter.ts:111
 
 > `readonly` **valueElement**: `ValueElement` \| `undefined`
 
-Defined in: src/action/host-adapter.ts:107
+Defined in: [src/action/host-adapter.ts:107](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L107)

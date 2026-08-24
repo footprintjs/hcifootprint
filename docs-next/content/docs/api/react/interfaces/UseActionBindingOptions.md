@@ -4,7 +4,7 @@ title: UseActionBindingOptions<Props, Input, Interactive, Id, Output>
 
 # Interface: UseActionBindingOptions\<Props, Input, Interactive, Id, Output\>
 
-Defined in: src/react/use-action-binding.ts:52
+Defined in: [src/react/use-action-binding.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L52)
 
 Stable identity and explicit host facts for one React binding.
 
@@ -36,7 +36,7 @@ Stable identity and explicit host facts for one React binding.
 
 > `readonly` `optional` **attachmentKey?**: `unknown`
 
-Defined in: src/react/use-action-binding.ts:69
+Defined in: [src/react/use-action-binding.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L69)
 
 A deliberate ref-identity key for props that change descendant resolution,
 projected coverage, or locators. Ordinary props do not reattach.
@@ -47,7 +47,7 @@ projected coverage, or locators. Ordinary props do not reattach.
 
 > `readonly` `optional` **coverage?**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/react/use-action-binding.ts:62
+Defined in: [src/react/use-action-binding.ts:62](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L62)
 
 Explicit fallback when coverage belongs to the call site rather than the adapter.
 
@@ -57,7 +57,7 @@ Explicit fallback when coverage belongs to the call site rather than the adapter
 
 > `readonly` `optional` **input?**: (`props`) => `Input`
 
-Defined in: src/react/use-action-binding.ts:64
+Defined in: [src/react/use-action-binding.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L64)
 
 Application-owned input for direct agent invocation; never scraped from the host.
 
@@ -77,7 +77,7 @@ Application-owned input for direct agent invocation; never scraped from the host
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: src/react/use-action-binding.ts:60
+Defined in: [src/react/use-action-binding.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L60)
 
 ***
 
@@ -85,7 +85,7 @@ Defined in: src/react/use-action-binding.ts:60
 
 > `readonly` **node**: `string`
 
-Defined in: src/react/use-action-binding.ts:59
+Defined in: [src/react/use-action-binding.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L59)
 
 ***
 
@@ -93,7 +93,7 @@ Defined in: src/react/use-action-binding.ts:59
 
 > `readonly` `optional` **onInvocation?**: (`invocation`, `settlement`) => `void` \| `PromiseLike`\<`void`\>
 
-Defined in: src/react/use-action-binding.ts:76
+Defined in: [src/react/use-action-binding.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L76)
 
 Receive the exact transition plus a narrow effect-settlement capability.
 Errors from this observer never replace the host listener's own result.
@@ -118,7 +118,7 @@ Errors from this observer never replace the host listener's own result.
 
 > `readonly` `optional` **onInvocationError?**: (`error`) => `void` \| `PromiseLike`\<`void`\>
 
-Defined in: src/react/use-action-binding.ts:81
+Defined in: [src/react/use-action-binding.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L81)
 
 Optional sink for an `onInvocation` observer failure.
 
@@ -138,6 +138,6 @@ Optional sink for an `onInvocation` observer failure.
 
 > `readonly` `optional` **projector?**: [`ActionBindingProjector`](/api/react/interfaces/ActionBindingProjector)\<`Interactive`, `Id`\> \| `null`
 
-Defined in: src/react/use-action-binding.ts:71
+Defined in: [src/react/use-action-binding.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L71)
 
 The watcher/projector that owns a portal's physical interactive root.

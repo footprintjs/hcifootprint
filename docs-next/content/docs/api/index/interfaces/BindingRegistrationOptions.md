@@ -6,10 +6,6 @@ title: BindingRegistrationOptions
 
 Defined in: [src/registry/registry.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/registry/registry.ts#L73)
 
-## Extended by
-
-- [`BindingRegistrationUpdate`](/api/index/interfaces/BindingRegistrationUpdate)
-
 ## Properties
 
 ### attached?

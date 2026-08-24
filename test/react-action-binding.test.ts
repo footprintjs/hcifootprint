@@ -13,6 +13,7 @@ import {
 import type {
   ActionBindingRef,
   ActionBindingRuntime,
+  ActionConnection,
   ActionInvocation,
   BindingCoverage,
   DefinedAction,
@@ -124,6 +125,7 @@ interface BoundProps<Result> {
   readonly coverage?: BindingCoverage;
   readonly projector?: ActionBindingProjector<Interactive>;
   readonly attachmentKey?: unknown;
+  readonly input?: (props: Readonly<HostProps<Result>>) => PressEvent;
   readonly onInvocation?: (
     invocation: ActionInvocation<Awaited<Result>>,
     settlement: ActionSettlementCapability,
@@ -150,6 +152,7 @@ function Bound<Result>(props: BoundProps<Result>): ReactElement {
       ...(props.attachmentKey !== undefined
         ? { attachmentKey: props.attachmentKey }
         : {}),
+      ...(props.input !== undefined ? { input: props.input } : {}),
       ...(props.onInvocation !== undefined
         ? { onInvocation: props.onInvocation }
         : {}),
@@ -621,6 +624,107 @@ describe('useActionBinding', () => {
       busy: 'Saving now',
     });
     expect(runtime.available()).toEqual([]);
+  });
+
+  it('retires an offer before a committed render can replace the input it selects', async () => {
+    const baseRuntime = createActionBindingRuntime();
+    let connection:
+      | ActionConnection<(event: PressEvent) => string, string, true>
+      | undefined;
+    const runtime = new Proxy(baseRuntime, {
+      get(target, property) {
+        const value = Reflect.get(target, property, target) as unknown;
+        if (property === 'connect' && typeof value === 'function') {
+          return (...args: unknown[]) => {
+            const opened = Reflect.apply(value, target, args) as ActionConnection<
+              (event: PressEvent) => string,
+              string,
+              true
+            >;
+            connection = opened;
+            return opened;
+          };
+        }
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    }) as ActionBindingRuntime;
+    const seen: string[] = [];
+    let inputReads = 0;
+    const action = defineAction(
+      'orders.archive-from-react',
+      { does: 'Archive this order' },
+      (event: PressEvent) => {
+        seen.push(event.id);
+        return event.id;
+      },
+    );
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Archive');
+    const view = (orderId: string): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+        input: () => {
+          inputReads += 1;
+          return { id: orderId };
+        },
+      });
+
+    const tree = mount(view('o-57'));
+    const binding = runtime.bindings()[0]!.ref;
+    const first = runtime.available()[0]!;
+    let duringRender: (typeof first) | undefined;
+    expect(inputReads).toBe(0);
+
+    tree.render(
+      createElement(
+        Fragment,
+        null,
+        view('o-58'),
+        createElement(Probe, {
+          read: () => {
+            duringRender = runtime.available()[0];
+          },
+        }),
+      ),
+    );
+
+    expect(duringRender).toBe(first);
+    expect(runtime.bindings()[0]?.ref).toBe(binding);
+    expect(inputReads).toBe(0);
+    expect(() =>
+      connection!.invokeOffered({ offer: first.ref }),
+    ).toThrow(/does not select/);
+    expect(inputReads).toBe(0);
+    const second = runtime.available()[0]!;
+    expect(second.ref.revision).toBeGreaterThan(first.ref.revision);
+    expect(inputReads).toBe(0);
+    await connection!.invokeOffered({ offer: second.ref }).whenInvoked;
+    expect(seen).toEqual(['o-58']);
+    expect(inputReads).toBe(1);
+  });
+
+  it('reuses an offer across a same-owner commit with no input reader', () => {
+    const runtime = createActionBindingRuntime();
+    const action = defineAction('draft.save', { does: 'Save' }, () => 'saved');
+    const adapter = hostAdapter<string>();
+    const host = wrapper('Save');
+    const view = (): ReactElement =>
+      bound({
+        runtime,
+        action,
+        adapter,
+        host,
+        actionProps: { enabled: true, onPress: action },
+      });
+
+    const tree = mount(view());
+    const first = runtime.available()[0]!;
+    tree.render(view());
+    expect(runtime.available()[0]).toBe(first);
   });
 
   it('records a custom host occurrence without suppressing its listener when app-owned enabledness is false', async () => {

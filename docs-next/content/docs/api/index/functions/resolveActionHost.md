@@ -6,7 +6,7 @@ title: resolveActionHost
 
 > **resolveActionHost**\<`Props`, `Host`, `Interactive`, `ValueElement`, `Invocation`, `ComposedProps`, `Locator`\>(`adapter`, `props`, `host`): [`ActionHostResolution`](/api/index/type-aliases/ActionHostResolution)\<`Host`, `Interactive`, `ValueElement`, `Locator`\>
 
-Defined in: src/action/host-adapter.ts:138
+Defined in: [src/action/host-adapter.ts:138](https://github.com/footprintjs/hcifootprint/blob/main/src/action/host-adapter.ts#L138)
 
 Resolve one committed host and snapshot only explicitly supplied facts.
 

@@ -4,7 +4,7 @@ title: ActionContractResult
 
 # Interface: ActionContractResult
 
-Defined in: src/action/contracts.ts:155
+Defined in: [src/action/contracts.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L155)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/contracts.ts:155
 
 > `readonly` `optional` **actualCoverage?**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/contracts.ts:163
+Defined in: [src/action/contracts.ts:163](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L163)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: src/action/contracts.ts:163
 
 > `readonly` `optional` **binding?**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`string`\>
 
-Defined in: src/action/contracts.ts:157
+Defined in: [src/action/contracts.ts:157](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L157)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: src/action/contracts.ts:157
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)
 
-Defined in: src/action/contracts.ts:156
+Defined in: [src/action/contracts.ts:156](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L156)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: src/action/contracts.ts:156
 
 > `readonly` **disposition**: [`ActionContractDisposition`](/api/testing/type-aliases/ActionContractDisposition)
 
-Defined in: src/action/contracts.ts:159
+Defined in: [src/action/contracts.ts:159](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L159)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: src/action/contracts.ts:159
 
 > `readonly` `optional` **keys?**: readonly `string`[]
 
-Defined in: src/action/contracts.ts:161
+Defined in: [src/action/contracts.ts:161](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L161)
 
 ***
 
@@ -52,7 +52,7 @@ Defined in: src/action/contracts.ts:161
 
 > `readonly` **kind**: [`ActionContractKind`](/api/testing/type-aliases/ActionContractKind)
 
-Defined in: src/action/contracts.ts:158
+Defined in: [src/action/contracts.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L158)
 
 ***
 
@@ -60,7 +60,7 @@ Defined in: src/action/contracts.ts:158
 
 > `readonly` **message**: `string`
 
-Defined in: src/action/contracts.ts:164
+Defined in: [src/action/contracts.ts:164](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L164)
 
 ***
 
@@ -68,7 +68,7 @@ Defined in: src/action/contracts.ts:164
 
 > `readonly` **reason**: [`ActionContractReason`](/api/testing/type-aliases/ActionContractReason)
 
-Defined in: src/action/contracts.ts:160
+Defined in: [src/action/contracts.ts:160](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L160)
 
 ***
 
@@ -76,7 +76,7 @@ Defined in: src/action/contracts.ts:160
 
 > `readonly` **remedy**: `string`
 
-Defined in: src/action/contracts.ts:165
+Defined in: [src/action/contracts.ts:165](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L165)
 
 ***
 
@@ -84,4 +84,4 @@ Defined in: src/action/contracts.ts:165
 
 > `readonly` `optional` **requiredCoverage?**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: src/action/contracts.ts:162
+Defined in: [src/action/contracts.ts:162](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L162)

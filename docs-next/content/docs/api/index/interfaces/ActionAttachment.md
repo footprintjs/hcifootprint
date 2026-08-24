@@ -4,7 +4,7 @@ title: ActionAttachment
 
 # Interface: ActionAttachment
 
-Defined in: src/action/types.ts:114
+Defined in: [src/action/types.ts:124](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L124)
 
 ## Methods
 
@@ -12,7 +12,7 @@ Defined in: src/action/types.ts:114
 
 > **detach**(): `void`
 
-Defined in: src/action/types.ts:115
+Defined in: [src/action/types.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L125)
 
 #### Returns
 

@@ -421,6 +421,38 @@ describe('connectAction — one definition, many exact live bindings', () => {
     ).not.toThrow();
   });
 
+  it('names inputSchema as the inactive definition clause, not the live input reader', () => {
+    const action = defineAction(
+      'search.run',
+      {
+        does: 'Search the catalogue',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+      },
+      (input: { query: string }) => input.query,
+    );
+    const strict = createActionBindingRuntime();
+    expect(() =>
+      connectAction(strict, action, {
+        node: 'search',
+        input: () => ({ query: 'boots' }),
+      }),
+    ).toThrow(/inputSchema.*cannot activate/);
+
+    const disclosure = createActionBindingRuntime({
+      contractActivation: 'disclosure',
+    });
+    expect(() =>
+      connectAction(disclosure, action, {
+        node: 'search',
+        input: () => ({ query: 'boots' }),
+      }),
+    ).not.toThrow();
+  });
+
   it('validates and snapshots settlement evidence before resolving the effect rail', async () => {
     const action = defineAction('jobs.finish', { does: 'Finish the job' }, () => 1);
     const runtime = createActionBindingRuntime();

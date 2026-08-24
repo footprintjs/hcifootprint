@@ -6,7 +6,7 @@ title: useActionBinding
 
 > **useActionBinding**\<`F`, `Id`, `Props`, `Host`, `Interactive`, `ValueElement`, `This`, `EventArgs`, `ComposedProps`\>(`runtime`, `definition`, `props`, `adapter`, `options`): [`UseActionBindingResult`](/api/react/interfaces/UseActionBindingResult)\<`Host`, `ComposedProps`, `Id`\>
 
-Defined in: src/react/use-action-binding.ts:149
+Defined in: [src/react/use-action-binding.ts:149](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L149)
 
 Connect a callable action to one committed React host.
 

@@ -4,9 +4,10 @@ import {
   connectAction,
   createActionBindingRuntime,
   defineAction,
-  type ActionOfferedInvoke,
+  type ActionDef,
   type ActionHostAdapter,
   type ActionInvocationMiddleware,
+  type ActionOfferedInvoke,
 } from '../src/index.js';
 import { useActionBinding } from '../src/react/index.js';
 
@@ -131,6 +132,36 @@ const contract = actionDefinitionOf(readonly)!.contract;
 contract.writes?.push('state.attacker');
 // @ts-expect-error nested policy arrays are readonly too
 contract.principalPolicy?.mayInvoke?.push('agent');
+
+const inputSchema = {
+  safeParse: (_value: unknown) => ({ success: true as const }),
+};
+const schemaDefined = defineAction(
+  'types.input-schema',
+  { does: 'Use a declared input schema', inputSchema },
+  (value: string) => value,
+);
+const schemaContract = actionDefinitionOf(schemaDefined)!.contract;
+schemaContract.inputSchema;
+connectAction(runtime, schemaDefined, {
+  node: 'types',
+  input: () => 'committed schema-shaped value',
+});
+// @ts-expect-error callable definitions separate their schema from live binding input
+schemaContract.input;
+defineAction(
+  'types.legacy-input-name',
+  {
+    does: 'Reject the legacy definition-side spelling',
+    // @ts-expect-error ActionDef.input remains legacy graph syntax, not callable-action syntax
+    input: inputSchema,
+  },
+  (value: string) => value,
+);
+const _legacyGraphAction = {
+  does: 'Keep the graph declaration spelling',
+  input: inputSchema,
+} satisfies ActionDef;
 
 const other = defineAction(
   'types.other',

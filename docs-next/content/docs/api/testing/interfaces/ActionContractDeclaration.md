@@ -4,7 +4,7 @@ title: ActionContractDeclaration<Id>
 
 # Interface: ActionContractDeclaration\<Id\>
 
-Defined in: src/action/contracts.ts:64
+Defined in: [src/action/contracts.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L64)
 
 The immutable definition projection accepted by the checker.
 
@@ -20,7 +20,7 @@ The immutable definition projection accepted by the checker.
 
 > `readonly` **contract**: `object`
 
-Defined in: src/action/contracts.ts:66
+Defined in: [src/action/contracts.ts:66](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L66)
 
 #### blockedBecause?
 
@@ -291,18 +291,15 @@ degraded.
 
 \[`key`: `string`\]: \{ `eq?`: `unknown`; `gt?`: `unknown`; `gte?`: `unknown`; `in?`: readonly `unknown`[]; `lt?`: `unknown`; `lte?`: `unknown`; `ne?`: `unknown`; `notIn?`: readonly `unknown`[]; \} \| `undefined`
 
-#### input?
+#### inputSchema?
 
-> `readonly` `optional` **input?**: `unknown`
+> `readonly` `optional` **inputSchema?**: `unknown`
 
-Payload contract: Zod, JSON Schema, any `.safeParse`/`.parse` validator —
-or the literal `'none'`, meaning "this control takes NO input". A caller
-that sends one anyway is refused with the shape it sent, and a blank
-payload is erased before it can reach the handler and override the app's
-own defaults.
-
-OMITTING `input` says something different: the library does not know the
-shape, so it advertises nothing rather than inventing an empty contract.
+Definition-side payload contract: Zod, JSON Schema, a `.safeParse`/`.parse`
+validator, or `'none'`. Omission means the shape is not declared. The
+framework-neutral runtime cannot enforce this clause: supply an enforcing
+port or opt visibly into `contractActivation: 'disclosure'`. Live binding
+values use invocation-time `input` readers instead.
 
 #### observability?
 
@@ -431,4 +428,4 @@ State keys this action claims to change.
 
 > `readonly` **ref**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)\<`Id`\>
 
-Defined in: src/action/contracts.ts:65
+Defined in: [src/action/contracts.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L65)

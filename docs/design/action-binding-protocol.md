@@ -67,6 +67,13 @@ the same arguments, `this`, return value, thrown value, and thenable behavior as
 calling the implementation. `Function.prototype.bind`, `call`, and `apply`
 remain untouched; the protocol adds no methods with those names.
 
+The callable definition names its payload declaration `inputSchema`. Live
+connections and framework bindings name their invocation-time value reader
+`input`. Keeping those names distinct prevents a schema from being mistaken for
+a current value source. The legacy navigation-graph `ActionDef.input` spelling
+remains unchanged; this distinction belongs only to the callable Action Binding
+surface.
+
 The brand owns immutable authored metadata and the structured definition
 reference. A second copy of the package can recognize it through the global
 symbol registry without treating unbranded functions or malformed mutable
@@ -170,11 +177,12 @@ visibly. Existing low-level session defaults remain compatible and are reported
 as disclosure/inert rather than silently reinterpreted.
 
 The framework-neutral runtime therefore defaults to
-`contractActivation: 'require-active'`. It rejects `when`, `enabledWhen`, input
-schemas, verification declarations, confirmation, enforceable principal-policy
-fields, enforcing freshness axes, and non-parallel concurrency because it has
-no state, principal, approval, or policy port with which to enforce them.
-Decision ownership and `'disclose'` freshness remain descriptive. A caller may explicitly construct
+`contractActivation: 'require-active'`. It rejects `when`, `enabledWhen`,
+`inputSchema`, verification declarations, confirmation, enforceable
+principal-policy fields, enforcing freshness axes, and non-parallel concurrency
+because it has no state, principal, approval, or policy port with which to
+enforce them. Decision ownership and `'disclose'` freshness remain descriptive.
+A caller may explicitly construct
 `createActionBindingRuntime({ contractActivation: 'disclosure' })` to carry
 those clauses as metadata. The runtime exposes that immutable choice through a
 read-only accessor; it is never an invisible fallback and cannot be flipped by
@@ -191,6 +199,11 @@ lookalike offer fails closed. Enabled/busy readers are pull-based: an applicatio
 that needs an unobserved transient change to retire offers must publish it
 through `update` (or replace the attachment), rather than changing away and back
 between reads.
+
+Input readers remain lazy and run only at invocation. A framework adapter whose
+reader closes over rendered props must nevertheless publish a fresh binding
+revision after each relevant commit. That publication retires prior offers
+without executing, snapshotting, comparing, or serializing the input.
 
 Transitions deliberately outlive disconnect so an in-flight invocation can
 still receive authoritative effect evidence. Once both invocation and effect
