@@ -4,7 +4,7 @@ title: ActionInputSchemaContext<Id>
 
 # Interface: ActionInputSchemaContext\<Id\>
 
-Defined in: [src/action/types.ts:690](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L690)
+Defined in: [src/action/types.ts:713](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L713)
 
 Context handed to an application-owned synchronous schema validator.
 
@@ -20,7 +20,7 @@ Context handed to an application-owned synchronous schema validator.
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:692](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L692)
+Defined in: [src/action/types.ts:715](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L715)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/action/types.ts:692](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:691](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L691)
+Defined in: [src/action/types.ts:714](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L714)
 
 ***
 
@@ -36,4 +36,4 @@ Defined in: [src/action/types.ts:691](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **source**: `"bound"` \| `"caller"`
 
-Defined in: [src/action/types.ts:693](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L693)
+Defined in: [src/action/types.ts:716](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L716)

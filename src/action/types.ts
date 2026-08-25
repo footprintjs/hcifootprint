@@ -606,6 +606,25 @@ export type ActionOfferFor<
       ? BoundActionOffer<Id, F, P> | OpenActionOffer<Id, F, P>
       : never;
 
+/**
+ * A settlement that arrived after this transition's terminal was already
+ * decided — kept and marked late, never adopted and never silently dropped.
+ *
+ * First terminal wins, and the terminal never reopens. But the losing
+ * evidence is still a FACT: a `verified` that arrived after an `abandoned`
+ * is exactly the record an operator needs when deciding whether the
+ * abandonment deadline is too aggressive. `claimed` is what the late caller
+ * SAID — recorded as a claim, deliberately not validated as if it had been
+ * accepted, because validation is a property of settlement and this was
+ * never one.
+ */
+export interface ActionLateSettlement {
+  /** The status the late caller claimed — a quotation, not a verdict. */
+  readonly claimed: string;
+  /** The evidence or reason it carried, snapshotted; absent when it carried none. */
+  readonly payload?: unknown;
+}
+
 export interface ActionTransitionSnapshot {
   readonly ref: ActionTransitionRef;
   readonly input: ActionInvocationInput;
@@ -618,6 +637,10 @@ export interface ActionTransitionSnapshot {
   readonly reason?: unknown;
   readonly authority?: ActionAbandonmentAuthority;
   readonly progress?: ActionProgressSnapshot;
+  /** Settlements that arrived after the terminal, in arrival order. Absent
+   *  when none did — an empty list would claim "we watched and none came",
+   *  which this snapshot cannot know. */
+  readonly lateSettlements?: readonly ActionLateSettlement[];
 }
 
 /**

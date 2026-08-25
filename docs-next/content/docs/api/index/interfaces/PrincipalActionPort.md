@@ -4,7 +4,7 @@ title: PrincipalActionPort<P>
 
 # Interface: PrincipalActionPort\<P\>
 
-Defined in: [src/action/types.ts:731](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L731)
+Defined in: [src/action/types.ts:754](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L754)
 
 Principal-scoped offer and invocation authority. The principal belongs to
 the reader, never to a live binding: one control may be offered to a person
@@ -22,7 +22,7 @@ while being withheld from an agent.
 
 > `readonly` **principal**: `P`
 
-Defined in: [src/action/types.ts:732](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L732)
+Defined in: [src/action/types.ts:755](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L755)
 
 ## Methods
 
@@ -32,7 +32,7 @@ Defined in: [src/action/types.ts:732](https://github.com/footprintjs/hcifootprin
 
 > **invoke**\<`F`, `Id`\>(`offer`): [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`, `"mutation"`\>
 
-Defined in: [src/action/types.ts:734](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L734)
+Defined in: [src/action/types.ts:757](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L757)
 
 Invoke an exact retained bound or inputless offer minted for this principal.
 
@@ -60,7 +60,7 @@ Invoke an exact retained bound or inputless offer minted for this principal.
 
 > **invoke**\<`F`, `Id`\>(`offer`, `input`): [`ActionInvocation`](/api/index/interfaces/ActionInvocation)\<`Awaited`\<`ReturnType`\<`F`\>\>, `Id`, `"mutation"`\>
 
-Defined in: [src/action/types.ts:738](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L738)
+Defined in: [src/action/types.ts:761](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L761)
 
 Invoke an exact retained open offer with its one required caller payload.
 
@@ -96,7 +96,7 @@ Invoke an exact retained open offer with its one required caller payload.
 
 > **offers**\<`F`, `Id`, `Mode`\>(`definition`): readonly [`ActionOfferFor`](/api/index/type-aliases/ActionOfferFor)\<[`DefinedAction`](/api/index/type-aliases/DefinedAction)\<`F`, `Id`, `Mode`\>, `Id`, `Mode`, `P`\>[]
 
-Defined in: [src/action/types.ts:743](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L743)
+Defined in: [src/action/types.ts:766](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L766)
 
 Enumerate exact retained offers this principal is permitted to invoke.
 
@@ -128,7 +128,7 @@ readonly [`ActionOfferFor`](/api/index/type-aliases/ActionOfferFor)\<[`DefinedAc
 
 > **offers**\<`Ref`\>(`definition`): readonly [`ActionOffer`](/api/index/type-aliases/ActionOffer)\<`Ref`\[`"definitionId"`\], (...`args`) => `any`, `P`\>[]
 
-Defined in: [src/action/types.ts:750](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L750)
+Defined in: [src/action/types.ts:773](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L773)
 
 ##### Type Parameters
 
@@ -150,7 +150,7 @@ readonly [`ActionOffer`](/api/index/type-aliases/ActionOffer)\<`Ref`\[`"definiti
 
 > **offers**(): readonly [`ActionOffer`](/api/index/type-aliases/ActionOffer)\<`string`, (...`args`) => `any`, `P`\>[]
 
-Defined in: [src/action/types.ts:753](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L753)
+Defined in: [src/action/types.ts:776](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L776)
 
 ##### Returns
 

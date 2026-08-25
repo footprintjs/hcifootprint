@@ -148,18 +148,20 @@ describe('action runtime invocation broker', () => {
     expect(reads).toBe(1);
 
     expect(() => foreignRuntime.forPrincipal('system').invoke(offer)).toThrow(
-      /foreign|forged/,
+      // In the foreign runtime this offer "was never returned here" — the
+      // refusal says so without accusing anyone of forging anything.
+      /not a live offer/,
     );
     const system = runtime.forPrincipal('system');
     expect(() =>
       (system.invoke as (offer: ActionOffer) => unknown)({ ...offer }),
-    ).toThrow(/foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
     expect(reads).toBe(1);
     expect(calls).toBe(0);
 
     connection.touch();
     expect(() => runtime.forPrincipal('system').invoke(offer)).toThrow(
-      /stale|foreign|forged/,
+      /stale|no longer serves|not a live offer/,
     );
     expect(reads).toBe(1);
     expect(calls).toBe(0);
@@ -231,7 +233,7 @@ describe('action runtime invocation broker', () => {
     const system = runtime.forPrincipal('system');
     expect(() =>
       (system.invoke as (offer: ActionOffer) => unknown)(offer),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
     connection.disconnect();
     expect(() => connection.touch()).toThrow(/disconnected/);
   });
@@ -827,7 +829,7 @@ describe('action input schema enforcement', () => {
     expect(calls).toBe(0);
     expect(() =>
       openRuntime.forPrincipal('system').invoke(offer, 'value'),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
   });
 
   it('lets an exact scalar slot interpret explicit undefined as a default', async () => {
@@ -995,8 +997,8 @@ describe('action input schema enforcement', () => {
     expect(seen).toEqual(['one-generation', 'one-generation']);
 
     connection.touch();
-    expect(() => human.invoke(humanOffer)).toThrow(/stale|foreign|forged/);
-    expect(() => agent.invoke(agentOffer)).toThrow(/stale|foreign|forged/);
+    expect(() => human.invoke(humanOffer)).toThrow(/stale|no longer serves|not a live offer/);
+    expect(() => agent.invoke(agentOffer)).toThrow(/stale|no longer serves|not a live offer/);
   });
 
   it('records an application-owned direct occurrence as unknown without weakening the broker gate', async () => {
@@ -1049,5 +1051,80 @@ describe('action input schema enforcement', () => {
     expect(() =>
       (runtime.forPrincipal as (principal: string) => unknown)('robot'),
     ).toThrow(/principal must be user, agent, system, or unknown/);
+  });
+});
+
+describe('late settlement is kept, marked late, and reopens nothing', () => {
+  const authority = { kind: 'cancelled', reason: 'operator stopped waiting' } as const;
+
+  it('a verified arriving after abandoned is recorded as a claim — and the terminal stands', async () => {
+    const action = defineAction('late.verified-after-abandoned', {
+      does: 'Prove late evidence survives without reopening the terminal',
+      invocation: 'inputless',
+      mutate: () => 'done',
+      settle: { writes: ['late.subject'] },
+    });
+    const runtime = createActionRuntime();
+    const connection = connectAction(runtime, action, {
+      node: 'late',
+      coverage: 'verifiable',
+    });
+    const invocation = connection.invoke();
+    await invocation.whenInvoked;
+
+    expect(
+      connection.settle(invocation.transition, { status: 'abandoned', authority })
+        .status,
+    ).toBe('abandoned');
+
+    // First terminal wins: the late settle returns the FIRST settlement,
+    // unchanged — a caller can see its answer was not the one adopted.
+    const echoed = connection.settle(invocation.transition, {
+      status: 'verified',
+      evidence: { source: 'job-store', landedLate: true },
+    });
+    expect(echoed.status).toBe('abandoned');
+
+    // And the losing evidence is a fact on the record, not a silence: the
+    // claim is QUOTED (never validated, never adopted), in arrival order.
+    const snapshot = runtime.transitionFor(invocation.transition)!;
+    expect(snapshot.effectStatus).toBe('abandoned');
+    expect(snapshot.lateSettlements).toHaveLength(1);
+    expect(snapshot.lateSettlements![0]!.claimed).toBe('verified');
+    expect(snapshot.lateSettlements![0]!.payload).toEqual({
+      source: 'job-store',
+      landedLate: true,
+    });
+  });
+
+  it('a snapshot taken before any late arrival carries NO lateSettlements — absence, not an empty list', async () => {
+    const action = defineAction('late.absent-not-empty', {
+      does: 'An empty list would claim "we watched and none came"',
+      invocation: 'inputless',
+      mutate: () => 'done',
+      settle: { writes: ['late.subject'] },
+    });
+    const runtime = createActionRuntime();
+    const connection = connectAction(runtime, action, {
+      node: 'late',
+      coverage: 'verifiable',
+    });
+    const invocation = connection.invoke();
+    await invocation.whenInvoked;
+    connection.settle(invocation.transition, { status: 'abandoned', authority });
+
+    const before = runtime.transitionFor(invocation.transition)!;
+    expect(before).not.toHaveProperty('lateSettlements');
+
+    // A snapshot already handed out is immutable: a later late arrival must
+    // not grow a list inside it retroactively.
+    connection.settle(invocation.transition, {
+      status: 'refused',
+      reason: 'came back too late',
+    });
+    expect(before).not.toHaveProperty('lateSettlements');
+    const after = runtime.transitionFor(invocation.transition)!;
+    expect(after.lateSettlements).toHaveLength(1);
+    expect(after.lateSettlements![0]!.claimed).toBe('refused');
   });
 });

@@ -467,7 +467,13 @@ describe('connectAction — one definition, many exact live bindings', () => {
       .forPrincipal('system')
       .offers(connection.definition)[0]!;
     attached.detach();
-    expect(() => invokeOffer(runtime, third)).toThrow(/stale|foreign|forged/);
+    // The wording depends on what the runtime can still ESTABLISH after the
+    // detach — a surviving registration says "no longer serves"; a retired
+    // one admits it cannot tell a never-ours from a since-detached. Both are
+    // refusals; neither accuses a slow caller of forgery any more.
+    expect(() => invokeOffer(runtime, third)).toThrow(
+      /no longer serves offers|not a live offer/,
+    );
 
     const current = runtime
       .forPrincipal('system')
@@ -478,7 +484,9 @@ describe('connectAction — one definition, many exact live bindings', () => {
     expect(
       runtime.forPrincipal('system').offers(connection.definition),
     ).toEqual([]);
-    expect(() => invokeOffer(runtime, current)).toThrow(/stale|foreign|forged/);
+    // After disconnect() the binding is retired, so the refusal is the honest
+    // third sentence: not a live offer — never ours, or since detached.
+    expect(() => invokeOffer(runtime, current)).toThrow(/not a live offer/);
   });
 
   it('fails closed on invalid coverage at connect, update, and attach', () => {
@@ -1308,5 +1316,65 @@ describe('connectAction — one definition, many exact live bindings', () => {
     ).toEqual([]);
     expect(runtime.forPrincipal('system').offers()).toEqual([]);
     expect(received).toEqual([]);
+  });
+});
+
+describe('a stale-offer refusal is re-orientation, not a dead end', () => {
+  it('names the CURRENT offer when the binding still serves one', async () => {
+    const action = defineAction('orders.reorient', {
+      does: 'Re-orient the slow caller instead of stranding it',
+      invocation: 'scalar',
+      mutate: ({ id }: { id: string }) => id,
+    });
+    const runtime = createActionRuntime();
+    const connection = connectAction(runtime, action, {
+      node: 'orders',
+      input: () => ({ id: 'first' }),
+    });
+
+    const port = runtime.forPrincipal('system');
+    const old = port.offers(connection.definition)[0]!;
+    connection.update({ input: () => ({ id: 'second' }) });
+    // Someone re-read in the meantime — the wire caller did not.
+    const current = port.offers(connection.definition)[0]!;
+    expect(current.ref).not.toBe(old.ref);
+
+    // The refusal carries the next move: the current offer's id, by name.
+    expect(() => invokeOffer(runtime, old)).toThrow(current.ref.offerId);
+    expect(() => invokeOffer(runtime, old)).toThrow(/re-read offers/i);
+    // And the current offer still works — refusal cost the caller nothing.
+    invokeOffer(runtime, current);
+  });
+
+  it('says the binding stopped serving when nothing current exists — a different sentence from a forgery', async () => {
+    const action = defineAction('orders.withdrawn', {
+      does: 'A withdrawn surface is not a forged offer',
+      invocation: 'scalar',
+      mutate: ({ id }: { id: string }) => id,
+    });
+    const runtime = createActionRuntime();
+    const connection = connectAction(runtime, action, {
+      node: 'orders',
+      input: () => ({ id: 'first' }),
+    });
+    const old = runtime.forPrincipal('system').offers(connection.definition)[0]!;
+    connection.update({ input: () => ({ id: 'second' }) });
+
+    // No re-read happened, so no current offer exists for this binding.
+    expect(() => invokeOffer(runtime, old)).toThrow(/no longer serves offers/);
+    // While an offer naming a binding this runtime never registered gets the
+    // honest sentence: never ours or since-detached — and it says it cannot
+    // tell which, because invalidation erased the memory that could.
+    const forged = {
+      ...old,
+      ref: {
+        ...old.ref,
+        offerId: 'offer-forged',
+        binding: { ...old.ref.binding, bindingId: 'binding-forged' },
+      },
+    };
+    expect(() => invokeOffer(runtime, forged as typeof old)).toThrow(
+      /not a live offer|will not guess/,
+    );
   });
 });

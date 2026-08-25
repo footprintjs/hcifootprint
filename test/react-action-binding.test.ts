@@ -547,7 +547,7 @@ describe('useActionBinding', () => {
 
     tree.unmount();
     expect(() => runtime.forPrincipal('system').invoke(offer)).toThrow(
-      /stale|foreign|forged/,
+      /stale|no longer serves|not a live offer/,
     );
   });
 
@@ -1095,14 +1095,14 @@ describe('useActionBinding', () => {
       runtime
         .forPrincipal('system')
         .invoke(closedOffer(beforeEnabledRoundTrip)),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
 
     const beforeBusyRoundTrip = runtime.forPrincipal('system').offers()[0]!;
     tree.render(view(true, 'Saving'));
     tree.render(view(true));
     expect(() =>
       runtime.forPrincipal('system').invoke(closedOffer(beforeBusyRoundTrip)),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
   });
 
   it('uses availabilityKey as the exact committed availability generation', () => {
@@ -1131,7 +1131,7 @@ describe('useActionBinding', () => {
     tree.render(view('generation-2'));
     expect(() =>
       runtime.forPrincipal('system').invoke(closedOffer(first)),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
     expect(runtime.forPrincipal('system').offers()[0]!.ref.revision).toBe(
       first.ref.revision + 1,
     );
@@ -1189,7 +1189,7 @@ describe('useActionBinding', () => {
     expect(runtime.bindings()[0]?.ref).toBe(binding);
     expect(inputReads).toBe(1);
     expect(() => runtime.forPrincipal('system').invoke(first)).toThrow(
-      /stale|foreign|forged/,
+      /stale|no longer serves|not a live offer/,
     );
     expect(inputReads).toBe(1);
     const second = runtime.forPrincipal('system').offers()[0]!;
@@ -1345,7 +1345,7 @@ describe('useActionBinding', () => {
     expect(baseRuntime.bindings()).toEqual([]);
     expect(() =>
       baseRuntime.forPrincipal('system').invoke(closedOffer(oldOffer)),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
   });
 
   it('disconnects fail-closed when an availability-generation publication fails', () => {
@@ -1398,7 +1398,7 @@ describe('useActionBinding', () => {
     expect(baseRuntime.bindings()).toEqual([]);
     expect(() =>
       baseRuntime.forPrincipal('system').invoke(closedOffer(oldOffer)),
-    ).toThrow(/stale|foreign|forged/);
+    ).toThrow(/stale|no longer serves|not a live offer/);
   });
 
   it('reuses an offer across a same-owner commit with no input reader', () => {

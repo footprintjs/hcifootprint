@@ -103,6 +103,7 @@ export type {
   ActionProgressObservation,
   ActionProgressSnapshot,
   ActionOfferRef,
+  ActionLateSettlement,
   ActionTransitionSnapshot,
   ActionTransitionRef,
   ActionSettlementCapability,

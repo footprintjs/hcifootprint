@@ -4,7 +4,7 @@ title: ActionInputValidationError
 
 # Class: ActionInputValidationError
 
-Defined in: [src/action/connection.ts:147](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L147)
+Defined in: [src/action/connection.ts:150](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L150)
 
 Structured refusal produced when an exact invocation payload fails its declared schema.
 
@@ -18,7 +18,7 @@ Structured refusal produced when an exact invocation payload fails its declared 
 
 > **new ActionInputValidationError**(`definition`, `binding`, `source`, `issues`): `ActionInputValidationError`
 
-Defined in: [src/action/connection.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L155)
+Defined in: [src/action/connection.ts:158](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L158)
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: [src/action/connection.ts:155](https://github.com/footprintjs/hcifoo
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
-Defined in: [src/action/connection.ts:150](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L150)
+Defined in: [src/action/connection.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L153)
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: node\_modules/typescript/lib/lib.es2022.error.d.ts:26
 
 > `readonly` **code**: `"ACTION_INPUT_INVALID"`
 
-Defined in: [src/action/connection.ts:148](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L148)
+Defined in: [src/action/connection.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L151)
 
 ***
 
@@ -80,7 +80,7 @@ Defined in: [src/action/connection.ts:148](https://github.com/footprintjs/hcifoo
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)
 
-Defined in: [src/action/connection.ts:149](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L149)
+Defined in: [src/action/connection.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L152)
 
 ***
 
@@ -88,7 +88,7 @@ Defined in: [src/action/connection.ts:149](https://github.com/footprintjs/hcifoo
 
 > `readonly` `optional` **issues?**: `unknown`
 
-Defined in: [src/action/connection.ts:153](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L153)
+Defined in: [src/action/connection.ts:156](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L156)
 
 ***
 
@@ -96,7 +96,7 @@ Defined in: [src/action/connection.ts:153](https://github.com/footprintjs/hcifoo
 
 > `readonly` **issuesDisposition**: `"included"` \| `"redacted"` \| `"unavailable"`
 
-Defined in: [src/action/connection.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L152)
+Defined in: [src/action/connection.ts:155](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L155)
 
 ***
 
@@ -128,7 +128,7 @@ Defined in: node\_modules/typescript/lib/lib.es5.d.ts:1076
 
 > `readonly` **source**: `"bound"` \| `"caller"`
 
-Defined in: [src/action/connection.ts:151](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L151)
+Defined in: [src/action/connection.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L154)
 
 ***
 

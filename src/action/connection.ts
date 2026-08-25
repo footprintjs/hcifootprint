@@ -19,6 +19,7 @@ import type {
   ActionConnection,
   ActionContractActivation,
   ActionAbandonmentAuthority,
+  ActionLateSettlement,
   ActionEffectSettlement,
   ActionEffectSettlementInput,
   ActionInvocation,
@@ -87,6 +88,8 @@ interface StoredTransition {
   authority?: ActionAbandonmentAuthority;
   progress?: TransitionProgress;
   effectSettlement?: ActionEffectSettlement;
+  /** Settlements that arrived after the terminal — see ActionLateSettlement. */
+  late?: ActionLateSettlement[];
   resolveEffect?: (settlement: ActionEffectSettlement<any>) => void;
 }
 
@@ -1091,14 +1094,42 @@ class DefaultActionRuntime implements ActionRuntime {
       );
     }
     const ref = (offer as Partial<ActionOffer>).ref;
-    if (
-      ref === undefined ||
-      this.#offers.get(ref.offerId) !== offer ||
-      this.#offerByBinding.get(ref.binding.bindingId)?.get(ref.principal)
-        ?.offer !== offer
-    ) {
+    if (ref === undefined) {
       throw new Error(
-        `hcifootprint: offer '${ref?.offerId ?? 'unknown'}' is stale, foreign, or forged.`,
+        `hcifootprint: invoke() received something that is not an offer this runtime returned — offers are invoked exactly as handed out, never rebuilt.`,
+      );
+    }
+    // REFUSAL AS RE-ORIENTATION, NOT A DEAD END — and never a false
+    // accusation. Invalidation DELETES a retired offer from every map, so
+    // "not in #offers" cannot distinguish a slow caller replaying a
+    // yesterday-valid offer from a forgery; the old single message accused
+    // both of the same crime. What the runtime CAN still establish, it says:
+    //   • the binding serves a CURRENT offer → stale, and the refusal names
+    //     the current offer's id — the next move, not a dead end. (Naming it
+    //     leaks nothing: invoking needs the exact offer OBJECT this runtime
+    //     returned, an id alone opens no door.)
+    //   • the binding is registered but offerless → the surface moved on.
+    //   • the binding is unknown → never ours, or its control has since
+    //     detached — and the refusal admits it cannot tell which, because
+    //     absence must be established, never assumed.
+    // The valid branch requires BOTH maps to agree on the exact object —
+    // byte-for-byte the same authority the old check enforced.
+    const current = this.#offerByBinding
+      .get(ref.binding.bindingId)
+      ?.get(ref.principal)?.offer;
+    if (current !== offer || this.#offers.get(ref.offerId) !== offer) {
+      if (current !== undefined) {
+        throw new Error(
+          `hcifootprint: offer '${ref.offerId}' is stale — the facts it was exposed under have changed, and binding '${ref.binding.bindingId}' now serves offer '${current.ref.offerId}' to principal '${ref.principal}'. Re-read offers and invoke the current one; never retry a stale offer, its moment is gone.`,
+        );
+      }
+      if (this.#registry.registrationFor(ref.binding) !== undefined) {
+        throw new Error(
+          `hcifootprint: offer '${ref.offerId}' is stale and binding '${ref.binding.bindingId}' no longer serves offers to principal '${ref.principal}' — its facts changed and nobody has re-read since. Re-read offers to see what is available now.`,
+        );
+      }
+      throw new Error(
+        `hcifootprint: offer '${ref.offerId}' is not a live offer of this runtime — either it was never returned here, or its control has since detached. Re-read offers; this refusal cannot tell those two apart and will not guess.`,
       );
     }
     if (ref.principal !== principal) {
@@ -1649,6 +1680,32 @@ class DefaultActionRuntime implements ActionRuntime {
       );
     }
     if (stored.effectSettlement !== undefined) {
+      // FIRST TERMINAL WINS, AND THE TERMINAL NEVER REOPENS — but the losing
+      // settlement is KEPT AND MARKED LATE, never silently dropped. Before
+      // this block recorded anything, a `verified` arriving after an
+      // `abandoned` vanished into a return of the first settlement, and the
+      // caller could not even tell its evidence went nowhere. The claim is
+      // recorded as a QUOTATION (`claimed` is whatever status the caller
+      // said, stringified, unvalidated): validating it as if it were being
+      // accepted would be pretending it settled something, and adopting it
+      // would reopen a terminal — both are the failure this exists to refuse.
+      if (input !== null && typeof input === 'object') {
+        const claimed = (input as { readonly status?: unknown }).status;
+        const payload =
+          claimed === 'verified'
+            ? (input as { readonly evidence?: unknown }).evidence
+            : claimed === 'refused'
+              ? (input as { readonly reason?: unknown }).reason
+              : undefined;
+        (stored.late ??= []).push(
+          Object.freeze({
+            claimed: String(claimed),
+            ...(payload !== undefined
+              ? { payload: snapshotDeclaration(payload) }
+              : {}),
+          }),
+        );
+      }
       return stored.effectSettlement as ActionEffectSettlement<Id>;
     }
     if (stored.effectSettling === true) {
@@ -1964,6 +2021,12 @@ function snapshotTransition(
     ...(stored.effectStatus === 'refused' ? { reason: stored.reason } : {}),
     ...(stored.effectStatus === 'abandoned'
       ? { authority: stored.authority }
+      : {}),
+    // Absent when none arrived — an empty list would claim "we watched and
+    // none came", which a snapshot cannot know. Copied and frozen so a later
+    // late arrival cannot mutate a snapshot already handed out.
+    ...(stored.late !== undefined && stored.late.length > 0
+      ? { lateSettlements: Object.freeze([...stored.late]) }
       : {}),
     ...(stored.progress !== undefined
       ? { progress: stored.progress.snapshot() }
