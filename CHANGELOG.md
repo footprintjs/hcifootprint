@@ -1,6 +1,35 @@
 # Changelog
 
-## Unreleased
+## [2.0.0] - 2026-08-25
+
+**The Action Binding Protocol.** Declare an action once; bind it to every live
+control that can perform it. Four identities with four cardinalities — a
+definition is what a capability IS, a binding is where it is connected, an
+offer is the facts it was exposed under, a transition is one invocation — and
+no consumer ever recovers one from another by string surgery. This is the v2
+contract: `createActionBindingRuntime` is now `createActionRuntime`, offers are
+principal-scoped (`runtime.forPrincipal(p).offers()` — the principal belongs to
+the reader, not the binding), progress reports declared/observed/**unreported**
+at close, `abandoned` requires an explicit authority (never inferred from a
+detach), and offered inputs are revision-exact: an invocation can never read a
+newer committed input while carrying an older offer.
+
+### Fixed
+
+- **Late evidence is kept, marked late, and reopens nothing.** A settlement
+  arriving after the terminal used to vanish into a return of the first one.
+  It now rides the transition as `lateSettlements` — a QUOTATION of what the
+  late caller claimed and the payload it brought, never validated as if
+  accepted and never allowed to reopen a terminal. Absent when none arrived,
+  because an empty list would claim "we watched and none came."
+- **A stale offer is no longer called a forgery.** Invalidation deletes a
+  retired offer from every map, so the old refusal accused a slow caller
+  replaying yesterday's offer and an attacker of the same crime. The refusal
+  now says what the runtime can still establish: a binding serving a current
+  offer names it as the next move; a registered but offerless binding says the
+  surface moved on; an unknown binding admits it cannot tell never-ours from
+  since-detached, and will not guess.
+
 
 ### Added
 
