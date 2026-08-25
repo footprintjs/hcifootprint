@@ -37,8 +37,17 @@ import type { SensorElement, SensorEvent, SensorListener, SensorListenerOptions 
 import type { BindingIndex } from './binding-index.js';
 import type { Cadence, SensorEventType } from './cadence.js';
 import type { ControlDeclaration } from './control-index.js';
-import type { MatchCandidate } from './match.js';
-import type { Coverage, ControlAttachment, PageWatch, SensorReport, SensorSession, WatchOptions } from './types.js';
+import type { MatchCandidate, MatchOutcome } from './match.js';
+import type {
+  BindingControlProjection,
+  BindingAwarePageWatch,
+  Coverage,
+  ControlAttachment,
+  PageWatch,
+  SensorReport,
+  SensorSession,
+  WatchOptions,
+} from './types.js';
 import { documentOf, timersOf, viewOf } from './dom-port.js';
 import { CADENCE_NEEDS_A_CLOCK, buildBindingIndex } from './binding-index.js';
 import { coalesceWindow, commitsOnControl, createDebouncer, needsTimer } from './cadence.js';
@@ -58,6 +67,11 @@ const CAPTURE: SensorListenerOptions = Object.freeze({ capture: true });
 
 /** What `attach()` hands back when there is nothing to release. */
 const NOTHING_ATTACHED: ControlAttachment = Object.freeze({ detach(): void {} });
+
+interface ProjectedBindingEntry {
+  readonly binding: BindingControlProjection['binding'];
+  readonly token: object;
+}
 
 /** The keys that stand in for a click. Enter and Space, and nothing else. */
 function isPressKey(key: string | undefined): boolean {
@@ -118,7 +132,10 @@ const EMPTY_TALLY = (): Record<SensorReport['kind'], number> => ({
  * to watch; `options.root` is the only thing about the environment the library is
  * told.
  */
-export function watchPage(session: SensorSession, options: WatchOptions): PageWatch {
+export function watchPage(
+  session: SensorSession,
+  options: WatchOptions,
+): BindingAwarePageWatch {
   const root = options.root;
   const ownerDocument = documentOf(root);
   const view = viewOf(ownerDocument);
@@ -135,6 +152,10 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
   const standsDown = (edge: string): boolean => standsDownFor.has(edge);
 
   const controls = createControlIndex();
+  const projectedBindings = new Map<
+    SensorElement,
+    Map<BindingControlProjection['binding'], ProjectedBindingEntry>
+  >();
   const turn = createTurnWindow();
   const debouncer = timers === undefined ? undefined : createDebouncer(timers);
 
@@ -381,6 +402,11 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       );
       if (outcome.kind === 'silent') return;
 
+      // Ownership is candidate-local, not merely element-local. A composite
+      // element can expose another action/moment that remains sensor-owned, and
+      // an unrelated or stale projection must never silence it.
+      if (projectedBindingOwns(outcome, projectedBindings)) return;
+
       // STANDING DOWN OUTRANKS EVERY ARM BELOW IT — door, payload, or a cadence
       // with no clock. announce() already said why, once, so an edge the sensor
       // will not record is one it does not comment on either: a decline naming an
@@ -480,6 +506,32 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
         },
       };
     },
+    projectBinding(projection): ControlAttachment {
+      if (stopped) return NOTHING_ATTACHED;
+      const element = projection.element;
+      const binding = projection.binding;
+      const token = {};
+      let byBinding = projectedBindings.get(element);
+      if (byBinding === undefined) {
+        byBinding = new Map();
+        projectedBindings.set(element, byBinding);
+      }
+      byBinding.set(binding, { binding, token });
+      let detached = false;
+      return Object.freeze({
+        detach(): void {
+          if (detached) return;
+          detached = true;
+          // Token ownership: a late cleanup may not remove a newer projection
+          // for the same physical element.
+          const current = projectedBindings.get(element);
+          if (current?.get(binding)?.token === token) {
+            current.delete(binding);
+            if (current.size === 0) projectedBindings.delete(element);
+          }
+        },
+      });
+    },
     stop(): void {
       // Idempotent: a stopped watcher is inert, and a second stop finds nothing to
       // release (the presence-handle contract, presence.ts:10-13).
@@ -490,6 +542,7 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       debouncer?.cancelAll();
       turn.forget();
       controls.clear();
+      projectedBindings.clear();
       for (const off of holdsReleases) off();
       holdsReleases.clear();
       // Every release is attempted even if one throws: a teardown that gives up
@@ -514,4 +567,31 @@ export function watchPage(session: SensorSession, options: WatchOptions): PageWa
       };
     },
   };
+}
+
+/** Whether a connection owns this exact matched action/instance on the element. */
+function projectedBindingOwns(
+  outcome: Exclude<MatchOutcome, { readonly kind: 'silent' }>,
+  projections: ReadonlyMap<
+    SensorElement,
+    ReadonlyMap<BindingControlProjection['binding'], ProjectedBindingEntry>
+  >,
+): boolean {
+  if (outcome.kind !== 'one' && outcome.kind !== 'many') return false;
+  const projected = projections.get(outcome.element);
+  if (projected === undefined) return false;
+  const candidates =
+    outcome.kind === 'one' ? [outcome.candidate] : outcome.matches;
+  for (const { binding } of projected.values()) {
+    if (
+      candidates.some(
+        (candidate) =>
+          candidate.edge === binding.definition.definitionId &&
+          candidate.instance === binding.instance,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

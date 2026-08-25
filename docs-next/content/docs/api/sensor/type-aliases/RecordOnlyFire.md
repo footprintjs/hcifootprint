@@ -6,7 +6,7 @@ title: RecordOnlyFire
 
 > **RecordOnlyFire** = `Omit`\<[`FireOptions`](/api/index/interfaces/FireOptions), `"invoke"`\> & `object`
 
-Defined in: [src/sensor/types.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L46)
+Defined in: [src/sensor/types.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/sensor/types.ts#L52)
 
 ONE CANONICAL DOOR, STATED IN THE TYPE SYSTEM.
 

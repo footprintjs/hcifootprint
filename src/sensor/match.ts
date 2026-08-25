@@ -71,7 +71,12 @@ export type MatchOutcome =
       readonly declaration?: ControlDeclaration;
     }
   /** Two or more live edges answer to one role+name+moment. The sensor refuses to pick. */
-  | { readonly kind: 'many'; readonly candidates: readonly string[] }
+  | {
+      readonly kind: 'many';
+      readonly candidates: readonly string[];
+      readonly matches: readonly MatchCandidate[];
+      readonly element: SensorElement;
+    }
   /** Real motion on a real control the graph never declared. */
   | { readonly kind: 'off-graph'; readonly role: string; readonly name: string }
   /** Recognised, but this is not its moment — or nothing recognisable was touched. */
@@ -157,7 +162,12 @@ export function matchElement(
           return { kind: 'one', candidate: candidates[0] as MatchCandidate, element: node };
         }
         if (candidates.length > 1) {
-          return { kind: 'many', candidates: candidates.map(candidateLabel) };
+          return {
+            kind: 'many',
+            candidates: candidates.map(candidateLabel),
+            matches: candidates,
+            element: node,
+          };
         }
         // Zero live instances: this edge could not have happened here. Keep
         // climbing — an enclosing declared control may still own the gesture.

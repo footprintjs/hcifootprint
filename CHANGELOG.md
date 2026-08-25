@@ -1,5 +1,49 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Action Binding now joins what was offered, invoked, and settled.**
+  `defineAction()` declares one callable action, framework-neutral connections
+  bind its live instances, and `runtime.available()` returns self-describing
+  `none`, `bound`, or `open` offers. `runtime.invoke()` is the single broker for
+  offered execution: it accepts only the exact retained offer, captures bound
+  input when that offer is minted, validates caller input for open offers, and
+  carries a non-secret input receipt through the invocation, transition, and
+  settlement history. Definitions explicitly declare `invocation: 'inputless'
+  | 'scalar' | 'host'`; broker eligibility is never guessed from
+  `Function.length`. Open offers require one caller slot and are withheld when
+  no schema tells a UI/agent how to construct that input.
+- **Channel declarations have a stable Layer 1 home.** Callable definitions can
+  store typed `needs` and `produces` kind declarations. They are validated and
+  frozen but deliberately inert until the later channel/surface broker exists.
+- **Input contracts have an enforcement port.** Schemas with synchronous
+  `.safeParse()` or `.parse()` methods are enforced directly; applications can
+  supply `inputSchemaAdapter` for formats such as JSON Schema plus Ajv. Strict
+  activation refuses an unenforceable schema instead of presenting metadata as
+  an active gate.
+- **Live fact generations are explicit.** `connection.update()` is inert when
+  facts do not change, while `connection.touch()` deliberately retires existing
+  offers without running application readers. React input bindings require an
+  `inputKey`; changing it atomically publishes the newly committed input reader
+  and invalidates the prior offer without changing binding identity.
+- **Invocation outcomes distinguish refusal from failure.** `refused` means the
+  application handler never started; `failed` means it started and then
+  threw/rejected. Preflight input refusals immediately settle their effect as
+  not attempted, and connection observers now receive direct, brokered, and
+  host-continuation invocations through one narrow settlement capability.
+- **React availability generations are explicit.** `availabilityKey` names the
+  committed facts read by adapter enabled/busy readers. Omitting it chooses a
+  conservative revision after every commit; simultaneous input and availability
+  changes still publish one revision.
+
+This will be the first public callable Action Binding shape. Its cross-copy brand
+is `hcifootprint.action-definition.v1`; that suffix versions the frozen branded
+record, independently of the npm major version. The existing navigation-graph
+`ActionDef.input` field remains unchanged; callable definitions deliberately use
+`inputSchema`.
+
 ## [1.13.0] - 2026-08-20
 
 ### Added

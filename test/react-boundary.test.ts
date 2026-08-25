@@ -1,20 +1,20 @@
 /**
- * THE NEGATIVE SCANS FOR THE SKIN — five properties src/react keeps by NOT
- * containing something.
+ * THE NEGATIVE SCANS FOR THE SKIN — properties src/react keeps by NOT
+ * containing something, plus one deliberately narrow execution exception.
  *
  * 1. ONE FOLDER RESOLVES REACT. The optional peer is only genuinely optional if a
  *    consumer who never writes `from 'hcifootprint/react'` never resolves it. That
  *    is a property of the whole `src/` tree, not of one file, so it is asserted as
  *    an inventory: the set of modules naming react must BE this folder.
- * 2. A LEAF OVER THE CORE. Everything src/react needs from the sensor is a TYPE,
- *    so the skin drags no watcher into a bundle and the two subpaths stay
- *    separable — the same construction the sensor uses over the engine.
+ * 2. A LEAF OVER THE CORE. Everything src/react needs from the sensor is a TYPE.
+ *    The high-level action hook reaches only the framework-neutral connection
+ *    and host-adapter leaves; no engine or sensor value crosses the boundary.
  * 3. NO GLOBALS. `lib: ["ES2022"]` already makes `document` a compile error; this
  *    catches the Node globals `@types/node` would happily let through.
- * 4. IT CANNOT REPORT. The skin never names `fire` and never names `invoke`: the
- *    one canonical door is the core's, and a binding that could write a row would
- *    be the second door that double-executes a human's click. It is an absent
- *    surface rather than a rule anyone has to remember.
+ * 4. LEGACY HOOKS CANNOT REPORT. The control and working skins retain their old
+ *    record-only/no-verdict promises. `useActionBinding` is the deliberate new
+ *    exception and may name exactly the core's continuation door — never fire or
+ *    a second direct invocation door.
  * 5. ITS PEER REFUSES NOBODY. Property 1 one layer down, in package.json instead
  *    of in the module graph: a consumer who never imports the skin must not even
  *    have their INSTALL refused over it.
@@ -28,6 +28,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const REACT_DIR = 'src/react';
+const ACTION_BINDING_FILE = `${REACT_DIR}/use-action-binding.ts`;
 
 /** Every .ts file under src/, so the inventory scan speaks for the whole tree. */
 function sourceFiles(dir: string): string[] {
@@ -75,13 +76,17 @@ describe('src/react is the ONLY place in the package that resolves react', () =>
   });
 });
 
-describe('the skin reaches the core through TYPES ONLY', () => {
+describe('the skin has one deliberate, narrow value path to the action core', () => {
   for (const file of reactFiles) {
-    it(`${file} value-imports nothing but react`, () => {
+    it(`${file} value-imports only react, local skin modules, or the two action leaves`, () => {
       for (const line of readFileSync(file, 'utf8').split('\n')) {
         if (!/^\s*import\s+(?!type\b)/.test(line)) continue;
-        expect(line, `value import of a library module in ${file}`).toMatch(/from 'react'|\.\/[a-z-]+\.js'/);
-        expect(line, `value import across the subpath boundary in ${file}`).not.toMatch(/\.\.\//);
+        expect(line, `value import of an unapproved library module in ${file}`).toMatch(
+          /from 'react'|\.\/[a-z-]+\.js'|\.\.\/action\/(connection|host-adapter)\.js'/,
+        );
+        if (/\.\.\//.test(line)) {
+          expect(file).toBe(ACTION_BINDING_FILE);
+        }
       }
       // A dynamic import would slip past the line scan entirely.
       expect(codeOf(file)).not.toMatch(/\bimport\s*\(/);
@@ -98,6 +103,9 @@ describe('the skin reaches the core through TYPES ONLY', () => {
     // pins. The list is written out rather than pattern-matched so that ADDING
     // one is a decision somebody makes in this file, not a diff nobody reads.
     expect([...named].sort()).toEqual([
+      '../action/connection.js',
+      '../action/host-adapter.js',
+      '../action/types.js',
       '../atom/types.js',
       '../sensor/control-index.js',
       '../sensor/dom-port.js',
@@ -120,8 +128,12 @@ describe('no globals — the half the compiler would let through', () => {
   }
 });
 
-describe('THE RECORD-ONLY PIN — the skin has no way to write a row', () => {
-  for (const file of reactFiles) {
+describe('THE RECORD-ONLY PIN — legacy hooks still have no way to write a row', () => {
+  const recordOnlyFiles = reactFiles.filter(
+    (file) => file !== ACTION_BINDING_FILE,
+  );
+
+  for (const file of recordOnlyFiles) {
     it(`${file} never fires and never names invoke`, () => {
       const code = codeOf(file);
       // Reporting belongs to the core, through the one port whose type makes an
@@ -132,10 +144,18 @@ describe('THE RECORD-ONLY PIN — the skin has no way to write a row', () => {
     });
   }
 
-  it('the subpath serves four runtime exports and not one more', async () => {
+  it('the action hook uses one continuation door, never fire or direct invoke', () => {
+    const code = codeOf(ACTION_BINDING_FILE);
+    expect(code).not.toMatch(/\.fire\s*\(/);
+    expect(code).not.toMatch(/\.invoke\s*\(/);
+    expect(code.match(/\.invokeContinuation\s*\(/g)).toHaveLength(1);
+  });
+
+  it('the subpath serves five runtime exports and not one more', async () => {
     const module = await import('../src/react/index.js');
     expect(Object.keys(module).sort()).toEqual([
       'ControlSurfaceProvider',
+      'useActionBinding',
       'useControl',
       'useControlSurface',
       'useWorking',

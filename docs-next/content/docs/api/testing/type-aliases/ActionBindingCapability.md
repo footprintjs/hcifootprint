@@ -1,0 +1,11 @@
+---
+title: ActionBindingCapability
+---
+
+# Type Alias: ActionBindingCapability
+
+> **ActionBindingCapability** = `"pointing"` \| `"agent-execution"` \| `"high-effect-verification"`
+
+Defined in: [src/action/contracts.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/action/contracts.ts#L67)
+
+A capability an integration explicitly asks one binding to provide.

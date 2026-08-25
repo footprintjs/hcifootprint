@@ -20,10 +20,16 @@ import type {
   StimulusKind,
   SyncResult,
 } from '../atom/types.js';
+import type { ActionBindingRef } from '../action/types.js';
 import type { BlockedBy, EdgeCoverage } from './binding-index.js';
 import type { Cadence } from './cadence.js';
 import type { ControlDeclaration } from './control-index.js';
-import type { SensorEvent, SensorRoot, SensorTimers } from './dom-port.js';
+import type {
+  SensorElement,
+  SensorEvent,
+  SensorRoot,
+  SensorTimers,
+} from './dom-port.js';
 
 /**
  * ONE CANONICAL DOOR, STATED IN THE TYPE SYSTEM.
@@ -271,6 +277,16 @@ export interface ControlAttachment {
 }
 
 /**
+ * Exact ownership projection for a connected action. It says only that this
+ * already-resolved interactive element reports through that binding; locators
+ * and execution remain on the binding protocol's canonical record.
+ */
+export interface BindingControlProjection {
+  readonly binding: ActionBindingRef;
+  readonly element: SensorElement;
+}
+
+/**
  * The handle `watchPage` returns.
  *
  * A named method rather than a bare closure because a framework binding stores it
@@ -285,4 +301,10 @@ export interface PageWatch {
   attach(control: ControlDeclaration): ControlAttachment;
   coverage(): Coverage;
   stop(): void;
+}
+
+/** A current watcher that can accept exact connection-owned projections. */
+export interface BindingAwarePageWatch extends PageWatch {
+  /** Make the sensor stand down for this exact connection-owned element only. */
+  projectBinding(projection: BindingControlProjection): ControlAttachment;
 }

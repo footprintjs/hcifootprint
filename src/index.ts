@@ -46,6 +46,87 @@ export type { RouteStep } from './graph/reach.js';
 // down what they were given.
 export type { CommitBundle } from 'footprintjs/advanced';
 export type { MCPToolDescription } from 'footprintjs';
+// Versioned Action Binding Protocol: one callable definition, many live
+// bindings, and structured identities for every join. This is the deliberate
+// v2 surface; the independent graph/session registration API remains supported.
+export {
+  actionDefinitionOf,
+  defineAction,
+  isDefinedAction,
+} from './action/definition.js';
+export type { DefineActionOptions } from './action/definition.js';
+export {
+  ActionInputValidationError,
+  connectAction,
+  createActionRuntime,
+} from './action/connection.js';
+export { assertBindingCoverage, isBindingCoverage } from './action/coverage.js';
+export {
+  composeActionInvocation,
+  resolveActionHost,
+} from './action/host-adapter.js';
+export type {
+  ActionAttachment,
+  ActionBindingRef,
+  ActionRuntime,
+  ActionRuntimeOptions,
+  ActionBindingSnapshot,
+  ActionBindingUpdate,
+  ActionAbandonmentAuthority,
+  ActionInputRef,
+  ActionInputSchemaAdapter,
+  ActionInputSchemaContext,
+  ActionInputSchemaResult,
+  ActionConnection,
+  ActionContractActivation,
+  ActionDefinitionContract,
+  ActionDefinitionRecord,
+  ActionDefinitionRef,
+  ActionGuardContract,
+  ActionEffectSettlement,
+  ActionEffectSettlementInput,
+  ActionInvocation,
+  ActionInvocationInput,
+  ActionInvocationMode,
+  ActionObservedInvocation,
+  ActionInvocationSettlement,
+  ActionInvoke,
+  ActionLifecycle,
+  ActionOffer,
+  ActionOfferFor,
+  BoundActionOffer,
+  InputlessActionOffer,
+  OpenActionOffer,
+  PrincipalActionPort,
+  ActionProgress,
+  ActionProgressDeclaration,
+  ActionProgressObservation,
+  ActionProgressSnapshot,
+  ActionOfferRef,
+  ActionTransitionSnapshot,
+  ActionTransitionRef,
+  ActionSettlementCapability,
+  ActionSettleContract,
+  BindingCoverage,
+  BindingProjection,
+  ConnectActionOptions,
+  DefinedAction,
+  HumanReporting,
+  ReadonlyActionDefinitionContract,
+} from './action/types.js';
+export type {
+  ActionHostAdapter,
+  ActionHostContext,
+  ActionHostListener,
+  ActionHostResolution,
+  ActionHostTargetResolution,
+  ActionHostUnresolvedReason,
+  ActionInvocationMiddleware,
+  ResolvedActionHost,
+  ResolvedActionHostTarget,
+  UnresolvedActionHost,
+  UnresolvedActionHostTarget,
+} from './action/host-adapter.js';
 // The same rule applied to a type this package's own signatures ACCEPT.
 // `WhereFilter` is the shape of every `when:` and `enabledWhen:` an app
 // authors, half of the exported `VerifyContract`, and the declared type of
@@ -54,7 +135,10 @@ export type { MCPToolDescription } from 'footprintjs';
 // chose and whose version they do not control.
 export type { WhereFilter } from 'footprintjs';
 export { Session } from './traverse/session.js';
-export type { RegisteredHandlers, RegisterHandlersOptions } from './traverse/session.js';
+export type {
+  RegisteredHandlers,
+  RegisterHandlersOptions,
+} from './traverse/session.js';
 // D21 — contextful actions: one wrapper at registration, and BOTH doors into an
 // action (the agent's fire, the app's own call) land in the same capture
 // envelope. `contextful.sense(anchor)` is the same idea with no handler to wrap.
@@ -95,7 +179,10 @@ export { REDACTED } from './traverse/redact-fields.js';
 // nothing from any router, so it needs no subpath of its own.
 export { fromRoutes } from './graph/sources/from-routes.js';
 export { fromReactRouter } from './graph/sources/from-react-router.js';
-export type { RouteObjectLike, ReactRouterOptions } from './graph/sources/from-react-router.js';
+export type {
+  RouteObjectLike,
+  ReactRouterOptions,
+} from './graph/sources/from-react-router.js';
 export { fromJourneys } from './graph/sources/from-journeys.js';
 export { fromLiveStore } from './graph/sources/from-live-store.js';
 export type {
@@ -137,11 +224,20 @@ export type {
   InteractionSessionOptions,
 } from './traverse/nav-session.js';
 // Registration + event handle types
-export type { SessionEventName, SessionEvents, ActionGroup, ActionHandle } from './atom/types.js';
+export type {
+  SessionEventName,
+  SessionEvents,
+  ActionGroup,
+  ActionHandle,
+} from './atom/types.js';
 export { PresenceIndex } from './presence/presence.js';
 export type { PresenceHandle } from './presence/presence.js';
 export { ActionRegistry } from './registry/registry.js';
-export type { Registration, ActionHandler } from './registry/registry.js';
+export type {
+  ActionHandler,
+  BindingRegistration,
+  Registration,
+} from './registry/registry.js';
 export { edgesToMCPTools, leaveJourneyTool } from './serve/mcp.js';
 // Serving mode — journeys as fixed tools, disclosure in results
 export { serveToAgent } from './serve/modes.js';
