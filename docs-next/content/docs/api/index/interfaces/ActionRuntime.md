@@ -22,7 +22,7 @@ Defined in: [src/action/types.ts:789](https://github.com/footprintjs/hcifootprin
 
 > **bindingFor**(`binding`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\> \| `undefined`
 
-Defined in: [src/action/types.ts:833](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L833)
+Defined in: [src/action/types.ts:846](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L846)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [src/action/types.ts:833](https://github.com/footprintjs/hcifootprin
 
 > **bindings**(`definition?`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\>[]
 
-Defined in: [src/action/types.ts:832](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L832)
+Defined in: [src/action/types.ts:845](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L845)
 
 #### Parameters
 
@@ -54,13 +54,27 @@ Defined in: [src/action/types.ts:832](https://github.com/footprintjs/hcifootprin
 
 ***
 
+### channelGaps()
+
+> **channelGaps**(): readonly [`ChannelGap`](/api/index/interfaces/ChannelGap)[]
+
+Defined in: [src/action/types.ts:805](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L805)
+
+Every kind somebody needed served and nothing could, counted.
+
+#### Returns
+
+readonly [`ChannelGap`](/api/index/interfaces/ChannelGap)[]
+
+***
+
 ### connect()
 
 #### Call Signature
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
-Defined in: [src/action/types.ts:799](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L799)
+Defined in: [src/action/types.ts:812](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L812)
 
 Connect a scalar binding whose exact payload is owned by a required live
 `options.input` reader.
@@ -97,7 +111,7 @@ Connect a scalar binding whose exact payload is owned by a required live
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>
 
-Defined in: [src/action/types.ts:815](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L815)
+Defined in: [src/action/types.ts:828](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L828)
 
 Connect without a bound input reader. Scalar definitions keep a required
 direct payload door; inputless/host definitions forbid `options.input`.
@@ -132,11 +146,32 @@ direct payload door; inputless/host definitions forbid `options.input`.
 
 ***
 
+### declareSurface()
+
+> **declareSurface**(`declaration`): [`SurfaceHandle`](/api/index/interfaces/SurfaceHandle)
+
+Defined in: [src/action/types.ts:795](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L795)
+
+Declare what one frontend surface can serve — collects and shows, by
+ kind, governed by the mounted catalog. One live surface per id.
+
+#### Parameters
+
+##### declaration
+
+[`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)
+
+#### Returns
+
+[`SurfaceHandle`](/api/index/interfaces/SurfaceHandle)
+
+***
+
 ### forgetTransition()
 
 > **forgetTransition**(`transition`): `boolean`
 
-Defined in: [src/action/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L838)
+Defined in: [src/action/types.ts:851](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L851)
 
 Release a fully settled transition from runtime history.
 
@@ -156,7 +191,7 @@ Release a fully settled transition from runtime history.
 
 > **forPrincipal**\<`P`\>(`principal`): [`PrincipalActionPort`](/api/index/interfaces/PrincipalActionPort)\<`P`\>
 
-Defined in: [src/action/types.ts:794](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L794)
+Defined in: [src/action/types.ts:807](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L807)
 
 Bind offer generation and invocation to one explicit reader principal.
 
@@ -193,11 +228,33 @@ What this runtime can say about its own kind governance — mounted or
 
 ***
 
+### surfacesFor()
+
+> **surfacesFor**(`query`): readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
+
+Defined in: [src/action/types.ts:801](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L801)
+
+Who can collect this kind, or show it — and a MISS is recorded, not
+ just returned empty: the degradation record is the backlog written by
+ actual usage.
+
+#### Parameters
+
+##### query
+
+[`SurfaceQuery`](/api/index/type-aliases/SurfaceQuery)
+
+#### Returns
+
+readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
+
+***
+
 ### transitionFor()
 
 > **transitionFor**(`transition`): [`ActionTransitionSnapshot`](/api/index/interfaces/ActionTransitionSnapshot) \| `undefined`
 
-Defined in: [src/action/types.ts:834](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L834)
+Defined in: [src/action/types.ts:847](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L847)
 
 #### Parameters
 

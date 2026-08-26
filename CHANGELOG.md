@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.3.0] - 2026-08-26
+
+### Added
+
+- **Channels — surfaces declare what they can serve, and a miss is a counted
+  fact.** `runtime.declareSurface({ surface, node, collects, shows })` says by
+  KIND what one frontend surface can obtain from a person and what it can
+  render; `runtime.surfacesFor({ collects } | { shows })` answers who can
+  serve a kind. An action never names a page and a surface never names an
+  action — both name kinds, governed by the mounted catalog with the same
+  connect-time refusal a definition gets, and a QUERY is governed too,
+  because otherwise the gap record fills with typos and stops meaning
+  anything. The degradation record is the point, not the fallback:
+  `runtime.channelGaps()` holds every kind somebody needed served when
+  nothing could, COUNTED — asked-once and asked-forty-times-a-day are
+  different priorities wearing the same row — so a month of degraded turns
+  reads back as a product backlog written by actual usage. One live surface
+  per id, duplicate refused; retirement is idempotent, owned by its handle,
+  and can never take down a successor declared under the same id.
+- **The skin contract** (`docs: bring your own skin`). The React hook is
+  sugar, not the seam — a consumer writes their own framework skin against
+  `connectAction` and the host adapter, and the library owes them the four
+  laws a skin must uphold: publish only after commit; advance the generation
+  when committed input changes (the shipped stale-input defect, by name);
+  retire on unmount and revision change; never hold "the current
+  transition". The dependency-free Angular test is named as the template for
+  proving one. There is deliberately no `strategy` option on the hook: a
+  strategy parameter inside a skin would be a second extension point
+  duplicating the seam the core already is.
+
 ## [2.2.0] - 2026-08-26
 
 ### Added

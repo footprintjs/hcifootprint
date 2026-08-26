@@ -6,7 +6,7 @@ title: declareKinds
 
 > **declareKinds**(...`contributions`): [`DeclaredKindCatalog`](/api/index/interfaces/DeclaredKindCatalog)
 
-Defined in: src/action/kinds.ts:114
+Defined in: [src/action/kinds.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L114)
 
 Build the default catalog from one or more CONTRIBUTIONS — separate
 objects so teams own their files and the runtime owns the merge. One

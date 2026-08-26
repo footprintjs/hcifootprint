@@ -790,6 +790,19 @@ export interface ActionRuntime {
   /** What this runtime can say about its own kind governance — mounted or
    *  not, the fingerprint, every kind seen, and the ungoverned remainder. */
   kindGovernance(): import('./kinds.js').KindGovernanceReport;
+  /** Declare what one frontend surface can serve — collects and shows, by
+   *  kind, governed by the mounted catalog. One live surface per id. */
+  declareSurface(
+    declaration: import('./channels.js').SurfaceDeclaration,
+  ): import('./channels.js').SurfaceHandle;
+  /** Who can collect this kind, or show it — and a MISS is recorded, not
+   *  just returned empty: the degradation record is the backlog written by
+   *  actual usage. */
+  surfacesFor(
+    query: import('./channels.js').SurfaceQuery,
+  ): readonly import('./channels.js').SurfaceDeclaration[];
+  /** Every kind somebody needed served and nothing could, counted. */
+  channelGaps(): readonly import('./channels.js').ChannelGap[];
   /** Bind offer generation and invocation to one explicit reader principal. */
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P>;
   /**

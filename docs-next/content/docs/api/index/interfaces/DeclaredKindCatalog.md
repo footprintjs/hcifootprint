@@ -4,7 +4,7 @@ title: DeclaredKindCatalog
 
 # Interface: DeclaredKindCatalog
 
-Defined in: src/action/kinds.ts:85
+Defined in: [src/action/kinds.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L85)
 
 The concrete default — enumerable, frozen, fingerprinted.
 
@@ -18,7 +18,7 @@ The concrete default — enumerable, frozen, fingerprinted.
 
 > `readonly` **fingerprint**: `string`
 
-Defined in: src/action/kinds.ts:86
+Defined in: [src/action/kinds.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L86)
 
 A stable content hash of the vocabulary — sorted names with revisions.
 Optional DATA rather than a third method: a transport carries it so a
@@ -37,7 +37,7 @@ layer; the fingerprint exists now so wires can start carrying it.
 
 > **describe**(`kind`): [`KindRecord`](/api/index/interfaces/KindRecord) \| `undefined`
 
-Defined in: src/action/kinds.ts:65
+Defined in: [src/action/kinds.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L65)
 
 #### Parameters
 
@@ -59,7 +59,7 @@ Defined in: src/action/kinds.ts:65
 
 > **has**(`kind`): `boolean`
 
-Defined in: src/action/kinds.ts:64
+Defined in: [src/action/kinds.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L64)
 
 #### Parameters
 
@@ -81,7 +81,7 @@ Defined in: src/action/kinds.ts:64
 
 > **list**(): readonly [`KindRecord`](/api/index/interfaces/KindRecord)[]
 
-Defined in: src/action/kinds.ts:90
+Defined in: [src/action/kinds.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L90)
 
 Every kind, sorted — for tooling, docs, and the degradation record.
  On the CONCRETE catalog only, never the interface: a remote adapter

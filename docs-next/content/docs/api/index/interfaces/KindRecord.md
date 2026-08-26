@@ -4,7 +4,7 @@ title: KindRecord
 
 # Interface: KindRecord
 
-Defined in: src/action/kinds.ts:38
+Defined in: [src/action/kinds.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L38)
 
 What a catalog knows about one kind. Frozen; returned by identity.
 
@@ -14,7 +14,7 @@ What a catalog knows about one kind. Frozen; returned by identity.
 
 > `readonly` `optional` **docs?**: `string`
 
-Defined in: src/action/kinds.ts:50
+Defined in: [src/action/kinds.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L50)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: src/action/kinds.ts:50
 
 > `readonly` **kind**: `string`
 
-Defined in: src/action/kinds.ts:39
+Defined in: [src/action/kinds.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L39)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: src/action/kinds.ts:39
 
 > `readonly` `optional` **revision?**: `number`
 
-Defined in: src/action/kinds.ts:47
+Defined in: [src/action/kinds.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L47)
 
 The vocabulary's own version of this MEANING. Kind names are forever;
 their shapes evolve — and mutable meaning under a stable name is the
@@ -44,6 +44,6 @@ same name refuse loudly instead of matching silently.
 
 > `readonly` `optional` **schema?**: `unknown`
 
-Defined in: src/action/kinds.ts:49
+Defined in: [src/action/kinds.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L49)
 
 Optional payload shape, in whatever schema convention the app uses.

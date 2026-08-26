@@ -4,7 +4,7 @@ title: KindGovernanceReport
 
 # Interface: KindGovernanceReport
 
-Defined in: src/action/kinds.ts:180
+Defined in: [src/action/kinds.ts:180](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L180)
 
 What a runtime can say about its own kind governance — the visible row
 that keeps "no catalog mounted" from reading like "every kind checked".
@@ -17,7 +17,7 @@ family keeps curing; this report is the cure applied to itself.
 
 > `readonly` `optional` **fingerprint?**: `string`
 
-Defined in: src/action/kinds.ts:182
+Defined in: [src/action/kinds.ts:182](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L182)
 
 ***
 
@@ -25,7 +25,7 @@ Defined in: src/action/kinds.ts:182
 
 > `readonly` **kindsSeen**: readonly `string`[]
 
-Defined in: src/action/kinds.ts:184
+Defined in: [src/action/kinds.ts:184](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L184)
 
 Every kind the connected definitions declared, sorted.
 
@@ -35,7 +35,7 @@ Every kind the connected definitions declared, sorted.
 
 > `readonly` **mounted**: `boolean`
 
-Defined in: src/action/kinds.ts:181
+Defined in: [src/action/kinds.ts:181](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L181)
 
 ***
 
@@ -43,7 +43,7 @@ Defined in: src/action/kinds.ts:181
 
 > `readonly` **ungoverned**: readonly `string`[]
 
-Defined in: src/action/kinds.ts:188
+Defined in: [src/action/kinds.ts:188](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L188)
 
 The kinds seen while NO catalog was mounted — declared, and governed by
  nobody. Empty when a catalog is mounted, because an unknown kind is

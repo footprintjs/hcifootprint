@@ -11,6 +11,12 @@ import type {
   KindCatalog,
   KindGovernanceReport,
 } from './kinds.js';
+import type {
+  ChannelGap,
+  SurfaceDeclaration,
+  SurfaceHandle,
+  SurfaceQuery,
+} from './channels.js';
 import { assertBindingCoverage } from './coverage.js';
 import type {
   ActionDefinitionRef,
@@ -275,6 +281,8 @@ class DefaultActionRuntime implements ActionRuntime {
   readonly #kindMemo = new Map<string, boolean>();
   readonly #kindsSeen = new Set<string>();
   readonly #ungovernedKinds = new Set<string>();
+  readonly #surfaces = new Map<string, SurfaceDeclaration>();
+  readonly #channelGaps = new Map<string, { kind: string; channel: 'collects' | 'shows'; asks: number }>();
   readonly #registry = new ActionRegistry();
   readonly #offers = new Map<string, ActionOffer>();
   readonly #offerByBinding = new Map<string, Map<Principal, CachedOffer>>();
@@ -371,22 +379,124 @@ class DefaultActionRuntime implements ActionRuntime {
     }
     if (contract.produces !== undefined) declared.push(contract.produces.kind);
     for (const kind of declared) {
-      this.#kindsSeen.add(kind);
-      if (this.#kinds === undefined) {
-        this.#ungovernedKinds.add(kind);
-        continue;
-      }
-      let known = this.#kindMemo.get(kind);
-      if (known === undefined) {
-        known = this.#kinds.has(kind) === true;
-        this.#kindMemo.set(kind, known);
-      }
-      if (!known) {
-        throw new Error(
-          `hcifootprint: '${record.ref.definitionId}' declares kind '${kind}', which the mounted catalog does not govern. Declare it in the catalog, or use a kind the catalog holds — matching is exact identity, and an unknown kind would make every future match a guess.`,
-        );
+      this.#governKind(kind, `'${record.ref.definitionId}' declares`);
+    }
+  }
+
+  /** One kind through governance: seen always; refused when a mounted
+   *  catalog does not hold it; recorded ungoverned when nothing is mounted.
+   *  Memoized because a mounted catalog is immutable — consulted once per
+   *  kind, ever. */
+  #governKind(kind: string, owner: string): void {
+    this.#kindsSeen.add(kind);
+    if (this.#kinds === undefined) {
+      this.#ungovernedKinds.add(kind);
+      return;
+    }
+    let known = this.#kindMemo.get(kind);
+    if (known === undefined) {
+      known = this.#kinds.has(kind) === true;
+      this.#kindMemo.set(kind, known);
+    }
+    if (!known) {
+      throw new Error(
+        `hcifootprint: ${owner} kind '${kind}', which the mounted catalog does not govern. Declare it in the catalog, or use a kind the catalog holds — matching is exact identity, and an unknown kind would make every future match a guess.`,
+      );
+    }
+  }
+
+  declareSurface(declaration: SurfaceDeclaration): SurfaceHandle {
+    if (
+      declaration === null ||
+      typeof declaration !== 'object' ||
+      typeof declaration.surface !== 'string' ||
+      declaration.surface.trim().length === 0 ||
+      typeof declaration.node !== 'string' ||
+      declaration.node.trim().length === 0
+    ) {
+      throw new TypeError(
+        'hcifootprint: declareSurface() needs a record with a non-empty surface id and node path.',
+      );
+    }
+    if (this.#surfaces.has(declaration.surface)) {
+      throw new Error(
+        `hcifootprint: surface '${declaration.surface}' is already declared and live — one id, one surface. Retire the live one first, or name this one for what it actually is.`,
+      );
+    }
+    const collects = Object.freeze([...(declaration.collects ?? [])]);
+    const shows = Object.freeze([...(declaration.shows ?? [])]);
+    for (const kind of collects) {
+      this.#governKind(kind, `surface '${declaration.surface}' collects`);
+    }
+    for (const kind of shows) {
+      this.#governKind(kind, `surface '${declaration.surface}' shows`);
+    }
+    const frozen: SurfaceDeclaration = Object.freeze({
+      surface: declaration.surface,
+      node: declaration.node,
+      collects,
+      shows,
+    });
+    this.#surfaces.set(frozen.surface, frozen);
+    let live = true;
+    return Object.freeze({
+      declaration: frozen,
+      retire: () => {
+        // Idempotent and OWNED: only the surface this handle declared is
+        // retired — a successor under the same id belongs to its own handle,
+        // and a stale retire must never take it down.
+        if (!live) return false;
+        live = false;
+        if (this.#surfaces.get(frozen.surface) === frozen) {
+          this.#surfaces.delete(frozen.surface);
+        }
+        return true;
+      },
+    });
+  }
+
+  surfacesFor(query: SurfaceQuery): readonly SurfaceDeclaration[] {
+    const collecting = 'collects' in query;
+    const kind = collecting
+      ? (query as { collects: string }).collects
+      : (query as { shows: string }).shows;
+    if (typeof kind !== 'string' || kind.trim().length === 0) {
+      throw new TypeError(
+        'hcifootprint: surfacesFor() needs { collects: kind } or { shows: kind } with a non-empty kind.',
+      );
+    }
+    // A query is kind-governed like a declaration — otherwise the gap
+    // record fills with typos and stops meaning anything.
+    this.#governKind(kind, 'surfacesFor() asks about');
+    const channel = collecting ? ('collects' as const) : ('shows' as const);
+    const matches = [...this.#surfaces.values()].filter((surface) =>
+      (collecting ? surface.collects : surface.shows)?.includes(kind),
+    );
+    if (matches.length === 0) {
+      // THE DEGRADATION RECORD — the ask is a fact worth keeping. An empty
+      // answer alone would be absence rendered as silence; the counted gap
+      // is what turns a month of degraded turns into a backlog.
+      const key = `${channel}:${kind}`;
+      const row = this.#channelGaps.get(key);
+      if (row === undefined) {
+        this.#channelGaps.set(key, { kind, channel, asks: 1 });
+      } else {
+        row.asks += 1;
       }
     }
+    return Object.freeze(matches);
+  }
+
+  channelGaps(): readonly ChannelGap[] {
+    return Object.freeze(
+      [...this.#channelGaps.values()]
+        .map((row) => Object.freeze({ ...row }))
+        .sort((a, b) =>
+          a.kind === b.kind
+            ? a.channel.localeCompare(b.channel)
+            : a.kind.localeCompare(b.kind),
+        ),
+    );
   }
 
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P> {

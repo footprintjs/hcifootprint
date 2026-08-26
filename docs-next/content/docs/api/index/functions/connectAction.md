@@ -8,7 +8,7 @@ title: connectAction
 
 > **connectAction**\<`F`, `Id`, `Mode`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
-Defined in: [src/action/connection.ts:210](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L210)
+Defined in: [src/action/connection.ts:216](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L216)
 
 Connect one stable live binding of an already-declared callable action.
 
@@ -56,7 +56,7 @@ inputless and host definitions forbid that reader.
 
 > **connectAction**\<`F`, `Id`, `Mode`\>(`runtime`, `definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>
 
-Defined in: [src/action/connection.ts:223](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L223)
+Defined in: [src/action/connection.ts:229](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L229)
 
 Connect one stable live binding of an already-declared callable action.
 

@@ -1,0 +1,65 @@
+---
+title: Bring your own skin
+description: The React hook is sugar, not the seam — write a framework skin of your own against the same primitives, and the four laws it must uphold.
+---
+
+## The hook is one strategy, already written
+
+`useActionBinding` is a convenience composed entirely from public primitives —
+`connectAction`, `connection.update()`, `connection.attach()`, and the
+`ActionHostAdapter` contract. Nothing it does is privileged, and the
+dependency-free Angular lifecycle test proves the core needs no framework at
+all. A consumer who wants different React semantics — signals, an external
+store, Suspense-aware publication — or a Vue or Solid integration, writes a
+skin of their own against the same primitives. Zero library changes.
+
+There is deliberately **no `strategy` option on the hook**. A strategy
+parameter inside `useActionBinding` would be a seam inside a skin — a second
+extension point duplicating the one the core already is, and two ways to
+customize the same behaviour eventually disagree. The adapter seam *is* the
+strategy pattern; the shipped hook is just one strategy already written.
+
+```tsx
+// A consumer's own skin, in their own idiom.
+function useMyActionBinding(runtime, definition, options) {
+  const connection = useMemo(
+    () => connectAction(runtime, definition, {
+      node: options.node,
+      instance: options.instance,
+    }),
+    [runtime, definition, options.instance],
+  );
+  useEffect(() => () => connection.disconnect(), [connection]);
+  useEffect(() => { connection.update({}); }); // their commit barrier
+  return connection;
+}
+```
+
+## The skin contract — four laws, each paid for
+
+The library owes a skin author the laws, not the code. Each of these was
+learned from a recorded failure; the second shipped as a real defect before
+it was a rule.
+
+1. **Publish only after commit.** An abandoned render must never become
+   readable by a live connection. Facts a skin hands the runtime are
+   committed facts, not speculative ones.
+2. **Advance the generation when committed input changes.** Otherwise an
+   offer minted against the previous committed props can be invoked reading
+   the newer input — violating "what was offered is what was invoked". This
+   is not hypothetical: the shipped React skin had exactly this bug.
+3. **Retire on unmount and on revision change.** An offer must never name a
+   control that stopped existing; the control's absence is the skin's to
+   report, immediately.
+4. **Never hold "the current transition".** Press twice quickly, and a
+   stored current lets the second press's settlement land on the first
+   press's record. Transitions know their connection; nothing points the
+   other way.
+
+## Proving a skin
+
+The Angular test (`test/angular-action-binding.test.ts`) is the template: it
+drives the full connect → offer → invoke → settle lifecycle with no framework
+dependency, pinning each law behaviourally. Copy its shape for your skin —
+a skin that upholds the contract passes the same assertions; a skin that
+merely *seems* to work has not been asked the questions yet.

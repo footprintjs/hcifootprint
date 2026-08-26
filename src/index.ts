@@ -353,3 +353,10 @@ export type {
   KindGovernanceReport,
   KindRecord,
 } from './action/kinds.js';
+
+export type {
+  ChannelGap,
+  SurfaceDeclaration,
+  SurfaceHandle,
+  SurfaceQuery,
+} from './action/channels.js';

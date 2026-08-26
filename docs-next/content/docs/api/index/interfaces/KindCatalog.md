@@ -4,7 +4,7 @@ title: KindCatalog
 
 # Interface: KindCatalog
 
-Defined in: src/action/kinds.ts:63
+Defined in: [src/action/kinds.ts:63](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L63)
 
 The governance contract a runtime mounts. Query-shaped, deliberately: the
 runtime asks questions, the catalog never reaches into matching — one
@@ -25,7 +25,7 @@ default enforces the invariant by construction.
 
 > `readonly` `optional` **fingerprint?**: `string`
 
-Defined in: src/action/kinds.ts:74
+Defined in: [src/action/kinds.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L74)
 
 A stable content hash of the vocabulary — sorted names with revisions.
 Optional DATA rather than a third method: a transport carries it so a
@@ -40,7 +40,7 @@ layer; the fingerprint exists now so wires can start carrying it.
 
 > **describe**(`kind`): [`KindRecord`](/api/index/interfaces/KindRecord) \| `undefined`
 
-Defined in: src/action/kinds.ts:65
+Defined in: [src/action/kinds.ts:65](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L65)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: src/action/kinds.ts:65
 
 > **has**(`kind`): `boolean`
 
-Defined in: src/action/kinds.ts:64
+Defined in: [src/action/kinds.ts:64](https://github.com/footprintjs/hcifootprint/blob/main/src/action/kinds.ts#L64)
 
 #### Parameters
 
