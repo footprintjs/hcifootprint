@@ -49,6 +49,7 @@ title: index
 - [ActionTransitionRef](/api/index/interfaces/ActionTransitionRef)
 - [ActionTransitionSnapshot](/api/index/interfaces/ActionTransitionSnapshot)
 - [ActionWalk](/api/index/interfaces/ActionWalk)
+- [ActionWalkInterruption](/api/index/interfaces/ActionWalkInterruption)
 - [ActionWalkRef](/api/index/interfaces/ActionWalkRef)
 - [Affordance](/api/index/interfaces/Affordance)
 - [AnchorDocument](/api/index/interfaces/AnchorDocument)

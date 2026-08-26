@@ -232,3 +232,109 @@ describe('walk execution — every step re-derives its own truth', () => {
     expect(right.completed).toBe(true);
   });
 });
+
+describe('the breakable walk — the human door, with the reason on the record', () => {
+  it('an interrupt lands at the next step boundary: the in-flight step finishes, the rest never run, and the manifest says WHO and WHY', async () => {
+    const runtime = createActionRuntime();
+    const seen: string[] = [];
+    let walkRef: { interrupt(input: { by: 'user'; reason: string }): boolean };
+    const first = defineAction('break.first', {
+      does: 'The person presses stop while this step is running',
+      invocation: 'inputless',
+      mutate: () => {
+        // In-flight self-interrupt — the hardest timing: the break arrives
+        // DURING a step. It must not tear this transition; it takes effect
+        // before the next one.
+        walkRef.interrupt({ by: 'user', reason: 'wrong array — I meant NORTHWIND-01' });
+        seen.push('first ran to completion');
+      },
+    });
+    const second = defineAction('break.second', {
+      does: 'Never reached once the person has spoken',
+      invocation: 'inputless',
+      mutate: () => seen.push('second must not run'),
+    });
+    connectAction(runtime, first, { node: 'break' });
+    connectAction(runtime, second, { node: 'break' });
+
+    const walk = beginWalk(runtime, 'agent');
+    walkRef = walk;
+    const rowsSeen: string[] = [];
+    const manifest = await walk.run(
+      [{ action: first }, { action: second }],
+      { onRow: (row) => rowsSeen.push(`${String(row.step)}:${row.status}`) },
+    );
+
+    expect(seen).toEqual(['first ran to completion']);
+    expect(manifest.rows.map((row) => row.status)).toEqual([
+      'ran',
+      'never-reached',
+    ]);
+    expect(manifest.interrupted).toEqual({
+      by: 'user',
+      reason: 'wrong array — I meant NORTHWIND-01',
+      beforeStep: 1,
+    });
+    expect(manifest.completed).toBe(false);
+    // The FE's live loop saw every row as it landed.
+    expect(rowsSeen).toEqual(['0:ran', '1:never-reached']);
+
+    // The WALK survives the break — the person corrected the route, they
+    // did not end the turn. The replan continues under the same walk id.
+    const replanned = await walk.run([{ action: second }]);
+    expect(replanned.completed).toBe(true);
+    expect(replanned.interrupted).toBeUndefined();
+    expect(walk.record().manifests).toHaveLength(2);
+  });
+
+  it('an interrupt armed BEFORE the run is consumed at step zero — the intent stands', async () => {
+    const runtime = createActionRuntime();
+    let performed = 0;
+    const step = defineAction('break.armed-early', {
+      does: 'Must not run at all',
+      invocation: 'inputless',
+      mutate: () => {
+        performed += 1;
+      },
+    });
+    connectAction(runtime, step, { node: 'break' });
+    const walk = beginWalk(runtime, 'agent');
+    expect(walk.interrupt({ by: 'user', reason: 'changed my mind' })).toBe(true);
+    expect(walk.interrupt({ by: 'user', reason: 'still changed' })).toBe(false);
+
+    const manifest = await walk.run([{ action: step }]);
+    expect(performed).toBe(0);
+    expect(manifest.interrupted?.beforeStep).toBe(0);
+    expect(manifest.rows[0]!.status).toBe('never-reached');
+  });
+
+  it('a break without a reason is refused — replanning blind is how the model replans the same thing', () => {
+    const runtime = createActionRuntime();
+    const walk = beginWalk(runtime, 'agent');
+    expect(() =>
+      walk.interrupt({ by: 'user', reason: '' }),
+    ).toThrow(/needs a non-empty reason/);
+    expect(() =>
+      walk.interrupt({ by: '' as 'user', reason: 'valid reason' }),
+    ).toThrow(/needs `by`/);
+  });
+
+  it('a throwing onRow listener never changes what the walk does or records', async () => {
+    const runtime = createActionRuntime();
+    const fine = defineAction('break.listener-proof', {
+      does: 'Runs regardless of a broken observer',
+      invocation: 'inputless',
+      mutate: () => 'done',
+    });
+    connectAction(runtime, fine, { node: 'break' });
+    const manifest = await beginWalk(runtime, 'agent').run(
+      [{ action: fine }],
+      {
+        onRow: () => {
+          throw new Error('a broken listener is its own problem');
+        },
+      },
+    );
+    expect(manifest.completed).toBe(true);
+  });
+});

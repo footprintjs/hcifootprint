@@ -35,6 +35,11 @@ describe('useActionBinding bundle boundary', () => {
       'src/action/connection.ts',
       'src/action/coverage.ts',
       'src/action/host-adapter.ts',
+      // The 2.4 split moved withObserverCapture into its own leaf — a new
+      // NAME in this list, not new weight: the same bytes that lived inside
+      // connection.ts before, now attributed to their own concern. The laws
+      // stand unchanged below: no traverse/, no sensor/, and the byte cap.
+      'src/action/observer-capture.ts',
       'src/react/use-action-binding.ts',
     ]);
     for (const forbidden of [

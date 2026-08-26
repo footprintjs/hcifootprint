@@ -342,6 +342,7 @@ export type {
   ActionPlanRowStatus,
   ActionPlanStep,
   ActionWalk,
+  ActionWalkInterruption,
   ActionWalkRef,
 } from './action/walk.js';
 

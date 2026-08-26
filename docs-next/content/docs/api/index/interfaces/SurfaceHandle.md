@@ -4,7 +4,7 @@ title: SurfaceHandle
 
 # Interface: SurfaceHandle
 
-Defined in: src/action/channels.ts:30
+Defined in: [src/action/channels.ts:30](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L30)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/channels.ts:30
 
 > `readonly` **declaration**: [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)
 
-Defined in: src/action/channels.ts:31
+Defined in: [src/action/channels.ts:31](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L31)
 
 ## Methods
 
@@ -20,7 +20,7 @@ Defined in: src/action/channels.ts:31
 
 > **retire**(): `boolean`
 
-Defined in: src/action/channels.ts:35
+Defined in: [src/action/channels.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L35)
 
 Retiring is idempotent and final: a retired surface serves no match,
  and its id may be declared again by a successor. Returns whether this

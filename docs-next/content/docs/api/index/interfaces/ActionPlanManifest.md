@@ -4,7 +4,7 @@ title: ActionPlanManifest
 
 # Interface: ActionPlanManifest
 
-Defined in: [src/action/walk.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L83)
+Defined in: [src/action/walk.ts:99](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L99)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/action/walk.ts:83](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **completed**: `boolean`
 
-Defined in: [src/action/walk.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L88)
+Defined in: [src/action/walk.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L108)
 
 Every row ran AND performed. A manifest that said "failed" while the
  screen sits two steps along would be worse than no batching.
@@ -23,7 +23,7 @@ Every row ran AND performed. A manifest that said "failed" while the
 
 > `readonly` **counts**: `object`
 
-Defined in: [src/action/walk.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L89)
+Defined in: [src/action/walk.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L109)
 
 #### neverReached
 
@@ -43,11 +43,23 @@ Defined in: [src/action/walk.ts:89](https://github.com/footprintjs/hcifootprint/
 
 ***
 
+### interrupted?
+
+> `readonly` `optional` **interrupted?**: [`ActionWalkInterruption`](/api/index/interfaces/ActionWalkInterruption)
+
+Defined in: [src/action/walk.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L105)
+
+Present when a person stopped this plan — distinct from a refused row,
+ because "the plan was wrong" and "the person knows something the plan
+ didn't" must be treated completely differently by whoever replans.
+
+***
+
 ### rows
 
 > `readonly` **rows**: readonly [`ActionPlanRow`](/api/index/interfaces/ActionPlanRow)[]
 
-Defined in: [src/action/walk.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L85)
+Defined in: [src/action/walk.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L101)
 
 ***
 
@@ -55,4 +67,4 @@ Defined in: [src/action/walk.ts:85](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **walk**: [`ActionWalkRef`](/api/index/interfaces/ActionWalkRef)
 
-Defined in: [src/action/walk.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L84)
+Defined in: [src/action/walk.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L100)

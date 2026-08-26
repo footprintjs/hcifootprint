@@ -535,3 +535,16 @@ Green tests prove only what their assertions distinguish. Tests in this change
 must distinguish structured identity from string reconstruction, exact binding
 invocation from definition-level dispatch, invocation completion from effect
 verification, and an active contract from a declaration that merely exists.
+
+## Decision: subpath doors at 3.0
+
+Recorded 2026-08-26, spent later. The root barrel serves ~250 names — fine
+today, a scale smell tomorrow. The remedy is subpath doors
+(`hcifootprint/action`, `hcifootprint/kinds`, the way `/react` already
+works), and moving exports is breaking — so it is a 3.0 decision to spend
+ONCE, never nibbled at through deprecation drips.
+
+Until then the fence is `test/barrel-surface.test.ts`: every addition to the
+root surface is a deliberate edit that answers "why the root, and not a
+subpath at 3.0?", and removals are refused outright — a removal IS the 3.0
+move, and it does not happen by accident.

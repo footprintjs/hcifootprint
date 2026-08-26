@@ -17,6 +17,15 @@ The map, one file per concern:
 | `walk.ts` | L2: plans, walks, manifests | batched is not blind — every step re-derives its offer at its own turn; partial execution is a legible manifest because screen actions cannot be rolled back |
 | `kinds.ts` | the governed vocabulary | two teams declaring `array` to mean different things, caught at connect time; the catalog is immutable, so it is memoized — consulted once per kind, ever |
 | `channels.ts` | surfaces and the degradation record | a miss is a COUNTED fact (`channelGaps()`) — a month of degraded turns reads back as a backlog written by actual usage |
+| `stored.ts` | the runtime's internal DATA shapes | data separated from logic — one shape, one owner, many operators |
+| `progress-ledger.ts` | declared stages, observed and closed | owns `unreported` — declared minus observed, computed at close |
+| `settlement.ts` | outcome snapshots and abandonment authority | `abandoned` needs an EXPLICIT authority; late evidence is kept and quoted |
+| `input-validation.ts` | one deliberate payload, checked pre-handler | a failing payload refuses BEFORE application code runs, never after it half-ran |
+| `principals.ts` | who is asking, and the verdict | computed in one place so offers and invocation re-checks cannot drift |
+| `authoring.ts` | refusals at the declaration door | teaching sentences where the developer is looking |
+| `binding-facts.ts` | what a binding claims right now | readers, never snapshots |
+| `declarations.ts` | freeze and snapshot what was declared | a declaration is retained exactly as captured |
+| `observer-capture.ts` | observer generation snapshots | capture before behavior, without changing the callback |
 
 Laws every file upholds (the design doc `docs/design/action-binding-protocol.md` carries the full argument):
 

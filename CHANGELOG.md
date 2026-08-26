@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.4.0] - 2026-08-26
+
+### Added
+
+- **The breakable walk — the human door, with the reason on the record.**
+  `walk.interrupt({ by, reason })` stops a plan at the next step boundary;
+  the in-flight step finishes and settles normally, because an L1 transition
+  is atomic — L2 stops future steps, L1 transitions are never torn. The
+  manifest carries `interrupted: { by, reason, beforeStep }`, distinct from a
+  refused row, because "the plan was wrong" and "the person knows something
+  the plan didn't" must be treated completely differently by whoever
+  replans. The reason is REQUIRED — a break without one leaves the model
+  replanning blind, which is how it replans the same thing. The walk
+  survives the break (replanning continues under the same walk id), an
+  interrupt armed between plans is consumed at the next run's step zero —
+  the intent stands — and `run(steps, { onRow })` streams rows as they land:
+  the FE's live loop, and where the stop control belongs, beside it. A
+  throwing listener never changes what the walk does or records.
+
+### Changed
+
+- **`connection.ts` split by concern: 2,614 → 1,891 lines, nine small units
+  extracted** — `stored` (the internal data shapes; data separated from
+  logic, one shape one owner many operators), `progress-ledger`,
+  `settlement`, `input-validation`, `principals`, `authoring`,
+  `binding-facts`, `declarations`, `observer-capture` — each with its own
+  header stating why it exists, mapped in `src/action/README.md`. Verbatim
+  moves, zero behaviour change, all 3,033 tests green. Walk ids are now
+  per-runtime rather than module-global (a correlation nicety, not a
+  security fix). And the 3.0 subpath-door decision is RECORDED with a CI
+  fence: `test/barrel-surface.test.ts` pins the root surface so growth is a
+  deliberate edit and shrink waits for the major — a decision that cannot
+  drift is one that does not need re-arguing.
+
 ## [2.3.1] - 2026-08-26
 
 ### Documentation

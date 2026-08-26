@@ -4,7 +4,7 @@ title: SurfaceDeclaration
 
 # Interface: SurfaceDeclaration
 
-Defined in: src/action/channels.ts:19
+Defined in: [src/action/channels.ts:19](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L19)
 
 What one surface can serve. Kinds, never actions; a node, never a URL.
 
@@ -14,7 +14,7 @@ What one surface can serve. Kinds, never actions; a node, never a URL.
 
 > `readonly` `optional` **collects?**: readonly `string`[]
 
-Defined in: src/action/channels.ts:25
+Defined in: [src/action/channels.ts:25](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L25)
 
 Kinds this surface can obtain from a person.
 
@@ -24,7 +24,7 @@ Kinds this surface can obtain from a person.
 
 > `readonly` **node**: `string`
 
-Defined in: src/action/channels.ts:23
+Defined in: [src/action/channels.ts:23](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L23)
 
 Where it lives in the application graph.
 
@@ -34,7 +34,7 @@ Where it lives in the application graph.
 
 > `readonly` `optional` **shows?**: readonly `string`[]
 
-Defined in: src/action/channels.ts:27
+Defined in: [src/action/channels.ts:27](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L27)
 
 Kinds this surface can render.
 
@@ -44,6 +44,6 @@ Kinds this surface can render.
 
 > `readonly` **surface**: `string`
 
-Defined in: src/action/channels.ts:21
+Defined in: [src/action/channels.ts:21](https://github.com/footprintjs/hcifootprint/blob/main/src/action/channels.ts#L21)
 
 The surface's own id — refused when a live surface already holds it.

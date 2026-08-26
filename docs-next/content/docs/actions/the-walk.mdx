@@ -65,3 +65,39 @@ const manifest = await walk.run([
 Admission failures **throw** (nothing ran, so an exception is honest).
 Execution failures **never throw** — they are manifest rows, because by then
 something did happen and the caller needs the ledger, not a stack trace.
+
+## Breaking the walk
+
+The human has a door, and the reason travels. A batch a person can watch is
+a batch a person must be able to stop — and a break without a reason is a
+guard failure wearing a trench coat: the model replans blind, and probably
+replans the same thing.
+
+```ts
+const walk = beginWalk(runtime, 'agent');
+const running = walk.run(steps, {
+  onRow: (row) => renderStatus(row),   // the FE's live loop — and where the
+});                                     // stop control belongs, beside it
+
+// The person presses stop:
+walk.interrupt({ by: 'user', reason: 'wrong array — I meant NORTHWIND-01' });
+
+const manifest = await running;
+manifest.interrupted;
+// → { by: 'user', reason: 'wrong array — I meant NORTHWIND-01', beforeStep: 1 }
+```
+
+The semantics that keep it sound:
+
+- **Step-boundary only.** The in-flight step finishes and settles normally —
+  an L1 transition is atomic, and tearing one mid-flight would violate
+  settlement law. L2 stops future steps; L1 transitions are never torn.
+- **`interrupted` is a manifest field, not a row status.** Un-run rows stay
+  `never-reached`, but the manifest says who stopped it and why — because
+  "the plan was wrong" and "the person knows something the plan didn't"
+  must be treated completely differently by whoever replans.
+- **The walk survives.** A break ends the plan, not the walk: the model
+  reads the reason and replans under the same walk id. The break is just
+  the most human way a plan ends.
+- **The intent stands.** An interrupt armed before a run is consumed at
+  step zero — pressing stop between plans is still pressing stop.

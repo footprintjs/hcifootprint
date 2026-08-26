@@ -80,9 +80,29 @@ export interface ActionPlanRow {
   readonly refusal?: string;
 }
 
+/**
+ * A person (or system) stopping a plan, WITH the reason — because a break
+ * without a reason is a guard failure wearing a trench coat: the model
+ * replans blind and probably replans the same thing. The reason is what
+ * turns an interruption into a course correction.
+ */
+export interface ActionWalkInterruption {
+  readonly by: Principal;
+  readonly reason: string;
+  /** The step the break took effect BEFORE. The in-flight step always
+   *  finishes — an L1 transition is atomic, and tearing one mid-flight
+   *  would violate settlement law. L2 stops future steps; L1 transitions
+   *  are never torn. */
+  readonly beforeStep: number;
+}
+
 export interface ActionPlanManifest {
   readonly walk: ActionWalkRef;
   readonly rows: readonly ActionPlanRow[];
+  /** Present when a person stopped this plan — distinct from a refused row,
+   *  because "the plan was wrong" and "the person knows something the plan
+   *  didn't" must be treated completely differently by whoever replans. */
+  readonly interrupted?: ActionWalkInterruption;
   /** Every row ran AND performed. A manifest that said "failed" while the
    *  screen sits two steps along would be worse than no batching. */
   readonly completed: boolean;
@@ -102,7 +122,25 @@ export interface ActionWalk {
    * never throw: they are manifest rows, because by then something DID
    * happen and the caller needs the ledger, not a stack trace.
    */
-  run(steps: readonly ActionPlanStep[]): Promise<ActionPlanManifest>;
+  run(
+    steps: readonly ActionPlanStep[],
+    options?: {
+      /** Called as each row lands — the FE's live loop: render the batch
+       *  step by step, and put the stop control beside it, because the
+       *  moment you can SEE a batch running is the moment you need to be
+       *  able to stop it. Isolated: a listener that throws never breaks
+       *  the walk (the recorder law, applied here). */
+      readonly onRow?: (row: ActionPlanRow) => void;
+    },
+  ): Promise<ActionPlanManifest>;
+  /**
+   * Stop this walk's plan at the next step boundary, with the reason on the
+   * record. Arms the walk: consumed by the plan in flight before its next
+   * step, or by the next run() at step zero — the person's intent stands
+   * either way. Returns false when already armed. The reason is REQUIRED:
+   * a silent break is the abandonment this family refuses.
+   */
+  interrupt(input: { readonly by: Principal; readonly reason: string }): boolean;
   /** Every manifest this walk has produced, in order — the route actually
    *  taken, which is not the route anybody planned. */
   record(): {
@@ -130,7 +168,10 @@ function ownsDecision(
   return principal === 'agent';
 }
 
-let nextWalk = 0;
+/** Per-RUNTIME, not module-global: two runtimes both minting walk#1 is a
+ *  needless ambiguity in merged logs. Ids are correlation handles, never
+ *  capabilities, so this is about legibility, not security. */
+const walkCounters = new WeakMap<ActionRuntime, number>();
 
 export function beginWalk(
   runtime: ActionRuntime,
@@ -138,12 +179,38 @@ export function beginWalk(
   options: { readonly walkId?: string } = {},
 ): ActionWalk {
   const port: PrincipalActionPort = runtime.forPrincipal(principal);
-  nextWalk += 1;
+  const next = (walkCounters.get(runtime) ?? 0) + 1;
+  walkCounters.set(runtime, next);
   const ref: ActionWalkRef = Object.freeze({
     kind: 'action-walk' as const,
-    walkId: options.walkId ?? `walk#${String(nextWalk)}`,
+    walkId: options.walkId ?? `walk#${String(next)}`,
   });
   const manifests: ActionPlanManifest[] = [];
+  let armed: { readonly by: Principal; readonly reason: string } | undefined;
+
+  function interrupt(input: {
+    readonly by: Principal;
+    readonly reason: string;
+  }): boolean {
+    if (
+      input === null ||
+      typeof input !== 'object' ||
+      typeof input.reason !== 'string' ||
+      input.reason.trim().length === 0
+    ) {
+      throw new TypeError(
+        "hcifootprint: walk.interrupt() needs a non-empty reason — a break without a reason leaves the model replanning blind, which is how it replans the same thing. Say why: { by: 'user', reason: 'wrong array — I meant NORTHWIND-01' }.",
+      );
+    }
+    if (typeof input.by !== 'string' || input.by.trim().length === 0) {
+      throw new TypeError(
+        'hcifootprint: walk.interrupt() needs `by` — who stopped this is part of the record.',
+      );
+    }
+    if (armed !== undefined) return false;
+    armed = Object.freeze({ by: input.by, reason: input.reason });
+    return true;
+  }
 
   /** Admission — declaration-only checks, atomically before any execution. */
   function admit(
@@ -211,17 +278,39 @@ export function beginWalk(
 
   async function run(
     steps: readonly ActionPlanStep[],
+    options: {
+      readonly onRow?: (row: ActionPlanRow) => void;
+    } = {},
   ): Promise<ActionPlanManifest> {
     const records = admit(steps);
     const rows: ActionPlanRow[] = [];
     let stopped = false;
+    let interruption: ActionWalkInterruption | undefined;
+    const land = (row: ActionPlanRow): void => {
+      rows.push(row);
+      // Listener isolation — the recorder law: an observer that throws must
+      // never change what the walk does or records.
+      try {
+        options.onRow?.(row);
+      } catch {
+        /* the row already landed; a broken listener is its own problem */
+      }
+    };
 
     for (let index = 0; index < steps.length; index += 1) {
       const step = steps[index]!;
       const record = records[index]!;
       const base = { step: index, definition: record.ref };
+      // THE BREAK DOOR — checked at every step boundary, step zero included.
+      // The in-flight step always finished before we got here, so nothing is
+      // torn; the armed intent is consumed exactly once.
+      if (armed !== undefined && interruption === undefined && !stopped) {
+        interruption = Object.freeze({ ...armed, beforeStep: index });
+        armed = undefined;
+        stopped = true;
+      }
       if (stopped) {
-        rows.push(Object.freeze({ ...base, status: 'never-reached' as const }));
+        land(Object.freeze({ ...base, status: 'never-reached' as const }));
         continue;
       }
       // Re-derived at THIS step's turn, never trusted from plan time: offers
@@ -234,7 +323,7 @@ export function beginWalk(
             offer.ref.binding.instance === step.instance,
         );
       if (offered.length === 0) {
-        rows.push(
+        land(
           Object.freeze({
             ...base,
             status: 'refused' as const,
@@ -245,7 +334,7 @@ export function beginWalk(
         continue;
       }
       if (offered.length > 1) {
-        rows.push(
+        land(
           Object.freeze({
             ...base,
             status: 'refused' as const,
@@ -285,7 +374,7 @@ export function beginWalk(
           // The transition itself records the failure; the row only says the
           // step RAN and points at it — one owner per fact.
         }
-        rows.push(
+        land(
           Object.freeze({ ...base, status: 'ran' as const, transition }),
         );
         const outcome = runtime.transitionFor(transition)?.invocationStatus;
@@ -293,7 +382,7 @@ export function beginWalk(
       } catch (error) {
         // Never became a transition — a refusal in L1's own words (stale
         // offer, payload law, principal verdict). The sentence IS the value.
-        rows.push(
+        land(
           Object.freeze({
             ...base,
             status: 'refused' as const,
@@ -308,6 +397,7 @@ export function beginWalk(
     const manifest: ActionPlanManifest = Object.freeze({
       walk: ref,
       rows: Object.freeze(rows),
+      ...(interruption !== undefined ? { interrupted: interruption } : {}),
       completed:
         rows.length > 0 &&
         rows.every(
@@ -331,6 +421,7 @@ export function beginWalk(
   return Object.freeze({
     ref,
     run,
+    interrupt,
     record: () =>
       Object.freeze({ ref, manifests: Object.freeze([...manifests]) }),
   });
