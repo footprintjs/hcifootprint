@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.4.1] - 2026-08-26
+
+### Changed
+
+- **The core, decomposed to the mantra: `connection.ts` 2,614 → 992 lines.**
+  Phase two of the split — composed units, not just moved leaves. The
+  runtime now composes `KindGovernor`, `SurfaceBoard`, and
+  `TransitionLedger` as owned fields (the ecosystem rule: compose a store
+  as a field, no base classes), and the ~740-line heart of `connect()`
+  moved behind a spelled-out seam: `ConnectionCore` lists every capability
+  the builder may use, so a capability not listed is one provably unused.
+  The closure web inside the builder stays together BY DESIGN — it shares
+  per-connection state, and splitting it would mean turning shared locals
+  into a context object: a rewrite wearing a refactor's clothes. Verbatim
+  behaviour, all 3,033 tests green, the React treeshake boundary and byte
+  cap unchanged.
+
 ## [2.4.0] - 2026-08-26
 
 ### Added

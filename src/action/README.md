@@ -26,6 +26,10 @@ The map, one file per concern:
 | `binding-facts.ts` | what a binding claims right now | readers, never snapshots |
 | `declarations.ts` | freeze and snapshot what was declared | a declaration is retained exactly as captured |
 | `observer-capture.ts` | observer generation snapshots | capture before behavior, without changing the callback |
+| `kind-governor.ts` | composed unit: kind governance state | memo, seen, ungoverned — one owner, delegated to by the runtime |
+| `surface-board.ts` | composed unit: surfaces + the gap record | declarations, matching, counted misses — one story, one owner |
+| `transition-ledger.ts` | composed unit: every stored transition | rows, ids, settlement — "a connection never holds the current transition" has exactly one place to be true |
+| `connection-builder.ts` | the heart of connect(), behind `ConnectionCore` | the closure web shares per-connection state BY DESIGN; what separates is the unit from the runtime — the core seam lists every capability it may use, so one not listed is one provably unused |
 
 Laws every file upholds (the design doc `docs/design/action-binding-protocol.md` carries the full argument):
 

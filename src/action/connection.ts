@@ -59,6 +59,10 @@ import type {
   SurfaceHandle,
   SurfaceQuery,
 } from './channels.js';
+import { KindGovernor } from './kind-governor.js';
+import { TransitionLedger } from './transition-ledger.js';
+import { buildConnection, type ConnectionCore } from './connection-builder.js';
+import { SurfaceBoard } from './surface-board.js';
 import { assertBindingCoverage } from './coverage.js';
 import type {
   ActionDefinitionRef,
@@ -181,25 +185,19 @@ class DefaultActionRuntime implements ActionRuntime {
   readonly #contractActivation: ActionContractActivation;
   readonly #inputSchemaAdapter: ActionInputSchemaAdapter | undefined;
   readonly #kinds: KindCatalog | undefined;
-  /** A mounted catalog is immutable, so an answer is a fact forever — the
-   *  runtime consults it once per kind, EVER, and an adapter's cost can
-   *  never reach the offer-serving path. */
-  readonly #kindMemo = new Map<string, boolean>();
-  readonly #kindsSeen = new Set<string>();
-  readonly #ungovernedKinds = new Set<string>();
-  readonly #surfaces = new Map<string, SurfaceDeclaration>();
-  readonly #channelGaps = new Map<string, { kind: string; channel: 'collects' | 'shows'; asks: number }>();
+  readonly #governor: KindGovernor;
+  readonly #core: ConnectionCore;
+  readonly #board: SurfaceBoard;
   readonly #registry = new ActionRegistry();
   readonly #offers = new Map<string, ActionOffer>();
   readonly #offerByBinding = new Map<string, Map<Principal, CachedOffer>>();
   readonly #invokers = new Map<string, RuntimeBindingInvoker>();
-  readonly #transitions = new Map<string, StoredTransition>();
+  readonly #ledger = new TransitionLedger();
   readonly #definitions = new Map<string, DefinedAction>();
   readonly #definitionRecords = new Map<string, ActionDefinitionRecord>();
   #bindingSequence = 0;
   #offerSequence = 0;
   #inputSequence = 0;
-  #transitionSequence = 0;
 
   constructor(options: ActionRuntimeOptions) {
     const activation = options.contractActivation ?? 'require-active';
@@ -235,6 +233,9 @@ class DefaultActionRuntime implements ActionRuntime {
       );
     }
     this.#kinds = kinds;
+    this.#governor = new KindGovernor(kinds);
+    this.#board = new SurfaceBoard(this.#governor);
+
     this.#contractActivation = activation;
     this.#inputSchemaAdapter =
       inputSchemaAdapter === undefined
@@ -249,6 +250,27 @@ class DefaultActionRuntime implements ActionRuntime {
       value: activation,
       writable: false,
     });
+
+    // The builder's whole seam, spelled out — a capability not on this
+    // object is one buildConnection provably does not use.
+    this.#core = Object.freeze({
+      registry: this.#registry,
+      definitions: this.#definitions,
+      definitionRecords: this.#definitionRecords,
+      invokers: this.#invokers,
+      inputSchemaAdapter: this.#inputSchemaAdapter,
+      contractActivation: this.#contractActivation,
+      nextBindingSequence: () => (this.#bindingSequence += 1),
+      newInputRef: (source) => this.#newInputRef(source),
+      settle: (transition, input) => this.#settle(transition, input),
+      requireCurrent: (binding, expected, phase) =>
+        this.#requireCurrent(binding, expected, phase),
+      invalidateOffers: (binding, principal) =>
+        this.#invalidateOffers(binding, principal),
+      validateOffer: (binding, offer, registration, enabled) =>
+        this.#validateOffer(binding, offer, registration, enabled),
+      invoke: (...args) => (this.#invoke as (...a: unknown[]) => never)(...args),
+    } satisfies ConnectionCore as ConnectionCore);
   }
 
   get contractActivation(): ActionContractActivation {
@@ -256,24 +278,9 @@ class DefaultActionRuntime implements ActionRuntime {
   }
 
   kindGovernance(): KindGovernanceReport {
-    return Object.freeze({
-      mounted: this.#kinds !== undefined,
-      ...(this.#kinds?.fingerprint !== undefined
-        ? { fingerprint: this.#kinds.fingerprint }
-        : {}),
-      kindsSeen: Object.freeze([...this.#kindsSeen].sort()),
-      ungoverned: Object.freeze([...this.#ungovernedKinds].sort()),
-    });
+    return this.#governor.report();
   }
 
-  /**
-   * Connect-time kind enforcement — fail where the developer is looking,
-   * not at match time three layers later. With no catalog mounted the
-   * declaration is ACCEPTED and recorded as ungoverned: silently unchecked
-   * would be the unarmed-check disease, and refusing outright would make
-   * governance mandatory before anyone can try the feature. The report
-   * (`kindGovernance()`) is the visible row either way.
-   */
   #checkDeclaredKinds(record: ActionDefinitionRecord): void {
     const contract = record.contract as {
       readonly needs?: Readonly<Record<string, { readonly kind: string }>>;
@@ -294,115 +301,19 @@ class DefaultActionRuntime implements ActionRuntime {
    *  Memoized because a mounted catalog is immutable — consulted once per
    *  kind, ever. */
   #governKind(kind: string, owner: string): void {
-    this.#kindsSeen.add(kind);
-    if (this.#kinds === undefined) {
-      this.#ungovernedKinds.add(kind);
-      return;
-    }
-    let known = this.#kindMemo.get(kind);
-    if (known === undefined) {
-      known = this.#kinds.has(kind) === true;
-      this.#kindMemo.set(kind, known);
-    }
-    if (!known) {
-      throw new Error(
-        `hcifootprint: ${owner} kind '${kind}', which the mounted catalog does not govern. Declare it in the catalog, or use a kind the catalog holds — matching is exact identity, and an unknown kind would make every future match a guess.`,
-      );
-    }
+    this.#governor.govern(kind, owner);
   }
 
   declareSurface(declaration: SurfaceDeclaration): SurfaceHandle {
-    if (
-      declaration === null ||
-      typeof declaration !== 'object' ||
-      typeof declaration.surface !== 'string' ||
-      declaration.surface.trim().length === 0 ||
-      typeof declaration.node !== 'string' ||
-      declaration.node.trim().length === 0
-    ) {
-      throw new TypeError(
-        'hcifootprint: declareSurface() needs a record with a non-empty surface id and node path.',
-      );
-    }
-    if (this.#surfaces.has(declaration.surface)) {
-      throw new Error(
-        `hcifootprint: surface '${declaration.surface}' is already declared and live — one id, one surface. Retire the live one first, or name this one for what it actually is.`,
-      );
-    }
-    const collects = Object.freeze([...(declaration.collects ?? [])]);
-    const shows = Object.freeze([...(declaration.shows ?? [])]);
-    for (const kind of collects) {
-      this.#governKind(kind, `surface '${declaration.surface}' collects`);
-    }
-    for (const kind of shows) {
-      this.#governKind(kind, `surface '${declaration.surface}' shows`);
-    }
-    const frozen: SurfaceDeclaration = Object.freeze({
-      surface: declaration.surface,
-      node: declaration.node,
-      collects,
-      shows,
-    });
-    this.#surfaces.set(frozen.surface, frozen);
-    let live = true;
-    return Object.freeze({
-      declaration: frozen,
-      retire: () => {
-        // Idempotent and OWNED: only the surface this handle declared is
-        // retired — a successor under the same id belongs to its own handle,
-        // and a stale retire must never take it down.
-        if (!live) return false;
-        live = false;
-        if (this.#surfaces.get(frozen.surface) === frozen) {
-          this.#surfaces.delete(frozen.surface);
-        }
-        return true;
-      },
-    });
+    return this.#board.declare(declaration);
   }
 
   surfacesFor(query: SurfaceQuery): readonly SurfaceDeclaration[] {
-    const collecting = 'collects' in query;
-    const kind = collecting
-      ? (query as { collects: string }).collects
-      : (query as { shows: string }).shows;
-    if (typeof kind !== 'string' || kind.trim().length === 0) {
-      throw new TypeError(
-        'hcifootprint: surfacesFor() needs { collects: kind } or { shows: kind } with a non-empty kind.',
-      );
-    }
-    // A query is kind-governed like a declaration — otherwise the gap
-    // record fills with typos and stops meaning anything.
-    this.#governKind(kind, 'surfacesFor() asks about');
-    const channel = collecting ? ('collects' as const) : ('shows' as const);
-    const matches = [...this.#surfaces.values()].filter((surface) =>
-      (collecting ? surface.collects : surface.shows)?.includes(kind),
-    );
-    if (matches.length === 0) {
-      // THE DEGRADATION RECORD — the ask is a fact worth keeping. An empty
-      // answer alone would be absence rendered as silence; the counted gap
-      // is what turns a month of degraded turns into a backlog.
-      const key = `${channel}:${kind}`;
-      const row = this.#channelGaps.get(key);
-      if (row === undefined) {
-        this.#channelGaps.set(key, { kind, channel, asks: 1 });
-      } else {
-        row.asks += 1;
-      }
-    }
-    return Object.freeze(matches);
+    return this.#board.surfacesFor(query);
   }
 
   channelGaps(): readonly ChannelGap[] {
-    return Object.freeze(
-      [...this.#channelGaps.values()]
-        .map((row) => Object.freeze({ ...row }))
-        .sort((a, b) =>
-          a.kind === b.kind
-            ? a.channel.localeCompare(b.channel)
-            : a.kind.localeCompare(b.kind),
-        ),
-    );
+    return this.#board.gaps();
   }
 
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P> {
@@ -468,682 +379,10 @@ class DefaultActionRuntime implements ActionRuntime {
       );
     }
     this.#checkDeclaredKinds(record);
-    if (
-      options === null ||
-      typeof options !== 'object' ||
-      Array.isArray(options)
-    ) {
-      throw new TypeError(
-        'hcifootprint: connectAction() needs a binding options record.',
-      );
-    }
-    // Application options may be supplied through accessors or proxies. Read
-    // every field exactly once, then validate and retain only these captured
-    // values so one connection can never combine different answers.
-    const node = options.node;
-    const instance = options.instance;
-    const input = options.input;
-    const enabled = options.enabled;
-    const busy = options.busy;
-    const coverage = options.coverage;
-    const locators = options.locators;
-    const humanReporting = options.humanReporting;
-    const onInvocation = options.onInvocation;
-    const onInvocationError = options.onInvocationError;
+    return buildConnection(this.#core, definition, options, record) as
+      | ActionConnection<F, Id, true, Mode>
+      | ActionConnection<F, Id, false, Mode>;
 
-    if (typeof node !== 'string' || node.trim().length === 0) {
-      throw new TypeError(
-        'hcifootprint: connectAction() needs a non-empty node path.',
-      );
-    }
-    if (instance !== undefined && typeof instance !== 'string') {
-      throw new TypeError(
-        'hcifootprint: connectAction() instance must be an opaque string when supplied.',
-      );
-    }
-    assertOptionalReader(input, 'input', 'connectAction()');
-    assertOptionalReader(enabled, 'enabled', 'connectAction()');
-    assertOptionalReader(busy, 'busy', 'connectAction()');
-    assertOptionalReader(onInvocation, 'onInvocation', 'connectAction()');
-    assertOptionalReader(
-      onInvocationError,
-      'onInvocationError',
-      'connectAction()',
-    );
-    assertHumanReporting(humanReporting, 'connectAction()');
-    const initialCoverage = coverage ?? 'executable';
-    assertBindingCoverage(initialCoverage, 'connectAction()');
-    const validationSchema = captureInputValidationSchema(
-      record.contract.inputSchema,
-    );
-    const inputValidation = resolveInputValidation(
-      validationSchema,
-      this.#inputSchemaAdapter,
-    );
-    assertContractActivation(
-      record.ref.definitionId,
-      record.contract,
-      this.#contractActivation,
-      inputValidation,
-    );
-    const verificationDeclared = hasEvidenceBearingSettlement(
-      record.contract.settle,
-    );
-    const canonical = this.#definitions.get(record.ref.definitionId);
-    if (canonical !== undefined && canonical !== definition) {
-      throw new TypeError(
-        `hcifootprint: definition '${record.ref.definitionId}' already belongs to another callable in this runtime. Reuse the original defineAction() result or create a new runtime generation.`,
-      );
-    }
-
-    const binding = Object.freeze({
-      kind: 'action-binding' as const,
-      bindingId: `binding#${(this.#bindingSequence += 1)}`,
-      definition: record.ref,
-      node,
-      ...(instance !== undefined ? { instance } : {}),
-    });
-    const base: MutableBindingFacts<FirstParameter<F>> = {
-      coverage: initialCoverage,
-      locators: locators === undefined ? NO_BINDINGS : freezeBindings(locators),
-      ...(input !== undefined ? { input } : {}),
-      ...(enabled !== undefined ? { enabled } : {}),
-      ...(busy !== undefined ? { busy } : {}),
-      ...(humanReporting !== undefined ? { humanReporting } : {}),
-    };
-    const inputReaderPresent = base.input !== undefined;
-    const invocationMode = record.contract.invocation;
-    if (inputReaderPresent && invocationMode !== 'scalar') {
-      throw new TypeError(
-        `hcifootprint: action definition '${record.ref.definitionId}' declares invocation: '${invocationMode}' and cannot connect a scalar input reader.`,
-      );
-    }
-    const definitionTakesNoInput = invocationMode === 'inputless';
-
-    this.#registry.registerBinding(
-      binding.bindingId,
-      binding,
-      definition as unknown as ActionHandler,
-      true,
-      undefined,
-      {
-        coverage: base.coverage,
-        attached: false,
-        locators: base.locators,
-        ...(base.input !== undefined ? { input: base.input } : {}),
-        ...(base.enabled !== undefined ? { readEnabled: base.enabled } : {}),
-        ...(base.busy !== undefined ? { readBusy: base.busy } : {}),
-        ...(base.humanReporting !== undefined
-          ? { humanReporting: base.humanReporting }
-          : {}),
-      },
-    );
-    // Definition identity is canonical for this runtime generation, including
-    // after every live binding disconnects and while transitions remain.
-    this.#definitions.set(record.ref.definitionId, definition);
-    this.#definitionRecords.set(record.ref.definitionId, record);
-
-    let connected = true;
-    let attachmentSequence = 0;
-    let attachment: AttachedFacts | undefined;
-    const runtime = this;
-
-    const assertConnected = (): BindingRegistration => {
-      if (!connected) {
-        throw new Error(
-          `hcifootprint: binding '${binding.bindingId}' is disconnected.`,
-        );
-      }
-      const registration = this.#registry.registrationFor(binding);
-      if (registration === undefined) {
-        throw new Error(
-          `hcifootprint: binding '${binding.bindingId}' is no longer present.`,
-        );
-      }
-      return registration;
-    };
-
-    const sync = (forceRevision = false): void => {
-      if (!connected) return;
-      const effective = attachment;
-      const changed = this.#registry.updateBinding(binding, {
-        coverage: effective?.coverage ?? base.coverage,
-        attached: effective !== undefined,
-        locators: effective?.locators ?? base.locators,
-        humanReporting: effective?.humanReporting ?? base.humanReporting,
-        input: base.input,
-        readEnabled: base.enabled,
-        readBusy: base.busy,
-      });
-      if (forceRevision && !changed) this.#registry.touchBinding(binding);
-      if (changed || forceRevision) runtime.#invalidateOffers(binding);
-    };
-
-    const reportObserverError = (
-      errorSink: typeof onInvocationError,
-      error: unknown,
-    ): void => {
-      if (errorSink === undefined) return;
-      try {
-        void Promise.resolve(errorSink(error)).catch(() => undefined);
-      } catch {
-        // Instrumentation failures never replace the application result.
-      }
-    };
-
-    const captureObserver = <Observer extends (...args: any[]) => unknown>(
-      observer: Observer | undefined,
-      onCaptureError: (error: unknown) => void = () => undefined,
-    ): Observer | undefined => {
-      if (observer === undefined) return undefined;
-      const capture = (
-        observer as Observer & {
-          readonly [INVOCATION_OBSERVER_CAPTURE]?: () => Observer | undefined;
-        }
-      )[INVOCATION_OBSERVER_CAPTURE];
-      if (capture === undefined) return observer;
-      try {
-        const captured = capture();
-        if (captured === undefined || typeof captured === 'function') {
-          return captured;
-        }
-        onCaptureError(
-          new TypeError(
-            'hcifootprint: an invocation observer capture must return a callback or undefined.',
-          ),
-        );
-      } catch (error) {
-        onCaptureError(error);
-      }
-      return undefined;
-    };
-
-    const publishInvocation = <
-      Output,
-      Behavior extends 'mutation' | 'host-continuation',
-    >(
-      invocation: ActionInvocation<Output, Id, Behavior>,
-      observer: typeof onInvocation,
-      reportInstrumentationError: (error: unknown) => void,
-    ): ActionInvocation<Output, Id, Behavior> => {
-      if (observer === undefined) return invocation;
-      const settlement = Object.freeze({
-        binding,
-        settle: (effect: ActionEffectSettlementInput) =>
-          runtime.#settle(invocation.transition, effect),
-      });
-      try {
-        void Promise.resolve(
-          observer(
-            invocation as ActionObservedInvocation<
-              Awaited<ReturnType<F>>,
-              unknown,
-              Id
-            >,
-            settlement,
-          ),
-        ).catch(reportInstrumentationError);
-      } catch (error) {
-        reportInstrumentationError(error);
-      }
-      return invocation;
-    };
-
-    const openInvocation = <
-      Behavior extends 'mutation' | 'host-continuation',
-      Output = Awaited<ReturnType<F>>,
-    >(
-      handler: ActionHandler,
-      hasInput: boolean,
-      input: unknown,
-      offer: ActionOfferRef<Id> | undefined,
-      behavior: Behavior,
-      invocationInput: Behavior extends 'host-continuation'
-        ? Extract<ActionInvocationInput, { readonly source: 'host' }>
-        : Exclude<ActionInvocationInput, { readonly source: 'host' }>,
-      coverage: BindingCoverage,
-      phase: 'handler' | 'preflight' = 'handler',
-    ): ActionInvocation<Output, Id, Behavior> => {
-      const errorSink = captureObserver(onInvocationError);
-      const reportInstrumentationError = (error: unknown): void =>
-        reportObserverError(errorSink, error);
-      const observer = captureObserver(
-        onInvocation,
-        reportInstrumentationError,
-      );
-      const invocation = runtime.#invoke<Output, Id, Behavior>(
-        binding,
-        handler,
-        hasInput,
-        input,
-        offer,
-        behavior,
-        invocationInput,
-        coverage,
-        phase,
-        verificationDeclared,
-        record.contract.settle?.progress,
-        reportInstrumentationError,
-      );
-      return publishInvocation(
-        invocation,
-        observer,
-        reportInstrumentationError,
-      );
-    };
-
-    const invokeSelected = (
-      hasExplicitInput: boolean,
-      input: FirstParameter<F> | undefined,
-      offered: ActionOfferRef<Id> | undefined,
-    ): ActionInvocation<Awaited<ReturnType<F>>, Id, 'mutation'> => {
-      let registration = assertConnected();
-      let enabled: boolean | undefined;
-      try {
-        enabled = readEnabled(registration);
-        registration = runtime.#requireCurrent(
-          binding,
-          registration,
-          'reading enabledness',
-        );
-      } catch (error) {
-        runtime.#invalidateOffers(binding);
-        throw error;
-      }
-      if (enabled === false) {
-        runtime.#invalidateOffers(binding);
-        throw new Error(
-          `hcifootprint: binding '${binding.bindingId}' is disabled.`,
-        );
-      }
-      if (COVERAGE_RANK[registration.coverage] < COVERAGE_RANK.executable) {
-        throw new Error(
-          `hcifootprint: binding '${binding.bindingId}' is not executable (coverage: ${registration.coverage}).`,
-        );
-      }
-      const selectedOffer = runtime.#validateOffer(
-        binding,
-        offered,
-        registration,
-        enabled,
-      );
-
-      let capturedInput = input;
-      let hasInput = hasExplicitInput;
-      let inputRef:
-        | ActionInputRef<'bound'>
-        | ActionInputRef<'caller'>
-        | undefined;
-      if (selectedOffer?.offer.inputMode === 'bound') {
-        if (hasExplicitInput) {
-          throw new TypeError(
-            `hcifootprint: offer '${selectedOffer.offer.ref.offerId}' already binds its exact input; invoke it without a replacement payload.`,
-          );
-        }
-        capturedInput = selectedOffer.capturedInput as FirstParameter<F>;
-        hasInput = true;
-        inputRef = selectedOffer.offer.input;
-      } else if (selectedOffer?.offer.inputMode === 'none') {
-        if (hasExplicitInput) {
-          throw new TypeError(
-            `hcifootprint: offer '${selectedOffer.offer.ref.offerId}' takes no input.`,
-          );
-        }
-      } else if (offered === undefined && registration.input !== undefined) {
-        if (hasExplicitInput) {
-          throw new TypeError(
-            `hcifootprint: binding '${binding.bindingId}' owns a bound input reader; invoke it without a replacement payload.`,
-          );
-        }
-        try {
-          capturedInput = registration.input() as FirstParameter<F>;
-        } catch (error) {
-          registration = runtime.#requireCurrent(
-            binding,
-            registration,
-            'reading input',
-          );
-          return openInvocation(
-            () => {
-              throw error;
-            },
-            false,
-            undefined,
-            undefined,
-            'mutation',
-            Object.freeze({ source: 'bound', provided: false }),
-            registration.coverage,
-            'preflight',
-          );
-        }
-        hasInput = true;
-        inputRef = runtime.#newInputRef('bound');
-        registration = runtime.#requireCurrent(
-          binding,
-          registration,
-          'reading input',
-        );
-      } else if (hasExplicitInput) {
-        inputRef = runtime.#newInputRef('caller');
-      }
-      if (
-        invocationMode === 'scalar' &&
-        selectedOffer?.offer.inputMode !== 'bound' &&
-        registration.input === undefined &&
-        !hasExplicitInput
-      ) {
-        throw new TypeError(
-          `hcifootprint: scalar action '${record.ref.definitionId}' requires exactly one deliberate input payload slot. Pass undefined explicitly when undefined is the intended value.`,
-        );
-      }
-      const invocationInput: ActionInvocationInput =
-        inputRef?.source === 'bound'
-          ? Object.freeze({ source: 'bound', provided: true, ref: inputRef })
-          : inputRef?.source === 'caller'
-            ? Object.freeze({ source: 'caller', provided: true, ref: inputRef })
-            : selectedOffer?.offer.inputMode === 'open' ||
-                (offered === undefined && !definitionTakesNoInput)
-              ? Object.freeze({ source: 'caller', provided: false })
-              : Object.freeze({ source: 'none', provided: false });
-      // A bound offer already validated this exact retained value when it was
-      // minted. Do not execute an application-owned validator a second time at
-      // invocation; open and direct doors still validate at their ingress.
-      if (selectedOffer?.offer.inputMode !== 'bound') {
-        let validationError: unknown;
-        try {
-          validateActionInput(
-            binding,
-            validationSchema,
-            hasInput,
-            capturedInput,
-            inputRef?.source === 'bound' ? 'bound' : 'caller',
-            runtime.#inputSchemaAdapter,
-            inputValidation,
-          );
-        } catch (error) {
-          validationError = error;
-        }
-        try {
-          registration = runtime.#requireCurrent(
-            binding,
-            registration,
-            'validating input',
-          );
-        } catch (error) {
-          runtime.#invalidateOffers(binding);
-          throw error;
-        }
-        if (validationError !== undefined) {
-          return openInvocation(
-            () => {
-              throw validationError;
-            },
-            false,
-            undefined,
-            selectedOffer?.offer.ref as ActionOfferRef<Id> | undefined,
-            'mutation',
-            invocationInput,
-            registration.coverage,
-            'preflight',
-          );
-        }
-      }
-      return openInvocation(
-        registration.handler,
-        hasInput,
-        capturedInput,
-        selectedOffer?.offer.ref as ActionOfferRef<Id> | undefined,
-        'mutation',
-        invocationInput,
-        registration.coverage,
-      );
-    };
-
-    const assertDirectScalarDoor = (payloadSlots: number): void => {
-      if (payloadSlots > 1) {
-        throw new TypeError(
-          'hcifootprint: direct action invocation accepts at most one payload slot; use invokeContinuation() for a host listener with several arguments.',
-        );
-      }
-      if (invocationMode === 'host') {
-        throw new TypeError(
-          `hcifootprint: action definition '${record.ref.definitionId}' is host-only and cannot use the direct invocation door; use invokeContinuation().`,
-        );
-      }
-      if (invocationMode === 'inputless' && payloadSlots > 0) {
-        throw new TypeError(
-          `hcifootprint: inputless action definition '${record.ref.definitionId}' cannot receive a payload slot.`,
-        );
-      }
-    };
-
-    const connection: ActionConnection<F, Id, true, Mode> = {
-      definition: record.ref,
-      binding,
-      attach: (projection: BindingProjection) => {
-        const beforeProjection = assertConnected();
-        if (projection === null || typeof projection !== 'object') {
-          throw new TypeError(
-            'hcifootprint: attach() needs an already-resolved interactive host.',
-          );
-        }
-        const interactive = projection.interactive;
-        const valueElement = projection.valueElement;
-        const projectedCoverage = projection.coverage;
-        const projectedLocators = projection.locators;
-        const projectedHumanReporting = projection.humanReporting;
-        if (
-          interactive === null ||
-          (typeof interactive !== 'object' && typeof interactive !== 'function')
-        ) {
-          throw new TypeError(
-            'hcifootprint: attach() needs an already-resolved interactive host.',
-          );
-        }
-        if (
-          valueElement !== undefined &&
-          (valueElement === null ||
-            (typeof valueElement !== 'object' &&
-              typeof valueElement !== 'function'))
-        ) {
-          throw new TypeError(
-            'hcifootprint: attach() valueElement must be an object when supplied.',
-          );
-        }
-        assertBindingCoverage(projectedCoverage, 'attach()');
-        assertHumanReporting(projectedHumanReporting, 'attach()');
-        const frozenLocators =
-          projectedLocators === undefined
-            ? undefined
-            : freezeBindings(projectedLocators);
-        runtime.#requireCurrent(
-          binding,
-          beforeProjection,
-          'reading the attachment projection',
-        );
-        const token = (attachmentSequence += 1);
-        attachment = {
-          token,
-          coverage: projectedCoverage,
-          ...(frozenLocators !== undefined ? { locators: frozenLocators } : {}),
-          ...(projectedHumanReporting !== undefined
-            ? { humanReporting: projectedHumanReporting }
-            : {}),
-        };
-        sync(true);
-        let detached = false;
-        return Object.freeze({
-          detach: (): void => {
-            if (detached) return;
-            detached = true;
-            if (attachment?.token !== token) return;
-            attachment = undefined;
-            sync(true);
-          },
-        });
-      },
-      update: (update: ActionBindingUpdate<FirstParameter<F>>) => {
-        const beforeUpdate = assertConnected();
-        if (
-          update === null ||
-          typeof update !== 'object' ||
-          Array.isArray(update)
-        ) {
-          throw new TypeError(
-            'hcifootprint: update() needs a binding-facts record.',
-          );
-        }
-        const hasInputUpdate = 'input' in update;
-        const hasEnabledUpdate = 'enabled' in update;
-        const hasBusyUpdate = 'busy' in update;
-        const hasLocatorsUpdate = 'locators' in update;
-        const hasHumanReportingUpdate = 'humanReporting' in update;
-        const nextInput = hasInputUpdate ? update.input : undefined;
-        const nextEnabled = hasEnabledUpdate ? update.enabled : undefined;
-        const nextBusy = hasBusyUpdate ? update.busy : undefined;
-        const nextCoverage = update.coverage;
-        const nextLocators = hasLocatorsUpdate ? update.locators : undefined;
-        const nextHumanReporting = hasHumanReportingUpdate
-          ? update.humanReporting
-          : undefined;
-
-        if (hasInputUpdate) {
-          if (nextInput === undefined) {
-            throw new TypeError(
-              `hcifootprint: binding '${binding.bindingId}' cannot remove its input reader through update(); reconnect to change that capability.`,
-            );
-          }
-          assertOptionalReader(nextInput, 'input', 'update()');
-        }
-        if (hasEnabledUpdate) {
-          assertOptionalReader(nextEnabled, 'enabled', 'update()');
-        }
-        if (hasBusyUpdate) {
-          assertOptionalReader(nextBusy, 'busy', 'update()');
-        }
-        if (hasHumanReportingUpdate) {
-          assertHumanReporting(nextHumanReporting, 'update()');
-        }
-        if (nextCoverage !== undefined) {
-          assertBindingCoverage(nextCoverage, 'update()');
-        }
-        const frozenLocators = hasLocatorsUpdate
-          ? nextLocators === undefined
-            ? NO_BINDINGS
-            : freezeBindings(nextLocators)
-          : undefined;
-        runtime.#requireCurrent(
-          binding,
-          beforeUpdate,
-          'reading updated binding facts',
-        );
-
-        // Reader presence is stable for this connection's type-state. Replace
-        // a reader in place; reconnect to add or remove the input capability.
-        if (hasInputUpdate && nextInput !== undefined) {
-          if (!inputReaderPresent) {
-            throw new Error(
-              `hcifootprint: binding '${binding.bindingId}' was connected without an input reader; reconnect to add that capability.`,
-            );
-          }
-          base.input = nextInput;
-        }
-        if (hasEnabledUpdate) base.enabled = nextEnabled;
-        if (hasBusyUpdate) base.busy = nextBusy;
-        if (nextCoverage !== undefined) base.coverage = nextCoverage;
-        if (hasLocatorsUpdate) {
-          base.locators = frozenLocators as readonly Binding[];
-        }
-        if (hasHumanReportingUpdate) {
-          base.humanReporting = nextHumanReporting;
-        }
-        sync();
-      },
-      touch: () => {
-        assertConnected();
-        // Explicitly publish that stable reader identities may now answer from
-        // a different committed application generation. No reader is run.
-        sync(true);
-      },
-      invoke: function (input?: FirstParameter<F>) {
-        assertDirectScalarDoor(arguments.length);
-        return invokeSelected(arguments.length > 0, input, undefined);
-      } as ActionConnection<F, Id, true, Mode>['invoke'],
-      invokeContinuation: <HostResult>(continuation: () => HostResult) => {
-        const registration = assertConnected();
-        if (typeof continuation !== 'function') {
-          throw new TypeError(
-            'hcifootprint: invokeContinuation() needs the exact application continuation.',
-          );
-        }
-        if (COVERAGE_RANK[registration.coverage] < COVERAGE_RANK.executable) {
-          throw new Error(
-            `hcifootprint: binding '${binding.bindingId}' is not executable (coverage: ${registration.coverage}).`,
-          );
-        }
-        // A host continuation reports an application occurrence that is
-        // already happening. Enabledness gates offers/direct protocol invokes;
-        // instrumentation must not suppress an existing custom-component
-        // listener merely because its app-owned disabled reader says false.
-        return openInvocation<'host-continuation', Awaited<HostResult>>(
-          continuation as ActionHandler,
-          false,
-          undefined,
-          undefined,
-          'host-continuation',
-          Object.freeze({ source: 'host', provided: false }),
-          registration.coverage,
-        );
-      },
-      settle: (
-        transition: ActionTransitionRef<Id>,
-        settlement: ActionEffectSettlementInput,
-      ) => {
-        if (
-          transition.binding.bindingId !== binding.bindingId ||
-          transition.binding.definition.definitionId !==
-            binding.definition.definitionId
-        ) {
-          throw new Error(
-            `hcifootprint: transition '${transition.transitionId}' belongs to another binding.`,
-          );
-        }
-        return runtime.#settle(transition, settlement);
-      },
-      disconnect: () => {
-        if (!connected) return;
-        connected = false;
-        attachment = undefined;
-        runtime.#invalidateOffers(binding);
-        runtime.#invokers.delete(binding.bindingId);
-        this.#registry.unregisterBinding(binding);
-        // A disconnected connection remains a settlement capability for its
-        // immutable transitions, but it must not retain framework props through
-        // committed reader closures.
-        base.input = undefined;
-        base.enabled = undefined;
-        base.busy = undefined;
-        base.locators = NO_BINDINGS;
-        base.humanReporting = undefined;
-      },
-    };
-
-    this.#invokers.set(binding.bindingId, {
-      directScalar: invocationMode !== 'host',
-      takesNoInput: definitionTakesNoInput,
-      inputSchema: validationSchema,
-      inputValidation,
-      invoke: (offer, hasExplicitInput, input) => {
-        assertDirectScalarDoor(hasExplicitInput ? 1 : 0);
-        return invokeSelected(
-          hasExplicitInput,
-          input as FirstParameter<F> | undefined,
-          offer as ActionOfferRef<Id>,
-        );
-      },
-    });
-
-    return Object.freeze(connection);
   }
 
   bindings(definition?: ActionDefinitionRef): ActionBindingSnapshot[] {
@@ -1475,26 +714,11 @@ class DefaultActionRuntime implements ActionRuntime {
   transitionFor(
     transition: ActionTransitionRef,
   ): ActionTransitionSnapshot | undefined {
-    const stored = this.#transitions.get(transition.transitionId);
-    if (stored === undefined || stored.ref !== transition) {
-      return undefined;
-    }
-    return snapshotTransition(stored);
+    return this.#ledger.snapshotFor(transition);
   }
 
   forgetTransition(transition: ActionTransitionRef): boolean {
-    const stored = this.#transitions.get(transition.transitionId);
-    if (stored === undefined || stored.ref !== transition) return false;
-    if (
-      stored.invocationStatus === 'pending' ||
-      stored.effectStatus === 'unverified'
-    ) {
-      throw new Error(
-        `hcifootprint: transition '${transition.transitionId}' is still pending and cannot be forgotten.`,
-      );
-    }
-    this.#transitions.delete(transition.transitionId);
-    return true;
+    return this.#ledger.forget(transition);
   }
 
   #validateOffer<Id extends string>(
@@ -1535,6 +759,7 @@ class DefaultActionRuntime implements ActionRuntime {
     }
     return cached;
   }
+
 
   #invalidateOffers(binding: ActionBindingRef, principal?: Principal): void {
     const byPrincipal = this.#offerByBinding.get(binding.bindingId);
@@ -1649,7 +874,7 @@ class DefaultActionRuntime implements ActionRuntime {
   ): ActionInvocation<Output, Id, Behavior> {
     const transition = Object.freeze({
       kind: 'action-transition' as const,
-      transitionId: `transition#${(this.#transitionSequence += 1)}`,
+      transitionId: this.#ledger.nextId(),
       binding,
       principal: offer?.principal ?? 'unknown',
       ...(offer !== undefined ? { offer } : {}),
@@ -1684,7 +909,7 @@ class DefaultActionRuntime implements ActionRuntime {
         settlement: ActionEffectSettlement<any>,
       ) => void,
     };
-    this.#transitions.set(transition.transitionId, stored);
+    this.#ledger.store(transition.transitionId, stored);
 
     let produced: unknown;
     try {
@@ -1762,130 +987,6 @@ class DefaultActionRuntime implements ActionRuntime {
     transition: ActionTransitionRef<Id>,
     input: ActionEffectSettlementInput,
   ): ActionEffectSettlement<Id> {
-    const stored = this.#transitions.get(transition.transitionId);
-    if (stored === undefined || stored.ref !== transition) {
-      throw new Error(
-        `hcifootprint: transition '${transition.transitionId}' is unknown or forged.`,
-      );
-    }
-    if (stored.effectSettlement !== undefined) {
-      // FIRST TERMINAL WINS, AND THE TERMINAL NEVER REOPENS — but the losing
-      // settlement is KEPT AND MARKED LATE, never silently dropped. Before
-      // this block recorded anything, a `verified` arriving after an
-      // `abandoned` vanished into a return of the first settlement, and the
-      // caller could not even tell its evidence went nowhere. The claim is
-      // recorded as a QUOTATION (`claimed` is whatever status the caller
-      // said, stringified, unvalidated): validating it as if it were being
-      // accepted would be pretending it settled something, and adopting it
-      // would reopen a terminal — both are the failure this exists to refuse.
-      if (input !== null && typeof input === 'object') {
-        const claimed = (input as { readonly status?: unknown }).status;
-        const payload =
-          claimed === 'verified'
-            ? (input as { readonly evidence?: unknown }).evidence
-            : claimed === 'refused'
-              ? (input as { readonly reason?: unknown }).reason
-              : undefined;
-        (stored.late ??= []).push(
-          Object.freeze({
-            claimed: String(claimed),
-            ...(payload !== undefined
-              ? { payload: snapshotDeclaration(payload) }
-              : {}),
-          }),
-        );
-      }
-      return stored.effectSettlement as ActionEffectSettlement<Id>;
-    }
-    if (stored.effectSettling === true) {
-      throw new Error(
-        `hcifootprint: transition '${transition.transitionId}' is already being settled.`,
-      );
-    }
-    // Claim the rail before reading any application-owned property. Evidence
-    // getters can re-enter; they must never publish a second, contradictory
-    // answer while the first snapshot is in progress.
-    stored.effectSettling = true;
-    try {
-      if (input === null || typeof input !== 'object') {
-        throw new TypeError(
-          'hcifootprint: settle() needs a settlement record.',
-        );
-      }
-      const status = (input as { readonly status?: unknown }).status;
-      if (
-        status !== 'verified' &&
-        status !== 'refused' &&
-        status !== 'abandoned'
-      ) {
-        throw new TypeError(
-          `hcifootprint: invalid effect settlement status '${String(status)}'.`,
-        );
-      }
-      const payload =
-        status === 'verified'
-          ? (input as { readonly evidence?: unknown }).evidence
-          : status === 'refused'
-            ? (input as { readonly reason?: unknown }).reason
-            : undefined;
-      if (status !== 'abandoned' && payload === undefined) {
-        throw new TypeError(
-          status === 'verified'
-            ? 'hcifootprint: a verified effect settlement needs evidence.'
-            : 'hcifootprint: a refused effect settlement needs a reason.',
-        );
-      }
-      const authority =
-        status === 'abandoned'
-          ? snapshotAbandonmentAuthority(
-              (input as { readonly authority?: unknown }).authority,
-            )
-          : undefined;
-      if (status === 'verified' && !stored.verificationDeclared) {
-        throw new Error(
-          `hcifootprint: transition '${transition.transitionId}' cannot be verified because its action definition declares no evidence-bearing settle contract. Declare writes, goTo, verify, or an observable evidence channel before reporting verified.`,
-        );
-      }
-      if (status === 'verified' && stored.coverage !== 'verifiable') {
-        throw new Error(
-          `hcifootprint: transition '${transition.transitionId}' cannot be verified from ${stored.coverage} coverage; invoke under verifiable coverage first.`,
-        );
-      }
-      const transitionRef = stored.ref as ActionTransitionRef<Id>;
-      const settlement: ActionEffectSettlement<Id> =
-        status === 'verified'
-          ? Object.freeze({
-              status: 'verified',
-              transition: transitionRef,
-              evidence: snapshotDeclaration(payload),
-            })
-          : status === 'refused'
-            ? Object.freeze({
-                status: 'refused',
-                transition: transitionRef,
-                reason: snapshotDeclaration(payload),
-              })
-            : Object.freeze({
-                status: 'abandoned',
-                transition: transitionRef,
-                authority: authority as ActionAbandonmentAuthority,
-              });
-      stored.effectSettlement = settlement;
-      stored.effectStatus = status;
-      if (settlement.status === 'verified') {
-        stored.evidence = settlement.evidence;
-      } else if (settlement.status === 'refused') {
-        stored.reason = settlement.reason;
-      } else {
-        stored.authority = settlement.authority;
-      }
-      const resolveEffect = stored.resolveEffect;
-      stored.resolveEffect = undefined;
-      resolveEffect?.(settlement);
-      return settlement;
-    } finally {
-      stored.effectSettling = false;
-    }
+    return this.#ledger.settle(transition, input);
   }
 }
-

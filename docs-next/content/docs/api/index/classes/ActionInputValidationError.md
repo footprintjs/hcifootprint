@@ -4,7 +4,7 @@ title: ActionInputValidationError
 
 # Class: ActionInputValidationError
 
-Defined in: src/action/input-validation.ts:35
+Defined in: [src/action/input-validation.ts:35](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L35)
 
 ## Extends
 
@@ -16,7 +16,7 @@ Defined in: src/action/input-validation.ts:35
 
 > **new ActionInputValidationError**(`definition`, `binding`, `source`, `issues`): `ActionInputValidationError`
 
-Defined in: src/action/input-validation.ts:43
+Defined in: [src/action/input-validation.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L43)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: src/action/input-validation.ts:43
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)
 
-Defined in: src/action/input-validation.ts:38
+Defined in: [src/action/input-validation.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L38)
 
 ***
 
@@ -70,7 +70,7 @@ Defined in: node\_modules/typescript/lib/lib.es2022.error.d.ts:26
 
 > `readonly` **code**: `"ACTION_INPUT_INVALID"`
 
-Defined in: src/action/input-validation.ts:36
+Defined in: [src/action/input-validation.ts:36](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L36)
 
 ***
 
@@ -78,7 +78,7 @@ Defined in: src/action/input-validation.ts:36
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)
 
-Defined in: src/action/input-validation.ts:37
+Defined in: [src/action/input-validation.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L37)
 
 ***
 
@@ -86,7 +86,7 @@ Defined in: src/action/input-validation.ts:37
 
 > `readonly` `optional` **issues?**: `unknown`
 
-Defined in: src/action/input-validation.ts:41
+Defined in: [src/action/input-validation.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L41)
 
 ***
 
@@ -94,7 +94,7 @@ Defined in: src/action/input-validation.ts:41
 
 > `readonly` **issuesDisposition**: `"included"` \| `"redacted"` \| `"unavailable"`
 
-Defined in: src/action/input-validation.ts:40
+Defined in: [src/action/input-validation.ts:40](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L40)
 
 ***
 
@@ -126,7 +126,7 @@ Defined in: node\_modules/typescript/lib/lib.es5.d.ts:1076
 
 > `readonly` **source**: `"bound"` \| `"caller"`
 
-Defined in: src/action/input-validation.ts:39
+Defined in: [src/action/input-validation.ts:39](https://github.com/footprintjs/hcifootprint/blob/main/src/action/input-validation.ts#L39)
 
 ***
 
