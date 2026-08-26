@@ -83,10 +83,7 @@ describe('who may settle, and how', () => {
     expect(() => (ask() as any).abandon(undefined)).toThrow(
       /needs an explicit authority/,
     );
-    const settled = ask().abandon({
-      kind: 'deadline',
-      detail: 'turn budget exhausted after 120s',
-    });
+    const settled = ask().abandon({ kind: 'deadline', deadlineAt: 120_000 });
     expect(settled.state).toBe('abandoned');
     expect(settled.authority?.kind).toBe('deadline');
   });
