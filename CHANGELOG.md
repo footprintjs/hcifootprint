@@ -1,5 +1,44 @@
 # Changelog
 
+## [2.5.0] - 2026-08-26
+
+### Added
+
+- **`requestInput()` — the HITL request lifecycle.** A skill that reaches a
+  value it must not guess asks a person for it, as a first-class, governed,
+  recorded thing — not a prose question whose answer is a free string.
+  - **The offered-set law.** The exact offered list rides the request. An
+    answer outside it refuses — naming the list — and the request STAYS
+    OPEN, so a refused attempt costs nothing and the real answer still
+    lands. Accepting an arbitrary string on resume rebuilds the
+    invented-identifier failure on the human side of the wire.
+  - **Absence is established, never assumed.** Four doors out of `open`:
+    `answer` (the asked principal, from the offered list), `decline` (the
+    asked principal, with a reason), `withdraw` (the requester, with a
+    reason), `abandon` (an explicit authority). Never inference from
+    silence.
+  - **First terminal wins, the loser is kept.** A late answer after the
+    terminal is quoted in `lateAnswers` — claimed, never adopted, never
+    reopening; absent-not-empty when none arrived. The same settlement law
+    transitions follow, now at the human seam.
+  - The asked-for kind is **governed** like every other kind; routing to
+    collecting surfaces is recorded at open, and a miss is a counted
+    channel gap, never a blocked question. `runtime.openRequests()` lists
+    the still-open, oldest first — what a surface renders.
+- **`declareLifecycle()` — a chart owns WHETHER, the host owns WHEN.**
+  Node, React, and the browser publish their phase names, and nobody debugs
+  those systems by guessing; we adopt the published-phases idea and refuse
+  the scheduler half (this library lives inside hosts that already own
+  time). A chart declares states, edges, terminals, and who may move them;
+  the mover refuses illegal moves in teaching sentences naming the legal
+  ones; a terminal with an outgoing edge is refused at declaration — "a
+  terminal never reopens" is structural, not conventional.
+  `REQUEST_LIFECYCLE` is the first published chart, shipped WITH its
+  enforcing consumer — a chart nobody enforces is decoration, and we don't
+  ship decoration.
+
+Docs: `docs/actions/requesting-input`.
+
 ## [2.4.1] - 2026-08-26
 
 ### Changed

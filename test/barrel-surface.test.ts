@@ -17,7 +17,13 @@ import * as barrel from '../src/index.js';
  * pinned by the API docs gate (`docs:truth`), which fails on undocumented
  * drift there.
  */
+// 2.5.0, deliberate: `REQUEST_LIFECYCLE` (a published chart is the point —
+// the same table the mover enforces) and `declareLifecycle` (consumers
+// build their own enforced charts). Root rather than subpath because both
+// are core vocabulary, not a skin; revisit with everything else at 3.0.
 const ROOT_VALUE_EXPORTS = [
+  'REQUEST_LIFECYCLE',
+  'declareLifecycle',
   'ActionAbandonmentAuthority',
   'ActionAttachment',
   'ActionBindingRef',

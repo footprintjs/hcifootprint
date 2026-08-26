@@ -361,3 +361,14 @@ export type {
   SurfaceHandle,
   SurfaceQuery,
 } from './action/channels.js';
+
+export { REQUEST_LIFECYCLE } from './action/request.js';
+export type {
+  InputRequestHandle,
+  InputRequestRef,
+  InputRequestSnapshot,
+  InputRequestState,
+  RequestChoice,
+} from './action/request.js';
+export { declareLifecycle } from './action/lifecycle.js';
+export type { Lifecycle, LifecycleChart, LifecycleEdge } from './action/lifecycle.js';

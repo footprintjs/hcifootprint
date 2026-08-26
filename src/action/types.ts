@@ -803,6 +803,16 @@ export interface ActionRuntime {
   ): readonly import('./channels.js').SurfaceDeclaration[];
   /** Every kind somebody needed served and nothing could, counted. */
   channelGaps(): readonly import('./channels.js').ChannelGap[];
+  /** Ask a person for one value of a governed kind, from an offered list —
+   *  the HITL request lifecycle, offered-set law included. */
+  requestInput(input: {
+    readonly question: string;
+    readonly of: string;
+    readonly from: import('../atom/types.js').Principal;
+    readonly offered: readonly (import('./request.js').RequestChoice | string)[];
+  }): import('./request.js').InputRequestHandle;
+  /** Every request still open, oldest first — what a surface renders. */
+  openRequests(): readonly import('./request.js').InputRequestSnapshot[];
   /** Bind offer generation and invocation to one explicit reader principal. */
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P>;
   /**

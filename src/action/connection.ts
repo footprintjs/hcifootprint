@@ -63,6 +63,8 @@ import { KindGovernor } from './kind-governor.js';
 import { TransitionLedger } from './transition-ledger.js';
 import { buildConnection, type ConnectionCore } from './connection-builder.js';
 import { SurfaceBoard } from './surface-board.js';
+import { RequestDesk } from './request.js';
+import type { InputRequestHandle, InputRequestSnapshot, RequestChoice } from './request.js';
 import { assertBindingCoverage } from './coverage.js';
 import type {
   ActionDefinitionRef,
@@ -187,6 +189,7 @@ class DefaultActionRuntime implements ActionRuntime {
   readonly #kinds: KindCatalog | undefined;
   readonly #governor: KindGovernor;
   readonly #core: ConnectionCore;
+  readonly #requests: RequestDesk;
   readonly #board: SurfaceBoard;
   readonly #registry = new ActionRegistry();
   readonly #offers = new Map<string, ActionOffer>();
@@ -235,6 +238,7 @@ class DefaultActionRuntime implements ActionRuntime {
     this.#kinds = kinds;
     this.#governor = new KindGovernor(kinds);
     this.#board = new SurfaceBoard(this.#governor);
+    this.#requests = new RequestDesk(this.#governor, this.#board);
 
     this.#contractActivation = activation;
     this.#inputSchemaAdapter =
@@ -314,6 +318,19 @@ class DefaultActionRuntime implements ActionRuntime {
 
   channelGaps(): readonly ChannelGap[] {
     return this.#board.gaps();
+  }
+
+  requestInput(input: {
+    readonly question: string;
+    readonly of: string;
+    readonly from: Principal;
+    readonly offered: readonly (RequestChoice | string)[];
+  }): InputRequestHandle {
+    return this.#requests.open(input);
+  }
+
+  openRequests(): readonly InputRequestSnapshot[] {
+    return this.#requests.openRequests();
   }
 
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P> {

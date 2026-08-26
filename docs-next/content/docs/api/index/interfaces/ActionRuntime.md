@@ -22,7 +22,7 @@ Defined in: [src/action/types.ts:789](https://github.com/footprintjs/hcifootprin
 
 > **bindingFor**(`binding`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\> \| `undefined`
 
-Defined in: [src/action/types.ts:846](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L846)
+Defined in: [src/action/types.ts:856](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L856)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [src/action/types.ts:846](https://github.com/footprintjs/hcifootprin
 
 > **bindings**(`definition?`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\>[]
 
-Defined in: [src/action/types.ts:845](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L845)
+Defined in: [src/action/types.ts:855](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L855)
 
 #### Parameters
 
@@ -74,7 +74,7 @@ readonly [`ChannelGap`](/api/index/interfaces/ChannelGap)[]
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
-Defined in: [src/action/types.ts:812](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L812)
+Defined in: [src/action/types.ts:822](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L822)
 
 Connect a scalar binding whose exact payload is owned by a required live
 `options.input` reader.
@@ -111,7 +111,7 @@ Connect a scalar binding whose exact payload is owned by a required live
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>
 
-Defined in: [src/action/types.ts:828](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L828)
+Defined in: [src/action/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L838)
 
 Connect without a bound input reader. Scalar definitions keep a required
 direct payload door; inputless/host definitions forbid `options.input`.
@@ -171,7 +171,7 @@ Declare what one frontend surface can serve — collects and shows, by
 
 > **forgetTransition**(`transition`): `boolean`
 
-Defined in: [src/action/types.ts:851](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L851)
+Defined in: [src/action/types.ts:861](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L861)
 
 Release a fully settled transition from runtime history.
 
@@ -191,7 +191,7 @@ Release a fully settled transition from runtime history.
 
 > **forPrincipal**\<`P`\>(`principal`): [`PrincipalActionPort`](/api/index/interfaces/PrincipalActionPort)\<`P`\>
 
-Defined in: [src/action/types.ts:807](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L807)
+Defined in: [src/action/types.ts:817](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L817)
 
 Bind offer generation and invocation to one explicit reader principal.
 
@@ -228,6 +228,55 @@ What this runtime can say about its own kind governance — mounted or
 
 ***
 
+### openRequests()
+
+> **openRequests**(): readonly [`InputRequestSnapshot`](/api/index/interfaces/InputRequestSnapshot)[]
+
+Defined in: [src/action/types.ts:815](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L815)
+
+Every request still open, oldest first — what a surface renders.
+
+#### Returns
+
+readonly [`InputRequestSnapshot`](/api/index/interfaces/InputRequestSnapshot)[]
+
+***
+
+### requestInput()
+
+> **requestInput**(`input`): [`InputRequestHandle`](/api/index/interfaces/InputRequestHandle)
+
+Defined in: [src/action/types.ts:808](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L808)
+
+Ask a person for one value of a governed kind, from an offered list —
+ the HITL request lifecycle, offered-set law included.
+
+#### Parameters
+
+##### input
+
+###### from
+
+[`Principal`](/api/index/type-aliases/Principal)
+
+###### of
+
+`string`
+
+###### offered
+
+readonly (`string` \| [`RequestChoice`](/api/index/interfaces/RequestChoice))[]
+
+###### question
+
+`string`
+
+#### Returns
+
+[`InputRequestHandle`](/api/index/interfaces/InputRequestHandle)
+
+***
+
 ### surfacesFor()
 
 > **surfacesFor**(`query`): readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
@@ -254,7 +303,7 @@ readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
 
 > **transitionFor**(`transition`): [`ActionTransitionSnapshot`](/api/index/interfaces/ActionTransitionSnapshot) \| `undefined`
 
-Defined in: [src/action/types.ts:847](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L847)
+Defined in: [src/action/types.ts:857](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L857)
 
 #### Parameters
 

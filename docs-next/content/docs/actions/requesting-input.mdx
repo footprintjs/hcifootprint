@@ -1,0 +1,134 @@
+---
+title: Requesting input
+description: The HITL request lifecycle — a skill asks a person for a value, on the record.
+---
+
+## Why this exists
+
+An agent mid-turn sometimes reaches a value it must not guess: which
+environment, which of three matching records, proceed or stop. The common
+implementations of that pause are all lossy — a prose question in chat whose
+answer is a free string, a modal nobody records, a timeout that silently
+becomes "no". `requestInput()` makes the pause a first-class, governed,
+recorded thing with a declared lifecycle.
+
+Two laws came back from production use before this was a library feature:
+
+**The offered-set law.** The exact offered list rides the request. An answer
+naming anything outside it is refused — with the list in the refusal — and
+the request **stays open**, so a refused attempt costs nothing and the real
+answer still lands. Accepting an arbitrary string on resume rebuilds the
+invented-identifier failure on the human side of the wire, where it is
+harder to see because a person typed it.
+
+**Absence is established, never assumed.** A request ends by answer, by
+decline (the person, with a reason), by withdrawal (the requester), or by an
+explicit abandonment authority. Never by inference from silence — "nobody
+ever answered" is a fact somebody has to establish.
+
+## The lifecycle is a published chart
+
+Node names its loop phases, React names mount and commit, the browser names
+task, microtask, paint — and nobody debugs those systems by guessing,
+because the phases are published. We adopt exactly that idea and refuse the
+other half: those loops are *schedulers* that own time, and this library
+lives inside hosts that already own it. So the chart owns **whether**, the
+host owns **when**:
+
+```ts
+import { REQUEST_LIFECYCLE } from 'hcifootprint';
+
+REQUEST_LIFECYCLE.states;    // ['open', 'answered', 'declined', 'withdrawn', 'abandoned']
+REQUEST_LIFECYCLE.terminals; // every state but 'open' — four doors out, none back in
+```
+
+The same table the enforcing mover consults is the one tests pin and a
+surface may render. A terminal state can never have an outgoing edge — the
+chart declaration itself refuses it — which makes "a terminal never reopens"
+a structural property, not a per-consumer convention.
+
+## Asking, answering, refusing
+
+```ts
+import { createActionRuntime, declareKinds } from 'hcifootprint';
+
+const runtime = createActionRuntime({
+  kinds: declareKinds({ 'deploy.environment': { docs: 'where a deploy lands' } }),
+});
+
+const request = runtime.requestInput({
+  question: 'Which environment should this deploy land in?',
+  of: 'deploy.environment',   // a governed kind, like every other kind
+  from: 'user',               // who may answer
+  offered: ['staging', 'production'],
+});
+
+// The offered-set law at work: this refuses, NAMES the offered list,
+// and the request stays open.
+try {
+  request.answer('prod', 'user');
+} catch (refusal) {
+  // "…'prod' was never offered… The offered values are: 'staging',
+  //  'production'. The request is still open — answer with one of those."
+}
+
+const settled = request.answer('production', 'user');
+settled.state;  // 'answered'
+settled.answer; // 'production'
+```
+
+`whenSettled` resolves with the terminal snapshot, whichever terminal it is
+— the promise a skill awaits while the person decides.
+
+## The four doors out of `open`
+
+| door | who | must carry |
+|---|---|---|
+| `answer(value, by)` | the asked principal | a value from the offered list |
+| `decline(by, reason)` | the asked principal | a reason — "no, because…" is an answer the asker can act on |
+| `withdraw(reason)` | the requester | a reason — the person mid-decision deserves to know why the question left |
+| `abandon(authority)` | whoever holds the authority | an explicit `{ kind, detail }` — cancelled, deadline, evidence-gone |
+
+A late answer arriving after any terminal is **kept and quoted** in
+`lateAnswers` — claimed, never adopted, never reopening — the same
+settlement law transitions follow, at the human seam. `lateAnswers` is
+absent (not empty) when none arrived: an empty list would claim "we watched
+and none came", which the record cannot know.
+
+## Routing to a surface
+
+At open, the request records which declared surfaces
+[collect](/docs/actions/surfaces-and-gaps) the asked-for kind. A missing
+surface never blocks the question — prose in conversation is the honest
+fallback — but the miss is already a counted gap on the board, so the
+backlog of "we keep asking for kinds nothing can collect" writes itself
+from real usage. `runtime.openRequests()` lists every still-open request,
+oldest first: exactly what a surface renders.
+
+## Build your own chart
+
+`declareLifecycle` is exported for consumers with their own multi-step
+human seams (an approval that escalates, a review with a rework loop):
+
+```ts
+import { declareLifecycle } from 'hcifootprint';
+
+const review = declareLifecycle({
+  name: 'review',
+  states: ['draft', 'submitted', 'approved', 'rejected'],
+  terminals: ['approved', 'rejected'],
+  edges: [
+    { from: 'draft', to: 'submitted' },
+    { from: 'submitted', to: 'approved', by: ['user'] },
+    { from: 'submitted', to: 'rejected', by: ['user'] },
+  ],
+});
+
+review.assertMove('draft', 'approved');
+// refuses: "…no move 'draft' → 'approved'. From 'draft' the legal
+//           moves are: 'submitted'."
+```
+
+An illegal move is a teaching refusal naming the legal moves — never a
+boolean a caller can forget to check. Declare a chart only where a mover
+actually consults it: a chart nobody enforces is decoration.

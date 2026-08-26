@@ -30,6 +30,8 @@ The map, one file per concern:
 | `surface-board.ts` | composed unit: surfaces + the gap record | declarations, matching, counted misses — one story, one owner |
 | `transition-ledger.ts` | composed unit: every stored transition | rows, ids, settlement — "a connection never holds the current transition" has exactly one place to be true |
 | `connection-builder.ts` | the heart of connect(), behind `ConnectionCore` | the closure web shares per-connection state BY DESIGN; what separates is the unit from the runtime — the core seam lists every capability it may use, so one not listed is one provably unused |
+| `lifecycle.ts` | a declared state chart + its enforcing mover | Node/React/the browser PUBLISH their phase names — we adopt that and refuse the scheduler half: the chart owns WHETHER, the host owns WHEN; a terminal with an outgoing edge is refused at declaration |
+| `request.ts` | the HITL request desk (`requestInput`) | the OFFERED-SET LAW: an answer outside the offered list refuses naming the list and the request STAYS OPEN; a request ends by answer, decline, withdrawal, or explicit authority — never by inference from silence |
 
 Laws every file upholds (the design doc `docs/design/action-binding-protocol.md` carries the full argument):
 
