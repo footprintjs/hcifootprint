@@ -4,7 +4,7 @@ title: ActionWalk
 
 # Interface: ActionWalk
 
-Defined in: src/action/walk.ts:97
+Defined in: [src/action/walk.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L97)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/walk.ts:97
 
 > `readonly` **ref**: [`ActionWalkRef`](/api/index/interfaces/ActionWalkRef)
 
-Defined in: src/action/walk.ts:98
+Defined in: [src/action/walk.ts:98](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L98)
 
 ## Methods
 
@@ -20,7 +20,7 @@ Defined in: src/action/walk.ts:98
 
 > **record**(): `object`
 
-Defined in: src/action/walk.ts:108
+Defined in: [src/action/walk.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L108)
 
 Every manifest this walk has produced, in order — the route actually
  taken, which is not the route anybody planned.
@@ -43,7 +43,7 @@ Every manifest this walk has produced, in order — the route actually
 
 > **run**(`steps`): `Promise`\<[`ActionPlanManifest`](/api/index/interfaces/ActionPlanManifest)\>
 
-Defined in: src/action/walk.ts:105
+Defined in: [src/action/walk.ts:105](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L105)
 
 Admit and execute one plan. Admission failures THROW before anything
 runs — nothing happened, so an exception is honest. Execution failures

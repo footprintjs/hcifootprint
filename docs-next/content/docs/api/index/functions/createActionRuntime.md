@@ -6,7 +6,7 @@ title: createActionRuntime
 
 > **createActionRuntime**(`options?`): [`ActionRuntime`](/api/index/interfaces/ActionRuntime)
 
-Defined in: [src/action/connection.ts:191](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L191)
+Defined in: [src/action/connection.ts:195](https://github.com/footprintjs/hcifootprint/blob/main/src/action/connection.ts#L195)
 
 Create an isolated framework-neutral action-binding runtime.
 

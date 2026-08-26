@@ -4,7 +4,7 @@ title: ActionPlanManifest
 
 # Interface: ActionPlanManifest
 
-Defined in: src/action/walk.ts:83
+Defined in: [src/action/walk.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L83)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/walk.ts:83
 
 > `readonly` **completed**: `boolean`
 
-Defined in: src/action/walk.ts:88
+Defined in: [src/action/walk.ts:88](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L88)
 
 Every row ran AND performed. A manifest that said "failed" while the
  screen sits two steps along would be worse than no batching.
@@ -23,7 +23,7 @@ Every row ran AND performed. A manifest that said "failed" while the
 
 > `readonly` **counts**: `object`
 
-Defined in: src/action/walk.ts:89
+Defined in: [src/action/walk.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L89)
 
 #### neverReached
 
@@ -47,7 +47,7 @@ Defined in: src/action/walk.ts:89
 
 > `readonly` **rows**: readonly [`ActionPlanRow`](/api/index/interfaces/ActionPlanRow)[]
 
-Defined in: src/action/walk.ts:85
+Defined in: [src/action/walk.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L85)
 
 ***
 
@@ -55,4 +55,4 @@ Defined in: src/action/walk.ts:85
 
 > `readonly` **walk**: [`ActionWalkRef`](/api/index/interfaces/ActionWalkRef)
 
-Defined in: src/action/walk.ts:84
+Defined in: [src/action/walk.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L84)

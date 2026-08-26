@@ -7,6 +7,10 @@ import {
 import { takesNoInput } from '../traverse/expects.js';
 import { checkPrincipalPolicy } from '../traverse/principal-policy.js';
 import { actionDefinitionOf } from './definition.js';
+import type {
+  KindCatalog,
+  KindGovernanceReport,
+} from './kinds.js';
 import { assertBindingCoverage } from './coverage.js';
 import type {
   ActionDefinitionRef,
@@ -264,6 +268,13 @@ export function connectAction<
 class DefaultActionRuntime implements ActionRuntime {
   readonly #contractActivation: ActionContractActivation;
   readonly #inputSchemaAdapter: ActionInputSchemaAdapter | undefined;
+  readonly #kinds: KindCatalog | undefined;
+  /** A mounted catalog is immutable, so an answer is a fact forever — the
+   *  runtime consults it once per kind, EVER, and an adapter's cost can
+   *  never reach the offer-serving path. */
+  readonly #kindMemo = new Map<string, boolean>();
+  readonly #kindsSeen = new Set<string>();
+  readonly #ungovernedKinds = new Set<string>();
   readonly #registry = new ActionRegistry();
   readonly #offers = new Map<string, ActionOffer>();
   readonly #offerByBinding = new Map<string, Map<Principal, CachedOffer>>();
@@ -297,6 +308,19 @@ class DefaultActionRuntime implements ActionRuntime {
         'hcifootprint: inputSchemaAdapter needs synchronous supports() and validate() methods.',
       );
     }
+    const kinds = options.kinds;
+    if (
+      kinds !== undefined &&
+      (kinds === null ||
+        typeof kinds !== 'object' ||
+        typeof kinds.has !== 'function' ||
+        typeof kinds.describe !== 'function')
+    ) {
+      throw new TypeError(
+        'hcifootprint: kinds must be a KindCatalog with synchronous has() and describe() — declareKinds() builds the default.',
+      );
+    }
+    this.#kinds = kinds;
     this.#contractActivation = activation;
     this.#inputSchemaAdapter =
       inputSchemaAdapter === undefined
@@ -315,6 +339,54 @@ class DefaultActionRuntime implements ActionRuntime {
 
   get contractActivation(): ActionContractActivation {
     return this.#contractActivation;
+  }
+
+  kindGovernance(): KindGovernanceReport {
+    return Object.freeze({
+      mounted: this.#kinds !== undefined,
+      ...(this.#kinds?.fingerprint !== undefined
+        ? { fingerprint: this.#kinds.fingerprint }
+        : {}),
+      kindsSeen: Object.freeze([...this.#kindsSeen].sort()),
+      ungoverned: Object.freeze([...this.#ungovernedKinds].sort()),
+    });
+  }
+
+  /**
+   * Connect-time kind enforcement — fail where the developer is looking,
+   * not at match time three layers later. With no catalog mounted the
+   * declaration is ACCEPTED and recorded as ungoverned: silently unchecked
+   * would be the unarmed-check disease, and refusing outright would make
+   * governance mandatory before anyone can try the feature. The report
+   * (`kindGovernance()`) is the visible row either way.
+   */
+  #checkDeclaredKinds(record: ActionDefinitionRecord): void {
+    const contract = record.contract as {
+      readonly needs?: Readonly<Record<string, { readonly kind: string }>>;
+      readonly produces?: { readonly kind: string };
+    };
+    const declared: string[] = [];
+    if (contract.needs !== undefined) {
+      for (const need of Object.values(contract.needs)) declared.push(need.kind);
+    }
+    if (contract.produces !== undefined) declared.push(contract.produces.kind);
+    for (const kind of declared) {
+      this.#kindsSeen.add(kind);
+      if (this.#kinds === undefined) {
+        this.#ungovernedKinds.add(kind);
+        continue;
+      }
+      let known = this.#kindMemo.get(kind);
+      if (known === undefined) {
+        known = this.#kinds.has(kind) === true;
+        this.#kindMemo.set(kind, known);
+      }
+      if (!known) {
+        throw new Error(
+          `hcifootprint: '${record.ref.definitionId}' declares kind '${kind}', which the mounted catalog does not govern. Declare it in the catalog, or use a kind the catalog holds — matching is exact identity, and an unknown kind would make every future match a guess.`,
+        );
+      }
+    }
   }
 
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P> {
@@ -379,6 +451,7 @@ class DefaultActionRuntime implements ActionRuntime {
         'hcifootprint: connectAction() needs a callable created by defineAction().',
       );
     }
+    this.#checkDeclaredKinds(record);
     if (
       options === null ||
       typeof options !== 'object' ||

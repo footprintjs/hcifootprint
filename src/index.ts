@@ -344,3 +344,12 @@ export type {
   ActionWalk,
   ActionWalkRef,
 } from './action/walk.js';
+
+export { declareKinds } from './action/kinds.js';
+export type {
+  DeclaredKindCatalog,
+  KindCatalog,
+  KindDeclaration,
+  KindGovernanceReport,
+  KindRecord,
+} from './action/kinds.js';

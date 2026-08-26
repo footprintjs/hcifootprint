@@ -4,7 +4,7 @@ title: ActionPlanRow
 
 # Interface: ActionPlanRow
 
-Defined in: src/action/walk.ts:74
+Defined in: [src/action/walk.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L74)
 
 One step's fate. `ran` means a transition exists — read ITS statuses for
  how the invocation and effect went; the row does not repeat them.
@@ -15,7 +15,7 @@ One step's fate. `ran` means a transition exists — read ITS statuses for
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)
 
-Defined in: src/action/walk.ts:76
+Defined in: [src/action/walk.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L76)
 
 ***
 
@@ -23,7 +23,7 @@ Defined in: src/action/walk.ts:76
 
 > `readonly` `optional` **refusal?**: `string`
 
-Defined in: src/action/walk.ts:80
+Defined in: [src/action/walk.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L80)
 
 The teaching sentence, verbatim, when the step never became a transition.
 
@@ -33,7 +33,7 @@ The teaching sentence, verbatim, when the step never became a transition.
 
 > `readonly` **status**: [`ActionPlanRowStatus`](/api/index/type-aliases/ActionPlanRowStatus)
 
-Defined in: src/action/walk.ts:77
+Defined in: [src/action/walk.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L77)
 
 ***
 
@@ -41,7 +41,7 @@ Defined in: src/action/walk.ts:77
 
 > `readonly` **step**: `number`
 
-Defined in: src/action/walk.ts:75
+Defined in: [src/action/walk.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L75)
 
 ***
 
@@ -49,4 +49,4 @@ Defined in: src/action/walk.ts:75
 
 > `readonly` `optional` **transition?**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`string`\>
 
-Defined in: src/action/walk.ts:78
+Defined in: [src/action/walk.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L78)

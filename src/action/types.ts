@@ -744,6 +744,14 @@ export interface ActionRuntimeOptions {
   readonly contractActivation?: ActionContractActivation;
   /** Optional validator for schema formats that are otherwise disclosure-only. */
   readonly inputSchemaAdapter?: ActionInputSchemaAdapter;
+  /**
+   * The kind vocabulary this runtime is governed by — `declareKinds()` builds
+   * the default; any object with synchronous `has()`/`describe()` serves.
+   * Unmounted is a CHOICE the runtime keeps visible: declarations are then
+   * accepted and reported ungoverned by `kindGovernance()`, never silently
+   * unchecked. A mounted catalog must be immutable — answers are memoized.
+   */
+  readonly kinds?: import('./kinds.js').KindCatalog;
 }
 
 /**
@@ -779,6 +787,9 @@ export interface PrincipalActionPort<P extends Principal = Principal> {
 /** Framework-neutral store and execution port for connected actions. */
 export interface ActionRuntime {
   readonly contractActivation: ActionContractActivation;
+  /** What this runtime can say about its own kind governance — mounted or
+   *  not, the fingerprint, every kind seen, and the ungoverned remainder. */
+  kindGovernance(): import('./kinds.js').KindGovernanceReport;
   /** Bind offer generation and invocation to one explicit reader principal. */
   forPrincipal<P extends Principal>(principal: P): PrincipalActionPort<P>;
   /**

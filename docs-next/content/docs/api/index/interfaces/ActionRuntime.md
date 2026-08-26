@@ -4,7 +4,7 @@ title: ActionRuntime
 
 # Interface: ActionRuntime
 
-Defined in: [src/action/types.ts:780](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L780)
+Defined in: [src/action/types.ts:788](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L788)
 
 Framework-neutral store and execution port for connected actions.
 
@@ -14,7 +14,7 @@ Framework-neutral store and execution port for connected actions.
 
 > `readonly` **contractActivation**: [`ActionContractActivation`](/api/index/type-aliases/ActionContractActivation)
 
-Defined in: [src/action/types.ts:781](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L781)
+Defined in: [src/action/types.ts:789](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L789)
 
 ## Methods
 
@@ -22,7 +22,7 @@ Defined in: [src/action/types.ts:781](https://github.com/footprintjs/hcifootprin
 
 > **bindingFor**(`binding`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\> \| `undefined`
 
-Defined in: [src/action/types.ts:822](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L822)
+Defined in: [src/action/types.ts:833](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L833)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [src/action/types.ts:822](https://github.com/footprintjs/hcifootprin
 
 > **bindings**(`definition?`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\>[]
 
-Defined in: [src/action/types.ts:821](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L821)
+Defined in: [src/action/types.ts:832](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L832)
 
 #### Parameters
 
@@ -60,7 +60,7 @@ Defined in: [src/action/types.ts:821](https://github.com/footprintjs/hcifootprin
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
-Defined in: [src/action/types.ts:788](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L788)
+Defined in: [src/action/types.ts:799](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L799)
 
 Connect a scalar binding whose exact payload is owned by a required live
 `options.input` reader.
@@ -97,7 +97,7 @@ Connect a scalar binding whose exact payload is owned by a required live
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>
 
-Defined in: [src/action/types.ts:804](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L804)
+Defined in: [src/action/types.ts:815](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L815)
 
 Connect without a bound input reader. Scalar definitions keep a required
 direct payload door; inputless/host definitions forbid `options.input`.
@@ -136,7 +136,7 @@ direct payload door; inputless/host definitions forbid `options.input`.
 
 > **forgetTransition**(`transition`): `boolean`
 
-Defined in: [src/action/types.ts:827](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L827)
+Defined in: [src/action/types.ts:838](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L838)
 
 Release a fully settled transition from runtime history.
 
@@ -156,7 +156,7 @@ Release a fully settled transition from runtime history.
 
 > **forPrincipal**\<`P`\>(`principal`): [`PrincipalActionPort`](/api/index/interfaces/PrincipalActionPort)\<`P`\>
 
-Defined in: [src/action/types.ts:783](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L783)
+Defined in: [src/action/types.ts:794](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L794)
 
 Bind offer generation and invocation to one explicit reader principal.
 
@@ -178,11 +178,26 @@ Bind offer generation and invocation to one explicit reader principal.
 
 ***
 
+### kindGovernance()
+
+> **kindGovernance**(): [`KindGovernanceReport`](/api/index/interfaces/KindGovernanceReport)
+
+Defined in: [src/action/types.ts:792](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L792)
+
+What this runtime can say about its own kind governance — mounted or
+ not, the fingerprint, every kind seen, and the ungoverned remainder.
+
+#### Returns
+
+[`KindGovernanceReport`](/api/index/interfaces/KindGovernanceReport)
+
+***
+
 ### transitionFor()
 
 > **transitionFor**(`transition`): [`ActionTransitionSnapshot`](/api/index/interfaces/ActionTransitionSnapshot) \| `undefined`
 
-Defined in: [src/action/types.ts:823](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L823)
+Defined in: [src/action/types.ts:834](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L834)
 
 #### Parameters
 

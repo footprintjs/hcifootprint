@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.2.0] - 2026-08-26
+
+### Added
+
+- **Kind governance — the vocabulary, governed before matching exists.**
+  `needs` and `produces` name kinds, and two teams declaring `array` to mean
+  different things is the stringly-typed failure rebuilt one level above ids
+  (the reference app contains exactly this collision, live). `declareKinds()`
+  builds the default catalog from per-team contributions — the runtime owns
+  the merge, and a duplicate is a refusal naming BOTH contributors, never a
+  silent last-writer-wins. Mount it with `createActionRuntime({ kinds })`;
+  an unknown kind is then refused at CONNECT time, where the developer is
+  looking, in the catalog vocabulary. The interface is two methods (`has`,
+  `describe`) plus a fingerprint — enumeration lives on the concrete default
+  only, so a future remote adapter is never forced to promise a listing it
+  cannot give synchronously. A mounted catalog is immutable, which makes it
+  memoizable: consulted once per kind, ever, so an adapter can never cost the
+  offer-serving path. `KindRecord.revision` rides the fingerprint, because
+  kind names are forever while meanings evolve, and two sides holding
+  different meanings of one name should refuse loudly at a seam instead of
+  matching silently. And no catalog mounted is a VISIBLE state:
+  `runtime.kindGovernance()` reports every kind seen and the ungoverned
+  remainder — an unarmed check indistinguishable from a passing one is the
+  disease this family keeps curing.
+
 ## [2.1.0] - 2026-08-25
 
 ### Added
