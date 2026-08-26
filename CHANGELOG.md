@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.3.1] - 2026-08-26
+
+### Documentation
+
+- **The 2.x story, documented where each audience looks — because docs are
+  the adoption surface.** Guide pages for the walk, kind governance, and
+  surfaces-and-gaps join bring-your-own-skin in the docs directory, each
+  opening with WHY before HOW and carrying an example that COMPILES against
+  the published package (verified, not assumed). Folder READMEs land beside
+  the two newest modules, matching the house convention every other module
+  already follows: `src/action/README.md` maps one file to one concern with
+  the reason each exists, and `src/react/README.md` states what the hook is
+  (one skin over the framework-neutral core), what it deliberately is not
+  (no strategy option — a seam inside a skin would duplicate the seam the
+  core already is), and the four laws any bring-your-own skin must uphold.
+
 ## [2.3.0] - 2026-08-26
 
 ### Added

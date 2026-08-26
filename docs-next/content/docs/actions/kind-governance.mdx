@@ -1,0 +1,61 @@
+---
+title: Kind governance
+description: needs and produces name kinds — a vocabulary governed before matching exists, so two teams' meanings of one word collide at connect time, not in production.
+---
+
+## Why
+
+`needs` and `produces` name KINDS — `array`, `finding`, `analysis.summary`.
+Two teams declaring `array` to mean different things is the stringly-typed
+failure rebuilt one level above ids, and it is not hypothetical: the
+reference application contains two live worlds — a Monitor estate and a
+storage simulation — whose `array` are entirely different objects.
+Retrofitting a namespace onto strings in the wild is the migration that
+never completes, so the vocabulary is governed **before** matching exists.
+
+The family split, applied again: **the library owns the law** — kinds are
+opaque strings, matching is exact identity, an unknown kind is a refusal —
+**the mounted catalog owns the world**: which kinds exist and what each
+means.
+
+```ts
+import { createActionRuntime, declareKinds } from 'hcifootprint';
+
+// Teams own their files; the runtime owns the merge.
+const estateKinds  = { array: { docs: 'a Monitor estate array' }, finding: {} };
+const storageKinds = { 'powermax.array': { docs: 'a PowerMax frame' } };
+
+const runtime = createActionRuntime({
+  kinds: declareKinds(estateKinds, storageKinds),
+});
+
+// A duplicate REFUSES, naming both contributors — never last-writer-wins:
+// declareKinds(estateKinds, { array: {} })
+//   → "kind 'array' is declared twice — by contribution 0 and again by 1…"
+
+runtime.kindGovernance();
+// { mounted: true, fingerprint: '…', kindsSeen: […], ungoverned: [] }
+```
+
+## The decisions, and why each
+
+- **Connect-time enforcement.** An unknown kind refuses when the connection
+  is made — where the developer is looking — not at match time three layers
+  later.
+- **Two methods, deliberately.** `has()` and `describe()` are the whole
+  interface. Enumeration lives on the concrete default only, so a future
+  remote adapter is never forced to promise a listing it cannot give
+  synchronously; `assignable()` (subtyping) is refused until a real
+  consumer produces the failure that justifies it.
+- **A mounted catalog is immutable — one argument twice.** A kind cannot
+  vanish after its check passed (honesty), and an immutable catalog is
+  memoizable: consulted once per kind, *ever*, so an adapter can never cost
+  the offer-serving path (performance).
+- **`revision` rides the fingerprint.** Names are forever; meanings evolve.
+  Two sides holding different meanings of one name should refuse loudly at
+  a seam instead of matching silently — the fingerprint exists now so wires
+  can start carrying it.
+- **Unmounted is a VISIBLE state.** With no catalog, declarations are
+  accepted and reported ungoverned by `kindGovernance()` — never silently
+  unchecked, because an unarmed check indistinguishable from a passing one
+  is the disease this family keeps curing.

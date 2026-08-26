@@ -1,0 +1,53 @@
+---
+title: Surfaces and gaps
+description: A surface declares what it can serve, matching is by kind — and a miss is a counted fact, so degraded turns read back as a backlog.
+---
+
+## Why
+
+The frontend is the I/O device for a skill: input when a value is needed,
+output when something is produced. An action never names a page (a moved
+page would break it, and headless would be impossible) and a surface never
+names an action — **both name kinds**, and the runtime binds them where the
+kinds match.
+
+The part that is easy to get wrong is the miss. Returning an empty list
+renders absence as silence; the honest version **records the ask**:
+
+```ts
+import { createActionRuntime, declareKinds } from 'hcifootprint';
+
+const runtime = createActionRuntime({
+  kinds: declareKinds({ array: {}, 'analysis.summary': {} }),
+});
+
+runtime.declareSurface({
+  surface: 'monitor.arrays',
+  node: 'monitor',
+  collects: ['array'],                     // kinds it can obtain from a person
+  shows: ['array'],                        // kinds it can render
+});
+
+runtime.surfacesFor({ collects: 'array' });          // → [monitor.arrays]
+runtime.surfacesFor({ shows: 'analysis.summary' });  // → [] … and RECORDED
+
+runtime.channelGaps();
+// → [{ kind: 'analysis.summary', channel: 'shows', asks: 1 }]
+```
+
+`channelGaps()` is the degradation record: every kind somebody needed
+served when nothing could, **counted** — asked-once and
+asked-forty-times-a-day are different priorities wearing the same row.
+After a month it answers *"what did skills produce that we had nowhere to
+put?"* — a product backlog written by actual usage instead of guessing.
+
+## The rules
+
+- **Queries are governed too.** `surfacesFor({ collects: 'arary' })` under a
+  mounted catalog is a refusal, not a gap — otherwise the record fills with
+  typos until it stops meaning anything.
+- **One live surface per id.** A duplicate refuses rather than shadows;
+  retirement is idempotent, owned by its handle, and can never take down a
+  successor declared under the same id.
+- **A surface arriving answers the need, not the history.** The gap stops
+  growing, but the record of having been needed is not erased.

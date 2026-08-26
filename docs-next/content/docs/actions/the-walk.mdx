@@ -1,0 +1,67 @@
+---
+title: The walk
+description: Many actions as one correlated route — a plan admitted up front, executed without a model call between steps, answered with a manifest.
+---
+
+## Why
+
+A model that returns to its orchestrator between every screen action spends a
+round trip per step re-deciding things it already decided. And a batch that
+plows ahead blindly is worse: a screen action cannot be rolled back, so
+"the batch failed" while the screen sits two steps along is a lie of
+summary. The walk is the middle: **admission checks what declarations can
+prove before anything runs; execution re-derives every step's offer at its
+own turn; and the answer is a manifest** — ran, refused, never-reached, per
+row — so partial execution is legible instead of summarized.
+
+```ts
+import { beginWalk, connectAction, createActionRuntime, defineAction } from 'hcifootprint';
+
+const findRun = defineAction('runs.find', {
+  does: 'Find the most recent zone-redundancy run',
+  invocation: 'inputless',
+  produces: { kind: 'run.ref' },
+  mutate: () => archive.mostRecent('zone-redundancy'),
+});
+const openRun = defineAction('runs.open', {
+  does: 'Open one run on screen',
+  invocation: 'scalar',
+  inputSchema: { safeParse: () => ({ success: true as const }) },
+  mutate: (ref: string) => screen.open(ref),
+});
+
+const runtime = createActionRuntime();
+connectAction(runtime, findRun, { node: 'runs' });
+connectAction(runtime, openRun, { node: 'runs' });
+
+const walk = beginWalk(runtime, 'agent');
+const manifest = await walk.run([
+  { action: findRun },
+  { action: openRun, carry: { from: 0 } },
+]);
+// manifest.rows    → [{ status: 'ran', transition }, { status: 'ran', transition }]
+// manifest.counts  → { planned: 2, ran: 2, refused: 0, neverReached: 0 }
+```
+
+## The laws, and why each one
+
+- **An agent may not pre-plan a decision it does not own.** A step whose
+  `decisionOwner` the walking principal does not hold is refused at *plan*
+  time — not at step three of a half-executed screen. The same step is
+  admitted for the owner: the law is ownership, not fear of batching.
+- **A carry needs a declared `produces`.** Chaining is what makes plans
+  worth having — but free references are a dataflow language by the back
+  door. The gate is the declaration: a carried value comes from a declared
+  output, never from whatever a handler happened to return.
+- **Batched is not blind.** The plan was made from what was true at step
+  zero, and step one can invalidate step two — so every step re-reads its
+  offers when its turn comes. A guard that stopped holding is a refused row
+  carrying the runtime's own teaching sentence.
+- **One turn, one walk, many plans.** A refused step means the caller
+  replans *under the same walk id*; `walk.record()` then holds the route
+  actually taken — which is not the route anybody planned, and comparing
+  the two is where the interesting failures live.
+
+Admission failures **throw** (nothing ran, so an exception is honest).
+Execution failures **never throw** — they are manifest rows, because by then
+something did happen and the caller needs the ledger, not a stack trace.
