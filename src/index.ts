@@ -334,3 +334,13 @@ export type {
   WorkHandle,
   WorkRow,
 } from './atom/types.js';
+
+export { beginWalk } from './action/walk.js';
+export type {
+  ActionPlanManifest,
+  ActionPlanRow,
+  ActionPlanRowStatus,
+  ActionPlanStep,
+  ActionWalk,
+  ActionWalkRef,
+} from './action/walk.js';

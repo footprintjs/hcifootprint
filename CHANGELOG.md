@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.1.0] - 2026-08-25
+
+### Added
+
+- **Layer 2 — the walk: many actions as one correlated route.** `beginWalk()`
+  admits a PLAN up front and executes it with no model call between steps,
+  answering with a MANIFEST — ran, refused, never-reached, per row — because a
+  screen action cannot be rolled back, so partial execution must be legible
+  rather than summarized as "failed". Admission refuses from declarations
+  alone, before anything runs: a step whose `decisionOwner` the walking
+  principal does not own ("an agent may not pre-plan a decision it does not
+  own"), a principal outside `mayInvoke` ("refused at plan time rather than at
+  step three of a half-executed screen"), and a `carry` whose producer
+  declares no `produces` — a carried value must come from a declared output,
+  never from whatever a handler happened to return. Execution re-derives every
+  step's offer at its own turn: batched is not blind, and a guard that stopped
+  holding mid-plan is a refused row with L1's own teaching sentence. One turn,
+  one walk, MANY plans — a refused step means the caller replans under the
+  same walk id, and `walk.record()` holds the route actually taken. L2
+  introduces no primitive L1 lacks; the walk identity is a correlation, not a
+  concept.
+
 ## [2.0.0] - 2026-08-25
 
 **The Action Binding Protocol.** Declare an action once; bind it to every live
