@@ -198,6 +198,60 @@ describe('walk execution — every step re-derives its own truth', () => {
     expect(exact.completed).toBe(true);
   });
 
+  it('a refusal thrown as a value that cannot be printed is still a refused ROW — the manifest never throws', async () => {
+    // App code runs inside a step's invoke (here the binding's enabled
+    // reader, re-read when the step fires). Whatever it throws becomes the
+    // row's refusal through the one never-throwing describer
+    // (describe-thrown.ts · describeThrown) — `String()` itself throws on
+    // all four of these, and that throw used to reject the whole walk.
+    const { proxy: revoked, revoke } = Proxy.revocable({}, {});
+    revoke();
+    const cases: readonly [unknown, string][] = [
+      [Object.create(null), '[object Object]'],
+      [{ toString: () => { throw new Error('no toString'); } }, '[object Object]'],
+      [{ [Symbol.toPrimitive]: () => { throw new Error('no primitive'); } }, '[object Object]'],
+      [revoked, 'an unprintable value'],
+      // An Error whose `message` getter answers a string once, then an
+      // object: the refusal is the string that passed the check — the
+      // message is read ONCE (describe-thrown.ts · thrownMessage).
+      [
+        (() => {
+          let reads = 0;
+          const error = new Error('placeholder');
+          Object.defineProperty(error, 'message', {
+            get: () => {
+              reads += 1;
+              return reads === 1 ? 'the first answer' : { not: 'a string' };
+            },
+          });
+          return error;
+        })(),
+        'the first answer',
+      ],
+    ];
+    for (const [index, [thrown, words]] of cases.entries()) {
+      const action = defineAction(`walk.unprintable-${String(index)}`, {
+        does: 'Its enabled reader throws when the step fires',
+        invocation: 'inputless',
+        mutate: () => 'done',
+      });
+      const runtime = createActionRuntime();
+      let reads = 0;
+      connectAction(runtime, action, {
+        node: 'walk',
+        enabled: () => {
+          reads += 1;
+          if (reads > 1) throw thrown;
+          return true;
+        },
+      });
+      const manifest = await beginWalk(runtime, 'agent').run([{ action }]);
+      expect(manifest.rows[0]!.status).toBe('refused');
+      expect(manifest.rows[0]!.refusal).toBe(words);
+      expect(manifest.completed).toBe(false);
+    }
+  });
+
   it('payload laws are refused rows in the offer mode vocabulary, not guesses', async () => {
     const openAction = defineAction('walk.open-needs-payload', {
       does: 'An open offer needs its one payload',

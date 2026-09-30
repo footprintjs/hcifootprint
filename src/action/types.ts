@@ -1,5 +1,6 @@
 import type { WhereFilter } from 'footprintjs';
 import type {
+  Attribution,
   Binding,
   BlockedBecause,
   CanonicalRole,
@@ -113,9 +114,32 @@ export interface ActionProgressDeclaration<
   readonly required?: boolean;
 }
 
+/**
+ * "A verified settlement's evidence is a value of this governed kind." The
+ * proof of an effect that makes a NEW thing (a dataset, a receipt, a created
+ * record) — distinct from the top-level `produces`, which is what the
+ * handler RETURNS (the value a walk carries to the next step).
+ */
+export interface ActionEvidenceDeclaration {
+  readonly kind: string;
+}
+
+/**
+ * What `settle.onReturn` judges: the two arms of an invocation in which the
+ * application handler RAN — it returned (`performed`) or threw/rejected
+ * (`failed`). A preflight refusal never reaches it; the runtime settled that
+ * effect `refused` itself.
+ */
+export type ActionReturnOutcome<Output = unknown, Id extends string = string> =
+  Extract<
+    ActionInvocationSettlement<Output, Id>,
+    { readonly status: 'performed' | 'failed' }
+  >;
+
 /** @inline */
 interface ActionSettleFields<
   Stages extends readonly string[] = readonly string[],
+  Output = any,
 > {
   readonly writes?: readonly string[];
   readonly reads?: readonly string[];
@@ -123,12 +147,29 @@ interface ActionSettleFields<
   readonly verify?: VerifyContract;
   readonly observability?: Observability;
   readonly progress?: ActionProgressDeclaration<Stages>;
+  /** The effect is proven by a value of this governed kind — an
+   *  evidence-bearing clause, kind-checked at connect, schema-checked at settle. */
+  readonly evidence?: ActionEvidenceDeclaration;
+  /**
+   * The definition's AUTHORED verdict on its own return: what in the handler's
+   * outcome counts as proof. Runs when the handler returns or fails; the
+   * verdict goes through the one settle funnel (coverage gate, evidence gate,
+   * the kind check, first terminal wins). `undefined` = the return proves
+   * nothing, and the effect stays open for an observer or external report. A
+   * synchronous return settles before `invoke()` returns. Synchronous; a
+   * throw is instrumentation, routed to `onInvocationError`. Refused on
+   * `'host'` actions — a host continuation runs the listener, not `mutate`.
+   */
+  onReturn?(
+    outcome: ActionReturnOutcome<Output>,
+  ): ActionEffectSettlementInput | undefined;
 }
 
 /** Grouped effect, evidence, and progress declarations for one action. */
 export type ActionSettleContract<
   Stages extends readonly string[] = readonly string[],
-> = ActionSettleFields<Stages> &
+  Output = any,
+> = ActionSettleFields<Stages, Output> &
   (
     | { readonly writes: readonly string[] }
     | { readonly reads: readonly string[] }
@@ -136,11 +177,18 @@ export type ActionSettleContract<
     | { readonly verify: VerifyContract }
     | { readonly observability: Observability }
     | { readonly progress: ActionProgressDeclaration<Stages> }
+    | { readonly evidence: ActionEvidenceDeclaration }
+    | {
+        onReturn(
+          outcome: ActionReturnOutcome<Output>,
+        ): ActionEffectSettlementInput | undefined;
+      }
   );
 
 /** @inline */
 type ActionSettleWithoutProgress = ActionSettleContract & {
   readonly progress?: never;
+  readonly onReturn?: never;
 };
 
 /** @inline */
@@ -324,6 +372,16 @@ export interface ConnectActionOptions<
   ) => void | PromiseLike<void>;
   /** Optional sink for observer failures; neither observer can replace app behavior. */
   readonly onInvocationError?: (error: unknown) => void | PromiseLike<void>;
+  /**
+   * Who invokes THIS connection through its direct doors (`invoke`,
+   * `invokeContinuation`). Declared, never inferred: `humanReporting` says
+   * which subsystem reports a person's interaction, not who called `invoke()`.
+   * Checked against the definition's `principal.mayInvoke` at connect, so it
+   * can never file an invocation under a principal the definition refuses.
+   * Absent: direct invocations stay `'unknown'`. A caller other than this
+   * one uses the principal port (`runtime.forPrincipal`), which stamps its own.
+   */
+  readonly invokedBy?: Exclude<Principal, 'unknown'>;
 }
 
 export interface ActionAttachment {
@@ -354,6 +412,9 @@ export type ActionEffectSettlement<Id extends string = string> =
       readonly status: 'verified';
       readonly transition: ActionTransitionRef<Id>;
       readonly evidence: unknown;
+      /** The governed kind the evidence is a value of — present exactly when
+       *  the definition declared `settle.evidence`. */
+      readonly evidenceKind?: string;
     }
   | {
       readonly status: 'refused';
@@ -634,6 +695,9 @@ export interface ActionTransitionSnapshot {
   readonly produced?: unknown;
   readonly error?: unknown;
   readonly evidence?: unknown;
+  /** Present exactly when the definition declared `settle.evidence` and the
+   *  effect verified: the governed kind `evidence` is a value of. */
+  readonly evidenceKind?: string;
   readonly reason?: unknown;
   readonly authority?: ActionAbandonmentAuthority;
   readonly progress?: ActionProgressSnapshot;
@@ -641,6 +705,14 @@ export interface ActionTransitionSnapshot {
    *  when none did — an empty list would claim "we watched and none came",
    *  which this snapshot cannot know. */
   readonly lateSettlements?: readonly ActionLateSettlement[];
+  /**
+   * Who this invocation is filed under, and what that claim is worth. Present
+   * on every snapshot — "nobody claimed it" is information. A principal port
+   * or a connection's `invokedBy` gives `'caller-asserted'` (the library
+   * watched the call come through its own door; who stood behind it is the
+   * integrator's word); neither gives basis and principal `'unknown'`.
+   */
+  readonly attribution: Attribution;
 }
 
 /**
@@ -713,7 +785,9 @@ export type ActionContractActivation = 'require-active' | 'disclosure';
 export interface ActionInputSchemaContext<Id extends string = string> {
   readonly definition: ActionDefinitionRef<Id>;
   readonly binding: ActionBindingRef<Id>;
-  readonly source: 'bound' | 'caller';
+  /** `'evidence'` (2.6.0): the value is a verified settlement's evidence,
+   *  checked against its governed kind's catalog schema. */
+  readonly source: 'bound' | 'caller' | 'evidence';
 }
 
 /** Result returned by an application-owned input-schema adapter. */
@@ -734,6 +808,33 @@ export interface ActionInputSchemaAdapter {
   ): ActionInputSchemaResult;
 }
 
+/**
+ * Which transitions to list — every filter optional, all of them ANDed.
+ * `definition` takes the two forms `offers()` accepts; `binding` matches the
+ * exact ref object; `instance` compares the opaque string, never parses it.
+ */
+export interface ActionTransitionQuery {
+  readonly definition?: DefinedAction | ActionDefinitionRef;
+  readonly binding?: ActionBindingRef;
+  readonly instance?: string;
+  readonly invocationStatus?:
+    | ActionTransitionSnapshot['invocationStatus']
+    | readonly ActionTransitionSnapshot['invocationStatus'][];
+  readonly effectStatus?:
+    | ActionTransitionSnapshot['effectStatus']
+    | readonly ActionTransitionSnapshot['effectStatus'][];
+}
+
+/**
+ * How much settled history the runtime keeps. `keep` counts FULLY settled
+ * transitions (both rails terminal); past it the oldest are released, the
+ * way `forgetTransition` would. A pending row is never counted and never
+ * released.
+ */
+export interface ActionHistoryPolicy {
+  readonly keep: number;
+}
+
 export interface ActionRuntimeOptions {
   /**
    * `require-active` (default) rejects clauses this small runtime cannot
@@ -752,6 +853,9 @@ export interface ActionRuntimeOptions {
    * unchecked. A mounted catalog must be immutable — answers are memoized.
    */
   readonly kinds?: import('./kinds.js').KindCatalog;
+  /** Bound the settled history. Absent: every transition is kept until
+   *  `forgetTransition` releases it (the pre-2.6 behaviour). */
+  readonly history?: ActionHistoryPolicy;
 }
 
 /**
@@ -859,4 +963,19 @@ export interface ActionRuntime {
   ): ActionTransitionSnapshot | undefined;
   /** Release a fully settled transition from runtime history. */
   forgetTransition(transition: ActionTransitionRef): boolean;
+  /**
+   * Every retained transition matching the query, OLDEST INVOCATION FIRST —
+   * the order transitions were minted, which is the order a person or agent
+   * asked for them (not the order they settled).
+   */
+  transitions(query?: ActionTransitionQuery): readonly ActionTransitionSnapshot[];
+  /**
+   * Declare outcome context — "what the person set with a control, still
+   * standing" — folded by the library at settlement time: the newest
+   * INVOKED verified value per key, minus any a verified release named. One
+   * live context per id.
+   */
+  declareContext(
+    declaration: import('./declared-context.js').DeclaredContextDeclaration,
+  ): import('./declared-context.js').DeclaredContextHandle;
 }

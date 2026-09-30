@@ -21,7 +21,24 @@ import * as barrel from '../src/index.js';
 // the same table the mover enforces) and `declareLifecycle` (consumers
 // build their own enforced charts). Root rather than subpath because both
 // are core vocabulary, not a skin; revisit with everything else at 3.0.
+// 2.6.0, deliberate, TYPE-ONLY (so filtered out below, listed as the record):
+// `ActionTransitionQuery`, `ActionHistoryPolicy`, `ActionEvidenceDeclaration`,
+// `ActionReturnOutcome`, `DeclaredContextDeclaration`, `DeclaredContextEntry`,
+// `DeclaredContextFold`, `DeclaredContextHandle`, `DeclaredContextSkip`. Why
+// the root, and not a subpath at 3.0: the whole Action Binding Protocol is
+// served from the root until the 3.0 subpath decision, and splitting one
+// feature's types across two doors would be worse. No new runtime value —
+// `declareContext` and `transitions` are methods on the runtime.
 const ROOT_VALUE_EXPORTS = [
+  'ActionTransitionQuery',
+  'ActionHistoryPolicy',
+  'ActionEvidenceDeclaration',
+  'ActionReturnOutcome',
+  'DeclaredContextDeclaration',
+  'DeclaredContextEntry',
+  'DeclaredContextFold',
+  'DeclaredContextHandle',
+  'DeclaredContextSkip',
   'REQUEST_LIFECYCLE',
   'declareLifecycle',
   'ActionAbandonmentAuthority',

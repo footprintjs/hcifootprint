@@ -4,7 +4,7 @@ title: ActionSettlementCapability<Id>
 
 # Interface: ActionSettlementCapability\<Id\>
 
-Defined in: [src/action/types.ts:303](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L303)
+Defined in: [src/action/types.ts:351](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L351)
 
 The only connection authority exposed to an invocation observer.
 
@@ -20,7 +20,7 @@ The only connection authority exposed to an invocation observer.
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:304](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L304)
+Defined in: [src/action/types.ts:352](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L352)
 
 ## Methods
 
@@ -28,7 +28,7 @@ Defined in: [src/action/types.ts:304](https://github.com/footprintjs/hcifootprin
 
 > **settle**(`settlement`): [`ActionEffectSettlement`](/api/index/type-aliases/ActionEffectSettlement)\<`Id`\>
 
-Defined in: [src/action/types.ts:305](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L305)
+Defined in: [src/action/types.ts:353](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L353)
 
 #### Parameters
 

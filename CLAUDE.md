@@ -105,6 +105,11 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | proving a graph SOURCE adapter does not silently drop a declared field | `conformSource` | `src/testing/conform.ts` | 1.4.0 |
 | adopting a route table, a journey list or a live action store you already have | `fromRoutes` + `fromJourneys` + `fromLiveStore` | `src/graph/sources/` | 0.5.0 |
 | seeding the page spine from a router's own nested route tree | `fromReactRouter` | `src/graph/sources/from-react-router.ts` | 1.5.0 |
+| saying a person (or the agent, or the system) did it when a connection's own `invoke()` is called — a "who did this" on every action transition | `invokedBy` + `ActionTransitionSnapshot.attribution` (checked against `mayInvoke` at connect; never read off `humanReporting`) | `src/action/connection-builder.ts` | 2.6.0 |
+| listing every action transition, filtered, without keeping your own index of refs — and trimming old ones without a guard | `ActionRuntime.transitions` + `ActionHistoryPolicy` (`history: { keep }`) | `src/action/transition-ledger.ts` | 2.6.0 |
+| declaring that an action's proof is a NEW thing (a dataset, a receipt) instead of naming a fake state key so `verified` is allowed | `settle.evidence` + `ActionEvidenceDeclaration` (not `produces` — that is the handler's return, which the walk carries) | `src/action/types.ts` | 2.6.0 |
+| settling when the handler returns, written once on the definition instead of an `onInvocation` observer per connection | `settle.onReturn` + `ActionReturnOutcome` | `src/action/types.ts` | 2.6.0 |
+| what the person set with a control, still standing, for the next turn — the newest value per view, minus what they released | `ActionRuntime.declareContext` + `DeclaredContextHandle` | `src/action/declared-context.ts` | 2.6.0 |
 
 **The honest limit, said plainly.** This table can go stale by OMISSION — nothing cheap
 forces a new capability to add a row, so absence from it is weak evidence, and

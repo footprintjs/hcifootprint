@@ -65,6 +65,9 @@ export function hasEvidenceBearingSettlement(
   if (settle.writes !== undefined && settle.writes.length > 0) return true;
   if (settle.goTo !== undefined) return true;
   if (settle.verify !== undefined) return true;
+  // A governed value of a declared kind proves the effect (2.6.0) — the
+  // clause for an effect whose proof is a NEW thing, not a state key.
+  if (settle.evidence !== undefined) return true;
   return (
     settle.observability !== undefined &&
     settle.observability !== 'unobservable'
@@ -76,6 +79,9 @@ export function assertContractActivation(
   contract: ReadonlyActionDefinitionContract,
   activation: ActionContractActivation,
   inputValidation: ActionInputValidationDisposition,
+  /** The `settle.evidence` kind whose catalog schema this runtime can only
+   *  carry for disclosure — undefined when it is enforced or absent. */
+  evidenceDisclosureKind?: string,
 ): void {
   if (activation === 'disclosure') return;
   const clauses: string[] = [];
@@ -88,6 +94,11 @@ export function assertContractActivation(
   }
   if (contract.settle?.verify !== undefined) {
     clauses.push('settle.verify');
+  }
+  if (evidenceDisclosureKind !== undefined) {
+    clauses.push(
+      `settle.evidence (the catalog schema of kind '${evidenceDisclosureKind}')`,
+    );
   }
   if (contract.principal?.requiresHumanApproval === true) {
     clauses.push('principal.requiresHumanApproval');

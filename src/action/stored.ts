@@ -27,7 +27,7 @@ import type {
   BindingCoverage,
   DefinedAction,
 } from './types.js';
-import type { Binding, Principal } from '../atom/types.js';
+import type { Attribution, Binding, Principal } from '../atom/types.js';
 import type { HumanReporting, ReadonlyActionDefinitionContract, ActionInputValidationDisposition, ActionDefinitionRef, ActionLifecycle, ActionInputSource } from './types.js';
 import type { BindingRegistration } from '../registry/registry.js';
 import type { TransitionProgress } from './progress-ledger.js';
@@ -62,12 +62,22 @@ export interface StoredTransition {
   readonly coverage: BindingCoverage;
   /** Whether the definition named an authoritative way to prove its effect. */
   readonly verificationDeclared: boolean;
+  /** Who the invocation is filed under — minted once, with `attributionOf`. */
+  readonly attribution: Attribution;
+  /** Invocation order: the ledger's mint sequence, monotonic per runtime. */
+  readonly sequence: number;
+  /** Set once the row is counted as fully settled for the history bound. */
+  countedSettled?: boolean;
+  /** The definition's `settle.evidence`, with the settle-time schema gate
+   *  resolved at connect (absent when there is nothing to enforce). */
+  readonly evidenceContract?: EvidenceContract;
   invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
   effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
   effectSettling?: boolean;
   produced?: unknown;
   error?: unknown;
   evidence?: unknown;
+  evidenceKind?: string;
   reason?: unknown;
   authority?: ActionAbandonmentAuthority;
   progress?: TransitionProgress;
@@ -75,6 +85,20 @@ export interface StoredTransition {
   /** Settlements that arrived after the terminal — see ActionLateSettlement. */
   late?: ActionLateSettlement[];
   resolveEffect?: (settlement: ActionEffectSettlement<any>) => void;
+}
+
+export interface EvidenceContract {
+  readonly kind: string;
+  readonly check?: (transitionId: string, evidence: unknown) => void;
+}
+
+/** What one binding's definition says about settling its transitions —
+ *  resolved once at connect, carried onto every stored row. */
+export interface TransitionEffectContract {
+  readonly evidence?: EvidenceContract;
+  /** The definition's authored `settle.onReturn` verdict, run on the
+   *  handler's outcome (mutations only). */
+  readonly onReturn?: (outcome: never) => unknown;
 }
 
 export interface CachedOffer {

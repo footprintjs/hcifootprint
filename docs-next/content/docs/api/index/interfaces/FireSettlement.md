@@ -12,7 +12,7 @@ The final truth about one fire, delivered once through `FireResult.whenSettled`.
 
 ### effectStatus
 
-> **effectStatus**: `"unobservable"` \| `"refused"` \| `"performed"`
+> **effectStatus**: `"unobservable"` \| `"performed"` \| `"refused"`
 
 Defined in: [src/atom/types.ts:2027](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2027)
 

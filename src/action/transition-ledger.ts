@@ -9,6 +9,8 @@
  */
 import type {
   ActionAbandonmentAuthority,
+  ActionBindingRef,
+  ActionDefinitionRef,
   ActionEffectSettlement,
   ActionEffectSettlementInput,
   ActionTransitionRef,
@@ -20,26 +22,128 @@ import {
   snapshotAbandonmentAuthority,
   snapshotTransition,
 } from './settlement.js';
-import { snapshotDeclaration } from './declarations.js';
+import { detachGovernedValue, snapshotDeclaration } from './declarations.js';
+
+/** The query, already validated and resolved by the runtime. */
+export interface LedgerQuery {
+  /** Matched by identity: the connected definition's own ref object. */
+  readonly definition?: ActionDefinitionRef;
+  readonly binding?: ActionBindingRef;
+  readonly instance?: string;
+  readonly invocationStatus?: ReadonlySet<string>;
+  readonly effectStatus?: ReadonlySet<string>;
+}
 
 export class TransitionLedger {
+  // A Map iterates in insertion order, and a row is inserted when its
+  // transition is minted — so iteration order IS invocation order, the
+  // documented order of `transitions()` and the meaning of "latest" for a
+  // declared context.
   readonly #rows = new Map<string, StoredTransition>();
+  readonly #keep: number | undefined;
+  readonly #verifiedListeners = new Set<(stored: StoredTransition) => void>();
   #sequence = 0;
+  #settledCount = 0;
 
-  nextId(): string {
+  constructor(keep?: number) {
+    this.#keep = keep;
+  }
+
+  mint(): { readonly transitionId: string; readonly sequence: number } {
     this.#sequence += 1;
-    return `transition#${String(this.#sequence)}`;
+    return {
+      transitionId: `transition#${String(this.#sequence)}`,
+      sequence: this.#sequence,
+    };
   }
 
   store(id: string, stored: StoredTransition): void {
     this.#rows.set(id, stored);
   }
 
-  rowFor(transition: ActionTransitionRef): StoredTransition | undefined {
-    const stored = this.#rows.get(transition.transitionId);
-    return stored === undefined || stored.ref !== transition
-      ? undefined
-      : stored;
+  /** Every retained VERIFIED row, oldest invocation first — what a declared
+   *  context folds once, at declaration. */
+  verifiedRows(): readonly StoredTransition[] {
+    return [...this.#rows.values()].filter(
+      (stored) => stored.effectStatus === 'verified',
+    );
+  }
+
+  /**
+   * Hear every verified settlement as it lands (collect during the run,
+   * never post-process). Internal only: a listener must isolate any app code
+   * it runs, because it is called inside the settlement.
+   */
+  onVerified(listener: (stored: StoredTransition) => void): () => void {
+    this.#verifiedListeners.add(listener);
+    return () => {
+      this.#verifiedListeners.delete(listener);
+    };
+  }
+
+  /** Every retained row matching the query, oldest invocation first. */
+  list(query: LedgerQuery): readonly ActionTransitionSnapshot[] {
+    const snapshots: ActionTransitionSnapshot[] = [];
+    for (const stored of this.#rows.values()) {
+      const binding = stored.ref.binding;
+      if (
+        query.definition !== undefined &&
+        binding.definition !== query.definition
+      ) {
+        continue;
+      }
+      if (query.binding !== undefined && binding !== query.binding) continue;
+      if (query.instance !== undefined && binding.instance !== query.instance) {
+        continue;
+      }
+      if (
+        query.invocationStatus !== undefined &&
+        !query.invocationStatus.has(stored.invocationStatus)
+      ) {
+        continue;
+      }
+      if (
+        query.effectStatus !== undefined &&
+        !query.effectStatus.has(stored.effectStatus)
+      ) {
+        continue;
+      }
+      snapshots.push(snapshotTransition(stored));
+    }
+    return Object.freeze(snapshots);
+  }
+
+  /**
+   * One rail of a row reached its terminal. When BOTH have, the row counts
+   * toward the history bound, and the oldest fully settled rows past `keep`
+   * are released — the rule `forget` enforces, applied by the one owner of
+   * "what may be forgotten" instead of by every app's trim loop.
+   *
+   * A row can be forgotten BEFORE it is counted: its effect settled while the
+   * invocation was pending, and a listener on the progress channel's closing
+   * publication (or a declared-context reader on verification) calls
+   * `forget` before this runs. Such a row is gone — counting it would add a
+   * phantom to the bound, and the next settled row would be released early.
+   */
+  railClosed(stored: StoredTransition): void {
+    if (
+      this.#rows.get(stored.ref.transitionId) !== stored ||
+      stored.countedSettled === true ||
+      stored.invocationStatus === 'pending' ||
+      stored.effectStatus === 'unverified'
+    ) {
+      return;
+    }
+    stored.countedSettled = true;
+    this.#settledCount += 1;
+    const keep = this.#keep;
+    if (keep === undefined || this.#settledCount <= keep) return;
+    for (const [id, row] of this.#rows) {
+      if (this.#settledCount <= keep) break;
+      if (row.countedSettled !== true) continue;
+      this.#rows.delete(id);
+      this.#settledCount -= 1;
+    }
   }
 
   snapshotFor(
@@ -64,7 +168,23 @@ export class TransitionLedger {
       );
     }
     this.#rows.delete(transition.transitionId);
+    if (stored.countedSettled === true) this.#settledCount -= 1;
     return true;
+  }
+
+  #announceVerified(stored: StoredTransition): void {
+    // Listeners are the library's own folds (declared-context), and each one
+    // isolates the app code it runs — a reader that throws is a counted skip
+    // there, never an exception here. This is the second guard, for a fold
+    // that fails anyway: a settlement that happened can never be failed by a
+    // listener, and one listener's failure never starves the next one.
+    for (const listener of [...this.#verifiedListeners]) {
+      try {
+        listener(stored);
+      } catch {
+        // Deliberately contained: the row is already verified and resolved.
+      }
+    }
   }
 
   settle<Id extends string>(
@@ -152,7 +272,7 @@ export class TransitionLedger {
           : undefined;
       if (status === 'verified' && !stored.verificationDeclared) {
         throw new Error(
-          `hcifootprint: transition '${transition.transitionId}' cannot be verified because its action definition declares no evidence-bearing settle contract. Declare writes, goTo, verify, or an observable evidence channel before reporting verified.`,
+          `hcifootprint: transition '${transition.transitionId}' cannot be verified because its action definition declares no evidence-bearing settle contract. Declare writes, goTo, verify, settle.evidence, or an observable evidence channel before reporting verified.`,
         );
       }
       if (status === 'verified' && stored.coverage !== 'verifiable') {
@@ -161,12 +281,41 @@ export class TransitionLedger {
         );
       }
       const transitionRef = stored.ref as ActionTransitionRef<Id>;
+      // The recorded bytes are the checked bytes: a governed value is
+      // DETACHED once (declarations.ts · detachGovernedValue — refused when
+      // it cannot be), then the kind's schema runs over exactly that value.
+      // Either refusal throws here, before anything is written — the
+      // terminal is not spent. Evidence with no governed kind keeps the
+      // protocol's quoting snapshot (opaque values by identity), unchanged.
+      const evidenceContract = stored.evidenceContract;
+      const recorded =
+        status !== 'verified'
+          ? undefined
+          : evidenceContract === undefined
+            ? snapshotDeclaration(payload)
+            : detachGovernedValue(payload, {
+                uncloneable: (cause) =>
+                  new TypeError(
+                    `hcifootprint: transition '${transition.transitionId}' cannot be verified — its '${evidenceContract.kind}' evidence cannot be detached (structuredClone refused it; the refusal is this error's cause). Evidence is recorded as data: settle again with records, arrays, strings, numbers, booleans and null — no functions, Proxies or host objects.`,
+                    { cause },
+                  ),
+                unfrozen: (path, found) =>
+                  new TypeError(
+                    `hcifootprint: transition '${transition.transitionId}' cannot be verified — its '${evidenceContract.kind}' evidence holds a value that cannot be frozen at ${path === '' ? 'the root' : `'${path}'`} (a ${found}). The record is served as it is stored, so a ${found} there could be edited after the check. Evidence is recorded as data: settle again with records, arrays, strings, numbers, booleans and null (an ISO string for a Date, entries for a Map or Set).`,
+                  ),
+              });
+      if (status === 'verified') {
+        evidenceContract?.check?.(transition.transitionId, recorded);
+      }
       const settlement: ActionEffectSettlement<Id> =
         status === 'verified'
           ? Object.freeze({
               status: 'verified',
               transition: transitionRef,
-              evidence: snapshotDeclaration(payload),
+              evidence: recorded,
+              ...(evidenceContract !== undefined
+                ? { evidenceKind: evidenceContract.kind }
+                : {}),
             })
           : status === 'refused'
             ? Object.freeze({
@@ -183,6 +332,9 @@ export class TransitionLedger {
       stored.effectStatus = status;
       if (settlement.status === 'verified') {
         stored.evidence = settlement.evidence;
+        if (settlement.evidenceKind !== undefined) {
+          stored.evidenceKind = settlement.evidenceKind;
+        }
       } else if (settlement.status === 'refused') {
         stored.reason = settlement.reason;
       } else {
@@ -191,9 +343,11 @@ export class TransitionLedger {
       const resolveEffect = stored.resolveEffect;
       stored.resolveEffect = undefined;
       resolveEffect?.(settlement);
+      if (settlement.status === 'verified') this.#announceVerified(stored);
       return settlement;
     } finally {
       stored.effectSettling = false;
+      this.railClosed(stored);
     }
   }
 }

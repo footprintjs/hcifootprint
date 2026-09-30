@@ -1,5 +1,6 @@
 import type { Principal } from '../atom/types.js';
 import { actionDefinitionOf } from './definition.js';
+import { thrownMessage } from './describe-thrown.js';
 import type {
   ActionDefinitionRecord,
   ActionDefinitionRef,
@@ -345,12 +346,12 @@ export function beginWalk(
         continue;
       }
       const offer = offered[0]!;
+      // A carried step is reached only when every earlier row RAN and
+      // performed (anything else stops the walk), and `carry.from` is an
+      // earlier step (admit) — so the producer's row always has a transition.
       const payload =
         step.carry !== undefined
-          ? rows[step.carry.from]?.transition === undefined
-            ? undefined
-            : runtime.transitionFor(rows[step.carry.from]!.transition!)
-                ?.produced
+          ? runtime.transitionFor(rows[step.carry.from]!.transition!)?.produced
           : step.input;
       try {
         if (offer.inputMode === 'open' && payload === undefined) {
@@ -386,7 +387,7 @@ export function beginWalk(
           Object.freeze({
             ...base,
             status: 'refused' as const,
-            refusal: error instanceof Error ? error.message : String(error),
+            refusal: thrownMessage(error),
           }),
         );
         stopped = true;

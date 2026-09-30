@@ -106,6 +106,10 @@ export type {
   ActionLateSettlement,
   ActionTransitionSnapshot,
   ActionTransitionRef,
+  ActionTransitionQuery,
+  ActionHistoryPolicy,
+  ActionEvidenceDeclaration,
+  ActionReturnOutcome,
   ActionSettlementCapability,
   ActionSettleContract,
   BindingCoverage,
@@ -371,4 +375,11 @@ export type {
   RequestChoice,
 } from './action/request.js';
 export { declareLifecycle } from './action/lifecycle.js';
+export type {
+  DeclaredContextDeclaration,
+  DeclaredContextEntry,
+  DeclaredContextFold,
+  DeclaredContextHandle,
+  DeclaredContextSkip,
+} from './action/declared-context.js';
 export type { Lifecycle, LifecycleChart, LifecycleEdge } from './action/lifecycle.js';

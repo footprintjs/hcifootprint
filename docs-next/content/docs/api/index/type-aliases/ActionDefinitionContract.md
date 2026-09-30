@@ -4,9 +4,9 @@ title: ActionDefinitionContract
 
 # Type Alias: ActionDefinitionContract
 
-> **ActionDefinitionContract** = `object` & \{ `inputSchema?`: `"none"`; `invocation`: `"inputless"`; `settle?`: [`ActionSettleContract`](/api/index/type-aliases/ActionSettleContract); \} \| \{ `inputSchema?`: `object`; `invocation`: `"scalar"`; `settle?`: [`ActionSettleContract`](/api/index/type-aliases/ActionSettleContract); \} \| \{ `inputSchema?`: `never`; `invocation`: `"host"`; `settle?`: `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `never`; \}
+> **ActionDefinitionContract** = `object` & \{ `inputSchema?`: `"none"`; `invocation`: `"inputless"`; `settle?`: [`ActionSettleContract`](/api/index/type-aliases/ActionSettleContract); \} \| \{ `inputSchema?`: `object`; `invocation`: `"scalar"`; `settle?`: [`ActionSettleContract`](/api/index/type-aliases/ActionSettleContract); \} \| \{ `inputSchema?`: `never`; `invocation`: `"host"`; `settle?`: `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `object` & `object` & `object` \| `never` \| `never`; \}
 
-Defined in: [src/action/types.ts:200](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L200)
+Defined in: [src/action/types.ts:248](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L248)
 
 Authored semantics carried by a definition. Reachability belongs to a live
 binding, and each invocation branch states its payload/progress laws.

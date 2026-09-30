@@ -1,5 +1,102 @@
 # Changelog
 
+## [2.6.0] - 2026-09-30
+
+### Added
+
+Six asks from a real binding — a chart and table whose time control re-runs
+a backend tool and mints a new dataset — each answered by the fact the
+runtime already held, instead of by the app's own bookkeeping. Design:
+`docs/design/2026-09-30-action-gaps.md`.
+
+- **Who invoked it — `invokedBy` + `snapshot.attribution`.** A connection
+  declares who calls its direct doors; it is checked once, at connect,
+  against `principal.mayInvoke`, so it can never file an invocation under a
+  principal the definition refuses. Every `ActionTransitionSnapshot` carries
+  an `attribution` minted by the 1.7.0 certainty table: a principal port or
+  `invokedBy` is `'caller-asserted'`, neither is `'unknown'`. Never read off
+  `humanReporting` — which subsystem reports a click is not who called
+  `invoke()`.
+- **`runtime.transitions(query?)` + `history: { keep }`.** Every retained
+  transition, filtered by definition / binding / instance / status, oldest
+  INVOCATION first — the ledger's order, now a documented fact. A misspelled
+  status refuses rather than answering an empty list that reads as "none
+  happened". `keep` releases the oldest FULLY settled rows inside the ledger;
+  a pending row is never counted and never released, and a row forgotten
+  before it was counted (by a listener on its own closing progress
+  publication) is never counted afterwards. Default: unbounded, as before.
+- **`settle.evidence: { kind }` — the effect is proven by a governed value.**
+  An evidence-bearing clause, so `verified` no longer needs a pretend state
+  key; the kind is governed at connect like `needs`/`produces`; when the
+  catalog gives the kind a schema, the evidence is validated at settle over
+  the recorded snapshot (self-validating, or `inputSchemaAdapter` with the
+  new `source: 'evidence'`) and a failing value throws without spending the
+  terminal. The governed value is detached ONCE before the check
+  (`structuredClone`, then the snapshot), so the recorded bytes are the
+  checked bytes: a class instance comes back as its own data, and the
+  recorded value is data only, every part frozen — the record is served as
+  stored (`settle()`'s return, snapshots, fold readers), so a `Map`, `Set`,
+  `Date`, `Error`, `RegExp` or typed array inside it (which `Object.freeze`
+  cannot seal) is refused naming its path; record a Date as an ISO string, a
+  Map as entries. A value that cannot be cloned (a function inside it, a
+  Proxy, a host object) refuses too; neither refusal spends the terminal. Evidence of an action with no `settle.evidence` is recorded
+  exactly as before. `evidenceKind` is stamped on the verified settlement and the
+  snapshot. Deliberately NOT `produces`: that is what the handler returns,
+  which a walk carries to the next step.
+- **`settle.onReturn` — settle when the action returns.** The definition's
+  authored verdict on its own `performed`/`failed` outcome (typed from
+  `mutate`), run through the one settle funnel — every gate an observer's
+  verdict meets, first terminal wins. For a definition that declares it, a
+  synchronous return settles before `invoke()` returns. A throwing or
+  thenable verdict goes to `onInvocationError`. Refused on `'host'` actions.
+- **`runtime.declareContext()` — what the person set, still standing.**
+  Folded by the library at settlement time: the newest INVOKED verified
+  value per key, minus any a verified release named — never an older entry
+  brought back. Entries carry value, transition, binding and attribution as
+  data; a reader that throws is a counted skip. History eviction cannot
+  change an entry, because nothing is post-processed. A context admits rows
+  by the IDENTITY of the callables it was declared with, never by their id
+  string — so declaring before connecting (or a hot reload that rebuilds a
+  callable under the same id) cannot let another callable feed or release it.
+  And because a runtime connects one callable per id, another callable taking
+  a declared id would leave the context certain never to fold: that is
+  refused at the moment it becomes certain — at the other callable's
+  `connectAction()` (naming the live context), or at a declaration naming a
+  different callable than a live context or connection already holds.
+  `retire()` frees the id.
+
+### Changed (additive for callers; required for implementers)
+
+- **Code that implements the types by hand must add three members.**
+  `ActionRuntime` gains two REQUIRED methods, `transitions(query?)` and
+  `declareContext(declaration)`, and `ActionTransitionSnapshot.attribution`
+  is REQUIRED. Calling code sees only additions, but a hand-written
+  `ActionRuntime` (a test double, a wrapper that re-implements the
+  interface) and a hand-built snapshot fake no longer compile until they
+  add them — `attribution: { principal: 'unknown', basis: 'unknown',
+  certainty: 'unknown' }` is what a runtime with no principal port and no
+  `invokedBy` stamps. Pinned in `test/action-binding-types.test-d.ts`.
+- `ActionTransitionSnapshot.attribution` is present on EVERY snapshot —
+  `'unknown'` when the connection has no principal port and no `invokedBy` —
+  so a consumer that deep-compares snapshots sees a new key. A
+  property read is unaffected; an exact `toEqual` on a whole snapshot gains
+  one field (the 1.7.0 session-transition precedent). No in-repo pin needed
+  loosening.
+- `ActionInputSchemaContext.source` gains `'evidence'`. Only an
+  `inputSchemaAdapter` with an exhaustive `switch` on `source` notices, at
+  compile time.
+
+### Fixed
+
+- **A walk step whose app code throws a value `String()` cannot print is a
+  refused row, not a rejected `run()`.** A binding's reader (its `enabled`
+  reader, re-read when the step fires) throwing a null-prototype object, a
+  value with a hostile `toString`/`Symbol.toPrimitive`, or a revoked Proxy
+  made the walk's own refusal text throw, so `run()` rejected instead of
+  answering the manifest it promises. The walk and the declared-context fold
+  now describe a thrown value through one never-throwing owner
+  (`describe-thrown.ts`). Present since the walk shipped (2.4.0).
+
 ## [2.5.0] - 2026-08-26
 
 ### Added

@@ -4,7 +4,7 @@ title: ActionProgress
 
 # Interface: ActionProgress
 
-Defined in: [src/action/types.ts:423](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L423)
+Defined in: [src/action/types.ts:484](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L484)
 
 Retained and live progress for one exact transition.
 
@@ -14,7 +14,7 @@ Retained and live progress for one exact transition.
 
 > **snapshot**(): [`ActionProgressSnapshot`](/api/index/type-aliases/ActionProgressSnapshot)
 
-Defined in: [src/action/types.ts:424](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L424)
+Defined in: [src/action/types.ts:485](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L485)
 
 #### Returns
 
@@ -26,7 +26,7 @@ Defined in: [src/action/types.ts:424](https://github.com/footprintjs/hcifootprin
 
 > **subscribe**(`listener`): () => `void`
 
-Defined in: [src/action/types.ts:426](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L426)
+Defined in: [src/action/types.ts:487](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L487)
 
 Immediately replays the current snapshot, then streams changes until closed.
 

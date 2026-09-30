@@ -67,7 +67,10 @@ const SETTLE_FIELDS = new Set<keyof ActionSettleContract>([
   'verify',
   'observability',
   'progress',
+  'evidence',
+  'onReturn',
 ]);
+const EVIDENCE_FIELDS = new Set(['kind']);
 const PRINCIPAL_FIELDS = new Set([
   'mayInvoke',
   'decisionOwner',
@@ -181,16 +184,21 @@ type DefinitionBaseOptions = Omit<
   'invocation' | 'inputSchema' | 'settle'
 >;
 /** @inline */
-type SettleWithoutProgress = ActionSettleContract & {
+type SettleWithoutProgress<Output = any> = ActionSettleContract<
+  readonly string[],
+  Output
+> & {
   readonly progress?: never;
 };
 /** @inline */
-type SettleWithProgress<Stages extends readonly string[]> = Omit<
-  ActionSettleContract,
+type SettleWithProgress<Stages extends readonly string[], Output = any> = Omit<
+  ActionSettleContract<readonly string[], Output>,
   'progress'
 > & {
   readonly progress: ActionProgressDeclaration<Stages>;
 };
+/** @inline */
+type HostSettle = SettleWithoutProgress & { readonly onReturn?: never };
 /** @inline */
 type NoReceiver<F extends (...args: any[]) => any> =
   unknown extends ThisParameterType<F> ? F : never;
@@ -235,7 +243,7 @@ export type DefineActionOptions<
       ? {
           readonly invocation: 'inputless';
           readonly inputSchema?: 'none';
-          readonly settle: SettleWithProgress<Stages>;
+          readonly settle: SettleWithProgress<Stages, Awaited<Output>>;
           readonly mutate: (
             lifecycle?: ActionLifecycle<Id, Stages[number]>,
           ) => Output;
@@ -243,7 +251,7 @@ export type DefineActionOptions<
       : {
           readonly invocation: 'inputless';
           readonly inputSchema?: 'none';
-          readonly settle?: SettleWithoutProgress;
+          readonly settle?: SettleWithoutProgress<Awaited<ReturnType<F>>>;
           readonly mutate: F & InputlessMutation<F>;
         }
     : Mode extends 'scalar'
@@ -251,7 +259,7 @@ export type DefineActionOptions<
         ? {
             readonly invocation: 'scalar';
             readonly inputSchema?: object;
-            readonly settle: SettleWithProgress<Stages>;
+            readonly settle: SettleWithProgress<Stages, Awaited<Output>>;
             readonly mutate: ScalarProgressMutation<
               F,
               Input,
@@ -263,7 +271,7 @@ export type DefineActionOptions<
         : {
             readonly invocation: 'scalar';
             readonly inputSchema?: object;
-            readonly settle?: SettleWithoutProgress;
+            readonly settle?: SettleWithoutProgress<Awaited<ReturnType<F>>>;
             readonly mutate: F & ScalarMutation<F>;
           }
       : Mode extends 'host'
@@ -272,7 +280,7 @@ export type DefineActionOptions<
           : {
               readonly invocation: 'host';
               readonly inputSchema?: never;
-              readonly settle?: SettleWithoutProgress;
+              readonly settle?: HostSettle;
               readonly mutate: F;
             }
         : never);
@@ -496,6 +504,8 @@ function validateActionDefinitionContract(
   validateStringList(owner, 'settle.writes', settle?.writes);
   validateStringList(owner, 'settle.reads', settle?.reads);
   validateProgressDeclaration(owner, settle?.progress, contract.invocation);
+  validateEvidenceDeclaration(owner, settle?.evidence);
+  validateOnReturn(owner, settle?.onReturn, contract.invocation);
   validateChannelDeclarations(owner, contract.needs, contract.produces);
 
   if (
@@ -677,6 +687,51 @@ function validateStringList(
   }
 }
 
+function validateOnReturn(
+  owner: string,
+  onReturn: unknown,
+  invocation: ActionInvocationMode,
+): void {
+  if (onReturn === undefined) return;
+  if (typeof onReturn !== 'function') {
+    throw new GraphValidationError(
+      `${owner}: settle.onReturn must be a function (outcome) => settlement | undefined.`,
+    );
+  }
+  if (invocation === 'host') {
+    throw new GraphValidationError(
+      `${owner}: host invocation cannot declare settle.onReturn — a host continuation runs the listener, not mutate, so there is no definition-owned return to judge. Settle it from onInvocation instead.`,
+    );
+  }
+}
+
+function validateEvidenceDeclaration(owner: string, evidence: unknown): void {
+  if (evidence === undefined) return;
+  if (
+    typeof evidence !== 'object' ||
+    evidence === null ||
+    Array.isArray(evidence) ||
+    !isPlainRecord(evidence)
+  ) {
+    throw new GraphValidationError(
+      `${owner}: settle.evidence must be a plain { kind } declaration.`,
+    );
+  }
+  for (const key of Reflect.ownKeys(evidence)) {
+    if (!EVIDENCE_FIELDS.has(key as string)) {
+      throw new GraphValidationError(
+        `${owner}: settle.evidence declares unknown field '${String(key)}'. It names the governed kind only — the schema lives on the kind, in the catalog.`,
+      );
+    }
+  }
+  const kind = (evidence as { readonly kind?: unknown }).kind;
+  if (typeof kind !== 'string' || kind.trim().length === 0) {
+    throw new GraphValidationError(
+      `${owner}: settle.evidence.kind must be a non-empty kind string.`,
+    );
+  }
+}
+
 function validateChannelDeclarations(
   owner: string,
   needs: ActionDefinitionContract['needs'],
@@ -785,21 +840,11 @@ function snapshotActionDefinitionOptions(
     );
   }
   const owner = `action definition '${definitionId}' options`;
+  // ACTION_OPTION_FIELDS holds neither 'binding' nor 'input', so this capture
+  // already refuses both as unknown fields. Their longer teaching sentences
+  // live in validateActionDefinitionContract, the door that sees a record
+  // branded by another copy.
   const captured = captureAuthoredRecord(owner, options, ACTION_OPTION_FIELDS);
-  for (const field of Reflect.ownKeys(captured)) {
-    if (field === 'binding') {
-      throw new GraphValidationError(
-        `action definition '${definitionId}' declares a live-site 'binding'. A callable definition describes what the action does; ` +
-          `connectAction()/attach() own where each live binding exists. Remove 'binding' from the definition contract.`,
-      );
-    }
-    if (field === 'input') {
-      throw new GraphValidationError(
-        `action definition '${definitionId}' declares 'input'. Callable action definitions use 'inputSchema' for the payload contract; ` +
-          `connectAction()/useActionBinding() use 'input' for the live invocation-time value reader.`,
-      );
-    }
-  }
   const authoredMutate = captured.mutate;
   if (typeof authoredMutate !== 'function') {
     throw new TypeError(
@@ -910,7 +955,10 @@ function freezeSettle(value: unknown, owner: string): ActionSettleContract {
     if (!Object.hasOwn(captured, field)) continue;
     const authored = captured[field];
     let frozen = authored;
-    if (field === 'verify' && typeof authored === 'function') {
+    if (
+      (field === 'verify' || field === 'onReturn') &&
+      typeof authored === 'function'
+    ) {
       frozen = authored;
     } else if (field === 'progress' && authored !== undefined) {
       const progress = captureAuthoredRecord(
@@ -933,6 +981,12 @@ function freezeSettle(value: unknown, owner: string): ActionSettleContract {
       frozen = Object.freeze(progressCopy);
     } else if (field === 'writes' || field === 'reads' || field === 'verify') {
       frozen = freezeAuthoredTree(authored, `${owner}.${field}`);
+    } else if (field === 'evidence' && authored !== undefined) {
+      frozen = captureAuthoredRecord(
+        `${owner}.evidence`,
+        authored,
+        EVIDENCE_FIELDS,
+      );
     }
     defineFrozenField(copy, field, frozen);
   }

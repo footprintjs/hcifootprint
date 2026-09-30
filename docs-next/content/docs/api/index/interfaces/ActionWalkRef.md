@@ -4,7 +4,7 @@ title: ActionWalkRef
 
 # Interface: ActionWalkRef
 
-Defined in: [src/action/walk.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L41)
+Defined in: [src/action/walk.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L42)
 
 The walk's own identity — a correlation handle, deliberately nothing more.
 
@@ -14,7 +14,7 @@ The walk's own identity — a correlation handle, deliberately nothing more.
 
 > `readonly` **kind**: `"action-walk"`
 
-Defined in: [src/action/walk.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L42)
+Defined in: [src/action/walk.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L43)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [src/action/walk.ts:42](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **walkId**: `string`
 
-Defined in: [src/action/walk.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L43)
+Defined in: [src/action/walk.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L44)

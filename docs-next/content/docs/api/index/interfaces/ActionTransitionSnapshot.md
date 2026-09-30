@@ -4,15 +4,29 @@ title: ActionTransitionSnapshot
 
 # Interface: ActionTransitionSnapshot
 
-Defined in: [src/action/types.ts:628](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L628)
+Defined in: [src/action/types.ts:689](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L689)
 
 ## Properties
+
+### attribution
+
+> `readonly` **attribution**: [`Attribution`](/api/index/interfaces/Attribution)
+
+Defined in: [src/action/types.ts:715](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L715)
+
+Who this invocation is filed under, and what that claim is worth. Present
+on every snapshot — "nobody claimed it" is information. A principal port
+or a connection's `invokedBy` gives `'caller-asserted'` (the library
+watched the call come through its own door; who stood behind it is the
+integrator's word); neither gives basis and principal `'unknown'`.
+
+***
 
 ### authority?
 
 > `readonly` `optional` **authority?**: [`ActionAbandonmentAuthority`](/api/index/type-aliases/ActionAbandonmentAuthority)
 
-Defined in: [src/action/types.ts:638](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L638)
+Defined in: [src/action/types.ts:702](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L702)
 
 ***
 
@@ -20,15 +34,15 @@ Defined in: [src/action/types.ts:638](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:631](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L631)
+Defined in: [src/action/types.ts:692](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L692)
 
 ***
 
 ### effectStatus
 
-> `readonly` **effectStatus**: `"verified"` \| `"refused"` \| `"abandoned"` \| `"unverified"`
+> `readonly` **effectStatus**: `"refused"` \| `"verified"` \| `"abandoned"` \| `"unverified"`
 
-Defined in: [src/action/types.ts:633](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L633)
+Defined in: [src/action/types.ts:694](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L694)
 
 ***
 
@@ -36,7 +50,7 @@ Defined in: [src/action/types.ts:633](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **error?**: `unknown`
 
-Defined in: [src/action/types.ts:635](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L635)
+Defined in: [src/action/types.ts:696](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L696)
 
 ***
 
@@ -44,7 +58,18 @@ Defined in: [src/action/types.ts:635](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **evidence?**: `unknown`
 
-Defined in: [src/action/types.ts:636](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L636)
+Defined in: [src/action/types.ts:697](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L697)
+
+***
+
+### evidenceKind?
+
+> `readonly` `optional` **evidenceKind?**: `string`
+
+Defined in: [src/action/types.ts:700](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L700)
+
+Present exactly when the definition declared `settle.evidence` and the
+ effect verified: the governed kind `evidence` is a value of.
 
 ***
 
@@ -52,15 +77,15 @@ Defined in: [src/action/types.ts:636](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **input**: [`ActionInvocationInput`](/api/index/type-aliases/ActionInvocationInput)
 
-Defined in: [src/action/types.ts:630](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L630)
+Defined in: [src/action/types.ts:691](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L691)
 
 ***
 
 ### invocationStatus
 
-> `readonly` **invocationStatus**: `"refused"` \| `"performed"` \| `"failed"` \| `"pending"`
+> `readonly` **invocationStatus**: `"performed"` \| `"failed"` \| `"refused"` \| `"pending"`
 
-Defined in: [src/action/types.ts:632](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L632)
+Defined in: [src/action/types.ts:693](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L693)
 
 ***
 
@@ -68,7 +93,7 @@ Defined in: [src/action/types.ts:632](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **lateSettlements?**: readonly [`ActionLateSettlement`](/api/index/interfaces/ActionLateSettlement)[]
 
-Defined in: [src/action/types.ts:643](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L643)
+Defined in: [src/action/types.ts:707](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L707)
 
 Settlements that arrived after the terminal, in arrival order. Absent
  when none did — an empty list would claim "we watched and none came",
@@ -80,7 +105,7 @@ Settlements that arrived after the terminal, in arrival order. Absent
 
 > `readonly` `optional` **produced?**: `unknown`
 
-Defined in: [src/action/types.ts:634](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L634)
+Defined in: [src/action/types.ts:695](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L695)
 
 ***
 
@@ -88,7 +113,7 @@ Defined in: [src/action/types.ts:634](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **progress?**: [`ActionProgressSnapshot`](/api/index/type-aliases/ActionProgressSnapshot)
 
-Defined in: [src/action/types.ts:639](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L639)
+Defined in: [src/action/types.ts:703](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L703)
 
 ***
 
@@ -96,7 +121,7 @@ Defined in: [src/action/types.ts:639](https://github.com/footprintjs/hcifootprin
 
 > `readonly` `optional` **reason?**: `unknown`
 
-Defined in: [src/action/types.ts:637](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L637)
+Defined in: [src/action/types.ts:701](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L701)
 
 ***
 
@@ -104,4 +129,4 @@ Defined in: [src/action/types.ts:637](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **ref**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)
 
-Defined in: [src/action/types.ts:629](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L629)
+Defined in: [src/action/types.ts:690](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L690)

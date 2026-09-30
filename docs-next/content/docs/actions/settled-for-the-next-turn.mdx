@@ -1,0 +1,131 @@
+---
+title: Settled, listed, carried forward
+description: Who invoked it, every transition the ledger holds, an effect proven by a governed value, a verdict written once on the definition, and what the person set still standing for the next turn.
+---
+
+## Why
+
+A binding that re-runs a backend tool and **mints a new dataset** used to
+need five hand-written parts around the library: a fake state key so it may
+say `verified`, an observer per connection that settles the same way every
+time, two indexes of transition refs (and a guard so trimming one does not
+forget a ref the other still reads), a field saying "a person did this", and
+a fold computing which ranges ride the next question. Each of those is a
+fact the runtime already holds. 2.6.0 gives each one a door.
+
+## Who invoked it
+
+`ConnectActionOptions.invokedBy` declares who calls a connection's direct
+doors. It is checked once, at connect, against the definition's
+`principal.mayInvoke` — so it can never file an invocation under a principal
+the definition refuses. Every `ActionTransitionSnapshot` now carries an
+`attribution` (the 1.7.0 `Attribution` type): `'caller-asserted'` for a
+principal port or `invokedBy`, `'unknown'` for neither. It is never read off
+`humanReporting` — which subsystem reports a click is not who called
+`invoke()`.
+
+```ts
+const control = connectAction(runtime, refetch, {
+  node: 'data-panel', instance: artifact.ref, coverage: 'verifiable',
+  invokedBy: 'user',
+});
+runtime.transitionFor(control.invoke(range).transition)?.attribution;
+// → { principal: 'user', basis: 'caller-asserted', certainty: 'observed' }
+```
+
+## Every transition, in the order they were asked for
+
+`runtime.transitions(query?)` lists every retained transition, **oldest
+invocation first** (not the order they settled). The `ActionTransitionQuery`
+filters — `definition`, `binding`, `instance`, `invocationStatus`,
+`effectStatus` — are ANDed; a misspelled status refuses instead of answering
+an empty list that reads as "none happened". `createActionRuntime({ history:
+{ keep } })` (an `ActionHistoryPolicy`) releases the oldest fully settled
+rows past `keep`; a pending row is never counted and never released.
+
+```ts
+runtime.transitions({ definition: refetch, instance: artifact.ref, effectStatus: 'verified' });
+```
+
+## An effect proven by a governed value
+
+`settle.evidence: { kind }` (an `ActionEvidenceDeclaration`) says a verified
+settlement's evidence is a value of that governed kind. It is an
+evidence-bearing clause, so no pretend `writes` key is needed. The kind is
+governed at connect like `needs`/`produces`; when the catalog gives it a
+schema, the evidence is checked at settle (a self-validating schema, or the
+`inputSchemaAdapter` with `source: 'evidence'`), and a failing value refuses
+without spending the terminal. Say it plainly: the evidence VALUE is
+schema-checked only when the mounted catalog gives that kind a schema;
+otherwise only the kind is governed, and the value itself is not checked.
+Either way the value is detached first, once, with `structuredClone`: what
+the record holds is what was checked, and a class instance, `Map` or `Date`
+your code still holds cannot change it afterwards. A value that cannot be
+cloned (a function inside it, a Proxy, a host object) refuses, again without
+spending the terminal. The snapshot and the verified settlement carry
+`evidenceKind`.
+
+It is deliberately not `produces`: `produces` is what the handler returns —
+the value a walk carries to the next step — and for a refetch the return (a
+reply envelope) and the proof (the new dataset) are different values.
+
+## Settle when the action returns
+
+`settle.onReturn` is the definition's authored verdict on its own return. It
+receives an `ActionReturnOutcome` — the `performed` or `failed` arm, typed
+from `mutate` — and answers a settlement or `undefined`. The verdict meets
+every gate an observer's would, and first terminal wins. For a definition
+that declares it, a synchronous return settles before `invoke()` returns.
+
+```ts
+const refetch = defineAction('data-panel.refetch-time-range', {
+  does: 'Re-run the open series over the time range the person set',
+  invocation: 'scalar',
+  settle: {
+    evidence: { kind: 'data-panel.dataset-version' },
+    onReturn: (outcome) =>
+      outcome.status === 'failed'
+        ? { status: 'refused', reason: String(outcome.error) }
+        : outcome.produced.status === 'refetched'
+          ? { status: 'verified', evidence: outcome.produced.dataset }
+          : { status: 'refused', reason: outcome.produced.reason },
+  },
+  mutate: (input: RefetchInput): Promise<RefetchReply> => refetchOnServer(input),
+});
+```
+
+## What the person set, for the next turn
+
+`runtime.declareContext` takes a `DeclaredContextDeclaration` and returns a
+`DeclaredContextHandle`. The library folds it at settlement time with the one
+`DeclaredContextFold`, `'latest-per-key'`: the newest **invoked** verified
+value per key, minus any a verified release named — and a release never
+brings back an older entry. Each `DeclaredContextEntry` carries the value,
+the transition, the control's binding and the transition's attribution; a
+reader that throws is a counted `DeclaredContextSkip`, never a failed
+settlement.
+
+```ts
+const ranges = runtime.declareContext({
+  id: 'data-panel.time-ranges',
+  from: [refetch],
+  key: (value) => (value as DatasetVersion).rootRef,
+  identity: (value) => (value as DatasetVersion).ref,
+  fold: 'latest-per-key',
+  releasedBy: { action: releaseRange, identity: (evidence) => evidence as string },
+});
+
+ranges.entries();   // oldest invocation first — data, never prose
+ranges.skipped();   // readers that threw or answered a non-string
+```
+
+A context is fed and released only by the exact callables you declared it
+with. A runtime connects one callable per id, so connecting a DIFFERENT
+callable under one of those ids (a hot reload that rebuilt it, a second
+`defineAction` with the same id) would leave the context unable to ever fold
+it — `connectAction` refuses that, naming the context. Connect the callable
+you declared, or `retire()` the context first.
+
+Because the fold runs as settlements land, `history: { keep }` can release
+old rows without changing an entry. Serving `entries()` to a model is a
+separate, smaller decision; this page stops at the data.

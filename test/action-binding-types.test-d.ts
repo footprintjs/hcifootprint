@@ -16,6 +16,7 @@ import {
   type ActionProgressDeclaration,
   type ActionRuntime,
   type ActionSettleContract,
+  type ActionTransitionSnapshot,
   type BoundActionOffer,
   type InputlessActionOffer,
   type OpenActionOffer,
@@ -524,3 +525,72 @@ useActionBinding(
     },
   },
 );
+
+// ── settle.onReturn (2.6.0): the verdict's outcome is typed from mutate ──────
+interface RefetchReplyForTypes {
+  readonly status: 'refetched' | 'refused';
+  readonly reason?: string;
+}
+// Output is inferred from an annotated mutate whatever the key order: the
+// verdict is written BEFORE mutate here, and still sees the reply type.
+defineAction('types.on-return-order', {
+  does: 'Refetch and judge the reply',
+  invocation: 'scalar',
+  settle: {
+    evidence: { kind: 'types.dataset' },
+    onReturn: (outcome) => {
+      if (outcome.status === 'failed') {
+        return { status: 'refused', reason: String(outcome.error) };
+      }
+      const _reply: RefetchReplyForTypes = outcome.produced;
+      // @ts-expect-error the produced value is the reply envelope, not a string
+      const _notAString: string = outcome.produced;
+      return outcome.produced.status === 'refetched'
+        ? { status: 'verified', evidence: outcome.produced }
+        : undefined;
+    },
+  },
+  mutate: (_range: string): RefetchReplyForTypes => ({ status: 'refetched' }),
+});
+// An async mutate's verdict sees the awaited value.
+defineAction('types.on-return-async', {
+  does: 'Refetch asynchronously',
+  invocation: 'inputless',
+  settle: {
+    onReturn: (outcome) =>
+      outcome.status === 'performed' && outcome.produced > 0
+        ? { status: 'refused', reason: 'nothing to prove' }
+        : undefined,
+  },
+  mutate: async () => 3,
+});
+defineAction('types.on-return-host', {
+  does: 'Press',
+  invocation: 'host',
+  // @ts-expect-error a host continuation runs the listener, not mutate — no return to judge
+  settle: { onReturn: () => undefined },
+  mutate: (_event: unknown) => undefined,
+});
+const _badVerdict: ActionSettleContract = {
+  // @ts-expect-error a verdict is a settlement record or undefined
+  onReturn: () => ({ status: 'done' }),
+};
+// invokedBy never files a direct invocation under 'unknown' — absence does that.
+connectAction(createActionRuntime(), scalar, {
+  node: 'types',
+  // @ts-expect-error 'unknown' is what omitting invokedBy already says
+  invokedBy: 'unknown',
+});
+// 2.6.0 CHANGED for implementers (CHANGELOG "Changed"): ActionRuntime gained two
+// REQUIRED members and every snapshot carries a REQUIRED attribution, so code
+// that hand-implements the runtime or builds snapshot fakes must add them. These
+// pins keep that sentence true — make any of them optional and the CHANGELOG lies.
+declare const _withoutTransitions: Omit<ActionRuntime, 'transitions'>;
+declare const _withoutDeclareContext: Omit<ActionRuntime, 'declareContext'>;
+declare const _withoutAttribution: Omit<ActionTransitionSnapshot, 'attribution'>;
+// @ts-expect-error a hand-implemented runtime must implement transitions(query?)
+const _runtimeNeedsTransitions: ActionRuntime = _withoutTransitions;
+// @ts-expect-error a hand-implemented runtime must implement declareContext(declaration)
+const _runtimeNeedsDeclareContext: ActionRuntime = _withoutDeclareContext;
+// @ts-expect-error a snapshot fake must carry attribution
+const _snapshotNeedsAttribution: ActionTransitionSnapshot = _withoutAttribution;

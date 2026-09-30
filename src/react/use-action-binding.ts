@@ -347,7 +347,9 @@ export function useActionBinding<
         throw error;
       }
       nextHeld = {
-        ...(nextHeld ?? current),
+        // `current` is non-null in this arm, and nextHeld is either current
+        // or the input arm's copy of it — never null.
+        ...nextHeld!,
         availabilityKeyPresent: hasAvailabilityKey,
         ...(hasAvailabilityKey
           ? { availabilityKey: options.availabilityKey }

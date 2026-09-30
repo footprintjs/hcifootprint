@@ -4,7 +4,7 @@ title: ActionTransitionRef<Id>
 
 # Interface: ActionTransitionRef\<Id\>
 
-Defined in: [src/action/types.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L71)
+Defined in: [src/action/types.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L72)
 
 Which particular invocation of one exact binding occurred?
 
@@ -20,7 +20,7 @@ Which particular invocation of one exact binding occurred?
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L74)
+Defined in: [src/action/types.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L75)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/action/types.ts:74](https://github.com/footprintjs/hcifootprint
 
 > `readonly` `optional` **input?**: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"bound"` \| `"caller"`\>
 
-Defined in: [src/action/types.ts:79](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L79)
+Defined in: [src/action/types.ts:80](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L80)
 
 The exact payload receipt used by this invocation, when it had one.
 
@@ -38,7 +38,7 @@ The exact payload receipt used by this invocation, when it had one.
 
 > `readonly` **kind**: `"action-transition"`
 
-Defined in: [src/action/types.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L72)
+Defined in: [src/action/types.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L73)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [src/action/types.ts:72](https://github.com/footprintjs/hcifootprint
 
 > `readonly` `optional` **offer?**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`, [`Principal`](/api/index/type-aliases/Principal)\>
 
-Defined in: [src/action/types.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L77)
+Defined in: [src/action/types.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L78)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [src/action/types.ts:77](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/action/types.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L76)
+Defined in: [src/action/types.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L77)
 
 Who requested this invocation, or `unknown` for an unscoped/direct occurrence.
 
@@ -64,4 +64,4 @@ Who requested this invocation, or `unknown` for an unscoped/direct occurrence.
 
 > `readonly` **transitionId**: `string`
 
-Defined in: [src/action/types.ts:73](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L73)
+Defined in: [src/action/types.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L74)

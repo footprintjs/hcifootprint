@@ -52,6 +52,9 @@ export function snapshotTransition(
     ...(stored.effectStatus === 'verified'
       ? { evidence: stored.evidence }
       : {}),
+    ...(stored.effectStatus === 'verified' && stored.evidenceKind !== undefined
+      ? { evidenceKind: stored.evidenceKind }
+      : {}),
     ...(stored.effectStatus === 'refused' ? { reason: stored.reason } : {}),
     ...(stored.effectStatus === 'abandoned'
       ? { authority: stored.authority }
@@ -65,6 +68,7 @@ export function snapshotTransition(
     ...(stored.progress !== undefined
       ? { progress: stored.progress.snapshot() }
       : {}),
+    attribution: stored.attribution,
   });
 }
 

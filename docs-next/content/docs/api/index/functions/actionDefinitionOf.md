@@ -8,7 +8,7 @@ title: actionDefinitionOf
 
 > **actionDefinitionOf**\<`F`, `Id`, `Mode`\>(`value`): [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`, `Mode`\>
 
-Defined in: [src/action/definition.ts:140](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L140)
+Defined in: [src/action/definition.ts:143](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L143)
 
 Read the definition carried by a callable, including one branded by another package copy.
 
@@ -40,7 +40,7 @@ Read the definition carried by a callable, including one branded by another pack
 
 > **actionDefinitionOf**(`value`): [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`string`, [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)\> \| `undefined`
 
-Defined in: [src/action/definition.ts:145](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L145)
+Defined in: [src/action/definition.ts:148](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L148)
 
 Read the definition carried by a callable, including one branded by another package copy.
 

@@ -6,6 +6,7 @@ import {
 } from '../registry/registry.js';
 import { takesNoInput } from '../traverse/expects.js';
 import { checkPrincipalPolicy } from '../traverse/principal-policy.js';
+import { attributionOf } from '../traverse/attribution.js';
 import { actionDefinitionOf } from './definition.js';
 import { COVERAGE_RANK, NO_BINDINGS } from './stored.js';
 import type {
@@ -14,6 +15,7 @@ import type {
   MutableBindingFacts,
   RuntimeBindingInvoker,
   StoredTransition,
+  TransitionEffectContract,
 } from './stored.js';
 import { createTransitionProgress } from './progress-ledger.js';
 import type { TransitionProgress } from './progress-ledger.js';
@@ -60,7 +62,12 @@ import type {
   SurfaceQuery,
 } from './channels.js';
 import { KindGovernor } from './kind-governor.js';
-import { TransitionLedger } from './transition-ledger.js';
+import { TransitionLedger, type LedgerQuery } from './transition-ledger.js';
+import {
+  DeclaredContexts,
+  type DeclaredContextDeclaration,
+  type DeclaredContextHandle,
+} from './declared-context.js';
 import { buildConnection, type ConnectionCore } from './connection-builder.js';
 import { SurfaceBoard } from './surface-board.js';
 import { RequestDesk } from './request.js';
@@ -95,6 +102,9 @@ import type {
   ActionInputValidationDisposition,
   ActionOffer,
   ActionOfferRef,
+  ActionHistoryPolicy,
+  ActionReturnOutcome,
+  ActionTransitionQuery,
   ActionTransitionRef,
   ActionTransitionSnapshot,
   BindingCoverage,
@@ -183,6 +193,56 @@ export function connectAction<
   return connect.call(runtime, definition, options);
 }
 
+const TRANSITION_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'definition',
+  'binding',
+  'instance',
+  'invocationStatus',
+  'effectStatus',
+]);
+const INVOCATION_STATUSES: ReadonlySet<string> = new Set([
+  'pending',
+  'performed',
+  'refused',
+  'failed',
+]);
+const EFFECT_STATUSES: ReadonlySet<string> = new Set([
+  'unverified',
+  'verified',
+  'refused',
+  'abandoned',
+]);
+
+/** One status or a list of them, each checked — a typo filters to nothing
+ *  silently otherwise, and an empty answer would read as "none happened". */
+function statusFilter(
+  value: unknown,
+  allowed: ReadonlySet<string>,
+  field: string,
+): ReadonlySet<string> | undefined {
+  if (value === undefined) return undefined;
+  const list: readonly unknown[] = Array.isArray(value) ? value : [value];
+  for (const status of list) {
+    if (typeof status !== 'string' || !allowed.has(status)) {
+      throw new TypeError(
+        `hcifootprint: transitions() ${field} '${String(status)}' is not a status; expected ${[...allowed].join(', ')}.`,
+      );
+    }
+  }
+  return new Set(list as readonly string[]);
+}
+
+function readHistoryKeep(history: ActionHistoryPolicy | undefined): number | undefined {
+  if (history === undefined) return undefined;
+  const keep = (history as { readonly keep?: unknown } | null)?.keep;
+  if (typeof keep !== 'number' || !Number.isSafeInteger(keep) || keep < 0) {
+    throw new TypeError(
+      'hcifootprint: history needs { keep } — a non-negative whole number of fully settled transitions to retain. Omit history to keep every transition until forgetTransition releases it.',
+    );
+  }
+  return keep;
+}
+
 class DefaultActionRuntime implements ActionRuntime {
   readonly #contractActivation: ActionContractActivation;
   readonly #inputSchemaAdapter: ActionInputSchemaAdapter | undefined;
@@ -195,7 +255,8 @@ class DefaultActionRuntime implements ActionRuntime {
   readonly #offers = new Map<string, ActionOffer>();
   readonly #offerByBinding = new Map<string, Map<Principal, CachedOffer>>();
   readonly #invokers = new Map<string, RuntimeBindingInvoker>();
-  readonly #ledger = new TransitionLedger();
+  readonly #ledger: TransitionLedger;
+  readonly #contexts: DeclaredContexts;
   readonly #definitions = new Map<string, DefinedAction>();
   readonly #definitionRecords = new Map<string, ActionDefinitionRecord>();
   #bindingSequence = 0;
@@ -235,6 +296,10 @@ class DefaultActionRuntime implements ActionRuntime {
         'hcifootprint: kinds must be a KindCatalog with synchronous has() and describe() — declareKinds() builds the default.',
       );
     }
+    this.#ledger = new TransitionLedger(readHistoryKeep(options.history));
+    this.#contexts = new DeclaredContexts(this.#ledger, (definitionId) =>
+      this.#definitions.get(definitionId),
+    );
     this.#kinds = kinds;
     this.#governor = new KindGovernor(kinds);
     this.#board = new SurfaceBoard(this.#governor);
@@ -264,22 +329,25 @@ class DefaultActionRuntime implements ActionRuntime {
       invokers: this.#invokers,
       inputSchemaAdapter: this.#inputSchemaAdapter,
       contractActivation: this.#contractActivation,
+      // The mounted catalog is immutable, so one read per connect is the fact.
+      kindSchema: (kind) => this.#kinds?.describe(kind)?.schema,
+      contextClaimOn: (definitionId, definition) =>
+        this.#contexts.claimOn(definitionId, definition),
       nextBindingSequence: () => (this.#bindingSequence += 1),
       newInputRef: (source) => this.#newInputRef(source),
       settle: (transition, input) => this.#settle(transition, input),
       requireCurrent: (binding, expected, phase) =>
         this.#requireCurrent(binding, expected, phase),
-      invalidateOffers: (binding, principal) =>
-        this.#invalidateOffers(binding, principal),
+      invalidateOffers: (binding) => this.#invalidateOffers(binding),
       validateOffer: (binding, offer, registration, enabled) =>
         this.#validateOffer(binding, offer, registration, enabled),
       invoke: (...args) => (this.#invoke as (...a: unknown[]) => never)(...args),
     } satisfies ConnectionCore as ConnectionCore);
   }
 
-  get contractActivation(): ActionContractActivation {
-    return this.#contractActivation;
-  }
+  // An own, non-writable data property defined in the constructor — a
+  // prototype getter here would be shadowed on every instance and never run.
+  declare readonly contractActivation: ActionContractActivation;
 
   kindGovernance(): KindGovernanceReport {
     return this.#governor.report();
@@ -289,12 +357,17 @@ class DefaultActionRuntime implements ActionRuntime {
     const contract = record.contract as {
       readonly needs?: Readonly<Record<string, { readonly kind: string }>>;
       readonly produces?: { readonly kind: string };
+      readonly settle?: { readonly evidence?: { readonly kind: string } };
     };
     const declared: string[] = [];
     if (contract.needs !== undefined) {
       for (const need of Object.values(contract.needs)) declared.push(need.kind);
     }
     if (contract.produces !== undefined) declared.push(contract.produces.kind);
+    // settle.evidence joins needs/produces: one law, one more declaration site.
+    if (contract.settle?.evidence !== undefined) {
+      declared.push(contract.settle.evidence.kind);
+    }
     for (const kind of declared) {
       this.#governKind(kind, `'${record.ref.definitionId}' declares`);
     }
@@ -482,16 +555,9 @@ class DefaultActionRuntime implements ActionRuntime {
         `hcifootprint: offer '${ref.offerId}' belongs to principal '${ref.principal}', not '${principal}'. Invoke it through authority for the principal that received it.`,
       );
     }
-    const principalVerdict = verdictForPrincipal(
-      offer.definition.contract,
-      principal,
-    );
-    if (!principalVerdict.ok) {
-      this.#invalidateOffers(ref.binding, principal);
-      throw new Error(
-        `hcifootprint: offer '${ref.offerId}' is no longer permitted for principal '${principal}'.`,
-      );
-    }
+    // No principal re-check here: an offer is minted for a principal only
+    // after verdictForPrincipal said yes (#availableFor), and that verdict is
+    // a pure function of the definition's FROZEN contract and the principal.
     if (input.length > 1) {
       throw new TypeError(
         'hcifootprint: principal invoke() accepts at most one payload slot.',
@@ -509,13 +575,10 @@ class DefaultActionRuntime implements ActionRuntime {
         `hcifootprint: open offer '${ref.offerId}' requires exactly one deliberate input payload slot. Pass undefined explicitly when undefined is the intended value.`,
       );
     }
-    const invoker = this.#invokers.get(ref.binding.bindingId);
-    if (invoker === undefined) {
-      this.#invalidateOffers(ref.binding);
-      throw new Error(
-        `hcifootprint: binding '${ref.binding.bindingId}' is disconnected.`,
-      );
-    }
+    // A live offer implies a live invoker: `disconnect` retires every offer
+    // of the binding (invalidateOffers) before it deletes the invoker, and
+    // no offer is minted before the invoker is set at connect.
+    const invoker = this.#invokers.get(ref.binding.bindingId)!;
     return invoker.invoke(ref, input.length === 1, input[0]);
   }
 
@@ -558,19 +621,14 @@ class DefaultActionRuntime implements ActionRuntime {
         snapshot.coverage,
         `binding '${snapshot.binding.bindingId}'`,
       );
+      // Connect records the definition before any caller can read its row,
+      // and a runtime never forgets a definition — so the record is there.
       const definitionRecord = this.#definitionRecords.get(
         snapshot.binding.definition.definitionId,
-      );
-      if (
-        !this.#definitions.has(snapshot.binding.definition.definitionId) ||
-        definitionRecord === undefined
-      ) {
-        throw new Error(
-          `hcifootprint: definition '${snapshot.binding.definition.definitionId}' is unavailable in this runtime generation.`,
-        );
-      }
+      )!;
+      // A refused principal was never minted an offer for this binding (the
+      // verdict is fixed by the frozen contract), so there is none to retire.
       if (!verdictForPrincipal(definitionRecord.contract, principal).ok) {
-        this.#invalidateOffers(snapshot.binding, principal);
         continue;
       }
       let enabled: boolean | undefined;
@@ -660,7 +718,6 @@ class DefaultActionRuntime implements ActionRuntime {
             validateActionInput(
               row.binding,
               invoker.inputSchema,
-              true,
               capturedInput,
               'bound',
               this.#inputSchemaAdapter,
@@ -738,6 +795,88 @@ class DefaultActionRuntime implements ActionRuntime {
     return this.#ledger.forget(transition);
   }
 
+  declareContext(
+    declaration: DeclaredContextDeclaration,
+  ): DeclaredContextHandle {
+    return this.#contexts.declare(declaration);
+  }
+
+  transitions(
+    query?: ActionTransitionQuery,
+  ): readonly ActionTransitionSnapshot[] {
+    return this.#ledger.list(this.#resolveTransitionQuery(query));
+  }
+
+  #resolveTransitionQuery(query: ActionTransitionQuery | undefined): LedgerQuery {
+    if (query === undefined) return {};
+    if (query === null || typeof query !== 'object' || Array.isArray(query)) {
+      throw new TypeError(
+        'hcifootprint: transitions() takes an optional query record.',
+      );
+    }
+    for (const key of Object.keys(query)) {
+      if (!TRANSITION_QUERY_FIELDS.has(key)) {
+        throw new TypeError(
+          `hcifootprint: transitions() query declares unknown field '${key}'; filter by ${[...TRANSITION_QUERY_FIELDS].join(', ')}.`,
+        );
+      }
+    }
+    const { definition, binding, instance } = query;
+    let definitionRef: ActionDefinitionRef | undefined;
+    if (typeof definition === 'function') {
+      const record = actionDefinitionOf(definition);
+      if (record === undefined) {
+        throw new TypeError(
+          'hcifootprint: transitions() received a definition that was not created by defineAction().',
+        );
+      }
+      const canonical = this.#definitions.get(record.ref.definitionId);
+      if (canonical !== undefined && canonical !== definition) {
+        throw new TypeError(
+          `hcifootprint: definition '${record.ref.definitionId}' belongs to another callable in this runtime. Pass the exact defineAction() result that was connected.`,
+        );
+      }
+      definitionRef = record.ref;
+    } else if (definition !== undefined) {
+      if (this.#definitionRecords.get(definition.definitionId)?.ref !== definition) {
+        throw new Error(
+          `hcifootprint: definition ref '${String(definition.definitionId)}' is unknown or forged.`,
+        );
+      }
+      definitionRef = definition;
+    }
+    if (
+      binding !== undefined &&
+      (binding === null || typeof binding !== 'object' || binding.kind !== 'action-binding')
+    ) {
+      throw new TypeError(
+        'hcifootprint: transitions() binding must be an ActionBindingRef this runtime returned.',
+      );
+    }
+    if (instance !== undefined && typeof instance !== 'string') {
+      throw new TypeError(
+        'hcifootprint: transitions() instance must be the opaque string the binding was connected with.',
+      );
+    }
+    const invocationStatus = statusFilter(
+      query.invocationStatus,
+      INVOCATION_STATUSES,
+      'invocationStatus',
+    );
+    const effectStatus = statusFilter(
+      query.effectStatus,
+      EFFECT_STATUSES,
+      'effectStatus',
+    );
+    return {
+      ...(definitionRef !== undefined ? { definition: definitionRef } : {}),
+      ...(binding !== undefined ? { binding } : {}),
+      ...(instance !== undefined ? { instance } : {}),
+      ...(invocationStatus !== undefined ? { invocationStatus } : {}),
+      ...(effectStatus !== undefined ? { effectStatus } : {}),
+    };
+  }
+
   #validateOffer<Id extends string>(
     binding: ActionBindingRef<Id>,
     offer: ActionOfferRef<Id> | undefined,
@@ -778,19 +917,9 @@ class DefaultActionRuntime implements ActionRuntime {
   }
 
 
-  #invalidateOffers(binding: ActionBindingRef, principal?: Principal): void {
+  #invalidateOffers(binding: ActionBindingRef): void {
     const byPrincipal = this.#offerByBinding.get(binding.bindingId);
     if (byPrincipal === undefined) return;
-    if (principal !== undefined) {
-      const cached = byPrincipal.get(principal);
-      if (cached === undefined) return;
-      this.#offers.delete(cached.offer.ref.offerId);
-      byPrincipal.delete(principal);
-      if (byPrincipal.size === 0) {
-        this.#offerByBinding.delete(binding.bindingId);
-      }
-      return;
-    }
     for (const cached of byPrincipal.values()) {
       this.#offers.delete(cached.offer.ref.offerId);
     }
@@ -884,16 +1013,29 @@ class DefaultActionRuntime implements ActionRuntime {
     coverage: BindingCoverage,
     phase: 'handler' | 'preflight' = 'handler',
     verificationDeclared = false,
-    progressDeclaration?: NonNullable<
-      ReadonlyActionDefinitionContract['settle']
-    >['progress'],
-    reportInstrumentationError: (error: unknown) => void = () => undefined,
+    progressDeclaration:
+      | NonNullable<ReadonlyActionDefinitionContract['settle']>['progress']
+      | undefined,
+    // Always the connection's sink (connection-builder.ts · openInvocation).
+    reportInstrumentationError: (error: unknown) => void,
+    invokedBy?: Principal,
+    effect?: TransitionEffectContract,
   ): ActionInvocation<Output, Id, Behavior> {
+    // WHO: the offer's principal on a port invoke, the connection's declared
+    // `invokedBy` on a direct door, else 'unknown'. Both named arms are the
+    // caller's word through the library's own door — 'caller-asserted'.
+    const principal = offer?.principal ?? invokedBy ?? 'unknown';
+    const attribution = Object.freeze(
+      offer !== undefined || invokedBy !== undefined
+        ? attributionOf('caller-asserted', principal)
+        : attributionOf('unknown', 'unknown'),
+    );
+    const minted = this.#ledger.mint();
     const transition = Object.freeze({
       kind: 'action-transition' as const,
-      transitionId: this.#ledger.nextId(),
+      transitionId: minted.transitionId,
       binding,
-      principal: offer?.principal ?? 'unknown',
+      principal,
       ...(offer !== undefined ? { offer } : {}),
       ...('ref' in invocationInput && invocationInput.ref !== undefined
         ? { input: invocationInput.ref }
@@ -919,6 +1061,11 @@ class DefaultActionRuntime implements ActionRuntime {
       input: invocationInput,
       coverage,
       verificationDeclared,
+      attribution,
+      sequence: minted.sequence,
+      ...(effect?.evidence !== undefined
+        ? { evidenceContract: effect.evidence }
+        : {}),
       invocationStatus: 'pending',
       effectStatus: 'unverified',
       ...(progress !== undefined ? { progress } : {}),
@@ -927,6 +1074,13 @@ class DefaultActionRuntime implements ActionRuntime {
       ) => void,
     };
     this.#ledger.store(transition.transitionId, stored);
+
+    const onReturn = behavior === 'mutation' ? effect?.onReturn : undefined;
+    const judge = (outcome: ActionReturnOutcome<Output, Id>): void => {
+      if (onReturn !== undefined) {
+        this.#judgeReturn(transition, onReturn, outcome, reportInstrumentationError);
+      }
+    };
 
     let produced: unknown;
     try {
@@ -942,6 +1096,7 @@ class DefaultActionRuntime implements ActionRuntime {
       stored.invocationStatus = status;
       stored.error = error;
       progress?.close();
+      this.#ledger.railClosed(stored);
       const outcome = Object.freeze({
         status,
         transition,
@@ -963,31 +1118,62 @@ class DefaultActionRuntime implements ActionRuntime {
             phase: 'preflight',
           }),
         });
+      } else {
+        judge(outcome as ActionReturnOutcome<Output, Id>);
       }
       return invocation;
+    }
+
+    const performed = (value: Output): ActionReturnOutcome<Output, Id> => {
+      stored.invocationStatus = 'performed';
+      stored.produced = value;
+      progress?.close();
+      this.#ledger.railClosed(stored);
+      return Object.freeze({
+        status: 'performed' as const,
+        transition,
+        produced: value,
+      });
+    };
+    const failed = (error: unknown): ActionReturnOutcome<Output, Id> => {
+      stored.invocationStatus = 'failed';
+      stored.error = error;
+      progress?.close();
+      this.#ledger.railClosed(stored);
+      return Object.freeze({
+        status: 'failed' as const,
+        transition,
+        error,
+      });
+    };
+    // SYNCHRONOUS MEANS SYNCHRONOUS — for a definition that authored its own
+    // verdict. A non-thenable return closes the invocation rail and settles
+    // before invoke() returns, so transitionFor(ref) reads the verdict on the
+    // next line. Every other definition keeps the microtask close it had.
+    if (onReturn !== undefined && !isThenable(produced)) {
+      const outcome = performed(produced as Output);
+      judge(outcome);
+      return Object.freeze({
+        transition,
+        behavior,
+        input: invocationInput,
+        whenInvoked: Promise.resolve(outcome),
+        whenEffectSettled,
+        ...(progress !== undefined ? { progress: progress.channel } : {}),
+      }) as ActionInvocation<Output, Id, Behavior>;
     }
 
     const whenInvoked: Promise<ActionInvocationSettlement<Output, Id>> =
       Promise.resolve(produced as Output).then(
         (value) => {
-          stored.invocationStatus = 'performed';
-          stored.produced = value;
-          progress?.close();
-          return Object.freeze({
-            status: 'performed' as const,
-            transition,
-            produced: value,
-          });
+          const outcome = performed(value);
+          judge(outcome);
+          return outcome;
         },
         (error: unknown) => {
-          stored.invocationStatus = 'failed';
-          stored.error = error;
-          progress?.close();
-          return Object.freeze({
-            status: 'failed' as const,
-            transition,
-            error,
-          });
+          const outcome = failed(error);
+          judge(outcome);
+          return outcome;
         },
       );
     return Object.freeze({
@@ -1005,5 +1191,43 @@ class DefaultActionRuntime implements ActionRuntime {
     input: ActionEffectSettlementInput,
   ): ActionEffectSettlement<Id> {
     return this.#ledger.settle(transition, input);
+  }
+
+  /**
+   * Run a definition's authored `settle.onReturn` verdict through the ONE
+   * settle funnel — every gate a hand-wired observer's verdict meets. The
+   * reader is app code and instrumentation by law: a throw, a thenable, or a
+   * verdict a gate refuses goes to `onInvocationError`, and the effect stays
+   * unverified. The application's return value and invocation status are
+   * already recorded and never touched here.
+   */
+  #judgeReturn<Output, Id extends string>(
+    transition: ActionTransitionRef<Id>,
+    onReturn: NonNullable<TransitionEffectContract['onReturn']>,
+    outcome: ActionReturnOutcome<Output, Id>,
+    report: (error: unknown) => void,
+  ): void {
+    let verdict: unknown;
+    try {
+      verdict = Reflect.apply(onReturn, undefined, [outcome]);
+    } catch (error) {
+      report(error);
+      return;
+    }
+    if (verdict === undefined) return;
+    if (isThenable(verdict)) {
+      silenceRejectedThenable(verdict);
+      report(
+        new TypeError(
+          `hcifootprint: settle.onReturn for transition '${transition.transitionId}' must return its verdict synchronously, not a Promise/thenable. Return undefined and settle from onInvocation when the proof arrives later.`,
+        ),
+      );
+      return;
+    }
+    try {
+      this.#settle(transition, verdict as ActionEffectSettlementInput);
+    } catch (error) {
+      report(error);
+    }
   }
 }
