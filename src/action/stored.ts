@@ -27,7 +27,7 @@ import type {
   BindingCoverage,
   DefinedAction,
 } from './types.js';
-import type { Binding, Principal } from '../atom/types.js';
+import type { Attribution, Binding, Principal } from '../atom/types.js';
 import type { HumanReporting, ReadonlyActionDefinitionContract, ActionInputValidationDisposition, ActionDefinitionRef, ActionLifecycle, ActionInputSource } from './types.js';
 import type { BindingRegistration } from '../registry/registry.js';
 import type { TransitionProgress } from './progress-ledger.js';
@@ -62,6 +62,8 @@ export interface StoredTransition {
   readonly coverage: BindingCoverage;
   /** Whether the definition named an authoritative way to prove its effect. */
   readonly verificationDeclared: boolean;
+  /** Who the invocation is filed under — minted once, with `attributionOf`. */
+  readonly attribution: Attribution;
   invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
   effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
   effectSettling?: boolean;

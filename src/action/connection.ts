@@ -6,6 +6,7 @@ import {
 } from '../registry/registry.js';
 import { takesNoInput } from '../traverse/expects.js';
 import { checkPrincipalPolicy } from '../traverse/principal-policy.js';
+import { attributionOf } from '../traverse/attribution.js';
 import { actionDefinitionOf } from './definition.js';
 import { COVERAGE_RANK, NO_BINDINGS } from './stored.js';
 import type {
@@ -888,12 +889,22 @@ class DefaultActionRuntime implements ActionRuntime {
       ReadonlyActionDefinitionContract['settle']
     >['progress'],
     reportInstrumentationError: (error: unknown) => void = () => undefined,
+    invokedBy?: Principal,
   ): ActionInvocation<Output, Id, Behavior> {
+    // WHO: the offer's principal on a port invoke, the connection's declared
+    // `invokedBy` on a direct door, else 'unknown'. Both named arms are the
+    // caller's word through the library's own door — 'caller-asserted'.
+    const principal = offer?.principal ?? invokedBy ?? 'unknown';
+    const attribution = Object.freeze(
+      offer !== undefined || invokedBy !== undefined
+        ? attributionOf('caller-asserted', principal)
+        : attributionOf('unknown', 'unknown'),
+    );
     const transition = Object.freeze({
       kind: 'action-transition' as const,
       transitionId: this.#ledger.nextId(),
       binding,
-      principal: offer?.principal ?? 'unknown',
+      principal,
       ...(offer !== undefined ? { offer } : {}),
       ...('ref' in invocationInput && invocationInput.ref !== undefined
         ? { input: invocationInput.ref }
@@ -919,6 +930,7 @@ class DefaultActionRuntime implements ActionRuntime {
       input: invocationInput,
       coverage,
       verificationDeclared,
+      attribution,
       invocationStatus: 'pending',
       effectStatus: 'unverified',
       ...(progress !== undefined ? { progress } : {}),

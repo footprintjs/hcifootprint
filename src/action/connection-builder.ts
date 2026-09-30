@@ -43,6 +43,7 @@ import type { ActionHandler, ActionRegistry, BindingRegistration } from '../regi
 import { COVERAGE_RANK, NO_BINDINGS } from './stored.js';
 import type { AttachedFacts, CachedOffer, MutableBindingFacts, RuntimeBindingInvoker } from './stored.js';
 import { assertContractActivation, assertHumanReporting, assertOptionalReader, hasEvidenceBearingSettlement } from './authoring.js';
+import { assertPrincipal, verdictForPrincipal } from './principals.js';
 import { assertBindingCoverage } from './coverage.js';
 import { readEnabled } from './binding-facts.js';
 import { captureInputValidationSchema, resolveInputValidation, validateActionInput } from './input-validation.js';
@@ -102,6 +103,7 @@ export interface ConnectionCore {
       ReadonlyActionDefinitionContract['settle']
     >['progress'],
     reportInstrumentationError?: (error: unknown) => void,
+    invokedBy?: Principal,
   ): ActionInvocation<Output, Id, Behavior>;
 }
 
@@ -143,6 +145,7 @@ export function buildConnection<
     const humanReporting = options.humanReporting;
     const onInvocation = options.onInvocation;
     const onInvocationError = options.onInvocationError;
+    const invokedBy = options.invokedBy as Principal | undefined;
 
     if (typeof node !== 'string' || node.trim().length === 0) {
       throw new TypeError(
@@ -164,6 +167,7 @@ export function buildConnection<
       'connectAction()',
     );
     assertHumanReporting(humanReporting, 'connectAction()');
+    assertInvokedBy(record, invokedBy);
     const initialCoverage = coverage ?? 'executable';
     assertBindingCoverage(initialCoverage, 'connectAction()');
     const validationSchema = captureInputValidationSchema(
@@ -377,6 +381,7 @@ export function buildConnection<
         verificationDeclared,
         record.contract.settle?.progress,
         reportInstrumentationError,
+        invokedBy,
       );
       return publishInvocation(
         invocation,
@@ -797,3 +802,29 @@ export function buildConnection<
     });
 
     return Object.freeze(connection);  }
+
+/**
+ * A connection's declared caller, checked ONCE where the developer is looking.
+ * The contract is frozen and the principal fixed, so one verdict at connect is
+ * sound; without it `invokedBy` would be a door past `principal.mayInvoke`.
+ * `'unknown'` is refused: absence already says it, and one fact gets one way
+ * to be said.
+ */
+function assertInvokedBy(
+  record: ActionDefinitionRecord,
+  invokedBy: Principal | undefined,
+): void {
+  if (invokedBy === undefined) return;
+  assertPrincipal(invokedBy, 'connectAction() invokedBy');
+  if (invokedBy === 'unknown') {
+    throw new TypeError(
+      "hcifootprint: connectAction() invokedBy 'unknown' says nothing — omit invokedBy, and direct invocations are filed under 'unknown' already.",
+    );
+  }
+  const verdict = verdictForPrincipal(record.contract, invokedBy);
+  if (!verdict.ok) {
+    throw new Error(
+      `hcifootprint: connectAction() declares invokedBy '${invokedBy}', but action definition '${record.ref.definitionId}' may be invoked only by ${verdict.required.join(', ')}. A connection cannot file its invocations under a principal the definition refuses — connect it for an allowed principal, or offer it through runtime.forPrincipal() to the caller who may.`,
+    );
+  }
+}

@@ -65,6 +65,7 @@ export function snapshotTransition(
     ...(stored.progress !== undefined
       ? { progress: stored.progress.snapshot() }
       : {}),
+    attribution: stored.attribution,
   });
 }
 

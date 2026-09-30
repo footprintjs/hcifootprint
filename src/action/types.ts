@@ -1,5 +1,6 @@
 import type { WhereFilter } from 'footprintjs';
 import type {
+  Attribution,
   Binding,
   BlockedBecause,
   CanonicalRole,
@@ -324,6 +325,16 @@ export interface ConnectActionOptions<
   ) => void | PromiseLike<void>;
   /** Optional sink for observer failures; neither observer can replace app behavior. */
   readonly onInvocationError?: (error: unknown) => void | PromiseLike<void>;
+  /**
+   * Who invokes THIS connection through its direct doors (`invoke`,
+   * `invokeContinuation`). Declared, never inferred: `humanReporting` says
+   * which subsystem reports a person's interaction, not who called `invoke()`.
+   * Checked against the definition's `principal.mayInvoke` at connect, so it
+   * can never file an invocation under a principal the definition refuses.
+   * Absent: direct invocations stay `'unknown'`. A caller other than this
+   * one uses the principal port (`runtime.forPrincipal`), which stamps its own.
+   */
+  readonly invokedBy?: Exclude<Principal, 'unknown'>;
 }
 
 export interface ActionAttachment {
@@ -641,6 +652,14 @@ export interface ActionTransitionSnapshot {
    *  when none did — an empty list would claim "we watched and none came",
    *  which this snapshot cannot know. */
   readonly lateSettlements?: readonly ActionLateSettlement[];
+  /**
+   * Who this invocation is filed under, and what that claim is worth. Present
+   * on every snapshot — "nobody claimed it" is information. A principal port
+   * or a connection's `invokedBy` gives `'caller-asserted'` (the library
+   * watched the call come through its own door; who stood behind it is the
+   * integrator's word); neither gives basis and principal `'unknown'`.
+   */
+  readonly attribution: Attribution;
 }
 
 /**
