@@ -16,6 +16,7 @@ import {
   type ActionProgressDeclaration,
   type ActionRuntime,
   type ActionSettleContract,
+  type ActionTransitionSnapshot,
   type BoundActionOffer,
   type InputlessActionOffer,
   type OpenActionOffer,
@@ -580,3 +581,16 @@ connectAction(createActionRuntime(), scalar, {
   // @ts-expect-error 'unknown' is what omitting invokedBy already says
   invokedBy: 'unknown',
 });
+// 2.6.0 CHANGED for implementers (CHANGELOG "Changed"): ActionRuntime gained two
+// REQUIRED members and every snapshot carries a REQUIRED attribution, so code
+// that hand-implements the runtime or builds snapshot fakes must add them. These
+// pins keep that sentence true — make any of them optional and the CHANGELOG lies.
+declare const _withoutTransitions: Omit<ActionRuntime, 'transitions'>;
+declare const _withoutDeclareContext: Omit<ActionRuntime, 'declareContext'>;
+declare const _withoutAttribution: Omit<ActionTransitionSnapshot, 'attribution'>;
+// @ts-expect-error a hand-implemented runtime must implement transitions(query?)
+const _runtimeNeedsTransitions: ActionRuntime = _withoutTransitions;
+// @ts-expect-error a hand-implemented runtime must implement declareContext(declaration)
+const _runtimeNeedsDeclareContext: ActionRuntime = _withoutDeclareContext;
+// @ts-expect-error a snapshot fake must carry attribution
+const _snapshotNeedsAttribution: ActionTransitionSnapshot = _withoutAttribution;

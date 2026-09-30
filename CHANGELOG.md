@@ -61,8 +61,17 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   different callable than a live context or connection already holds.
   `retire()` frees the id.
 
-### Changed (additive, visible)
+### Changed (additive for callers; required for implementers)
 
+- **Code that implements the types by hand must add three members.**
+  `ActionRuntime` gains two REQUIRED methods, `transitions(query?)` and
+  `declareContext(declaration)`, and `ActionTransitionSnapshot.attribution`
+  is REQUIRED. Calling code sees only additions, but a hand-written
+  `ActionRuntime` (a test double, a wrapper that re-implements the
+  interface) and a hand-built snapshot fake no longer compile until they
+  add them — `attribution: { principal: 'unknown', basis: 'unknown',
+  certainty: 'unknown' }` is what a runtime with no principal port and no
+  `invokedBy` stamps. Pinned in `test/action-binding-types.test-d.ts`.
 - `ActionTransitionSnapshot.attribution` is present on EVERY snapshot —
   `'unknown'` when the connection has no principal port and no `invokedBy` —
   so a consumer that deep-compares snapshots sees a new key. A

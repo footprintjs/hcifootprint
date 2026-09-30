@@ -344,9 +344,13 @@ fake `writes` key and its hand-wired settle observers, and fixes its refetch `pr
   already carries `parentRef` for any reader who wants lineage.
 - **No typed kind map yet.** A static type for `evidence` needs the catalog to carry a TypeScript
   type per kind (inferring it structurally from a schema's `parse` return would work without
-  importing any schema library) and `ActionRuntime` to become generic over the catalog — a change
-  to the most-implemented interface in the protocol, for a benefit step 3 already half-delivers at
-  runtime. A generic on `declareContext<V>()` alone would be a cast wearing a type parameter. It
+  importing any schema library) and `ActionRuntime` to become generic over the catalog. A type
+  parameter reaches every place that NAMES the interface (app code typing `runtime: ActionRuntime`,
+  `beginWalk`, `useActionBinding`), not only the one class that implements it — and 2.6.0 already
+  changes that interface once, additively for callers but not for implementers: `transitions` and
+  `declareContext` are REQUIRED members a hand-written runtime must add (named in the CHANGELOG's
+  Changed section). A generic on top is a second, wider change, for a benefit step 3 already
+  half-delivers at runtime. A generic on `declareContext<V>()` alone would be a cast wearing a type parameter. It
   gets its own design once a second consumer wants it.
 - **No `at` / clock.** The runtime has no clock today and the fold does not need one: order is
   invocation order. When something happened on a server is a value the server stamped (the app's
