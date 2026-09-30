@@ -124,9 +124,22 @@ export interface ActionEvidenceDeclaration {
   readonly kind: string;
 }
 
+/**
+ * What `settle.onReturn` judges: the two arms of an invocation in which the
+ * application handler RAN — it returned (`performed`) or threw/rejected
+ * (`failed`). A preflight refusal never reaches it; the runtime settled that
+ * effect `refused` itself.
+ */
+export type ActionReturnOutcome<Output = unknown, Id extends string = string> =
+  Extract<
+    ActionInvocationSettlement<Output, Id>,
+    { readonly status: 'performed' | 'failed' }
+  >;
+
 /** @inline */
 interface ActionSettleFields<
   Stages extends readonly string[] = readonly string[],
+  Output = any,
 > {
   readonly writes?: readonly string[];
   readonly reads?: readonly string[];
@@ -137,12 +150,26 @@ interface ActionSettleFields<
   /** The effect is proven by a value of this governed kind — an
    *  evidence-bearing clause, kind-checked at connect, schema-checked at settle. */
   readonly evidence?: ActionEvidenceDeclaration;
+  /**
+   * The definition's AUTHORED verdict on its own return: what in the handler's
+   * outcome counts as proof. Runs when the handler returns or fails; the
+   * verdict goes through the one settle funnel (coverage gate, evidence gate,
+   * the kind check, first terminal wins). `undefined` = the return proves
+   * nothing, and the effect stays open for an observer or external report. A
+   * synchronous return settles before `invoke()` returns. Synchronous; a
+   * throw is instrumentation, routed to `onInvocationError`. Refused on
+   * `'host'` actions — a host continuation runs the listener, not `mutate`.
+   */
+  onReturn?(
+    outcome: ActionReturnOutcome<Output>,
+  ): ActionEffectSettlementInput | undefined;
 }
 
 /** Grouped effect, evidence, and progress declarations for one action. */
 export type ActionSettleContract<
   Stages extends readonly string[] = readonly string[],
-> = ActionSettleFields<Stages> &
+  Output = any,
+> = ActionSettleFields<Stages, Output> &
   (
     | { readonly writes: readonly string[] }
     | { readonly reads: readonly string[] }
@@ -151,11 +178,17 @@ export type ActionSettleContract<
     | { readonly observability: Observability }
     | { readonly progress: ActionProgressDeclaration<Stages> }
     | { readonly evidence: ActionEvidenceDeclaration }
+    | {
+        onReturn(
+          outcome: ActionReturnOutcome<Output>,
+        ): ActionEffectSettlementInput | undefined;
+      }
   );
 
 /** @inline */
 type ActionSettleWithoutProgress = ActionSettleContract & {
   readonly progress?: never;
+  readonly onReturn?: never;
 };
 
 /** @inline */

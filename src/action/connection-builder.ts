@@ -215,10 +215,21 @@ export function buildConnection<
       node,
       ...(instance !== undefined ? { instance } : {}),
     });
-    const effectContract: TransitionEffectContract =
-      evidenceDeclaration === undefined
-        ? {}
-        : { evidence: evidenceContractFor(binding, evidenceDeclaration.kind, evidenceSchema, core, evidenceValidation) };
+    const onReturn = record.contract.settle?.onReturn;
+    const effectContract: TransitionEffectContract = Object.freeze({
+      ...(evidenceDeclaration !== undefined
+        ? {
+            evidence: evidenceContractFor(
+              binding,
+              evidenceDeclaration.kind,
+              evidenceSchema,
+              core,
+              evidenceValidation,
+            ),
+          }
+        : {}),
+      ...(onReturn !== undefined ? { onReturn } : {}),
+    });
     const base: MutableBindingFacts<FirstParameter<F>> = {
       coverage: initialCoverage,
       locators: locators === undefined ? NO_BINDINGS : freezeBindings(locators),

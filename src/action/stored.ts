@@ -96,6 +96,9 @@ export interface EvidenceContract {
  *  resolved once at connect, carried onto every stored row. */
 export interface TransitionEffectContract {
   readonly evidence?: EvidenceContract;
+  /** The definition's authored `settle.onReturn` verdict, run on the
+   *  handler's outcome (mutations only). */
+  readonly onReturn?: (outcome: never) => unknown;
 }
 
 export interface CachedOffer {

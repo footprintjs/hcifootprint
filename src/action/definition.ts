@@ -68,6 +68,7 @@ const SETTLE_FIELDS = new Set<keyof ActionSettleContract>([
   'observability',
   'progress',
   'evidence',
+  'onReturn',
 ]);
 const EVIDENCE_FIELDS = new Set(['kind']);
 const PRINCIPAL_FIELDS = new Set([
@@ -183,16 +184,21 @@ type DefinitionBaseOptions = Omit<
   'invocation' | 'inputSchema' | 'settle'
 >;
 /** @inline */
-type SettleWithoutProgress = ActionSettleContract & {
+type SettleWithoutProgress<Output = any> = ActionSettleContract<
+  readonly string[],
+  Output
+> & {
   readonly progress?: never;
 };
 /** @inline */
-type SettleWithProgress<Stages extends readonly string[]> = Omit<
-  ActionSettleContract,
+type SettleWithProgress<Stages extends readonly string[], Output = any> = Omit<
+  ActionSettleContract<readonly string[], Output>,
   'progress'
 > & {
   readonly progress: ActionProgressDeclaration<Stages>;
 };
+/** @inline */
+type HostSettle = SettleWithoutProgress & { readonly onReturn?: never };
 /** @inline */
 type NoReceiver<F extends (...args: any[]) => any> =
   unknown extends ThisParameterType<F> ? F : never;
@@ -237,7 +243,7 @@ export type DefineActionOptions<
       ? {
           readonly invocation: 'inputless';
           readonly inputSchema?: 'none';
-          readonly settle: SettleWithProgress<Stages>;
+          readonly settle: SettleWithProgress<Stages, Awaited<Output>>;
           readonly mutate: (
             lifecycle?: ActionLifecycle<Id, Stages[number]>,
           ) => Output;
@@ -245,7 +251,7 @@ export type DefineActionOptions<
       : {
           readonly invocation: 'inputless';
           readonly inputSchema?: 'none';
-          readonly settle?: SettleWithoutProgress;
+          readonly settle?: SettleWithoutProgress<Awaited<ReturnType<F>>>;
           readonly mutate: F & InputlessMutation<F>;
         }
     : Mode extends 'scalar'
@@ -253,7 +259,7 @@ export type DefineActionOptions<
         ? {
             readonly invocation: 'scalar';
             readonly inputSchema?: object;
-            readonly settle: SettleWithProgress<Stages>;
+            readonly settle: SettleWithProgress<Stages, Awaited<Output>>;
             readonly mutate: ScalarProgressMutation<
               F,
               Input,
@@ -265,7 +271,7 @@ export type DefineActionOptions<
         : {
             readonly invocation: 'scalar';
             readonly inputSchema?: object;
-            readonly settle?: SettleWithoutProgress;
+            readonly settle?: SettleWithoutProgress<Awaited<ReturnType<F>>>;
             readonly mutate: F & ScalarMutation<F>;
           }
       : Mode extends 'host'
@@ -274,7 +280,7 @@ export type DefineActionOptions<
           : {
               readonly invocation: 'host';
               readonly inputSchema?: never;
-              readonly settle?: SettleWithoutProgress;
+              readonly settle?: HostSettle;
               readonly mutate: F;
             }
         : never);
@@ -499,6 +505,7 @@ function validateActionDefinitionContract(
   validateStringList(owner, 'settle.reads', settle?.reads);
   validateProgressDeclaration(owner, settle?.progress, contract.invocation);
   validateEvidenceDeclaration(owner, settle?.evidence);
+  validateOnReturn(owner, settle?.onReturn, contract.invocation);
   validateChannelDeclarations(owner, contract.needs, contract.produces);
 
   if (
@@ -676,6 +683,24 @@ function validateStringList(
   ) {
     throw new GraphValidationError(
       `${owner}: ${field} must be a non-empty array of unique, non-blank state-key strings.`,
+    );
+  }
+}
+
+function validateOnReturn(
+  owner: string,
+  onReturn: unknown,
+  invocation: ActionInvocationMode,
+): void {
+  if (onReturn === undefined) return;
+  if (typeof onReturn !== 'function') {
+    throw new GraphValidationError(
+      `${owner}: settle.onReturn must be a function (outcome) => settlement | undefined.`,
+    );
+  }
+  if (invocation === 'host') {
+    throw new GraphValidationError(
+      `${owner}: host invocation cannot declare settle.onReturn — a host continuation runs the listener, not mutate, so there is no definition-owned return to judge. Settle it from onInvocation instead.`,
     );
   }
 }
@@ -940,7 +965,10 @@ function freezeSettle(value: unknown, owner: string): ActionSettleContract {
     if (!Object.hasOwn(captured, field)) continue;
     const authored = captured[field];
     let frozen = authored;
-    if (field === 'verify' && typeof authored === 'function') {
+    if (
+      (field === 'verify' || field === 'onReturn') &&
+      typeof authored === 'function'
+    ) {
       frozen = authored;
     } else if (field === 'progress' && authored !== undefined) {
       const progress = captureAuthoredRecord(

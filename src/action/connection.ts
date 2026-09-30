@@ -98,6 +98,7 @@ import type {
   ActionOffer,
   ActionOfferRef,
   ActionHistoryPolicy,
+  ActionReturnOutcome,
   ActionTransitionQuery,
   ActionTransitionRef,
   ActionTransitionSnapshot,
@@ -1083,6 +1084,13 @@ class DefaultActionRuntime implements ActionRuntime {
     };
     this.#ledger.store(transition.transitionId, stored);
 
+    const onReturn = behavior === 'mutation' ? effect?.onReturn : undefined;
+    const judge = (outcome: ActionReturnOutcome<Output, Id>): void => {
+      if (onReturn !== undefined) {
+        this.#judgeReturn(transition, onReturn, outcome, reportInstrumentationError);
+      }
+    };
+
     let produced: unknown;
     try {
       if (progress?.lifecycle !== undefined) {
@@ -1119,33 +1127,62 @@ class DefaultActionRuntime implements ActionRuntime {
             phase: 'preflight',
           }),
         });
+      } else {
+        judge(outcome as ActionReturnOutcome<Output, Id>);
       }
       return invocation;
+    }
+
+    const performed = (value: Output): ActionReturnOutcome<Output, Id> => {
+      stored.invocationStatus = 'performed';
+      stored.produced = value;
+      progress?.close();
+      this.#ledger.railClosed(stored);
+      return Object.freeze({
+        status: 'performed' as const,
+        transition,
+        produced: value,
+      });
+    };
+    const failed = (error: unknown): ActionReturnOutcome<Output, Id> => {
+      stored.invocationStatus = 'failed';
+      stored.error = error;
+      progress?.close();
+      this.#ledger.railClosed(stored);
+      return Object.freeze({
+        status: 'failed' as const,
+        transition,
+        error,
+      });
+    };
+    // SYNCHRONOUS MEANS SYNCHRONOUS — for a definition that authored its own
+    // verdict. A non-thenable return closes the invocation rail and settles
+    // before invoke() returns, so transitionFor(ref) reads the verdict on the
+    // next line. Every other definition keeps the microtask close it had.
+    if (onReturn !== undefined && !isThenable(produced)) {
+      const outcome = performed(produced as Output);
+      judge(outcome);
+      return Object.freeze({
+        transition,
+        behavior,
+        input: invocationInput,
+        whenInvoked: Promise.resolve(outcome),
+        whenEffectSettled,
+        ...(progress !== undefined ? { progress: progress.channel } : {}),
+      }) as ActionInvocation<Output, Id, Behavior>;
     }
 
     const whenInvoked: Promise<ActionInvocationSettlement<Output, Id>> =
       Promise.resolve(produced as Output).then(
         (value) => {
-          stored.invocationStatus = 'performed';
-          stored.produced = value;
-          progress?.close();
-          this.#ledger.railClosed(stored);
-          return Object.freeze({
-            status: 'performed' as const,
-            transition,
-            produced: value,
-          });
+          const outcome = performed(value);
+          judge(outcome);
+          return outcome;
         },
         (error: unknown) => {
-          stored.invocationStatus = 'failed';
-          stored.error = error;
-          progress?.close();
-          this.#ledger.railClosed(stored);
-          return Object.freeze({
-            status: 'failed' as const,
-            transition,
-            error,
-          });
+          const outcome = failed(error);
+          judge(outcome);
+          return outcome;
         },
       );
     return Object.freeze({
@@ -1163,5 +1200,43 @@ class DefaultActionRuntime implements ActionRuntime {
     input: ActionEffectSettlementInput,
   ): ActionEffectSettlement<Id> {
     return this.#ledger.settle(transition, input);
+  }
+
+  /**
+   * Run a definition's authored `settle.onReturn` verdict through the ONE
+   * settle funnel — every gate a hand-wired observer's verdict meets. The
+   * reader is app code and instrumentation by law: a throw, a thenable, or a
+   * verdict a gate refuses goes to `onInvocationError`, and the effect stays
+   * unverified. The application's return value and invocation status are
+   * already recorded and never touched here.
+   */
+  #judgeReturn<Output, Id extends string>(
+    transition: ActionTransitionRef<Id>,
+    onReturn: NonNullable<TransitionEffectContract['onReturn']>,
+    outcome: ActionReturnOutcome<Output, Id>,
+    report: (error: unknown) => void,
+  ): void {
+    let verdict: unknown;
+    try {
+      verdict = Reflect.apply(onReturn, undefined, [outcome]);
+    } catch (error) {
+      report(error);
+      return;
+    }
+    if (verdict === undefined) return;
+    if (isThenable(verdict)) {
+      silenceRejectedThenable(verdict);
+      report(
+        new TypeError(
+          `hcifootprint: settle.onReturn for transition '${transition.transitionId}' must return its verdict synchronously, not a Promise/thenable. Return undefined and settle from onInvocation when the proof arrives later.`,
+        ),
+      );
+      return;
+    }
+    try {
+      this.#settle(transition, verdict as ActionEffectSettlementInput);
+    } catch (error) {
+      report(error);
+    }
   }
 }
