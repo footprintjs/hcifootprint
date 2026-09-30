@@ -175,9 +175,16 @@ export class TransitionLedger {
   #announceVerified(stored: StoredTransition): void {
     // Listeners are the library's own folds (declared-context), and each one
     // isolates the app code it runs — a reader that throws is a counted skip
-    // there, never an exception here. So a settlement that happened can
-    // never be failed by a listener.
-    for (const listener of [...this.#verifiedListeners]) listener(stored);
+    // there, never an exception here. This is the second guard, for a fold
+    // that fails anyway: a settlement that happened can never be failed by a
+    // listener, and one listener's failure never starves the next one.
+    for (const listener of [...this.#verifiedListeners]) {
+      try {
+        listener(stored);
+      } catch {
+        // Deliberately contained: the row is already verified and resolved.
+      }
+    }
   }
 
   settle<Id extends string>(

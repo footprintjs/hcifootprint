@@ -260,7 +260,7 @@ export class DeclaredContexts {
           Object.freeze({
             transition: stored.ref,
             reader: name,
-            reason: `${name} reader threw: ${String(error)}`,
+            reason: `${name} reader threw: ${describeThrown(error)}`,
           }),
         );
         return undefined;
@@ -335,6 +335,24 @@ export class DeclaredContexts {
         return true;
       },
     });
+  }
+}
+
+/**
+ * Words for whatever a reader threw, and never a second throw: `String()`
+ * itself throws on a null-prototype object, a hostile `toString` /
+ * `Symbol.toPrimitive`, or a revoked Proxy — and a throw here would escape
+ * the fold into `settle()` after the settlement was already recorded.
+ */
+function describeThrown(error: unknown): string {
+  try {
+    return String(error);
+  } catch {
+    try {
+      return Object.prototype.toString.call(error);
+    } catch {
+      return 'an unprintable value';
+    }
   }
 }
 

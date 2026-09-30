@@ -252,6 +252,49 @@ describe('declareContext — the laws', () => {
     expect(runtime.transitionFor(thrown)?.effectStatus).toBe('verified');
   });
 
+  it('law 7: a reader throwing a value that cannot be printed is still a counted skip — a sibling context still folds, settle() still returns', async () => {
+    const { runtime, control } = setup();
+    const { proxy: revoked, revoke } = Proxy.revocable({}, {});
+    revoke();
+    const unprintable: readonly unknown[] = [
+      Object.create(null),
+      { toString: () => { throw new Error('no toString'); } },
+      { [Symbol.toPrimitive]: () => { throw new Error('no primitive'); } },
+      revoked,
+    ];
+    let next = 0;
+    const hostile = runtime.declareContext({
+      id: 'ctx.hostile',
+      from: [refetch],
+      key: () => {
+        throw unprintable[next++];
+      },
+      identity: (value) => (value as DatasetVersion).ref,
+      fold: 'latest-per-key',
+    });
+    const sibling = declare(runtime, 'ctx.sibling');
+    const settled: string[] = [];
+    for (let index = 0; index < unprintable.length; index += 1) {
+      const invocation = control.invoke(`r${String(index)}`);
+      await invocation.whenInvoked;
+      const settlement = control.settle(invocation.transition, {
+        status: 'verified',
+        evidence: { ref: `v${String(index)}`, rootRef: `root${String(index)}` },
+      });
+      settled.push(settlement.status);
+      expect(runtime.transitionFor(invocation.transition)?.effectStatus).toBe('verified');
+    }
+    expect(settled).toEqual(['verified', 'verified', 'verified', 'verified']);
+    expect(view(sibling.entries())).toEqual(['root0=v0', 'root1=v1', 'root2=v2', 'root3=v3']);
+    expect(hostile.entries()).toEqual([]);
+    expect(hostile.skipped().map((skip) => skip.reason)).toEqual([
+      'key reader threw: [object Object]',
+      'key reader threw: [object Object]',
+      'key reader threw: [object Object]',
+      'key reader threw: an unprintable value',
+    ]);
+  });
+
   it('law 8: who set it rides along — the principal port stamps its own', async () => {
     const runtime = createActionRuntime();
     const agentControl = defineAction('ctx.agent-refetch', {
