@@ -55,8 +55,10 @@ evidence-bearing clause, so no pretend `writes` key is needed. The kind is
 governed at connect like `needs`/`produces`; when the catalog gives it a
 schema, the evidence is checked at settle (a self-validating schema, or the
 `inputSchemaAdapter` with `source: 'evidence'`), and a failing value refuses
-without spending the terminal. The snapshot and the verified settlement
-carry `evidenceKind`.
+without spending the terminal. Say it plainly: the evidence VALUE is
+schema-checked only when the mounted catalog gives that kind a schema;
+otherwise only the kind is governed, and the value itself is not checked.
+The snapshot and the verified settlement carry `evidenceKind`.
 
 It is deliberately not `produces`: `produces` is what the handler returns —
 the value a walk carries to the next step — and for a refetch the return (a

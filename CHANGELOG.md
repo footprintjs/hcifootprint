@@ -51,7 +51,9 @@ runtime already held, instead of by the app's own bookkeeping. Design:
 
 ### Changed (additive, visible)
 
-- `ActionTransitionSnapshot.attribution` is present on EVERY snapshot. A
+- `ActionTransitionSnapshot.attribution` is present on EVERY snapshot —
+  `'unknown'` when the connection has no principal port and no `invokedBy` —
+  so a consumer that deep-compares snapshots sees a new key. A
   property read is unaffected; an exact `toEqual` on a whole snapshot gains
   one field (the 1.7.0 session-transition precedent). No in-repo pin needed
   loosening.
