@@ -1,5 +1,6 @@
 import type { Principal } from '../atom/types.js';
 import { actionDefinitionOf } from './definition.js';
+import { thrownMessage } from './describe-thrown.js';
 import type {
   ActionDefinitionRecord,
   ActionDefinitionRef,
@@ -386,7 +387,7 @@ export function beginWalk(
           Object.freeze({
             ...base,
             status: 'refused' as const,
-            refusal: error instanceof Error ? error.message : String(error),
+            refusal: thrownMessage(error),
           }),
         );
         stopped = true;

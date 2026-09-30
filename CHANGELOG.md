@@ -73,6 +73,17 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   `inputSchemaAdapter` with an exhaustive `switch` on `source` notices, at
   compile time.
 
+### Fixed
+
+- **A walk step whose app code throws a value `String()` cannot print is a
+  refused row, not a rejected `run()`.** A binding's reader (its `enabled`
+  reader, re-read when the step fires) throwing a null-prototype object, a
+  value with a hostile `toString`/`Symbol.toPrimitive`, or a revoked Proxy
+  made the walk's own refusal text throw, so `run()` rejected instead of
+  answering the manifest it promises. The walk and the declared-context fold
+  now describe a thrown value through one never-throwing owner
+  (`describe-thrown.ts`). Present since the walk shipped (2.4.0).
+
 ## [2.5.0] - 2026-08-26
 
 ### Added

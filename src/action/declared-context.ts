@@ -31,6 +31,7 @@ import type { StoredTransition } from './stored.js';
 import type { TransitionLedger } from './transition-ledger.js';
 import { actionDefinitionOf } from './definition.js';
 import { hasEvidenceBearingSettlement } from './authoring.js';
+import { describeThrown } from './describe-thrown.js';
 
 /** The one fold shipped. `fold` is a string so others arrive additively. */
 export type DeclaredContextFold = 'latest-per-key';
@@ -367,24 +368,6 @@ export class DeclaredContexts {
         return true;
       },
     });
-  }
-}
-
-/**
- * Words for whatever a reader threw, and never a second throw: `String()`
- * itself throws on a null-prototype object, a hostile `toString` /
- * `Symbol.toPrimitive`, or a revoked Proxy — and a throw here would escape
- * the fold into `settle()` after the settlement was already recorded.
- */
-function describeThrown(error: unknown): string {
-  try {
-    return String(error);
-  } catch {
-    try {
-      return Object.prototype.toString.call(error);
-    } catch {
-      return 'an unprintable value';
-    }
   }
 }
 
