@@ -119,6 +119,13 @@ ranges.entries();   // oldest invocation first — data, never prose
 ranges.skipped();   // readers that threw or answered a non-string
 ```
 
+A context is fed and released only by the exact callables you declared it
+with. A runtime connects one callable per id, so connecting a DIFFERENT
+callable under one of those ids (a hot reload that rebuilt it, a second
+`defineAction` with the same id) would leave the context unable to ever fold
+it — `connectAction` refuses that, naming the context. Connect the callable
+you declared, or `retire()` the context first.
+
 Because the fold runs as settlements land, `history: { keep }` can release
 old rows without changing an entry. Serving `entries()` to a model is a
 separate, smaller decision; this page stops at the data.

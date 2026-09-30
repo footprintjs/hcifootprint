@@ -382,6 +382,13 @@ fake `writes` key and its hand-wired settle observers, and fixes its refetch `pr
 - **A release action must be able to verify.** `declareContext` refuses a `releasedBy.action`
   with no evidence-bearing settle contract — only a verified release releases, so one that can
   never verify would be a context that can never release.
+- **A declared context claims its callables' ids.** A runtime connects one callable per id and a
+  context admits rows by the identity of the callables it was declared with, so another callable
+  taking a declared id would leave the context certain never to fold. Refused where that becomes
+  certain: at the other callable's connect, or at a declaration naming a different callable than a
+  live context or connection holds. Not a counted `dead` state — a context that can never fold
+  serves `[]`, indistinguishable from "nothing set yet"; the release-that-can-never-verify refusal
+  is the precedent. `retire()` frees the id.
 - **A retired context serves nothing.** `entries()` answers `[]` after `retire()`; `skipped()`
   keeps its record.
 - **`history.keep` may be 0** (a whole, non-negative number): a settled row is released as soon as

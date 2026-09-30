@@ -451,9 +451,12 @@ describe('declareContext — refusals at the declaration door', () => {
 
 describe('declareContext — declared before connect: the callable, not its id', () => {
   // Declaring first is the natural order (an app connects each binding
-  // lazily; a hot reload rebuilds the callable under the same id). A later
-  // callable that reuses a declared id must never feed or release the
-  // context — the fold admits rows by the declared definition's identity.
+  // lazily; a hot reload rebuilds the callable under the same id). A runtime
+  // connects ONE callable per id, and a context admits rows by the identity
+  // of the callables it was declared with — so a different callable taking a
+  // declared id would leave the context certain never to fold. That moment
+  // is refused where it happens: at the other callable's connect, or at a
+  // later declaration (declared-context.ts · DeclaredContexts.claimOn).
   const feed = () =>
     defineAction('ctx.early-feed', {
       does: 'The declared feed',
@@ -468,72 +471,112 @@ describe('declareContext — declared before connect: the callable, not its id',
       settle: { writes: ['z'] },
       mutate: (range: string) => range,
     });
+  const release = () =>
+    defineAction('ctx.early-release', {
+      does: 'The declared release',
+      invocation: 'scalar',
+      settle: { writes: ['ctx.ranges'] },
+      mutate: (ref: string) => ref,
+    });
   const connect = (runtime: ReturnType<typeof createActionRuntime>, action: DefinedAction) =>
     connectAction(runtime, action as never, {
       node: 'data-panel',
       coverage: 'verifiable',
     }) as unknown as Scalar;
-
-  it('a same-id impostor connected later does not feed the context', async () => {
-    const runtime = createActionRuntime();
-    const real = feed();
-    const context = runtime.declareContext({
-      id: 'ctx.early',
+  const declareEarly = (
+    runtime: ReturnType<typeof createActionRuntime>,
+    real: DefinedAction,
+    releaser?: DefinedAction,
+    id = 'ctx.early',
+  ) =>
+    runtime.declareContext({
+      id,
       from: [real],
       key: (value) => (value as DatasetVersion).rootRef,
       identity: (value) => (value as DatasetVersion).ref,
       fold: 'latest-per-key',
+      ...(releaser !== undefined
+        ? { releasedBy: { action: releaser, identity: (evidence: unknown) => evidence as string } }
+        : {}),
     });
-    const impostor = connect(runtime, ungoverned());
-    await verified(impostor, 'x', { ref: 'EVIL', rootRef: 'series-a' });
-    expect(context.entries()).toEqual([]);
+
+  it('a same-id impostor is refused at its connect, naming the context — nothing is registered', async () => {
+    const runtime = createActionRuntime();
+    const real = feed();
+    const context = declareEarly(runtime, real);
+    expect(() => connect(runtime, ungoverned())).toThrow(
+      /definition 'ctx\.early-feed' is declared into live context 'ctx\.early' by another callable/,
+    );
+    // The refusal left the id free: the declared callable still connects and feeds.
+    await verified(connect(runtime, real), '7d', { ref: 'ds-1', rootRef: 'series-a' });
+    expect(view(context.entries())).toEqual(['series-a=ds-1']);
     expect(context.skipped()).toEqual([]);
   });
 
   it('the declared callable, connected later, does feed it', async () => {
     const runtime = createActionRuntime();
     const real = feed();
-    const context = runtime.declareContext({
-      id: 'ctx.early',
-      from: [real],
-      key: (value) => (value as DatasetVersion).rootRef,
-      identity: (value) => (value as DatasetVersion).ref,
-      fold: 'latest-per-key',
-    });
+    const context = declareEarly(runtime, real);
     await verified(connect(runtime, real), '7d', { ref: 'ds-1', rootRef: 'series-a' });
     expect(view(context.entries())).toEqual(['series-a=ds-1']);
     expect(context.entries()[0]?.kind).toBe('ctx.dataset-version');
   });
 
-  it('a same-id impostor connected later does not release', async () => {
+  it('a same-id impostor of the RELEASE is refused at its connect too', async () => {
     const runtime = createActionRuntime();
     const real = feed();
-    const release = defineAction('ctx.early-release', {
-      does: 'The declared release',
-      invocation: 'scalar',
-      settle: { writes: ['ctx.ranges'] },
-      mutate: (ref: string) => ref,
-    });
-    const context = runtime.declareContext({
-      id: 'ctx.early',
-      from: [real],
-      key: (value) => (value as DatasetVersion).rootRef,
-      identity: (value) => (value as DatasetVersion).ref,
-      fold: 'latest-per-key',
-      releasedBy: { action: release, identity: (evidence) => evidence as string },
-    });
+    const context = declareEarly(runtime, real, release());
     await verified(connect(runtime, real), '7d', { ref: 'ds-1', rootRef: 'series-a' });
-    const impostor = connect(
-      runtime,
-      defineAction('ctx.early-release', {
-        does: 'Same id, another callable',
-        invocation: 'scalar',
-        settle: { writes: ['ctx.ranges'] },
-        mutate: (ref: string) => ref,
-      }),
+    expect(() => connect(runtime, release())).toThrow(
+      /definition 'ctx\.early-release' is declared into live context 'ctx\.early' by another callable/,
     );
-    await verified(impostor, 'ds-1', 'ds-1');
     expect(view(context.entries())).toEqual(['series-a=ds-1']);
+  });
+
+  it('an impostor already connected is refused at the declaration', () => {
+    const runtime = createActionRuntime();
+    connect(runtime, ungoverned());
+    expect(() => declareEarly(runtime, feed())).toThrow(
+      /from: definition 'ctx\.early-feed' belongs to another callable in this runtime/,
+    );
+  });
+
+  it('a second context declared with another callable for the same id is refused at its declaration', () => {
+    const runtime = createActionRuntime();
+    declareEarly(runtime, feed());
+    expect(() => declareEarly(runtime, feed(), undefined, 'ctx.early-2')).toThrow(
+      /live context 'ctx\.early' was declared with another callable for definition 'ctx\.early-feed'/,
+    );
+  });
+
+  it('the same holds for the release callable', () => {
+    const runtime = createActionRuntime();
+    const otherFeed = (id: string) =>
+      defineAction(id, {
+        does: 'Another feed of the same kind',
+        invocation: 'scalar',
+        settle: { evidence: { kind: 'ctx.dataset-version' } },
+        mutate: (range: string) => range,
+      }) as DefinedAction;
+    declareEarly(runtime, otherFeed('ctx.feed-a'), release(), 'ctx.a');
+    expect(() => declareEarly(runtime, otherFeed('ctx.feed-b'), release(), 'ctx.b')).toThrow(
+      /releasedBy\.action: live context 'ctx\.a' was declared with another callable for definition 'ctx\.early-release'/,
+    );
+  });
+
+  it('the SAME callable may be declared into two contexts', () => {
+    const runtime = createActionRuntime();
+    const real = feed();
+    declareEarly(runtime, real);
+    expect(() => declareEarly(runtime, real, undefined, 'ctx.early-2')).not.toThrow();
+    expect(() => connect(runtime, real)).not.toThrow();
+  });
+
+  it('retiring the context frees the id for another callable', () => {
+    const runtime = createActionRuntime();
+    const context = declareEarly(runtime, feed());
+    expect(context.retire()).toBe(true);
+    expect(() => connect(runtime, ungoverned())).not.toThrow();
   });
 
   it('transitions({ definition }) refuses the declared callable once a same-id impostor holds the id', async () => {

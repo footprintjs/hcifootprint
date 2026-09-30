@@ -103,6 +103,8 @@ export class DeclaredContexts {
   readonly #ledger: TransitionLedger;
   readonly #canonical: (definitionId: string) => DefinedAction | undefined;
   readonly #live = new Set<string>();
+  /** Per live context: the exact callable it was declared with, by id. */
+  readonly #claims = new Map<string, ReadonlyMap<string, DefinedAction>>();
 
   constructor(
     ledger: TransitionLedger,
@@ -120,7 +122,27 @@ export class DeclaredContexts {
       );
     }
     this.#live.add(plan.declaration.id);
+    this.#claims.set(plan.declaration.id, plan.claims);
     return this.#open(plan);
+  }
+
+  /**
+   * THE ONE-CALLABLE LAW, EXTENDED TO A DECLARATION. A runtime holds one
+   * callable per definition id (connect refuses a second), and a context
+   * admits rows by the IDENTITY of the callables it was declared with. So a
+   * different callable taking the id makes that context certain never to
+   * fold it — the declared one can no longer connect. That moment is refused
+   * where it happens: here, for the connect (connection-builder.ts ·
+   * buildConnection asks before it registers anything), and in
+   * `#definitionOf`, for a later declaration. Answers the live context that
+   * holds `definitionId` for ANOTHER callable, or undefined.
+   */
+  claimOn(definitionId: string, definition: unknown): string | undefined {
+    for (const [context, claims] of this.#claims) {
+      const claimed = claims.get(definitionId);
+      if (claimed !== undefined && claimed !== definition) return context;
+    }
+    return undefined;
   }
 
   #plan(raw: DeclaredContextDeclaration): Plan {
@@ -150,6 +172,7 @@ export class DeclaredContexts {
       );
     }
     const fromIds = new Set<string>();
+    const claims = new Map<string, DefinedAction>();
     // The fold admits a row by the IDENTITY of the declared definition ref
     // (`binding.definition` is `record.ref`), never by its id string: a
     // declaration may precede the connect, and a later callable reusing the
@@ -177,6 +200,7 @@ export class DeclaredContexts {
       kind = evidenceKind;
       fromIds.add(record.ref.definitionId);
       fromRefs.add(record.ref);
+      claims.set(record.ref.definitionId, definition);
     }
     let release: Plan['release'];
     if (releasedBy !== undefined) {
@@ -204,6 +228,7 @@ export class DeclaredContexts {
         ref: record.ref,
         identity: releasedBy.identity,
       };
+      claims.set(record.ref.definitionId, releasedBy.action);
     }
     const declaration: DeclaredContextDeclaration = Object.freeze({
       id,
@@ -220,7 +245,7 @@ export class DeclaredContexts {
           }
         : {}),
     });
-    return { declaration, kind: kind!, fromRefs, release };
+    return { declaration, kind: kind!, fromRefs, release, claims };
   }
 
   #definitionOf(value: unknown, owner: string, field: string) {
@@ -234,6 +259,12 @@ export class DeclaredContexts {
     if (canonical !== undefined && canonical !== value) {
       throw new TypeError(
         `hcifootprint: ${owner} ${field}: definition '${record.ref.definitionId}' belongs to another callable in this runtime. Pass the exact defineAction() result that was connected.`,
+      );
+    }
+    const claimant = this.claimOn(record.ref.definitionId, value);
+    if (claimant !== undefined) {
+      throw new TypeError(
+        `hcifootprint: ${owner} ${field}: live context '${claimant}' was declared with another callable for definition '${record.ref.definitionId}', and a runtime connects one callable per id — one of the two contexts could never fold it. Pass the exact defineAction() result '${claimant}' was declared with, or retire '${claimant}' first.`,
       );
     }
     return record;
@@ -332,6 +363,7 @@ export class DeclaredContexts {
         retired = true;
         unsubscribe();
         this.#live.delete(declaration.id);
+        this.#claims.delete(declaration.id);
         return true;
       },
     });
@@ -366,4 +398,6 @@ interface Plan {
         readonly identity: (evidence: unknown) => string;
       }
     | undefined;
+  /** definition id → the exact callable declared for it (from + release). */
+  readonly claims: ReadonlyMap<string, DefinedAction>;
 }

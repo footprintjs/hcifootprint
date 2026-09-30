@@ -54,6 +54,12 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   by the IDENTITY of the callables it was declared with, never by their id
   string — so declaring before connecting (or a hot reload that rebuilds a
   callable under the same id) cannot let another callable feed or release it.
+  And because a runtime connects one callable per id, another callable taking
+  a declared id would leave the context certain never to fold: that is
+  refused at the moment it becomes certain — at the other callable's
+  `connectAction()` (naming the live context), or at a declaration naming a
+  different callable than a live context or connection already holds.
+  `retire()` frees the id.
 
 ### Changed (additive, visible)
 

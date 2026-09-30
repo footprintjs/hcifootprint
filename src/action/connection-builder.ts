@@ -64,6 +64,8 @@ export interface ConnectionCore {
   readonly contractActivation: ActionContractActivation;
   /** The mounted catalog's schema for a kind, or undefined. */
   kindSchema(kind: string): unknown;
+  /** The live declared context holding this id for ANOTHER callable. */
+  contextClaimOn(definitionId: string, definition: unknown): string | undefined;
   nextBindingSequence(): number;
   newInputRef<Source extends ActionInputSource>(
     source: Source,
@@ -205,6 +207,16 @@ export function buildConnection<
     if (canonical !== undefined && canonical !== definition) {
       throw new TypeError(
         `hcifootprint: definition '${record.ref.definitionId}' already belongs to another callable in this runtime. Reuse the original defineAction() result or create a new runtime generation.`,
+      );
+    }
+    // A live declared context holding this id for ANOTHER callable would
+    // become certain never to fold it the moment this one took the id —
+    // refused here, before anything is registered (declared-context.ts ·
+    // DeclaredContexts.claimOn).
+    const claimant = core.contextClaimOn(record.ref.definitionId, definition);
+    if (claimant !== undefined) {
+      throw new TypeError(
+        `hcifootprint: definition '${record.ref.definitionId}' is declared into live context '${claimant}' by another callable. A runtime connects one callable per id, so connecting this one would leave '${claimant}' certain never to fold it. Connect the exact defineAction() result the context was declared with, or retire '${claimant}' first.`,
       );
     }
 

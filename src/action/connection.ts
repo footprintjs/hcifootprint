@@ -331,6 +331,8 @@ class DefaultActionRuntime implements ActionRuntime {
       contractActivation: this.#contractActivation,
       // The mounted catalog is immutable, so one read per connect is the fact.
       kindSchema: (kind) => this.#kinds?.describe(kind)?.schema,
+      contextClaimOn: (definitionId, definition) =>
+        this.#contexts.claimOn(definitionId, definition),
       nextBindingSequence: () => (this.#bindingSequence += 1),
       newInputRef: (source) => this.#newInputRef(source),
       settle: (transition, input) => this.#settle(transition, input),
