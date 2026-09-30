@@ -63,6 +63,11 @@ import type {
 } from './channels.js';
 import { KindGovernor } from './kind-governor.js';
 import { TransitionLedger, type LedgerQuery } from './transition-ledger.js';
+import {
+  DeclaredContexts,
+  type DeclaredContextDeclaration,
+  type DeclaredContextHandle,
+} from './declared-context.js';
 import { buildConnection, type ConnectionCore } from './connection-builder.js';
 import { SurfaceBoard } from './surface-board.js';
 import { RequestDesk } from './request.js';
@@ -251,6 +256,7 @@ class DefaultActionRuntime implements ActionRuntime {
   readonly #offerByBinding = new Map<string, Map<Principal, CachedOffer>>();
   readonly #invokers = new Map<string, RuntimeBindingInvoker>();
   readonly #ledger: TransitionLedger;
+  readonly #contexts: DeclaredContexts;
   readonly #definitions = new Map<string, DefinedAction>();
   readonly #definitionRecords = new Map<string, ActionDefinitionRecord>();
   #bindingSequence = 0;
@@ -291,6 +297,9 @@ class DefaultActionRuntime implements ActionRuntime {
       );
     }
     this.#ledger = new TransitionLedger(readHistoryKeep(options.history));
+    this.#contexts = new DeclaredContexts(this.#ledger, (definitionId) =>
+      this.#definitions.get(definitionId),
+    );
     this.#kinds = kinds;
     this.#governor = new KindGovernor(kinds);
     this.#board = new SurfaceBoard(this.#governor);
@@ -799,6 +808,12 @@ class DefaultActionRuntime implements ActionRuntime {
 
   forgetTransition(transition: ActionTransitionRef): boolean {
     return this.#ledger.forget(transition);
+  }
+
+  declareContext(
+    declaration: DeclaredContextDeclaration,
+  ): DeclaredContextHandle {
+    return this.#contexts.declare(declaration);
   }
 
   transitions(

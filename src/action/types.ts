@@ -969,4 +969,13 @@ export interface ActionRuntime {
    * asked for them (not the order they settled).
    */
   transitions(query?: ActionTransitionQuery): readonly ActionTransitionSnapshot[];
+  /**
+   * Declare outcome context — "what the person set with a control, still
+   * standing" — folded by the library at settlement time: the newest
+   * INVOKED verified value per key, minus any a verified release named. One
+   * live context per id.
+   */
+  declareContext(
+    declaration: import('./declared-context.js').DeclaredContextDeclaration,
+  ): import('./declared-context.js').DeclaredContextHandle;
 }

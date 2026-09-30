@@ -39,6 +39,7 @@ export class TransitionLedger {
   // declared context.
   readonly #rows = new Map<string, StoredTransition>();
   readonly #keep: number | undefined;
+  readonly #verifiedListeners = new Set<(stored: StoredTransition) => void>();
   #sequence = 0;
   #settledCount = 0;
 
@@ -56,6 +57,26 @@ export class TransitionLedger {
 
   store(id: string, stored: StoredTransition): void {
     this.#rows.set(id, stored);
+  }
+
+  /** Every retained VERIFIED row, oldest invocation first — what a declared
+   *  context folds once, at declaration. */
+  verifiedRows(): readonly StoredTransition[] {
+    return [...this.#rows.values()].filter(
+      (stored) => stored.effectStatus === 'verified',
+    );
+  }
+
+  /**
+   * Hear every verified settlement as it lands (collect during the run,
+   * never post-process). Internal only: a listener must isolate any app code
+   * it runs, because it is called inside the settlement.
+   */
+  onVerified(listener: (stored: StoredTransition) => void): () => void {
+    this.#verifiedListeners.add(listener);
+    return () => {
+      this.#verifiedListeners.delete(listener);
+    };
   }
 
   /** Every retained row matching the query, oldest invocation first. */
@@ -147,6 +168,14 @@ export class TransitionLedger {
     this.#rows.delete(transition.transitionId);
     if (stored.countedSettled === true) this.#settledCount -= 1;
     return true;
+  }
+
+  #announceVerified(stored: StoredTransition): void {
+    // Listeners are the library's own folds (declared-context), and each one
+    // isolates the app code it runs — a reader that throws is a counted skip
+    // there, never an exception here. So a settlement that happened can
+    // never be failed by a listener.
+    for (const listener of [...this.#verifiedListeners]) listener(stored);
   }
 
   settle<Id extends string>(
@@ -288,6 +317,7 @@ export class TransitionLedger {
       const resolveEffect = stored.resolveEffect;
       stored.resolveEffect = undefined;
       resolveEffect?.(settlement);
+      if (settlement.status === 'verified') this.#announceVerified(stored);
       return settlement;
     } finally {
       stored.effectSettling = false;
