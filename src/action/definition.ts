@@ -67,7 +67,9 @@ const SETTLE_FIELDS = new Set<keyof ActionSettleContract>([
   'verify',
   'observability',
   'progress',
+  'evidence',
 ]);
+const EVIDENCE_FIELDS = new Set(['kind']);
 const PRINCIPAL_FIELDS = new Set([
   'mayInvoke',
   'decisionOwner',
@@ -496,6 +498,7 @@ function validateActionDefinitionContract(
   validateStringList(owner, 'settle.writes', settle?.writes);
   validateStringList(owner, 'settle.reads', settle?.reads);
   validateProgressDeclaration(owner, settle?.progress, contract.invocation);
+  validateEvidenceDeclaration(owner, settle?.evidence);
   validateChannelDeclarations(owner, contract.needs, contract.produces);
 
   if (
@@ -673,6 +676,33 @@ function validateStringList(
   ) {
     throw new GraphValidationError(
       `${owner}: ${field} must be a non-empty array of unique, non-blank state-key strings.`,
+    );
+  }
+}
+
+function validateEvidenceDeclaration(owner: string, evidence: unknown): void {
+  if (evidence === undefined) return;
+  if (
+    typeof evidence !== 'object' ||
+    evidence === null ||
+    Array.isArray(evidence) ||
+    !isPlainRecord(evidence)
+  ) {
+    throw new GraphValidationError(
+      `${owner}: settle.evidence must be a plain { kind } declaration.`,
+    );
+  }
+  for (const key of Reflect.ownKeys(evidence)) {
+    if (!EVIDENCE_FIELDS.has(key as string)) {
+      throw new GraphValidationError(
+        `${owner}: settle.evidence declares unknown field '${String(key)}'. It names the governed kind only — the schema lives on the kind, in the catalog.`,
+      );
+    }
+  }
+  const kind = (evidence as { readonly kind?: unknown }).kind;
+  if (typeof kind !== 'string' || kind.trim().length === 0) {
+    throw new GraphValidationError(
+      `${owner}: settle.evidence.kind must be a non-empty kind string.`,
     );
   }
 }
@@ -933,6 +963,12 @@ function freezeSettle(value: unknown, owner: string): ActionSettleContract {
       frozen = Object.freeze(progressCopy);
     } else if (field === 'writes' || field === 'reads' || field === 'verify') {
       frozen = freezeAuthoredTree(authored, `${owner}.${field}`);
+    } else if (field === 'evidence' && authored !== undefined) {
+      frozen = captureAuthoredRecord(
+        `${owner}.evidence`,
+        authored,
+        EVIDENCE_FIELDS,
+      );
     }
     defineFrozenField(copy, field, frozen);
   }

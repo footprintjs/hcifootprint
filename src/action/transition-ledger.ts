@@ -234,7 +234,7 @@ export class TransitionLedger {
           : undefined;
       if (status === 'verified' && !stored.verificationDeclared) {
         throw new Error(
-          `hcifootprint: transition '${transition.transitionId}' cannot be verified because its action definition declares no evidence-bearing settle contract. Declare writes, goTo, verify, or an observable evidence channel before reporting verified.`,
+          `hcifootprint: transition '${transition.transitionId}' cannot be verified because its action definition declares no evidence-bearing settle contract. Declare writes, goTo, verify, settle.evidence, or an observable evidence channel before reporting verified.`,
         );
       }
       if (status === 'verified' && stored.coverage !== 'verifiable') {
@@ -243,12 +243,24 @@ export class TransitionLedger {
         );
       }
       const transitionRef = stored.ref as ActionTransitionRef<Id>;
+      // The recorded bytes are the checked bytes: snapshot first, then run
+      // the governed kind's schema over exactly that value. A refusal
+      // throws here, before anything is written — the terminal is not spent.
+      const recorded =
+        status === 'verified' ? snapshotDeclaration(payload) : undefined;
+      const evidenceContract = stored.evidenceContract;
+      if (status === 'verified') {
+        evidenceContract?.check?.(transition.transitionId, recorded);
+      }
       const settlement: ActionEffectSettlement<Id> =
         status === 'verified'
           ? Object.freeze({
               status: 'verified',
               transition: transitionRef,
-              evidence: snapshotDeclaration(payload),
+              evidence: recorded,
+              ...(evidenceContract !== undefined
+                ? { evidenceKind: evidenceContract.kind }
+                : {}),
             })
           : status === 'refused'
             ? Object.freeze({
@@ -265,6 +277,9 @@ export class TransitionLedger {
       stored.effectStatus = status;
       if (settlement.status === 'verified') {
         stored.evidence = settlement.evidence;
+        if (settlement.evidenceKind !== undefined) {
+          stored.evidenceKind = settlement.evidenceKind;
+        }
       } else if (settlement.status === 'refused') {
         stored.reason = settlement.reason;
       } else {

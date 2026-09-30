@@ -41,12 +41,12 @@ import type {
 } from './types.js';
 import type { ActionHandler, ActionRegistry, BindingRegistration } from '../registry/registry.js';
 import { COVERAGE_RANK, NO_BINDINGS } from './stored.js';
-import type { AttachedFacts, CachedOffer, MutableBindingFacts, RuntimeBindingInvoker } from './stored.js';
+import type { AttachedFacts, CachedOffer, EvidenceContract, MutableBindingFacts, RuntimeBindingInvoker, TransitionEffectContract } from './stored.js';
 import { assertContractActivation, assertHumanReporting, assertOptionalReader, hasEvidenceBearingSettlement } from './authoring.js';
 import { assertPrincipal, verdictForPrincipal } from './principals.js';
 import { assertBindingCoverage } from './coverage.js';
 import { readEnabled } from './binding-facts.js';
-import { captureInputValidationSchema, resolveInputValidation, validateActionInput } from './input-validation.js';
+import { captureInputValidationSchema, evidenceCheckFor, resolveEvidenceValidation, resolveInputValidation, validateActionInput } from './input-validation.js';
 import { freezeBindings, snapshotDeclaration } from './declarations.js';
 import { INVOCATION_OBSERVER_CAPTURE, withObserverCapture } from './observer-capture.js';
 import { takesNoInput } from '../traverse/expects.js';
@@ -62,6 +62,8 @@ export interface ConnectionCore {
   readonly invokers: Map<string, RuntimeBindingInvoker>;
   readonly inputSchemaAdapter: ActionInputSchemaAdapter | undefined;
   readonly contractActivation: ActionContractActivation;
+  /** The mounted catalog's schema for a kind, or undefined. */
+  kindSchema(kind: string): unknown;
   nextBindingSequence(): number;
   newInputRef<Source extends ActionInputSource>(
     source: Source,
@@ -104,6 +106,7 @@ export interface ConnectionCore {
     >['progress'],
     reportInstrumentationError?: (error: unknown) => void,
     invokedBy?: Principal,
+    effect?: TransitionEffectContract,
   ): ActionInvocation<Output, Id, Behavior>;
 }
 
@@ -177,11 +180,23 @@ export function buildConnection<
       validationSchema,
       core.inputSchemaAdapter,
     );
+    const evidenceDeclaration = record.contract.settle?.evidence;
+    const evidenceSchema =
+      evidenceDeclaration === undefined
+        ? undefined
+        : core.kindSchema(evidenceDeclaration.kind);
+    const evidenceValidation = resolveEvidenceValidation(
+      evidenceSchema,
+      core.inputSchemaAdapter,
+    );
     assertContractActivation(
       record.ref.definitionId,
       record.contract,
       core.contractActivation,
       inputValidation,
+      evidenceValidation === 'disclosure'
+        ? evidenceDeclaration?.kind
+        : undefined,
     );
     const verificationDeclared = hasEvidenceBearingSettlement(
       record.contract.settle,
@@ -200,6 +215,10 @@ export function buildConnection<
       node,
       ...(instance !== undefined ? { instance } : {}),
     });
+    const effectContract: TransitionEffectContract =
+      evidenceDeclaration === undefined
+        ? {}
+        : { evidence: evidenceContractFor(binding, evidenceDeclaration.kind, evidenceSchema, core, evidenceValidation) };
     const base: MutableBindingFacts<FirstParameter<F>> = {
       coverage: initialCoverage,
       locators: locators === undefined ? NO_BINDINGS : freezeBindings(locators),
@@ -382,6 +401,7 @@ export function buildConnection<
         record.contract.settle?.progress,
         reportInstrumentationError,
         invokedBy,
+        effectContract,
       );
       return publishInvocation(
         invocation,
@@ -827,4 +847,23 @@ function assertInvokedBy(
       `hcifootprint: connectAction() declares invokedBy '${invokedBy}', but action definition '${record.ref.definitionId}' may be invoked only by ${verdict.required.join(', ')}. A connection cannot file its invocations under a principal the definition refuses — connect it for an allowed principal, or offer it through runtime.forPrincipal() to the caller who may.`,
     );
   }
+}
+
+/** A binding's evidence contract: the kind, plus the settle-time schema gate
+ *  when this runtime can enforce the kind's catalog schema. */
+function evidenceContractFor(
+  binding: ActionBindingRef,
+  kind: string,
+  schema: unknown,
+  core: ConnectionCore,
+  disposition: ReturnType<typeof resolveEvidenceValidation>,
+): EvidenceContract {
+  const check = evidenceCheckFor(
+    binding,
+    kind,
+    schema,
+    core.inputSchemaAdapter,
+    disposition,
+  );
+  return Object.freeze({ kind, ...(check !== undefined ? { check } : {}) });
 }

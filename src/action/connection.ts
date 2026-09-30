@@ -15,6 +15,7 @@ import type {
   MutableBindingFacts,
   RuntimeBindingInvoker,
   StoredTransition,
+  TransitionEffectContract,
 } from './stored.js';
 import { createTransitionProgress } from './progress-ledger.js';
 import type { TransitionProgress } from './progress-ledger.js';
@@ -318,6 +319,8 @@ class DefaultActionRuntime implements ActionRuntime {
       invokers: this.#invokers,
       inputSchemaAdapter: this.#inputSchemaAdapter,
       contractActivation: this.#contractActivation,
+      // The mounted catalog is immutable, so one read per connect is the fact.
+      kindSchema: (kind) => this.#kinds?.describe(kind)?.schema,
       nextBindingSequence: () => (this.#bindingSequence += 1),
       newInputRef: (source) => this.#newInputRef(source),
       settle: (transition, input) => this.#settle(transition, input),
@@ -343,12 +346,17 @@ class DefaultActionRuntime implements ActionRuntime {
     const contract = record.contract as {
       readonly needs?: Readonly<Record<string, { readonly kind: string }>>;
       readonly produces?: { readonly kind: string };
+      readonly settle?: { readonly evidence?: { readonly kind: string } };
     };
     const declared: string[] = [];
     if (contract.needs !== undefined) {
       for (const need of Object.values(contract.needs)) declared.push(need.kind);
     }
     if (contract.produces !== undefined) declared.push(contract.produces.kind);
+    // settle.evidence joins needs/produces: one law, one more declaration site.
+    if (contract.settle?.evidence !== undefined) {
+      declared.push(contract.settle.evidence.kind);
+    }
     for (const kind of declared) {
       this.#governKind(kind, `'${record.ref.definitionId}' declares`);
     }
@@ -1019,6 +1027,7 @@ class DefaultActionRuntime implements ActionRuntime {
     >['progress'],
     reportInstrumentationError: (error: unknown) => void = () => undefined,
     invokedBy?: Principal,
+    effect?: TransitionEffectContract,
   ): ActionInvocation<Output, Id, Behavior> {
     // WHO: the offer's principal on a port invoke, the connection's declared
     // `invokedBy` on a direct door, else 'unknown'. Both named arms are the
@@ -1062,6 +1071,9 @@ class DefaultActionRuntime implements ActionRuntime {
       verificationDeclared,
       attribution,
       sequence: minted.sequence,
+      ...(effect?.evidence !== undefined
+        ? { evidenceContract: effect.evidence }
+        : {}),
       invocationStatus: 'pending',
       effectStatus: 'unverified',
       ...(progress !== undefined ? { progress } : {}),

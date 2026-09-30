@@ -68,12 +68,16 @@ export interface StoredTransition {
   readonly sequence: number;
   /** Set once the row is counted as fully settled for the history bound. */
   countedSettled?: boolean;
+  /** The definition's `settle.evidence`, with the settle-time schema gate
+   *  resolved at connect (absent when there is nothing to enforce). */
+  readonly evidenceContract?: EvidenceContract;
   invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
   effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
   effectSettling?: boolean;
   produced?: unknown;
   error?: unknown;
   evidence?: unknown;
+  evidenceKind?: string;
   reason?: unknown;
   authority?: ActionAbandonmentAuthority;
   progress?: TransitionProgress;
@@ -81,6 +85,17 @@ export interface StoredTransition {
   /** Settlements that arrived after the terminal — see ActionLateSettlement. */
   late?: ActionLateSettlement[];
   resolveEffect?: (settlement: ActionEffectSettlement<any>) => void;
+}
+
+export interface EvidenceContract {
+  readonly kind: string;
+  readonly check?: (transitionId: string, evidence: unknown) => void;
+}
+
+/** What one binding's definition says about settling its transitions —
+ *  resolved once at connect, carried onto every stored row. */
+export interface TransitionEffectContract {
+  readonly evidence?: EvidenceContract;
 }
 
 export interface CachedOffer {

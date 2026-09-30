@@ -114,6 +114,16 @@ export interface ActionProgressDeclaration<
   readonly required?: boolean;
 }
 
+/**
+ * "A verified settlement's evidence is a value of this governed kind." The
+ * proof of an effect that makes a NEW thing (a dataset, a receipt, a created
+ * record) — distinct from the top-level `produces`, which is what the
+ * handler RETURNS (the value a walk carries to the next step).
+ */
+export interface ActionEvidenceDeclaration {
+  readonly kind: string;
+}
+
 /** @inline */
 interface ActionSettleFields<
   Stages extends readonly string[] = readonly string[],
@@ -124,6 +134,9 @@ interface ActionSettleFields<
   readonly verify?: VerifyContract;
   readonly observability?: Observability;
   readonly progress?: ActionProgressDeclaration<Stages>;
+  /** The effect is proven by a value of this governed kind — an
+   *  evidence-bearing clause, kind-checked at connect, schema-checked at settle. */
+  readonly evidence?: ActionEvidenceDeclaration;
 }
 
 /** Grouped effect, evidence, and progress declarations for one action. */
@@ -137,6 +150,7 @@ export type ActionSettleContract<
     | { readonly verify: VerifyContract }
     | { readonly observability: Observability }
     | { readonly progress: ActionProgressDeclaration<Stages> }
+    | { readonly evidence: ActionEvidenceDeclaration }
   );
 
 /** @inline */
@@ -365,6 +379,9 @@ export type ActionEffectSettlement<Id extends string = string> =
       readonly status: 'verified';
       readonly transition: ActionTransitionRef<Id>;
       readonly evidence: unknown;
+      /** The governed kind the evidence is a value of — present exactly when
+       *  the definition declared `settle.evidence`. */
+      readonly evidenceKind?: string;
     }
   | {
       readonly status: 'refused';
@@ -645,6 +662,9 @@ export interface ActionTransitionSnapshot {
   readonly produced?: unknown;
   readonly error?: unknown;
   readonly evidence?: unknown;
+  /** Present exactly when the definition declared `settle.evidence` and the
+   *  effect verified: the governed kind `evidence` is a value of. */
+  readonly evidenceKind?: string;
   readonly reason?: unknown;
   readonly authority?: ActionAbandonmentAuthority;
   readonly progress?: ActionProgressSnapshot;
@@ -732,7 +752,9 @@ export type ActionContractActivation = 'require-active' | 'disclosure';
 export interface ActionInputSchemaContext<Id extends string = string> {
   readonly definition: ActionDefinitionRef<Id>;
   readonly binding: ActionBindingRef<Id>;
-  readonly source: 'bound' | 'caller';
+  /** `'evidence'` (2.6.0): the value is a verified settlement's evidence,
+   *  checked against its governed kind's catalog schema. */
+  readonly source: 'bound' | 'caller' | 'evidence';
 }
 
 /** Result returned by an application-owned input-schema adapter. */
