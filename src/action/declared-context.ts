@@ -23,6 +23,7 @@
 import type { Attribution } from '../atom/types.js';
 import type {
   ActionBindingRef,
+  ActionDefinitionRef,
   ActionTransitionRef,
   DefinedAction,
 } from './types.js';
@@ -149,6 +150,11 @@ export class DeclaredContexts {
       );
     }
     const fromIds = new Set<string>();
+    // The fold admits a row by the IDENTITY of the declared definition ref
+    // (`binding.definition` is `record.ref`), never by its id string: a
+    // declaration may precede the connect, and a later callable reusing the
+    // id must not feed a context it was never declared into.
+    const fromRefs = new Set<ActionDefinitionRef>();
     let kind: string | undefined;
     for (const definition of from) {
       const record = this.#definitionOf(definition, owner, 'from');
@@ -170,6 +176,7 @@ export class DeclaredContexts {
       }
       kind = evidenceKind;
       fromIds.add(record.ref.definitionId);
+      fromRefs.add(record.ref);
     }
     let release: Plan['release'];
     if (releasedBy !== undefined) {
@@ -194,7 +201,7 @@ export class DeclaredContexts {
         );
       }
       release = {
-        definitionId: record.ref.definitionId,
+        ref: record.ref,
         identity: releasedBy.identity,
       };
     }
@@ -213,7 +220,7 @@ export class DeclaredContexts {
           }
         : {}),
     });
-    return { declaration, kind: kind!, fromIds, release };
+    return { declaration, kind: kind!, fromRefs, release };
   }
 
   #definitionOf(value: unknown, owner: string, field: string) {
@@ -233,7 +240,7 @@ export class DeclaredContexts {
   }
 
   #open(plan: Plan): DeclaredContextHandle {
-    const { declaration, kind, fromIds, release } = plan;
+    const { declaration, kind, fromRefs, release } = plan;
     const newest = new Map<string, Candidate>();
     const releasedAt = new Map<string, number>();
     const skipped: DeclaredContextSkip[] = [];
@@ -272,14 +279,14 @@ export class DeclaredContexts {
     };
 
     const fold = (stored: StoredTransition): void => {
-      const definitionId = stored.ref.binding.definition.definitionId;
-      if (release !== undefined && definitionId === release.definitionId) {
+      const definition = stored.ref.binding.definition;
+      if (release !== undefined && definition === release.ref) {
         const named = read(release.identity, stored.evidence, stored, 'releasedBy.identity');
         if (named === undefined) return;
         releasedAt.set(named, Math.max(releasedAt.get(named) ?? 0, stored.sequence));
         return;
       }
-      if (!fromIds.has(definitionId)) return;
+      if (!fromRefs.has(definition)) return;
       const slot = read(declaration.key, stored.evidence, stored, 'key');
       if (slot === undefined) return;
       const named = read(declaration.identity, stored.evidence, stored, 'identity');
@@ -334,10 +341,10 @@ export class DeclaredContexts {
 interface Plan {
   readonly declaration: DeclaredContextDeclaration;
   readonly kind: string;
-  readonly fromIds: ReadonlySet<string>;
+  readonly fromRefs: ReadonlySet<ActionDefinitionRef>;
   readonly release:
     | {
-        readonly definitionId: string;
+        readonly ref: ActionDefinitionRef;
         readonly identity: (evidence: unknown) => string;
       }
     | undefined;

@@ -10,6 +10,7 @@
 import type {
   ActionAbandonmentAuthority,
   ActionBindingRef,
+  ActionDefinitionRef,
   ActionEffectSettlement,
   ActionEffectSettlementInput,
   ActionTransitionRef,
@@ -25,7 +26,8 @@ import { snapshotDeclaration } from './declarations.js';
 
 /** The query, already validated and resolved by the runtime. */
 export interface LedgerQuery {
-  readonly definitionId?: string;
+  /** Matched by identity: the connected definition's own ref object. */
+  readonly definition?: ActionDefinitionRef;
   readonly binding?: ActionBindingRef;
   readonly instance?: string;
   readonly invocationStatus?: ReadonlySet<string>;
@@ -85,8 +87,8 @@ export class TransitionLedger {
     for (const stored of this.#rows.values()) {
       const binding = stored.ref.binding;
       if (
-        query.definitionId !== undefined &&
-        binding.definition.definitionId !== query.definitionId
+        query.definition !== undefined &&
+        binding.definition !== query.definition
       ) {
         continue;
       }

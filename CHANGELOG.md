@@ -44,7 +44,10 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   value per key, minus any a verified release named — never an older entry
   brought back. Entries carry value, transition, binding and attribution as
   data; a reader that throws is a counted skip. History eviction cannot
-  change an entry, because nothing is post-processed.
+  change an entry, because nothing is post-processed. A context admits rows
+  by the IDENTITY of the callables it was declared with, never by their id
+  string — so declaring before connecting (or a hot reload that rebuilds a
+  callable under the same id) cannot let another callable feed or release it.
 
 ### Changed (additive, visible)
 

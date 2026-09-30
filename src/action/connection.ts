@@ -837,7 +837,7 @@ class DefaultActionRuntime implements ActionRuntime {
       }
     }
     const { definition, binding, instance } = query;
-    let definitionId: string | undefined;
+    let definitionRef: ActionDefinitionRef | undefined;
     if (typeof definition === 'function') {
       const record = actionDefinitionOf(definition);
       if (record === undefined) {
@@ -851,14 +851,14 @@ class DefaultActionRuntime implements ActionRuntime {
           `hcifootprint: definition '${record.ref.definitionId}' belongs to another callable in this runtime. Pass the exact defineAction() result that was connected.`,
         );
       }
-      definitionId = record.ref.definitionId;
+      definitionRef = record.ref;
     } else if (definition !== undefined) {
       if (this.#definitionRecords.get(definition.definitionId)?.ref !== definition) {
         throw new Error(
           `hcifootprint: definition ref '${String(definition.definitionId)}' is unknown or forged.`,
         );
       }
-      definitionId = definition.definitionId;
+      definitionRef = definition;
     }
     if (
       binding !== undefined &&
@@ -884,7 +884,7 @@ class DefaultActionRuntime implements ActionRuntime {
       'effectStatus',
     );
     return {
-      ...(definitionId !== undefined ? { definitionId } : {}),
+      ...(definitionRef !== undefined ? { definition: definitionRef } : {}),
       ...(binding !== undefined ? { binding } : {}),
       ...(instance !== undefined ? { instance } : {}),
       ...(invocationStatus !== undefined ? { invocationStatus } : {}),

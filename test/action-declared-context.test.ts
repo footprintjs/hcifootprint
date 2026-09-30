@@ -406,6 +406,103 @@ describe('declareContext — refusals at the declaration door', () => {
   });
 });
 
+describe('declareContext — declared before connect: the callable, not its id', () => {
+  // Declaring first is the natural order (an app connects each binding
+  // lazily; a hot reload rebuilds the callable under the same id). A later
+  // callable that reuses a declared id must never feed or release the
+  // context — the fold admits rows by the declared definition's identity.
+  const feed = () =>
+    defineAction('ctx.early-feed', {
+      does: 'The declared feed',
+      invocation: 'scalar',
+      settle: { evidence: { kind: 'ctx.dataset-version' } },
+      mutate: (range: string) => range,
+    });
+  const ungoverned = () =>
+    defineAction('ctx.early-feed', {
+      does: 'Same id, no evidence contract',
+      invocation: 'scalar',
+      settle: { writes: ['z'] },
+      mutate: (range: string) => range,
+    });
+  const connect = (runtime: ReturnType<typeof createActionRuntime>, action: DefinedAction) =>
+    connectAction(runtime, action as never, {
+      node: 'data-panel',
+      coverage: 'verifiable',
+    }) as unknown as Scalar;
+
+  it('a same-id impostor connected later does not feed the context', async () => {
+    const runtime = createActionRuntime();
+    const real = feed();
+    const context = runtime.declareContext({
+      id: 'ctx.early',
+      from: [real],
+      key: (value) => (value as DatasetVersion).rootRef,
+      identity: (value) => (value as DatasetVersion).ref,
+      fold: 'latest-per-key',
+    });
+    const impostor = connect(runtime, ungoverned());
+    await verified(impostor, 'x', { ref: 'EVIL', rootRef: 'series-a' });
+    expect(context.entries()).toEqual([]);
+    expect(context.skipped()).toEqual([]);
+  });
+
+  it('the declared callable, connected later, does feed it', async () => {
+    const runtime = createActionRuntime();
+    const real = feed();
+    const context = runtime.declareContext({
+      id: 'ctx.early',
+      from: [real],
+      key: (value) => (value as DatasetVersion).rootRef,
+      identity: (value) => (value as DatasetVersion).ref,
+      fold: 'latest-per-key',
+    });
+    await verified(connect(runtime, real), '7d', { ref: 'ds-1', rootRef: 'series-a' });
+    expect(view(context.entries())).toEqual(['series-a=ds-1']);
+    expect(context.entries()[0]?.kind).toBe('ctx.dataset-version');
+  });
+
+  it('a same-id impostor connected later does not release', async () => {
+    const runtime = createActionRuntime();
+    const real = feed();
+    const release = defineAction('ctx.early-release', {
+      does: 'The declared release',
+      invocation: 'scalar',
+      settle: { writes: ['ctx.ranges'] },
+      mutate: (ref: string) => ref,
+    });
+    const context = runtime.declareContext({
+      id: 'ctx.early',
+      from: [real],
+      key: (value) => (value as DatasetVersion).rootRef,
+      identity: (value) => (value as DatasetVersion).ref,
+      fold: 'latest-per-key',
+      releasedBy: { action: release, identity: (evidence) => evidence as string },
+    });
+    await verified(connect(runtime, real), '7d', { ref: 'ds-1', rootRef: 'series-a' });
+    const impostor = connect(
+      runtime,
+      defineAction('ctx.early-release', {
+        does: 'Same id, another callable',
+        invocation: 'scalar',
+        settle: { writes: ['ctx.ranges'] },
+        mutate: (ref: string) => ref,
+      }),
+    );
+    await verified(impostor, 'ds-1', 'ds-1');
+    expect(view(context.entries())).toEqual(['series-a=ds-1']);
+  });
+
+  it('transitions({ definition }) refuses the declared callable once a same-id impostor holds the id', async () => {
+    const runtime = createActionRuntime();
+    const real = feed();
+    await verified(connect(runtime, ungoverned()), 'x', { ref: 'EVIL', rootRef: 'series-a' });
+    expect(() => runtime.transitions({ definition: real as never })).toThrow(
+      /belongs to another callable in this runtime/,
+    );
+  });
+});
+
 describe('declareContext — property: the fold is independent of settlement order', () => {
   // A seeded generator, so a failure names its seed and replays exactly.
   function prng(seed: number) {
