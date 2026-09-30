@@ -293,14 +293,17 @@ export class TransitionLedger {
           ? undefined
           : evidenceContract === undefined
             ? snapshotDeclaration(payload)
-            : detachGovernedValue(
-                payload,
-                (cause) =>
+            : detachGovernedValue(payload, {
+                uncloneable: (cause) =>
                   new TypeError(
-                    `hcifootprint: transition '${transition.transitionId}' cannot be verified — its '${evidenceContract.kind}' evidence cannot be detached (structuredClone refused it; the refusal is this error's cause). Evidence is recorded as data: settle again with records, arrays, strings, numbers, booleans, null, Date, Map or Set — no functions, Proxies or host objects.`,
+                    `hcifootprint: transition '${transition.transitionId}' cannot be verified — its '${evidenceContract.kind}' evidence cannot be detached (structuredClone refused it; the refusal is this error's cause). Evidence is recorded as data: settle again with records, arrays, strings, numbers, booleans and null — no functions, Proxies or host objects.`,
                     { cause },
                   ),
-              );
+                unfrozen: (path, found) =>
+                  new TypeError(
+                    `hcifootprint: transition '${transition.transitionId}' cannot be verified — its '${evidenceContract.kind}' evidence holds a value that cannot be frozen at ${path === '' ? 'the root' : `'${path}'`} (a ${found}). The record is served as it is stored, so a ${found} there could be edited after the check. Evidence is recorded as data: settle again with records, arrays, strings, numbers, booleans and null (an ISO string for a Date, entries for a Map or Set).`,
+                  ),
+              });
       if (status === 'verified') {
         evidenceContract?.check?.(transition.transitionId, recorded);
       }

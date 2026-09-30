@@ -27,15 +27,19 @@ export function describeThrown(error: unknown): string {
 
 /**
  * The sentence an `Error` carries (the protocol's refusals ARE their
- * message), else `describeThrown`. Never throws.
+ * message), else `describeThrown`. Never throws. `message` is read ONCE: a
+ * getter may answer differently on a second read, and the value checked is
+ * the value returned.
  */
 export function thrownMessage(error: unknown): string {
   try {
-    if (error instanceof Error && typeof error.message === 'string') {
-      return error.message;
+    if (error instanceof Error) {
+      const message: unknown = error.message;
+      if (typeof message === 'string') return message;
     }
   } catch {
-    // A revoked Proxy refuses `instanceof`; describe it like any other value.
+    // A revoked Proxy refuses `instanceof`, a getter may throw; describe it
+    // like any other value.
   }
   return describeThrown(error);
 }

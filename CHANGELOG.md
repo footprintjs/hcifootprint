@@ -32,10 +32,13 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   new `source: 'evidence'`) and a failing value throws without spending the
   terminal. The governed value is detached ONCE before the check
   (`structuredClone`, then the snapshot), so the recorded bytes are the
-  checked bytes: a class instance comes back as its own data, a `Map`/`Date`
-  as a fresh one nobody else holds, and a value that cannot be cloned (a
-  function inside it, a Proxy, a host object) refuses without spending the
-  terminal. Evidence of an action with no `settle.evidence` is recorded
+  checked bytes: a class instance comes back as its own data, and the
+  recorded value is data only, every part frozen — the record is served as
+  stored (`settle()`'s return, snapshots, fold readers), so a `Map`, `Set`,
+  `Date`, `Error`, `RegExp` or typed array inside it (which `Object.freeze`
+  cannot seal) is refused naming its path; record a Date as an ISO string, a
+  Map as entries. A value that cannot be cloned (a function inside it, a
+  Proxy, a host object) refuses too; neither refusal spends the terminal. Evidence of an action with no `settle.evidence` is recorded
   exactly as before. `evidenceKind` is stamped on the verified settlement and the
   snapshot. Deliberately NOT `produces`: that is what the handler returns,
   which a walk carries to the next step.

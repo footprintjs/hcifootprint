@@ -211,6 +211,23 @@ describe('walk execution — every step re-derives its own truth', () => {
       [{ toString: () => { throw new Error('no toString'); } }, '[object Object]'],
       [{ [Symbol.toPrimitive]: () => { throw new Error('no primitive'); } }, '[object Object]'],
       [revoked, 'an unprintable value'],
+      // An Error whose `message` getter answers a string once, then an
+      // object: the refusal is the string that passed the check — the
+      // message is read ONCE (describe-thrown.ts · thrownMessage).
+      [
+        (() => {
+          let reads = 0;
+          const error = new Error('placeholder');
+          Object.defineProperty(error, 'message', {
+            get: () => {
+              reads += 1;
+              return reads === 1 ? 'the first answer' : { not: 'a string' };
+            },
+          });
+          return error;
+        })(),
+        'the first answer',
+      ],
     ];
     for (const [index, [thrown, words]] of cases.entries()) {
       const action = defineAction(`walk.unprintable-${String(index)}`, {

@@ -87,33 +87,82 @@ export function snapshotDeclaration<T>(value: T): T {
  * else BY REFERENCE (an Error, a DOM node, a class instance): the right call
  * for a quoted reason or a late claim, which only has to be readable later.
  * It is the wrong call for a value the record says was CHECKED: an app that
- * still holds its class instance, Map or Date could change it after the
- * kind's schema passed it, and the record would keep saying "checked".
+ * still holds its class instance could change it after the kind's schema
+ * passed it, and the record would keep saying "checked".
  *
  * So a governed value is detached ONCE — `structuredClone`, the wire bar the
  * rest of the library already holds data to (a declared-context entry is
- * promised structured-clone-safe) — then snapshotted (plain parts frozen),
+ * promised structured-clone-safe) — then snapshotted (every part frozen),
  * and only THEN handed to the schema. The recorded bytes are the checked
- * bytes. A class instance comes back as its own data (a plain record); a Map,
- * Set or Date comes back as a fresh one nobody else holds.
+ * bytes. A class instance comes back as its own data (a plain record).
+ *
+ * The recorded value is DATA ONLY — records, arrays and primitives — because
+ * only data can be frozen. A Map, Set, Date, Error, RegExp or typed array
+ * keeps its contents in internal slots `Object.freeze` does not reach, and
+ * the record is SERVED, not copied per read: `settle()`'s return, every
+ * snapshot and every fold reader hand out the recorded value itself. A fresh
+ * Map would still be editable by whoever holds `settle()`'s return
+ * (`returned.m.set(…)` edits what the schema checked). So such a value is
+ * REFUSED (`refuseUnfrozen`, naming where it sits); the app records it as
+ * data instead (an ISO string for a Date, entries for a Map).
  *
  * A value `structuredClone` refuses (a function anywhere inside, a Proxy, a
- * host object) is REFUSED, never kept by reference: a reference fallback
- * would leave the swap open for exactly the values built to read differently
- * each time (the `traverse/bound-input.ts · boundInput` finding). The refusal
- * throws before anything is written, so the terminal is not spent.
+ * host object) is REFUSED too (`refuseUncloneable`), never kept by
+ * reference: a reference fallback would leave the swap open for exactly the
+ * values built to read differently each time (the
+ * `traverse/bound-input.ts · boundInput` finding). Both refusals throw before
+ * anything is written, so the terminal is not spent.
  */
 export function detachGovernedValue<T>(
   value: T,
-  refuse: (cause: unknown) => Error,
+  refuse: {
+    readonly uncloneable: (cause: unknown) => Error;
+    readonly unfrozen: (path: string, found: string) => Error;
+  },
 ): T {
   let detached: T;
   try {
     detached = structuredClone(value);
   } catch (error) {
-    throw refuse(error);
+    throw refuse.uncloneable(error);
+  }
+  const unfrozen = firstUnfreezable(detached, [], new WeakSet<object>());
+  if (unfrozen !== undefined) {
+    throw refuse.unfrozen(unfrozen.path, unfrozen.found);
   }
   return snapshotDeclaration(detached);
+}
+
+/**
+ * The first part of a structured-clone result that is not a record, an array
+ * or a primitive — the parts `snapshotDeclaration` would keep by reference.
+ * `path` is dot-joined keys ('' for the value itself). Cycles survive
+ * `structuredClone`, so a visited object is not walked twice.
+ */
+function firstUnfreezable(
+  value: unknown,
+  path: readonly string[],
+  seen: WeakSet<object>,
+): { readonly path: string; readonly found: string } | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  if (seen.has(value)) return undefined;
+  seen.add(value);
+  const prototype = Object.getPrototypeOf(value);
+  if (
+    !Array.isArray(value) &&
+    prototype !== Object.prototype &&
+    prototype !== null
+  ) {
+    return {
+      path: path.join('.'),
+      found: Object.prototype.toString.call(value).slice(8, -1),
+    };
+  }
+  for (const [key, item] of Object.entries(value)) {
+    const found = firstUnfreezable(item, [...path, key], seen);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }
 
 export function cloneDeclaration<T>(value: T, seen: WeakMap<object, unknown>): T {

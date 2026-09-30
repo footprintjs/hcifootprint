@@ -355,28 +355,106 @@ describe('settle.evidence — the governed value is detached before it is checke
     );
   });
 
-  it('a Map or Date is detached too, even when the kind has no schema', async () => {
-    const runtime = createActionRuntime();
-    const connection = connectAction(runtime, refetchAction(), {
-      node: 'panel',
-      coverage: 'verifiable',
-    });
+  it('what settle() returns and every reader serves is frozen data — nothing a holder can edit', async () => {
+    // The app holds the RETURN of settle(), not only its own argument. A
+    // governed value is recorded as data only (records, arrays, primitives),
+    // all of it frozen, so no reader can edit the record in place either.
+    const { runtime, connection } = checked();
     const invocation = connection.invoke('7d');
     await invocation.whenInvoked;
-    const versions = new Map([['series-a', 'ds-2']]);
-    const at = new Date(0);
-    connection.settle(invocation.transition, {
+    const settled = connection.settle(invocation.transition, {
       status: 'verified',
-      evidence: { versions, at },
+      evidence: { ref: 'ds-2', rootRef: 'ds-1', nested: { series: ['a'] } },
     });
-    versions.set('series-a', 'swapped');
-    at.setTime(1);
-    const recorded = runtime.transitionFor(invocation.transition)?.evidence as {
-      versions: Map<string, string>;
-      at: Date;
+    const returned = (settled.status === 'verified' ? settled.evidence : undefined) as {
+      nested: { series: string[] };
     };
-    expect(recorded.versions.get('series-a')).toBe('ds-2');
-    expect(recorded.at.getTime()).toBe(0);
+    expect(Object.isFrozen(returned)).toBe(true);
+    expect(Object.isFrozen(returned.nested)).toBe(true);
+    expect(Object.isFrozen(returned.nested.series)).toBe(true);
+    expect(() => {
+      (returned.nested as { series: string[] }).series = ['swapped'];
+    }).toThrow(TypeError);
+    expect(runtime.transitions({})[0]?.evidence).toEqual({
+      ref: 'ds-2',
+      rootRef: 'ds-1',
+      nested: { series: ['a'] },
+    });
+  });
+
+  it.each([
+    ['a Map', () => new Map([['series-a', 'ds-2']])],
+    ['a Set', () => new Set(['ds-2'])],
+    ['a Date', () => new Date(0)],
+    ['an Error', () => new Error('seen')],
+    ['a typed array', () => new Uint8Array([1])],
+    ['a RegExp', () => /ds-2/],
+  ])(
+    'refuses %s inside governed evidence — it cannot be frozen, so the record could be edited through what settle() returns',
+    async (_label, make) => {
+      // Detaching gave the record its own Map/Date, but a Map or Date cannot
+      // be frozen: `settle()`'s return IS the record, so
+      // `returned.m.set(...)` / `returned.d.setTime(...)` would edit what the
+      // schema checked. Refused, with or without a schema, before anything is
+      // written — the terminal is not spent.
+      for (const withSchema of [true, false]) {
+        const runtime = withSchema
+          ? createActionRuntime({
+              kinds: declareKinds({ 'panel.dataset-version': { schema: datasetSchema } }),
+            })
+          : createActionRuntime();
+        const connection = connectAction(runtime, refetchAction(), {
+          node: 'panel',
+          coverage: 'verifiable',
+        });
+        const invocation = connection.invoke('7d');
+        await invocation.whenInvoked;
+        let refusal: unknown;
+        try {
+          connection.settle(invocation.transition, {
+            status: 'verified',
+            evidence: { ref: 'ds-2', rootRef: 'ds-1', deep: [{ held: make() }] },
+          });
+        } catch (error) {
+          refusal = error;
+        }
+        expect(refusal).toBeInstanceOf(TypeError);
+        expect((refusal as Error).message).toMatch(
+          /cannot be verified — its 'panel\.dataset-version' evidence holds a value that cannot be frozen at 'deep\.0\.held'/,
+        );
+        expect(runtime.transitionFor(invocation.transition)?.effectStatus).toBe(
+          'unverified',
+        );
+        expect(
+          connection.settle(invocation.transition, {
+            status: 'verified',
+            evidence: { ref: 'ds-2', rootRef: 'ds-1', at: new Date(0).toISOString() },
+          }).status,
+        ).toBe('verified');
+      }
+    },
+  );
+
+  it('names the root when the governed value itself cannot be frozen, and walks a cycle once', async () => {
+    const { runtime, connection } = checked();
+    const invocation = connection.invoke('7d');
+    await invocation.whenInvoked;
+    expect(() =>
+      connection.settle(invocation.transition, { status: 'verified', evidence: new Date(0) }),
+    ).toThrow(/evidence holds a value that cannot be frozen at the root \(a Date\)/);
+    // A cycle survives structuredClone; the walk visits each object once and
+    // the recorded snapshot keeps the cycle, frozen.
+    const cyclic: { ref: string; rootRef: string; self?: unknown } = {
+      ref: 'ds-2',
+      rootRef: 'ds-1',
+    };
+    cyclic.self = cyclic;
+    connection.settle(invocation.transition, { status: 'verified', evidence: cyclic });
+    const recorded = runtime.transitionFor(invocation.transition)?.evidence as {
+      self: unknown;
+    };
+    expect(recorded.self).toBe(recorded);
+    expect(Object.isFrozen(recorded)).toBe(true);
   });
 
   it('refuses a value that cannot be detached, naming the kind, and does not spend the terminal', async () => {
