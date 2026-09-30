@@ -118,9 +118,16 @@ export class TransitionLedger {
    * toward the history bound, and the oldest fully settled rows past `keep`
    * are released — the rule `forget` enforces, applied by the one owner of
    * "what may be forgotten" instead of by every app's trim loop.
+   *
+   * A row can be forgotten BEFORE it is counted: its effect settled while the
+   * invocation was pending, and a listener on the progress channel's closing
+   * publication (or a declared-context reader on verification) calls
+   * `forget` before this runs. Such a row is gone — counting it would add a
+   * phantom to the bound, and the next settled row would be released early.
    */
   railClosed(stored: StoredTransition): void {
     if (
+      this.#rows.get(stored.ref.transitionId) !== stored ||
       stored.countedSettled === true ||
       stored.invocationStatus === 'pending' ||
       stored.effectStatus === 'unverified'
@@ -137,13 +144,6 @@ export class TransitionLedger {
       this.#rows.delete(id);
       this.#settledCount -= 1;
     }
-  }
-
-  rowFor(transition: ActionTransitionRef): StoredTransition | undefined {
-    const stored = this.#rows.get(transition.transitionId);
-    return stored === undefined || stored.ref !== transition
-      ? undefined
-      : stored;
   }
 
   snapshotFor(

@@ -4,7 +4,7 @@ title: LifecycleEdge
 
 # Interface: LifecycleEdge
 
-Defined in: src/action/lifecycle.ts:23
+Defined in: [src/action/lifecycle.ts:23](https://github.com/footprintjs/hcifootprint/blob/main/src/action/lifecycle.ts#L23)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/lifecycle.ts:23
 
 > `readonly` `optional` **by?**: readonly [`Principal`](/api/index/type-aliases/Principal)[]
 
-Defined in: src/action/lifecycle.ts:29
+Defined in: [src/action/lifecycle.ts:29](https://github.com/footprintjs/hcifootprint/blob/main/src/action/lifecycle.ts#L29)
 
 Who may make this move. Omitted means the app said nothing — the
  refusal only exists where a list does, the same law `mayInvoke`
@@ -24,7 +24,7 @@ Who may make this move. Omitted means the app said nothing — the
 
 > `readonly` **from**: `string`
 
-Defined in: src/action/lifecycle.ts:24
+Defined in: [src/action/lifecycle.ts:24](https://github.com/footprintjs/hcifootprint/blob/main/src/action/lifecycle.ts#L24)
 
 ***
 
@@ -32,4 +32,4 @@ Defined in: src/action/lifecycle.ts:24
 
 > `readonly` **to**: `string`
 
-Defined in: src/action/lifecycle.ts:25
+Defined in: [src/action/lifecycle.ts:25](https://github.com/footprintjs/hcifootprint/blob/main/src/action/lifecycle.ts#L25)

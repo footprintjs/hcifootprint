@@ -22,8 +22,9 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   INVOCATION first — the ledger's order, now a documented fact. A misspelled
   status refuses rather than answering an empty list that reads as "none
   happened". `keep` releases the oldest FULLY settled rows inside the ledger;
-  a pending row is never counted and never released. Default: unbounded,
-  as before.
+  a pending row is never counted and never released, and a row forgotten
+  before it was counted (by a listener on its own closing progress
+  publication) is never counted afterwards. Default: unbounded, as before.
 - **`settle.evidence: { kind }` — the effect is proven by a governed value.**
   An evidence-bearing clause, so `verified` no longer needs a pretend state
   key; the kind is governed at connect like `needs`/`produces`; when the

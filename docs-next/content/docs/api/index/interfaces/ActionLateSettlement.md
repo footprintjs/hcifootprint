@@ -4,7 +4,7 @@ title: ActionLateSettlement
 
 # Interface: ActionLateSettlement
 
-Defined in: [src/action/types.ts:621](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L621)
+Defined in: [src/action/types.ts:682](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L682)
 
 A settlement that arrived after this transition's terminal was already
 decided — kept and marked late, never adopted and never silently dropped.
@@ -23,7 +23,7 @@ never one.
 
 > `readonly` **claimed**: `string`
 
-Defined in: [src/action/types.ts:623](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L623)
+Defined in: [src/action/types.ts:684](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L684)
 
 The status the late caller claimed — a quotation, not a verdict.
 
@@ -33,6 +33,6 @@ The status the late caller claimed — a quotation, not a verdict.
 
 > `readonly` `optional` **payload?**: `unknown`
 
-Defined in: [src/action/types.ts:625](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L625)
+Defined in: [src/action/types.ts:686](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L686)
 
 The evidence or reason it carried, snapshotted; absent when it carried none.

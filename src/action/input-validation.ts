@@ -104,24 +104,16 @@ export function resolveInputValidation(
 export function validateActionInput(
   binding: ActionBindingRef,
   schema: unknown,
-  hasInput: boolean,
   input: unknown,
   source: 'bound' | 'caller',
   inputSchemaAdapter: ActionInputSchemaAdapter | undefined,
   disposition: ActionInputValidationDisposition,
 ): void {
   if (schema === undefined) return;
-  if (takesNoInput(schema)) {
-    if (hasInput) {
-      throw new ActionInputValidationError(
-        binding.definition,
-        binding,
-        source,
-        'inputSchema declares no input',
-      );
-    }
-    return;
-  }
+  // inputSchema 'none' is accepted only on an inputless definition, and no
+  // payload reaches this gate for one: the direct door and the port's 'none'
+  // offer both refuse a payload slot, and it cannot connect an input reader.
+  if (takesNoInput(schema)) return;
 
   const verdict = schemaVerdict(
     schema,

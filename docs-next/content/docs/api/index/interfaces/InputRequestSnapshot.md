@@ -4,7 +4,7 @@ title: InputRequestSnapshot
 
 # Interface: InputRequestSnapshot
 
-Defined in: src/action/request.ts:70
+Defined in: [src/action/request.ts:70](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L70)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: src/action/request.ts:70
 
 > `readonly` `optional` **answer?**: `string`
 
-Defined in: src/action/request.ts:84
+Defined in: [src/action/request.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L84)
 
 ***
 
@@ -20,7 +20,7 @@ Defined in: src/action/request.ts:84
 
 > `readonly` `optional` **authority?**: [`ActionAbandonmentAuthority`](/api/index/type-aliases/ActionAbandonmentAuthority)
 
-Defined in: src/action/request.ts:87
+Defined in: [src/action/request.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L87)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: src/action/request.ts:87
 
 > `readonly` `optional` **declineReason?**: `unknown`
 
-Defined in: src/action/request.ts:85
+Defined in: [src/action/request.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L85)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: src/action/request.ts:85
 
 > `readonly` **from**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: src/action/request.ts:76
+Defined in: [src/action/request.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L76)
 
 Who may answer.
 
@@ -46,7 +46,7 @@ Who may answer.
 
 > `readonly` `optional` **lateAnswers?**: readonly [`ActionLateSettlement`](/api/index/interfaces/ActionLateSettlement)[]
 
-Defined in: src/action/request.ts:90
+Defined in: [src/action/request.ts:90](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L90)
 
 Answers that arrived after the terminal — kept and quoted, never
  adopted, never reopening. Absent when none did.
@@ -57,7 +57,7 @@ Answers that arrived after the terminal — kept and quoted, never
 
 > `readonly` **of**: `string`
 
-Defined in: src/action/request.ts:74
+Defined in: [src/action/request.ts:74](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L74)
 
 The KIND being asked for — governed like every other kind.
 
@@ -67,7 +67,7 @@ The KIND being asked for — governed like every other kind.
 
 > `readonly` **offered**: readonly [`RequestChoice`](/api/index/interfaces/RequestChoice)[]
 
-Defined in: src/action/request.ts:78
+Defined in: [src/action/request.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L78)
 
 ***
 
@@ -75,7 +75,7 @@ Defined in: src/action/request.ts:78
 
 > `readonly` **question**: `string`
 
-Defined in: src/action/request.ts:72
+Defined in: [src/action/request.ts:72](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L72)
 
 ***
 
@@ -83,7 +83,7 @@ Defined in: src/action/request.ts:72
 
 > `readonly` **ref**: [`InputRequestRef`](/api/index/interfaces/InputRequestRef)
 
-Defined in: src/action/request.ts:71
+Defined in: [src/action/request.ts:71](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L71)
 
 ***
 
@@ -91,7 +91,7 @@ Defined in: src/action/request.ts:71
 
 > `readonly` **state**: [`InputRequestState`](/api/index/type-aliases/InputRequestState)
 
-Defined in: src/action/request.ts:77
+Defined in: [src/action/request.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L77)
 
 ***
 
@@ -99,7 +99,7 @@ Defined in: src/action/request.ts:77
 
 > `readonly` **surfaces**: readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
 
-Defined in: src/action/request.ts:83
+Defined in: [src/action/request.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L83)
 
 The surfaces that could collect this kind WHEN THE REQUEST OPENED —
  presentation routing, recorded for the record. A missing surface never
@@ -112,4 +112,4 @@ The surfaces that could collect this kind WHEN THE REQUEST OPENED —
 
 > `readonly` `optional` **withdrawReason?**: `unknown`
 
-Defined in: src/action/request.ts:86
+Defined in: [src/action/request.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/action/request.ts#L86)

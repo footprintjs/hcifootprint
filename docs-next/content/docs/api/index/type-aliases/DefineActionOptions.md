@@ -6,7 +6,7 @@ title: DefineActionOptions<Mode, HasProgress, F, Id, Stages, Input, Output>
 
 > **DefineActionOptions**\<`Mode`, `HasProgress`, `F`, `Id`, `Stages`, `Input`, `Output`\> = `object` & `Mode` *extends* `"inputless"` ? `HasProgress` *extends* `true` ? `object` : `object` : `Mode` *extends* `"scalar"` ? `HasProgress` *extends* `true` ? `object` : `object` : `Mode` *extends* `"host"` ? `HasProgress` *extends* `true` ? `never` : `object` : `never`
 
-Defined in: [src/action/definition.ts:224](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L224)
+Defined in: [src/action/definition.ts:232](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L232)
 
 The complete options record accepted by one `defineAction()` overload.
 `Mode` selects the invocation door and `HasProgress` selects whether the

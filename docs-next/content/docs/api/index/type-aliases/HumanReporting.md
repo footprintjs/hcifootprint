@@ -6,6 +6,6 @@ title: HumanReporting
 
 > **HumanReporting** = `"connection"` \| `"sensor"`
 
-Defined in: [src/action/types.ts:275](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L275)
+Defined in: [src/action/types.ts:323](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L323)
 
 Which subsystem owns reporting a human-originated interaction.

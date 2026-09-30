@@ -6,7 +6,7 @@ title: ActionProgressSnapshot
 
 > **ActionProgressSnapshot** = \{ `declared`: readonly `string`[]; `disposition`: `"open"`; `observed`: readonly [`ActionProgressObservation`](/api/index/interfaces/ActionProgressObservation)[]; \} \| \{ `declared`: readonly `string`[]; `disposition`: `"not-started"`; `observed`: readonly \[\]; \} \| \{ `declared`: readonly `string`[]; `disposition`: `"closed"`; `integrity?`: `"unmet"`; `observed`: readonly [`ActionProgressObservation`](/api/index/interfaces/ActionProgressObservation)[]; `unreported`: readonly `string`[]; \}
 
-Defined in: [src/action/types.ts:400](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L400)
+Defined in: [src/action/types.ts:461](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L461)
 
 What is knowable about declared progress at this instant.
 

@@ -6,6 +6,6 @@ title: BindingCoverage
 
 > **BindingCoverage** = `"identity"` \| `"semantic"` \| `"executable"` \| `"verifiable"`
 
-Defined in: [src/action/types.ts:13](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L13)
+Defined in: [src/action/types.ts:14](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L14)
 
 The strongest evidence a live binding can substantiate.

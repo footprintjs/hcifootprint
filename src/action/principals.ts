@@ -51,23 +51,13 @@ export function verdictForPrincipal(
   contract: ReadonlyActionDefinitionContract,
   principal: Principal,
 ): ReturnType<typeof checkPrincipalPolicy> {
-  const declaration = contract.principal;
+  // The verdict reads ONE field (principal-policy.ts · checkPrincipalPolicy):
+  // decisionOwner is disclosure that enforcement never reads, and
+  // requiresHumanApproval is its own gate (needsRecordedApproval). Handing it
+  // only mayInvoke is the whole question, not a narrowed one.
+  const mayInvoke = contract.principal?.mayInvoke;
   const policy =
-    declaration === undefined
-      ? undefined
-      : {
-          ...(declaration.mayInvoke !== undefined
-            ? { mayInvoke: [...declaration.mayInvoke] }
-            : {}),
-          ...(declaration.decisionOwner !== undefined
-            ? { decisionOwner: declaration.decisionOwner }
-            : {}),
-          ...(declaration.requiresHumanApproval !== undefined
-            ? {
-                requiresHumanApproval: declaration.requiresHumanApproval,
-              }
-            : {}),
-        };
+    mayInvoke === undefined ? undefined : { mayInvoke: [...mayInvoke] };
   return checkPrincipalPolicy({ policy, principal, enforcing: true });
 }
 

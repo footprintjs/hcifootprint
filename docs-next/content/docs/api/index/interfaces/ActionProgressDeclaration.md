@@ -4,7 +4,7 @@ title: ActionProgressDeclaration<Stages>
 
 # Interface: ActionProgressDeclaration\<Stages\>
 
-Defined in: [src/action/types.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L108)
+Defined in: [src/action/types.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L109)
 
 Ordered progress vocabulary for one transition.
 
@@ -20,7 +20,7 @@ Ordered progress vocabulary for one transition.
 
 > `readonly` `optional` **required?**: `boolean`
 
-Defined in: [src/action/types.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L113)
+Defined in: [src/action/types.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L114)
 
 A started invocation that reports no stage closes with unmet integrity.
 
@@ -30,4 +30,4 @@ A started invocation that reports no stage closes with unmet integrity.
 
 > `readonly` **stages**: `Stages`
 
-Defined in: [src/action/types.ts:111](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L111)
+Defined in: [src/action/types.ts:112](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L112)

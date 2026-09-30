@@ -4,7 +4,7 @@ title: OpenActionOffer<Id, F, P>
 
 # Interface: OpenActionOffer\<Id, F, P\>
 
-Defined in: [src/action/types.ts:543](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L543)
+Defined in: [src/action/types.ts:604](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L604)
 
 An offer waiting for its caller (for example, a rendered HITL form) to supply input.
 
@@ -28,7 +28,7 @@ An offer waiting for its caller (for example, a rendered HITL form) to supply in
 
 > `readonly` **contractActivation**: [`ActionContractActivation`](/api/index/type-aliases/ActionContractActivation)
 
-Defined in: [src/action/types.ts:554](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L554)
+Defined in: [src/action/types.ts:615](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L615)
 
 Whether enforceable clauses were active or carried only for disclosure.
 
@@ -38,7 +38,7 @@ Whether enforceable clauses were active or carried only for disclosure.
 
 > `readonly` **coverage**: [`BindingCoverage`](/api/index/type-aliases/BindingCoverage)
 
-Defined in: [src/action/types.ts:552](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L552)
+Defined in: [src/action/types.ts:613](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L613)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [src/action/types.ts:552](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **definition**: [`ActionDefinitionRecord`](/api/index/interfaces/ActionDefinitionRecord)\<`Id`, `"scalar"`\>
 
-Defined in: [src/action/types.ts:550](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L550)
+Defined in: [src/action/types.ts:611](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L611)
 
 Immutable authored meaning and payload schema for an in-process consumer.
 
@@ -56,7 +56,7 @@ Immutable authored meaning and payload schema for an in-process consumer.
 
 > `readonly` **inputMode**: `"open"`
 
-Defined in: [src/action/types.ts:556](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L556)
+Defined in: [src/action/types.ts:617](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L617)
 
 ***
 
@@ -64,7 +64,7 @@ Defined in: [src/action/types.ts:556](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **inputRequired**: `true`
 
-Defined in: [src/action/types.ts:558](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L558)
+Defined in: [src/action/types.ts:619](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L619)
 
 Open offers always require exactly one deliberate caller payload slot.
 
@@ -74,7 +74,7 @@ Open offers always require exactly one deliberate caller payload slot.
 
 > `readonly` **inputValidation**: `"disclosure"` \| `"not-declared"` \| `"active"`
 
-Defined in: [src/action/types.ts:555](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L555)
+Defined in: [src/action/types.ts:616](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L616)
 
 ***
 
@@ -82,7 +82,7 @@ Defined in: [src/action/types.ts:555](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **locators**: readonly [`Binding`](/api/index/type-aliases/Binding)[]
 
-Defined in: [src/action/types.ts:551](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L551)
+Defined in: [src/action/types.ts:612](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L612)
 
 ***
 
@@ -90,7 +90,7 @@ Defined in: [src/action/types.ts:551](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **ref**: [`ActionOfferRef`](/api/index/interfaces/ActionOfferRef)\<`Id`, `P`\> & `object`
 
-Defined in: [src/action/types.ts:548](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L548)
+Defined in: [src/action/types.ts:609](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L609)
 
 #### Type Declaration
 

@@ -4,7 +4,7 @@ title: ActionLifecycle<Id, Stage>
 
 # Interface: ActionLifecycle\<Id, Stage\>
 
-Defined in: [src/action/types.ts:430](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L430)
+Defined in: [src/action/types.ts:491](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L491)
 
 Narrow, transition-owned capability optionally passed to an opted-in handler.
 
@@ -24,7 +24,7 @@ Narrow, transition-owned capability optionally passed to an opted-in handler.
 
 > `readonly` **transition**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:434](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L434)
+Defined in: [src/action/types.ts:495](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L495)
 
 ## Methods
 
@@ -32,7 +32,7 @@ Defined in: [src/action/types.ts:434](https://github.com/footprintjs/hcifootprin
 
 > **reportProgress**(`stage`, `detail?`): `void`
 
-Defined in: [src/action/types.ts:436](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L436)
+Defined in: [src/action/types.ts:497](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L497)
 
 Report one declared stage. Instrumentation failures never replace app behavior.
 

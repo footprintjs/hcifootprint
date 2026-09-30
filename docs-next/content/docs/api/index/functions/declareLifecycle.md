@@ -6,7 +6,7 @@ title: declareLifecycle
 
 > **declareLifecycle**(`chart`): [`Lifecycle`](/api/index/interfaces/Lifecycle)
 
-Defined in: src/action/lifecycle.ts:49
+Defined in: [src/action/lifecycle.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/action/lifecycle.ts#L49)
 
 ## Parameters
 

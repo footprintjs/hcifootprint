@@ -4,7 +4,7 @@ title: ActionPlanStep
 
 # Interface: ActionPlanStep
 
-Defined in: [src/action/walk.ts:51](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L51)
+Defined in: [src/action/walk.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L52)
 
 One planned step. `carry` and `input` are exclusive: a step's payload is
 either stated at plan time or carried from a prior step's declared output —
@@ -16,7 +16,7 @@ never both, and never guessed.
 
 > `readonly` **action**: [`DefinedAction`](/api/index/type-aliases/DefinedAction)
 
-Defined in: [src/action/walk.ts:52](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L52)
+Defined in: [src/action/walk.ts:53](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L53)
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: [src/action/walk.ts:52](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` `optional` **carry?**: `object`
 
-Defined in: [src/action/walk.ts:67](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L67)
+Defined in: [src/action/walk.ts:68](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L68)
 
 Carry a PRIOR step's produced value as this step's payload — admitted
 only when the producer's definition DECLARES `produces`. The gate is the
@@ -44,7 +44,7 @@ dataflow language by the back door).
 
 > `readonly` `optional` **input?**: `unknown`
 
-Defined in: [src/action/walk.ts:57](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L57)
+Defined in: [src/action/walk.ts:58](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L58)
 
 The payload for an open offer, known at plan time.
 
@@ -54,7 +54,7 @@ The payload for an open offer, known at plan time.
 
 > `readonly` `optional` **instance?**: `string`
 
-Defined in: [src/action/walk.ts:55](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L55)
+Defined in: [src/action/walk.ts:56](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L56)
 
 Disambiguates when one definition has several live bindings. Ambiguity
  without this is a refusal, never a guess.

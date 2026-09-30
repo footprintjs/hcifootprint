@@ -55,7 +55,7 @@ WHO reported it, in the app's own words ('stripe-webhook'). App data, capped, ne
 
 ### status
 
-> **status**: `"refused"` \| `"performed"`
+> **status**: `"performed"` \| `"refused"`
 
 Defined in: [src/atom/types.ts:324](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L324)
 

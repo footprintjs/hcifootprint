@@ -28,6 +28,6 @@ Defined in: [src/atom/types.ts:337](https://github.com/footprintjs/hcifootprint/
 
 ### status
 
-> **status**: `"refused"` \| `"performed"`
+> **status**: `"performed"` \| `"refused"`
 
 Defined in: [src/atom/types.ts:338](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L338)

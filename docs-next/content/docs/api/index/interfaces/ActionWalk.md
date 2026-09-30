@@ -4,7 +4,7 @@ title: ActionWalk
 
 # Interface: ActionWalk
 
-Defined in: [src/action/walk.ts:117](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L117)
+Defined in: [src/action/walk.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L118)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/action/walk.ts:117](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **ref**: [`ActionWalkRef`](/api/index/interfaces/ActionWalkRef)
 
-Defined in: [src/action/walk.ts:118](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L118)
+Defined in: [src/action/walk.ts:119](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L119)
 
 ## Methods
 
@@ -20,7 +20,7 @@ Defined in: [src/action/walk.ts:118](https://github.com/footprintjs/hcifootprint
 
 > **interrupt**(`input`): `boolean`
 
-Defined in: [src/action/walk.ts:143](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L143)
+Defined in: [src/action/walk.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L144)
 
 Stop this walk's plan at the next step boundary, with the reason on the
 record. Arms the walk: consumed by the plan in flight before its next
@@ -50,7 +50,7 @@ a silent break is the abandonment this family refuses.
 
 > **record**(): `object`
 
-Defined in: [src/action/walk.ts:146](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L146)
+Defined in: [src/action/walk.ts:147](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L147)
 
 Every manifest this walk has produced, in order — the route actually
  taken, which is not the route anybody planned.
@@ -73,7 +73,7 @@ Every manifest this walk has produced, in order — the route actually
 
 > **run**(`steps`, `options?`): `Promise`\<[`ActionPlanManifest`](/api/index/interfaces/ActionPlanManifest)\>
 
-Defined in: [src/action/walk.ts:125](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L125)
+Defined in: [src/action/walk.ts:126](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L126)
 
 Admit and execute one plan. Admission failures THROW before anything
 runs — nothing happened, so an exception is honest. Execution failures

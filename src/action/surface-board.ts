@@ -66,12 +66,13 @@ export class SurfaceBoard {
       retire: () => {
         // Idempotent and OWNED: only the surface this handle declared is
         // retired — a successor under the same id belongs to its own handle,
-        // and a stale retire must never take it down.
+        // and a stale retire must never take it down. While this handle is
+        // live its id maps to exactly this declaration: `declare` refuses a
+        // live id, and this single-shot retire is the only delete — so once
+        // `live` is spent, a successor can never be reached from here.
         if (!live) return false;
         live = false;
-        if (this.#surfaces.get(frozen.surface) === frozen) {
-          this.#surfaces.delete(frozen.surface);
-        }
+        this.#surfaces.delete(frozen.surface);
         return true;
       },
     });

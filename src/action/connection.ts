@@ -338,17 +338,16 @@ class DefaultActionRuntime implements ActionRuntime {
       settle: (transition, input) => this.#settle(transition, input),
       requireCurrent: (binding, expected, phase) =>
         this.#requireCurrent(binding, expected, phase),
-      invalidateOffers: (binding, principal) =>
-        this.#invalidateOffers(binding, principal),
+      invalidateOffers: (binding) => this.#invalidateOffers(binding),
       validateOffer: (binding, offer, registration, enabled) =>
         this.#validateOffer(binding, offer, registration, enabled),
       invoke: (...args) => (this.#invoke as (...a: unknown[]) => never)(...args),
     } satisfies ConnectionCore as ConnectionCore);
   }
 
-  get contractActivation(): ActionContractActivation {
-    return this.#contractActivation;
-  }
+  // An own, non-writable data property defined in the constructor — a
+  // prototype getter here would be shadowed on every instance and never run.
+  declare readonly contractActivation: ActionContractActivation;
 
   kindGovernance(): KindGovernanceReport {
     return this.#governor.report();
@@ -556,16 +555,9 @@ class DefaultActionRuntime implements ActionRuntime {
         `hcifootprint: offer '${ref.offerId}' belongs to principal '${ref.principal}', not '${principal}'. Invoke it through authority for the principal that received it.`,
       );
     }
-    const principalVerdict = verdictForPrincipal(
-      offer.definition.contract,
-      principal,
-    );
-    if (!principalVerdict.ok) {
-      this.#invalidateOffers(ref.binding, principal);
-      throw new Error(
-        `hcifootprint: offer '${ref.offerId}' is no longer permitted for principal '${principal}'.`,
-      );
-    }
+    // No principal re-check here: an offer is minted for a principal only
+    // after verdictForPrincipal said yes (#availableFor), and that verdict is
+    // a pure function of the definition's FROZEN contract and the principal.
     if (input.length > 1) {
       throw new TypeError(
         'hcifootprint: principal invoke() accepts at most one payload slot.',
@@ -583,13 +575,10 @@ class DefaultActionRuntime implements ActionRuntime {
         `hcifootprint: open offer '${ref.offerId}' requires exactly one deliberate input payload slot. Pass undefined explicitly when undefined is the intended value.`,
       );
     }
-    const invoker = this.#invokers.get(ref.binding.bindingId);
-    if (invoker === undefined) {
-      this.#invalidateOffers(ref.binding);
-      throw new Error(
-        `hcifootprint: binding '${ref.binding.bindingId}' is disconnected.`,
-      );
-    }
+    // A live offer implies a live invoker: `disconnect` retires every offer
+    // of the binding (invalidateOffers) before it deletes the invoker, and
+    // no offer is minted before the invoker is set at connect.
+    const invoker = this.#invokers.get(ref.binding.bindingId)!;
     return invoker.invoke(ref, input.length === 1, input[0]);
   }
 
@@ -632,19 +621,14 @@ class DefaultActionRuntime implements ActionRuntime {
         snapshot.coverage,
         `binding '${snapshot.binding.bindingId}'`,
       );
+      // Connect records the definition before any caller can read its row,
+      // and a runtime never forgets a definition — so the record is there.
       const definitionRecord = this.#definitionRecords.get(
         snapshot.binding.definition.definitionId,
-      );
-      if (
-        !this.#definitions.has(snapshot.binding.definition.definitionId) ||
-        definitionRecord === undefined
-      ) {
-        throw new Error(
-          `hcifootprint: definition '${snapshot.binding.definition.definitionId}' is unavailable in this runtime generation.`,
-        );
-      }
+      )!;
+      // A refused principal was never minted an offer for this binding (the
+      // verdict is fixed by the frozen contract), so there is none to retire.
       if (!verdictForPrincipal(definitionRecord.contract, principal).ok) {
-        this.#invalidateOffers(snapshot.binding, principal);
         continue;
       }
       let enabled: boolean | undefined;
@@ -734,7 +718,6 @@ class DefaultActionRuntime implements ActionRuntime {
             validateActionInput(
               row.binding,
               invoker.inputSchema,
-              true,
               capturedInput,
               'bound',
               this.#inputSchemaAdapter,
@@ -934,19 +917,9 @@ class DefaultActionRuntime implements ActionRuntime {
   }
 
 
-  #invalidateOffers(binding: ActionBindingRef, principal?: Principal): void {
+  #invalidateOffers(binding: ActionBindingRef): void {
     const byPrincipal = this.#offerByBinding.get(binding.bindingId);
     if (byPrincipal === undefined) return;
-    if (principal !== undefined) {
-      const cached = byPrincipal.get(principal);
-      if (cached === undefined) return;
-      this.#offers.delete(cached.offer.ref.offerId);
-      byPrincipal.delete(principal);
-      if (byPrincipal.size === 0) {
-        this.#offerByBinding.delete(binding.bindingId);
-      }
-      return;
-    }
     for (const cached of byPrincipal.values()) {
       this.#offers.delete(cached.offer.ref.offerId);
     }
@@ -1040,10 +1013,11 @@ class DefaultActionRuntime implements ActionRuntime {
     coverage: BindingCoverage,
     phase: 'handler' | 'preflight' = 'handler',
     verificationDeclared = false,
-    progressDeclaration?: NonNullable<
-      ReadonlyActionDefinitionContract['settle']
-    >['progress'],
-    reportInstrumentationError: (error: unknown) => void = () => undefined,
+    progressDeclaration:
+      | NonNullable<ReadonlyActionDefinitionContract['settle']>['progress']
+      | undefined,
+    // Always the connection's sink (connection-builder.ts · openInvocation).
+    reportInstrumentationError: (error: unknown) => void,
     invokedBy?: Principal,
     effect?: TransitionEffectContract,
   ): ActionInvocation<Output, Id, Behavior> {

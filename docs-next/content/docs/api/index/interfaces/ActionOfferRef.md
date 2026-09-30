@@ -4,7 +4,7 @@ title: ActionOfferRef<Id, P>
 
 # Interface: ActionOfferRef\<Id, P\>
 
-Defined in: [src/action/types.ts:37](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L37)
+Defined in: [src/action/types.ts:38](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L38)
 
 Under which application facts was one exact binding exposed?
 
@@ -24,7 +24,7 @@ Under which application facts was one exact binding exposed?
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L43)
+Defined in: [src/action/types.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L44)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [src/action/types.ts:43](https://github.com/footprintjs/hcifootprint
 
 > `readonly` `optional` **input?**: [`ActionInputRef`](/api/index/interfaces/ActionInputRef)\<`"bound"`\>
 
-Defined in: [src/action/types.ts:49](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L49)
+Defined in: [src/action/types.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L50)
 
 Opaque identity for an input captured as part of this exact offer.
 
@@ -42,7 +42,7 @@ Opaque identity for an input captured as part of this exact offer.
 
 > `readonly` **kind**: `"action-offer"`
 
-Defined in: [src/action/types.ts:41](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L41)
+Defined in: [src/action/types.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L42)
 
 ***
 
@@ -50,7 +50,7 @@ Defined in: [src/action/types.ts:41](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **offerId**: `string`
 
-Defined in: [src/action/types.ts:42](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L42)
+Defined in: [src/action/types.ts:43](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L43)
 
 ***
 
@@ -58,7 +58,7 @@ Defined in: [src/action/types.ts:42](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **principal**: `P`
 
-Defined in: [src/action/types.ts:45](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L45)
+Defined in: [src/action/types.ts:46](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L46)
 
 The reader authority under which this exact capability was exposed.
 
@@ -68,6 +68,6 @@ The reader authority under which this exact capability was exposed.
 
 > `readonly` **revision**: `number`
 
-Defined in: [src/action/types.ts:47](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L47)
+Defined in: [src/action/types.ts:48](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L48)
 
 The committed binding-fact generation this offer describes.

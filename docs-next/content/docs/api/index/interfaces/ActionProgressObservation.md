@@ -4,7 +4,7 @@ title: ActionProgressObservation
 
 # Interface: ActionProgressObservation
 
-Defined in: [src/action/types.ts:394](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L394)
+Defined in: [src/action/types.ts:455](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L455)
 
 One retained progress report from the application handler.
 
@@ -14,7 +14,7 @@ One retained progress report from the application handler.
 
 > `readonly` `optional` **detail?**: `unknown`
 
-Defined in: [src/action/types.ts:396](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L396)
+Defined in: [src/action/types.ts:457](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L457)
 
 ***
 
@@ -22,4 +22,4 @@ Defined in: [src/action/types.ts:396](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **stage**: `string`
 
-Defined in: [src/action/types.ts:395](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L395)
+Defined in: [src/action/types.ts:456](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L456)

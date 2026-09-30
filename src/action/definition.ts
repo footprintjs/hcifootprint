@@ -840,21 +840,11 @@ function snapshotActionDefinitionOptions(
     );
   }
   const owner = `action definition '${definitionId}' options`;
+  // ACTION_OPTION_FIELDS holds neither 'binding' nor 'input', so this capture
+  // already refuses both as unknown fields. Their longer teaching sentences
+  // live in validateActionDefinitionContract, the door that sees a record
+  // branded by another copy.
   const captured = captureAuthoredRecord(owner, options, ACTION_OPTION_FIELDS);
-  for (const field of Reflect.ownKeys(captured)) {
-    if (field === 'binding') {
-      throw new GraphValidationError(
-        `action definition '${definitionId}' declares a live-site 'binding'. A callable definition describes what the action does; ` +
-          `connectAction()/attach() own where each live binding exists. Remove 'binding' from the definition contract.`,
-      );
-    }
-    if (field === 'input') {
-      throw new GraphValidationError(
-        `action definition '${definitionId}' declares 'input'. Callable action definitions use 'inputSchema' for the payload contract; ` +
-          `connectAction()/useActionBinding() use 'input' for the live invocation-time value reader.`,
-      );
-    }
-  }
   const authoredMutate = captured.mutate;
   if (typeof authoredMutate !== 'function') {
     throw new TypeError(

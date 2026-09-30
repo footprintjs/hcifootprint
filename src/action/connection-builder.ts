@@ -79,7 +79,7 @@ export interface ConnectionCore {
     expected: BindingRegistration,
     phase: string,
   ): BindingRegistration;
-  invalidateOffers(binding: ActionBindingRef, principal?: Principal): void;
+  invalidateOffers(binding: ActionBindingRef): void;
   validateOffer<Id extends string>(
     binding: ActionBindingRef<Id>,
     offer: ActionOfferRef<Id> | undefined,
@@ -101,12 +101,12 @@ export interface ConnectionCore {
       ? Extract<ActionInvocationInput, { readonly source: 'host' }>
       : Exclude<ActionInvocationInput, { readonly source: 'host' }>,
     coverage: BindingCoverage,
-    phase?: 'handler' | 'preflight',
-    verificationDeclared?: boolean,
-    progressDeclaration?: NonNullable<
-      ReadonlyActionDefinitionContract['settle']
-    >['progress'],
-    reportInstrumentationError?: (error: unknown) => void,
+    phase: 'handler' | 'preflight',
+    verificationDeclared: boolean,
+    progressDeclaration:
+      | NonNullable<ReadonlyActionDefinitionContract['settle']>['progress']
+      | undefined,
+    reportInstrumentationError: (error: unknown) => void,
     invokedBy?: Principal,
     effect?: TransitionEffectContract,
   ): ActionInvocation<Output, Id, Behavior>;
@@ -287,23 +287,25 @@ export function buildConnection<
     let attachment: AttachedFacts | undefined;
     const runtime = core;
 
+    // The registry is private to this runtime, and the ONLY removal of this
+    // binding's row is `disconnect`, which clears `connected` first — so a
+    // connected binding always has its row, and one refusal covers both.
     const assertConnected = (): BindingRegistration => {
-      if (!connected) {
-        throw new Error(
-          `hcifootprint: binding '${binding.bindingId}' is disconnected.`,
-        );
-      }
-      const registration = core.registry.registrationFor(binding);
+      const registration = connected
+        ? core.registry.registrationFor(binding)
+        : undefined;
       if (registration === undefined) {
         throw new Error(
-          `hcifootprint: binding '${binding.bindingId}' is no longer present.`,
+          `hcifootprint: binding '${binding.bindingId}' is disconnected.`,
         );
       }
       return registration;
     };
 
+    // Every caller has just proven the binding connected: attach/update/touch
+    // through assertConnected + requireCurrent, and a detach only reaches this
+    // while its own attachment is current — `disconnect` clears that first.
     const sync = (forceRevision = false): void => {
-      if (!connected) return;
       const effective = attachment;
       const changed = core.registry.updateBinding(binding, {
         coverage: effective?.coverage ?? base.coverage,
@@ -475,21 +477,14 @@ export function buildConnection<
         | ActionInputRef<'bound'>
         | ActionInputRef<'caller'>
         | undefined;
+      // A 'bound' or 'none' offer never arrives here with a payload: the
+      // principal port refuses that before the invoker is asked
+      // (connection.ts · #invokeOffer), and the direct door selects no offer.
+      // So a 'none' offer matches no arm below and captures nothing.
       if (selectedOffer?.offer.inputMode === 'bound') {
-        if (hasExplicitInput) {
-          throw new TypeError(
-            `hcifootprint: offer '${selectedOffer.offer.ref.offerId}' already binds its exact input; invoke it without a replacement payload.`,
-          );
-        }
         capturedInput = selectedOffer.capturedInput as FirstParameter<F>;
         hasInput = true;
         inputRef = selectedOffer.offer.input;
-      } else if (selectedOffer?.offer.inputMode === 'none') {
-        if (hasExplicitInput) {
-          throw new TypeError(
-            `hcifootprint: offer '${selectedOffer.offer.ref.offerId}' takes no input.`,
-          );
-        }
       } else if (offered === undefined && registration.input !== undefined) {
         if (hasExplicitInput) {
           throw new TypeError(
@@ -542,10 +537,10 @@ export function buildConnection<
           ? Object.freeze({ source: 'bound', provided: true, ref: inputRef })
           : inputRef?.source === 'caller'
             ? Object.freeze({ source: 'caller', provided: true, ref: inputRef })
-            : selectedOffer?.offer.inputMode === 'open' ||
-                (offered === undefined && !definitionTakesNoInput)
-              ? Object.freeze({ source: 'caller', provided: false })
-              : Object.freeze({ source: 'none', provided: false });
+            : // No input ref is left only for an input-free call: an open
+              // offer and a scalar direct call always carry a payload by now
+              // (the port and the scalar check above refuse one without).
+              Object.freeze({ source: 'none', provided: false });
       // A bound offer already validated this exact retained value when it was
       // minted. Do not execute an application-owned validator a second time at
       // invocation; open and direct doors still validate at their ingress.
@@ -555,7 +550,6 @@ export function buildConnection<
           validateActionInput(
             binding,
             validationSchema,
-            hasInput,
             capturedInput,
             inputRef?.source === 'bound' ? 'bound' : 'caller',
             runtime.inputSchemaAdapter,

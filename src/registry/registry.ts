@@ -113,6 +113,15 @@ interface RegistryEntry extends Registration {
   revision?: number;
 }
 
+/**
+ * Count one change to a STRUCTURED entry. Only `registerBinding` mints an
+ * entry with a binding, and it always sets `revision` — so every caller here
+ * holds a number; legacy rows carry no revision and are never bumped.
+ */
+function bumpRevision(entry: RegistryEntry): void {
+  entry.revision = (entry.revision as number) + 1;
+}
+
 export class ActionRegistry {
   /** The canonical live store. Every connection exists exactly once, by token. */
   readonly #byToken = new Map<string, RegistryEntry>();
@@ -237,7 +246,7 @@ export class ActionRegistry {
     const reg = this.#activeRegistration(affordanceId);
     if (!reg || reg.enabled === enabled) return false;
     reg.enabled = enabled;
-    if (reg.binding !== undefined) reg.revision = (reg.revision ?? 0) + 1;
+    if (reg.binding !== undefined) bumpRevision(reg);
     return true;
   }
 
@@ -252,7 +261,7 @@ export class ActionRegistry {
     if (!reg || reg.busy === busy) return false;
     if (busy === undefined) delete reg.busy;
     else reg.busy = busy;
-    if (reg.binding !== undefined) reg.revision = (reg.revision ?? 0) + 1;
+    if (reg.binding !== undefined) bumpRevision(reg);
     return true;
   }
 
@@ -354,7 +363,7 @@ export class ActionRegistry {
     const entry = this.#bindingEntry(binding);
     if (entry === undefined || entry.enabled === enabled) return false;
     entry.enabled = enabled;
-    entry.revision = (entry.revision ?? 0) + 1;
+    bumpRevision(entry);
     return true;
   }
 
@@ -364,7 +373,7 @@ export class ActionRegistry {
     if (entry === undefined || entry.busy === busy) return false;
     if (busy === undefined) delete entry.busy;
     else entry.busy = busy;
-    entry.revision = (entry.revision ?? 0) + 1;
+    bumpRevision(entry);
     return true;
   }
 
@@ -422,7 +431,7 @@ export class ActionRegistry {
         changed = true;
       }
     }
-    if (changed) entry.revision = (entry.revision ?? 0) + 1;
+    if (changed) bumpRevision(entry);
     return changed;
   }
 
@@ -430,7 +439,7 @@ export class ActionRegistry {
   touchBinding(binding: ActionBindingRef): boolean {
     const entry = this.#bindingEntry(binding);
     if (entry?.binding === undefined) return false;
-    entry.revision = (entry.revision ?? 0) + 1;
+    bumpRevision(entry);
     return true;
   }
 
