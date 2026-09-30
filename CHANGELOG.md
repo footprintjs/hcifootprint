@@ -1,5 +1,61 @@
 # Changelog
 
+## [2.6.0] - 2026-09-30
+
+### Added
+
+Six asks from a real binding — a chart and table whose time control re-runs
+a backend tool and mints a new dataset — each answered by the fact the
+runtime already held, instead of by the app's own bookkeeping. Design:
+`docs/design/2026-09-30-action-gaps.md`.
+
+- **Who invoked it — `invokedBy` + `snapshot.attribution`.** A connection
+  declares who calls its direct doors; it is checked once, at connect,
+  against `principal.mayInvoke`, so it can never file an invocation under a
+  principal the definition refuses. Every `ActionTransitionSnapshot` carries
+  an `attribution` minted by the 1.7.0 certainty table: a principal port or
+  `invokedBy` is `'caller-asserted'`, neither is `'unknown'`. Never read off
+  `humanReporting` — which subsystem reports a click is not who called
+  `invoke()`.
+- **`runtime.transitions(query?)` + `history: { keep }`.** Every retained
+  transition, filtered by definition / binding / instance / status, oldest
+  INVOCATION first — the ledger's order, now a documented fact. A misspelled
+  status refuses rather than answering an empty list that reads as "none
+  happened". `keep` releases the oldest FULLY settled rows inside the ledger;
+  a pending row is never counted and never released. Default: unbounded,
+  as before.
+- **`settle.evidence: { kind }` — the effect is proven by a governed value.**
+  An evidence-bearing clause, so `verified` no longer needs a pretend state
+  key; the kind is governed at connect like `needs`/`produces`; when the
+  catalog gives the kind a schema, the evidence is validated at settle over
+  the recorded snapshot (self-validating, or `inputSchemaAdapter` with the
+  new `source: 'evidence'`) and a failing value throws without spending the
+  terminal. `evidenceKind` is stamped on the verified settlement and the
+  snapshot. Deliberately NOT `produces`: that is what the handler returns,
+  which a walk carries to the next step.
+- **`settle.onReturn` — settle when the action returns.** The definition's
+  authored verdict on its own `performed`/`failed` outcome (typed from
+  `mutate`), run through the one settle funnel — every gate an observer's
+  verdict meets, first terminal wins. For a definition that declares it, a
+  synchronous return settles before `invoke()` returns. A throwing or
+  thenable verdict goes to `onInvocationError`. Refused on `'host'` actions.
+- **`runtime.declareContext()` — what the person set, still standing.**
+  Folded by the library at settlement time: the newest INVOKED verified
+  value per key, minus any a verified release named — never an older entry
+  brought back. Entries carry value, transition, binding and attribution as
+  data; a reader that throws is a counted skip. History eviction cannot
+  change an entry, because nothing is post-processed.
+
+### Changed (additive, visible)
+
+- `ActionTransitionSnapshot.attribution` is present on EVERY snapshot. A
+  property read is unaffected; an exact `toEqual` on a whole snapshot gains
+  one field (the 1.7.0 session-transition precedent). No in-repo pin needed
+  loosening.
+- `ActionInputSchemaContext.source` gains `'evidence'`. Only an
+  `inputSchemaAdapter` with an exhaustive `switch` on `source` notices, at
+  compile time.
+
 ## [2.5.0] - 2026-08-26
 
 ### Added

@@ -31,6 +31,7 @@ The map, one file per concern:
 | `transition-ledger.ts` | composed unit: every stored transition | rows, ids, settlement — "a connection never holds the current transition" has exactly one place to be true |
 | `connection-builder.ts` | the heart of connect(), behind `ConnectionCore` | the closure web shares per-connection state BY DESIGN; what separates is the unit from the runtime — the core seam lists every capability it may use, so one not listed is one provably unused |
 | `lifecycle.ts` | a declared state chart + its enforcing mover | Node/React/the browser PUBLISH their phase names — we adopt that and refuse the scheduler half: the chart owns WHETHER, the host owns WHEN; a terminal with an outgoing edge is refused at declaration |
+| `declared-context.ts` | composed unit: declared outcome context (`declareContext`) | "what the person set with a control, still standing" is outcome context the library records — so the library folds it, AT SETTLEMENT, instead of every app walking its own index |
 | `request.ts` | the HITL request desk (`requestInput`) | the OFFERED-SET LAW: an answer outside the offered list refuses naming the list and the request STAYS OPEN; a request ends by answer, decline, withdrawal, or explicit authority — never by inference from silence |
 
 Laws every file upholds (the design doc `docs/design/action-binding-protocol.md` carries the full argument):
@@ -40,4 +41,33 @@ Laws every file upholds (the design doc `docs/design/action-binding-protocol.md`
 - **First terminal wins, and the loser is KEPT** (`lateSettlements`) — quoted, never adopted, never reopening a terminal.
 - **Absence is established, never assumed.** A detach does not prove abandonment; `abandoned` needs an explicit authority.
 
-Tests: `test/action-*.test.ts` (definition, connection, contracts, host adapter, runtime invoke, walk, kinds, channels, race, types) — plus the dependency-free Angular lifecycle proof, which is the template for proving any framework skin.
+Laws added in 2.6.0 (design: `docs/design/2026-09-30-action-gaps.md`):
+
+- **Who invoked it is declared, never inferred.** `invokedBy` on a connection is checked against `principal.mayInvoke` at connect; every snapshot carries `attribution` (port or `invokedBy` → `'caller-asserted'`, neither → `'unknown'`). `humanReporting` says who REPORTS, not who called.
+- **Invocation order is a fact.** `transitions(query)` lists oldest INVOCATION first; `history: { keep }` releases only fully settled rows, oldest first, inside `TransitionLedger`.
+- **An effect can be proven by a governed value.** `settle.evidence: { kind }` is evidence-bearing, governed at connect, schema-checked over the RECORDED snapshot at settle; a failing value does not spend the terminal. It is not `produces` — that is the handler's return, which a walk carries.
+- **A verdict on the return is authored, never inferred.** `settle.onReturn` runs through the one settle funnel; a synchronous return settles before `invoke()` returns for definitions that declare it. There is no shorthand that turns a return into evidence.
+- **Context is folded at settlement, never post-processed.** `declareContext` = newest INVOKED verified value per key, minus any a later verified release named; history eviction cannot change an entry; a reader that throws is a counted skip.
+
+```ts
+const refetch = defineAction('data-panel.refetch-time-range', {
+  does: 'Re-run the open series over the time range the person set',
+  invocation: 'scalar',
+  settle: {
+    evidence: { kind: 'data-panel.dataset-version' },           // the proof is a new dataset
+    onReturn: (o) => o.status === 'performed' && o.produced.status === 'refetched'
+      ? { status: 'verified', evidence: o.produced.dataset }
+      : { status: 'refused', reason: o.status === 'failed' ? String(o.error) : o.produced.reason },
+  },
+  mutate: (input: RefetchInput) => refetchOnServer(input),
+});
+connectAction(runtime, refetch, { node: 'data-panel', coverage: 'verifiable', invokedBy: 'user' });
+const ranges = runtime.declareContext({
+  id: 'data-panel.time-ranges', from: [refetch], fold: 'latest-per-key',
+  key: (v) => (v as DatasetVersion).rootRef, identity: (v) => (v as DatasetVersion).ref,
+  releasedBy: { action: releaseRange, identity: (e) => e as string },
+});
+ranges.entries(); // [{ key, identity, value, transition, binding, attribution, … }], oldest invocation first
+```
+
+Tests: `test/action-*.test.ts` (definition, connection, contracts, host adapter, runtime invoke, walk, kinds, channels, race, types, transition attribution, transitions listing, settle evidence, settle on return, declared context) — plus the dependency-free Angular lifecycle proof, which is the template for proving any framework skin.

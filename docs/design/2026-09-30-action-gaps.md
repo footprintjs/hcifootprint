@@ -1,8 +1,11 @@
 # Action gaps — six asks from a real binding, five changes
 
-Status: **DESIGN, not built.** Written 2026-09-30 against 2.5.0 (`origin/main` b14cea2). Every
-"today" claim below was read off the code; every "proposed" shape is additive and lands in a 2.x
-minor. Decisions the owner must make are marked **YOUR CALL**.
+Status: **BUILT in 2.6.0** (branch `feat/action-gaps`, one commit per step). Written 2026-09-30
+against 2.5.0 (`origin/main` b14cea2). Every "today" claim below was read off the code; every
+"proposed" shape is additive. The three **YOUR CALL** items were built at this document's own
+recommendation (scoped synchronous close, attribution always present, unbounded default history) —
+each is reversible before release. Two small refinements landed while building, recorded in
+§ "What building changed".
 
 ## Where the asks came from
 
@@ -371,6 +374,18 @@ fake `writes` key and its hand-wired settle observers, and fixes its refetch `pr
    whole-snapshot `toEqual` break. This design says always.
 3. **`history.keep` default.** Unbounded (today) is the additive choice; a finite default would
    silently forget settled rows an app still reads by ref. This design keeps unbounded.
+
+## What building changed
+
+- **`invokedBy: 'unknown'` is refused.** Absence already files a direct invocation under
+  `'unknown'`; one fact gets one way to be said. The type is `Exclude<Principal, 'unknown'>`.
+- **A release action must be able to verify.** `declareContext` refuses a `releasedBy.action`
+  with no evidence-bearing settle contract — only a verified release releases, so one that can
+  never verify would be a context that can never release.
+- **A retired context serves nothing.** `entries()` answers `[]` after `retire()`; `skipped()`
+  keeps its record.
+- **`history.keep` may be 0** (a whole, non-negative number): a settled row is released as soon as
+  both rails close; a declared context still holds its entries, because it folded at settlement.
 
 ## Findings for the binding app (not library work)
 
