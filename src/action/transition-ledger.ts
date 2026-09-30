@@ -22,7 +22,7 @@ import {
   snapshotAbandonmentAuthority,
   snapshotTransition,
 } from './settlement.js';
-import { snapshotDeclaration } from './declarations.js';
+import { detachGovernedValue, snapshotDeclaration } from './declarations.js';
 
 /** The query, already validated and resolved by the runtime. */
 export interface LedgerQuery {
@@ -281,12 +281,26 @@ export class TransitionLedger {
         );
       }
       const transitionRef = stored.ref as ActionTransitionRef<Id>;
-      // The recorded bytes are the checked bytes: snapshot first, then run
-      // the governed kind's schema over exactly that value. A refusal
-      // throws here, before anything is written — the terminal is not spent.
-      const recorded =
-        status === 'verified' ? snapshotDeclaration(payload) : undefined;
+      // The recorded bytes are the checked bytes: a governed value is
+      // DETACHED once (declarations.ts · detachGovernedValue — refused when
+      // it cannot be), then the kind's schema runs over exactly that value.
+      // Either refusal throws here, before anything is written — the
+      // terminal is not spent. Evidence with no governed kind keeps the
+      // protocol's quoting snapshot (opaque values by identity), unchanged.
       const evidenceContract = stored.evidenceContract;
+      const recorded =
+        status !== 'verified'
+          ? undefined
+          : evidenceContract === undefined
+            ? snapshotDeclaration(payload)
+            : detachGovernedValue(
+                payload,
+                (cause) =>
+                  new TypeError(
+                    `hcifootprint: transition '${transition.transitionId}' cannot be verified — its '${evidenceContract.kind}' evidence cannot be detached (structuredClone refused it; the refusal is this error's cause). Evidence is recorded as data: settle again with records, arrays, strings, numbers, booleans, null, Date, Map or Set — no functions, Proxies or host objects.`,
+                    { cause },
+                  ),
+              );
       if (status === 'verified') {
         evidenceContract?.check?.(transition.transitionId, recorded);
       }

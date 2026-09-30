@@ -80,6 +80,42 @@ export function snapshotDeclaration<T>(value: T): T {
   return cloneDeclaration(value, new WeakMap<object, unknown>());
 }
 
+/**
+ * THE ONE DETACHING STEP FOR A GOVERNED VALUE — `settle.evidence`.
+ *
+ * `snapshotDeclaration` copies plain records and arrays and keeps everything
+ * else BY REFERENCE (an Error, a DOM node, a class instance): the right call
+ * for a quoted reason or a late claim, which only has to be readable later.
+ * It is the wrong call for a value the record says was CHECKED: an app that
+ * still holds its class instance, Map or Date could change it after the
+ * kind's schema passed it, and the record would keep saying "checked".
+ *
+ * So a governed value is detached ONCE — `structuredClone`, the wire bar the
+ * rest of the library already holds data to (a declared-context entry is
+ * promised structured-clone-safe) — then snapshotted (plain parts frozen),
+ * and only THEN handed to the schema. The recorded bytes are the checked
+ * bytes. A class instance comes back as its own data (a plain record); a Map,
+ * Set or Date comes back as a fresh one nobody else holds.
+ *
+ * A value `structuredClone` refuses (a function anywhere inside, a Proxy, a
+ * host object) is REFUSED, never kept by reference: a reference fallback
+ * would leave the swap open for exactly the values built to read differently
+ * each time (the `traverse/bound-input.ts · boundInput` finding). The refusal
+ * throws before anything is written, so the terminal is not spent.
+ */
+export function detachGovernedValue<T>(
+  value: T,
+  refuse: (cause: unknown) => Error,
+): T {
+  let detached: T;
+  try {
+    detached = structuredClone(value);
+  } catch (error) {
+    throw refuse(error);
+  }
+  return snapshotDeclaration(detached);
+}
+
 export function cloneDeclaration<T>(value: T, seen: WeakMap<object, unknown>): T {
   if (typeof value !== 'object' || value === null) return value;
   const existing = seen.get(value);

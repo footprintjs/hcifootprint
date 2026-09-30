@@ -308,3 +308,135 @@ describe('settle.evidence — the schema check at settle', () => {
     });
   });
 });
+
+describe('settle.evidence — the governed value is detached before it is checked', () => {
+  // `snapshotDeclaration` keeps anything that is not a plain record/array BY
+  // REFERENCE (an Error, a DOM node — right for a quoted reason). For a
+  // governed value that would let the app change the evidence after the
+  // schema passed it, and the record would still say it was checked. The
+  // value is detached once with structuredClone, then snapshotted, then
+  // checked: `transition-ledger.ts · settle` → `declarations.ts · detachGovernedValue`.
+  class Dataset {
+    constructor(
+      public ref: string,
+      public rootRef: string,
+    ) {}
+  }
+
+  function checked() {
+    const runtime = createActionRuntime({
+      kinds: declareKinds({ 'panel.dataset-version': { schema: datasetSchema } }),
+    });
+    const connection = connectAction(runtime, refetchAction(), {
+      node: 'panel',
+      coverage: 'verifiable',
+    });
+    return { runtime, connection };
+  }
+
+  it('a class instance mutated after the check does not change the record', async () => {
+    const { runtime, connection } = checked();
+    const invocation = connection.invoke('7d');
+    await invocation.whenInvoked;
+    const evidence = new Dataset('ds-2', 'ds-1');
+    const settled = connection.settle(invocation.transition, {
+      status: 'verified',
+      evidence,
+    });
+    evidence.ref = 'swapped-after-the-check';
+    expect(settled.status === 'verified' && settled.evidence).not.toBe(evidence);
+    expect(runtime.transitionFor(invocation.transition)?.evidence).toEqual({
+      ref: 'ds-2',
+      rootRef: 'ds-1',
+    });
+    // Detached AND frozen — a reader of the record cannot edit it either.
+    expect(Object.isFrozen(runtime.transitionFor(invocation.transition)?.evidence)).toBe(
+      true,
+    );
+  });
+
+  it('a Map or Date is detached too, even when the kind has no schema', async () => {
+    const runtime = createActionRuntime();
+    const connection = connectAction(runtime, refetchAction(), {
+      node: 'panel',
+      coverage: 'verifiable',
+    });
+    const invocation = connection.invoke('7d');
+    await invocation.whenInvoked;
+    const versions = new Map([['series-a', 'ds-2']]);
+    const at = new Date(0);
+    connection.settle(invocation.transition, {
+      status: 'verified',
+      evidence: { versions, at },
+    });
+    versions.set('series-a', 'swapped');
+    at.setTime(1);
+    const recorded = runtime.transitionFor(invocation.transition)?.evidence as {
+      versions: Map<string, string>;
+      at: Date;
+    };
+    expect(recorded.versions.get('series-a')).toBe('ds-2');
+    expect(recorded.at.getTime()).toBe(0);
+  });
+
+  it('refuses a value that cannot be detached, naming the kind, and does not spend the terminal', async () => {
+    const { runtime, connection } = checked();
+    const invocation = connection.invoke('7d');
+    await invocation.whenInvoked;
+    let refusal: unknown;
+    try {
+      connection.settle(invocation.transition, {
+        status: 'verified',
+        // Passes the schema, and a function cannot be detached.
+        evidence: { ref: 'ds-2', rootRef: 'ds-1', reload: () => undefined },
+      });
+    } catch (error) {
+      refusal = error;
+    }
+    expect(refusal).toBeInstanceOf(TypeError);
+    expect((refusal as Error).message).toMatch(
+      /cannot be verified — its 'panel\.dataset-version' evidence cannot be detached/,
+    );
+    expect((refusal as Error).cause).toBeDefined();
+    expect(runtime.transitionFor(invocation.transition)?.effectStatus).toBe(
+      'unverified',
+    );
+    expect(
+      connection.settle(invocation.transition, {
+        status: 'verified',
+        evidence: { ref: 'ds-2', rootRef: 'ds-1' },
+      }).status,
+    ).toBe('verified');
+  });
+
+  it('refuses a Proxy — the one value shaped to read differently each time', async () => {
+    const { connection } = checked();
+    const invocation = connection.invoke('7d');
+    await invocation.whenInvoked;
+    expect(() =>
+      connection.settle(invocation.transition, {
+        status: 'verified',
+        evidence: new Proxy({ ref: 'ds-2', rootRef: 'ds-1' }, {}),
+      }),
+    ).toThrow(/evidence cannot be detached/);
+  });
+
+  it('leaves evidence of an action with no settle.evidence exactly as before (opaque values by identity)', async () => {
+    const runtime = createActionRuntime();
+    const plain = defineAction('panel.plain-opaque', {
+      does: 'Write the range',
+      invocation: 'scalar',
+      settle: { writes: ['panel.range'] },
+      mutate: (range: string) => range,
+    });
+    const connection = connectAction(runtime, plain, {
+      node: 'panel',
+      coverage: 'verifiable',
+    });
+    const invocation = connection.invoke('7d');
+    await invocation.whenInvoked;
+    const observed = new Error('the observer saw this');
+    connection.settle(invocation.transition, { status: 'verified', evidence: observed });
+    expect(runtime.transitionFor(invocation.transition)?.evidence).toBe(observed);
+  });
+});

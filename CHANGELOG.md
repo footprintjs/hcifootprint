@@ -30,7 +30,13 @@ runtime already held, instead of by the app's own bookkeeping. Design:
   catalog gives the kind a schema, the evidence is validated at settle over
   the recorded snapshot (self-validating, or `inputSchemaAdapter` with the
   new `source: 'evidence'`) and a failing value throws without spending the
-  terminal. `evidenceKind` is stamped on the verified settlement and the
+  terminal. The governed value is detached ONCE before the check
+  (`structuredClone`, then the snapshot), so the recorded bytes are the
+  checked bytes: a class instance comes back as its own data, a `Map`/`Date`
+  as a fresh one nobody else holds, and a value that cannot be cloned (a
+  function inside it, a Proxy, a host object) refuses without spending the
+  terminal. Evidence of an action with no `settle.evidence` is recorded
+  exactly as before. `evidenceKind` is stamped on the verified settlement and the
   snapshot. Deliberately NOT `produces`: that is what the handler returns,
   which a walk carries to the next step.
 - **`settle.onReturn` — settle when the action returns.** The definition's
