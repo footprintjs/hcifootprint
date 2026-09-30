@@ -64,6 +64,10 @@ export interface StoredTransition {
   readonly verificationDeclared: boolean;
   /** Who the invocation is filed under — minted once, with `attributionOf`. */
   readonly attribution: Attribution;
+  /** Invocation order: the ledger's mint sequence, monotonic per runtime. */
+  readonly sequence: number;
+  /** Set once the row is counted as fully settled for the history bound. */
+  countedSettled?: boolean;
   invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
   effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
   effectSettling?: boolean;

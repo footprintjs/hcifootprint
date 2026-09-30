@@ -9,6 +9,7 @@
  */
 import type {
   ActionAbandonmentAuthority,
+  ActionBindingRef,
   ActionEffectSettlement,
   ActionEffectSettlementInput,
   ActionTransitionRef,
@@ -22,17 +23,97 @@ import {
 } from './settlement.js';
 import { snapshotDeclaration } from './declarations.js';
 
-export class TransitionLedger {
-  readonly #rows = new Map<string, StoredTransition>();
-  #sequence = 0;
+/** The query, already validated and resolved by the runtime. */
+export interface LedgerQuery {
+  readonly definitionId?: string;
+  readonly binding?: ActionBindingRef;
+  readonly instance?: string;
+  readonly invocationStatus?: ReadonlySet<string>;
+  readonly effectStatus?: ReadonlySet<string>;
+}
 
-  nextId(): string {
+export class TransitionLedger {
+  // A Map iterates in insertion order, and a row is inserted when its
+  // transition is minted — so iteration order IS invocation order, the
+  // documented order of `transitions()` and the meaning of "latest" for a
+  // declared context.
+  readonly #rows = new Map<string, StoredTransition>();
+  readonly #keep: number | undefined;
+  #sequence = 0;
+  #settledCount = 0;
+
+  constructor(keep?: number) {
+    this.#keep = keep;
+  }
+
+  mint(): { readonly transitionId: string; readonly sequence: number } {
     this.#sequence += 1;
-    return `transition#${String(this.#sequence)}`;
+    return {
+      transitionId: `transition#${String(this.#sequence)}`,
+      sequence: this.#sequence,
+    };
   }
 
   store(id: string, stored: StoredTransition): void {
     this.#rows.set(id, stored);
+  }
+
+  /** Every retained row matching the query, oldest invocation first. */
+  list(query: LedgerQuery): readonly ActionTransitionSnapshot[] {
+    const snapshots: ActionTransitionSnapshot[] = [];
+    for (const stored of this.#rows.values()) {
+      const binding = stored.ref.binding;
+      if (
+        query.definitionId !== undefined &&
+        binding.definition.definitionId !== query.definitionId
+      ) {
+        continue;
+      }
+      if (query.binding !== undefined && binding !== query.binding) continue;
+      if (query.instance !== undefined && binding.instance !== query.instance) {
+        continue;
+      }
+      if (
+        query.invocationStatus !== undefined &&
+        !query.invocationStatus.has(stored.invocationStatus)
+      ) {
+        continue;
+      }
+      if (
+        query.effectStatus !== undefined &&
+        !query.effectStatus.has(stored.effectStatus)
+      ) {
+        continue;
+      }
+      snapshots.push(snapshotTransition(stored));
+    }
+    return Object.freeze(snapshots);
+  }
+
+  /**
+   * One rail of a row reached its terminal. When BOTH have, the row counts
+   * toward the history bound, and the oldest fully settled rows past `keep`
+   * are released — the rule `forget` enforces, applied by the one owner of
+   * "what may be forgotten" instead of by every app's trim loop.
+   */
+  railClosed(stored: StoredTransition): void {
+    if (
+      stored.countedSettled === true ||
+      stored.invocationStatus === 'pending' ||
+      stored.effectStatus === 'unverified'
+    ) {
+      return;
+    }
+    stored.countedSettled = true;
+    this.#settledCount += 1;
+    const keep = this.#keep;
+    if (keep === undefined || this.#settledCount <= keep) return;
+    for (const [id, row] of this.#rows) {
+      if (this.#settledCount <= keep) break;
+      if (row.countedSettled !== true) continue;
+      this.#rows.delete(id);
+      this.#settledCount -= 1;
+    }
   }
 
   rowFor(transition: ActionTransitionRef): StoredTransition | undefined {
@@ -64,6 +145,7 @@ export class TransitionLedger {
       );
     }
     this.#rows.delete(transition.transitionId);
+    if (stored.countedSettled === true) this.#settledCount -= 1;
     return true;
   }
 
@@ -194,6 +276,7 @@ export class TransitionLedger {
       return settlement;
     } finally {
       stored.effectSettling = false;
+      this.railClosed(stored);
     }
   }
 }

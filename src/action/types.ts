@@ -753,6 +753,33 @@ export interface ActionInputSchemaAdapter {
   ): ActionInputSchemaResult;
 }
 
+/**
+ * Which transitions to list — every filter optional, all of them ANDed.
+ * `definition` takes the two forms `offers()` accepts; `binding` matches the
+ * exact ref object; `instance` compares the opaque string, never parses it.
+ */
+export interface ActionTransitionQuery {
+  readonly definition?: DefinedAction | ActionDefinitionRef;
+  readonly binding?: ActionBindingRef;
+  readonly instance?: string;
+  readonly invocationStatus?:
+    | ActionTransitionSnapshot['invocationStatus']
+    | readonly ActionTransitionSnapshot['invocationStatus'][];
+  readonly effectStatus?:
+    | ActionTransitionSnapshot['effectStatus']
+    | readonly ActionTransitionSnapshot['effectStatus'][];
+}
+
+/**
+ * How much settled history the runtime keeps. `keep` counts FULLY settled
+ * transitions (both rails terminal); past it the oldest are released, the
+ * way `forgetTransition` would. A pending row is never counted and never
+ * released.
+ */
+export interface ActionHistoryPolicy {
+  readonly keep: number;
+}
+
 export interface ActionRuntimeOptions {
   /**
    * `require-active` (default) rejects clauses this small runtime cannot
@@ -771,6 +798,9 @@ export interface ActionRuntimeOptions {
    * unchecked. A mounted catalog must be immutable — answers are memoized.
    */
   readonly kinds?: import('./kinds.js').KindCatalog;
+  /** Bound the settled history. Absent: every transition is kept until
+   *  `forgetTransition` releases it (the pre-2.6 behaviour). */
+  readonly history?: ActionHistoryPolicy;
 }
 
 /**
@@ -878,4 +908,10 @@ export interface ActionRuntime {
   ): ActionTransitionSnapshot | undefined;
   /** Release a fully settled transition from runtime history. */
   forgetTransition(transition: ActionTransitionRef): boolean;
+  /**
+   * Every retained transition matching the query, OLDEST INVOCATION FIRST —
+   * the order transitions were minted, which is the order a person or agent
+   * asked for them (not the order they settled).
+   */
+  transitions(query?: ActionTransitionQuery): readonly ActionTransitionSnapshot[];
 }
