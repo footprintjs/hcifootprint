@@ -39,3 +39,47 @@ describe('TransitionLedger · verified listeners', () => {
     expect(heard).toEqual([stored.ref.transitionId]);
   });
 });
+
+/**
+ * TransitionLedger · list — the `definition` filter matches the connected
+ * definition's REF OBJECT, never its id string (the declared-context law:
+ * the callable, not its id). Through the public runtime the one-callable-
+ * per-id guard makes the two agree, so the law is pinned here, at its owner:
+ * two rows whose definitions share an id but are different refs. Compare
+ * `definitionId` strings instead and the second row leaks into the answer.
+ */
+describe('TransitionLedger · list by definition', () => {
+  function rowFor(ledger: TransitionLedger, definition: object): StoredTransition {
+    const { transitionId, sequence } = ledger.mint();
+    const binding = Object.freeze({
+      kind: 'action-binding',
+      bindingId: `binding-${transitionId}`,
+      definition,
+      node: 'panel',
+    });
+    const stored = {
+      ref: Object.freeze({ transitionId, binding }) as unknown as ActionTransitionRef,
+      input: Object.freeze({ source: 'none' }),
+      sequence,
+      coverage: 'verifiable',
+      verificationDeclared: true,
+      attribution: Object.freeze({ principal: 'unknown', basis: 'unknown' }),
+      invocationStatus: 'performed',
+      effectStatus: 'unverified',
+    } as unknown as StoredTransition;
+    ledger.store(transitionId, stored);
+    return stored;
+  }
+
+  it('answers only the rows of that exact ref, even when another ref shares its id', () => {
+    const ledger = new TransitionLedger();
+    const declared = Object.freeze({ kind: 'action-definition', definitionId: 'panel.refetch' });
+    const sameId = Object.freeze({ kind: 'action-definition', definitionId: 'panel.refetch' });
+    const mine = rowFor(ledger, declared);
+    rowFor(ledger, sameId);
+    const listed = ledger.list({ definition: declared as never });
+    expect(listed.map((snapshot) => snapshot.ref.transitionId)).toEqual([
+      mine.ref.transitionId,
+    ]);
+  });
+});
