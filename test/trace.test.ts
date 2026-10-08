@@ -191,7 +191,8 @@ describe('footprint trace toolchain over a UI session', () => {
     okUpdate(s.updateState({ o: { a: 1, b: undefined } }, { stimulus: 'push' }));
     const last = s.commitLog().at(-1)!;
     expect(last.trace).toEqual([]);
-    expect(s.state()['o']).toEqual({ a: 1 });
+    // toStrictEqual: toEqual would ignore an own undefined `b` and pass either way.
+    expect(s.state()['o']).toStrictEqual({ a: 1 });
   });
 
   it('runtimeStageIds stay unique across unbounded revisits (monotonic counter)', () => {

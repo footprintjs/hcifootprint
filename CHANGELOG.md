@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.6.1] - 2026-10-07
+## [2.6.1] - 2026-10-08
 
 ### Fixed
 
@@ -33,11 +33,10 @@
   as an executor's land on its run's rule (before, each transition's
   `ScopeFacade` made a throwaway rule of its own). Nothing the session
   returns differs either way.
-  - **Why the range moves:** `runPolicy`, the `ExecutionRuntime` policy
-    argument and `newRoot` arrive in footprintjs 9.35.0 and the setters are
-    gone from 9.36.0, so no footprintjs release serves both the old code and
-    the new; `^9.44.1` is the release this patch is built and tested
-    against.
+  - **Why the range moves:** the new code needs footprintjs ≥ 9.35.0
+    (`runPolicy`, the `ExecutionRuntime` policy argument, `newRoot`), the
+    old code's setters are gone from 9.36.0, and `^9.44.1` is the release
+    this patch is built and tested against.
   - **What did not change:** for JSON-shaped state, a session's commit log
     is byte-identical to 2.6.0's on footprintjs 9.10.1 under both
     `commitValues` modes (values, verbs, `readKeys`, `redactedPaths`, the
@@ -64,9 +63,11 @@
   (footprintjs's compare has no arm for them). Pinned in
   `test/trace.test.ts`.
 - **A value that differs from state only by an own `undefined` field is no
-  change** (footprintjs 9.19.1): the session's own rule, that an
-  undefined-valued key reads as absent, now holds at every depth. Before,
-  it committed a `set`. Pinned in `test/trace.test.ts`.
+  change** (footprintjs 9.19.1). The net-change compare now reads an own
+  `undefined` field as absent at every depth, so a report that differs only
+  by one commits nothing; before, it committed a `set`. A value that changes
+  for another reason is still stored as reported, its `undefined` field
+  included. Pinned in `test/trace.test.ts`.
 - **`why(key)` can end with a footprintjs honesty note**, in the text a
   caller reads and in the served `why` tool a model reads
   (`src/serve/modes.ts`). The slice text (footprintjs `formatSlice`) adds a
