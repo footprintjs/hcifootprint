@@ -5,7 +5,7 @@
  * questions about the session with zero new query code.
  */
 import { describe, expect, it } from 'vitest';
-import { arrayProvenance, causalChain, formatCausalChain } from 'footprintjs/trace';
+import { arrayProvenance, causalChain, commitValueAt, formatCausalChain } from 'footprintjs/trace';
 import { shop, initialState, okUpdate, wire } from './fixture.js';
 import type { Session } from '../src/index.js';
 
@@ -98,12 +98,101 @@ describe('footprint trace toolchain over a UI session', () => {
     expect(births).toHaveLength(2);
   });
 
+  // THE DIALS REACH EVERY COMMIT. footprintjs 9.36.0 removed the per-dial
+  // StageContext setters this session called on each fresh frame; the dials now
+  // ride ONE frozen RunPolicy, handed to the session's ExecutionRuntime and held
+  // by every frame its `newRoot` makes (session.ts · #runtime, #commitDelta).
+  // Each dial leaves its own mark in the log, so a frame that commits under the
+  // defaults instead ('full', no provenance) fails both of these.
+  it("the default 'delta' dial reaches the frame: a grown cart commits only its tail; every row names the reads before it", () => {
+    const log = playSession().commitLog();
+    const cartRows = log.flatMap((b) =>
+      b.trace.filter((t) => t.path === 'cart').map((t) => ({ idx: b.idx, verb: t.verb, value: b.overwrite['cart'] })),
+    );
+    expect(cartRows).toEqual([
+      { idx: 1, verb: 'append', value: [{ id: 'p1' }] },
+      { idx: 2, verb: 'append', value: [{ id: 'p2' }] },
+    ]);
+    expect(commitValueAt(log, 2, 'cart')).toEqual([{ id: 'p1' }, { id: 'p2' }]);
+    // writeProvenance 'reads-prefix': every written row carries the guard keys read before it.
+    expect(log.flatMap((b) => b.trace).every((t) => Array.isArray(t.readKeys))).toBe(true);
+    const order = log.find((b) => b.runtimeStageId.startsWith('place-order'))!;
+    expect(order.trace.map((t) => t.path)).toEqual(['orderId']);
+    expect([...(order.trace[0].readKeys ?? [])].sort()).toEqual(['authenticated', 'cartCount']);
+  });
+
+  it("commitValues: 'full' reaches the frame too: the same cart is a set of its whole value, provenance unchanged", () => {
+    const log = playSession('full').commitLog();
+    const cartRows = log.flatMap((b) =>
+      b.trace.filter((t) => t.path === 'cart').map((t) => ({ idx: b.idx, verb: t.verb, value: b.overwrite['cart'] })),
+    );
+    expect(cartRows).toEqual([
+      { idx: 1, verb: 'set', value: [{ id: 'p1' }] },
+      { idx: 2, verb: 'set', value: [{ id: 'p1' }, { id: 'p2' }] },
+    ]);
+    expect(log.flatMap((b) => b.trace).every((t) => Array.isArray(t.readKeys))).toBe(true);
+  });
+
+  // This file is an ES module, so it runs in strict mode — where a plain
+  // assignment into a frozen object throws (sloppy code ignores it silently).
+  it('commitLog() hands out frozen bundles: a strict-mode write throws and the record stays what was committed', () => {
+    const s = playSession();
+    const bundle = s.commitLog()[1];
+    expect(Object.isFrozen(bundle)).toBe(true);
+    expect(() => {
+      (bundle.overwrite as Record<string, unknown>)['cartCount'] = 999;
+    }).toThrow(TypeError);
+    expect(s.commitLog()[1].overwrite['cartCount']).toBe(1);
+  });
+
   it('Date values survive settlement; undefined values are dropped from state (pinned semantics)', () => {
     const s = shop().createSession({ node: 'catalog', state: initialState });
     const u = okUpdate(s.updateState({ when: new Date('2026-07-02'), gone: undefined }, { stimulus: 'push' }));
     expect(u.transition.outcome).toBe('committed');
     expect(s.state()['when']).toBeInstanceOf(Date);
     expect('gone' in s.state()).toBe(false);
+  });
+
+  // Through footprintjs 9.21 a Date, Map or Set compared equal to ANY other (they
+  // have no own keys), so a report of a new one committed nothing and state()
+  // kept the old value while the row said 'committed'. footprintjs 9.22.0 gave
+  // its net-change compare typed arms (`equalPairs`).
+  it('a DIFFERENT Date, Map or Set is a change: it commits a set row and state() moves', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(
+      s.updateState(
+        { when: new Date('2026-07-02'), index: new Map([['k', 1]]), tags: new Set(['a']) },
+        { stimulus: 'push' },
+      ),
+    );
+    const u = okUpdate(
+      s.updateState(
+        { when: new Date('2026-07-03'), index: new Map([['k', 2]]), tags: new Set(['b']) },
+        { stimulus: 'push' },
+      ),
+    );
+    const last = s.commitLog().at(-1)!;
+    expect(last.runtimeStageId).toBe(u.transition.id);
+    expect(last.trace.map((t) => [t.path, t.verb])).toEqual([
+      ['when', 'set'],
+      ['index', 'set'],
+      ['tags', 'set'],
+    ]);
+    expect(s.state()['when']).toEqual(new Date('2026-07-03'));
+    expect(s.state()['index']).toEqual(new Map([['k', 2]]));
+    expect(s.state()['tags']).toEqual(new Set(['b']));
+  });
+
+  // The session reads an undefined-valued key as absent (above); since
+  // footprintjs 9.19.1 the net-change compare does too, at every depth.
+  it('a report that differs from state only by an own undefined field is no change: nothing commits', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(s.updateState({ o: { a: 1 } }, { stimulus: 'push' }));
+    okUpdate(s.updateState({ o: { a: 1, b: undefined } }, { stimulus: 'push' }));
+    const last = s.commitLog().at(-1)!;
+    expect(last.trace).toEqual([]);
+    // toStrictEqual: toEqual would ignore an own undefined `b` and pass either way.
+    expect(s.state()['o']).toStrictEqual({ a: 1 });
   });
 
   it('runtimeStageIds stay unique across unbounded revisits (monotonic counter)', () => {

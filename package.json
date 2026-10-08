@@ -1,6 +1,6 @@
 {
   "name": "hcifootprint",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Turn a web app's interaction surface into a typed, traversable journey graph an LLM can plan over — the frontend sibling of footprintjs.",
   "homepage": "https://footprintjs.github.io/hcifootprint/",
   "repository": {
@@ -70,10 +70,10 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
-    "footprintjs": "^9.10.1"
+    "footprintjs": "^9.44.1"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": ">=1.0.0",
