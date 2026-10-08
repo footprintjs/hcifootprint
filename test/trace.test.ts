@@ -100,9 +100,10 @@ describe('footprint trace toolchain over a UI session', () => {
 
   // THE DIALS REACH EVERY COMMIT. footprintjs 9.36.0 removed the per-dial
   // StageContext setters this session called on each fresh frame; the dials now
-  // ride ONE frozen RunPolicy (session.ts · #policy, installed by #commitDelta).
+  // ride ONE frozen RunPolicy, handed to the session's ExecutionRuntime and held
+  // by every frame its `newRoot` makes (session.ts · #runtime, #commitDelta).
   // Each dial leaves its own mark in the log, so a frame that commits under the
-  // defaults instead ('full', no provenance) fails one of these two.
+  // defaults instead ('full', no provenance) fails both of these.
   it("the default 'delta' dial reaches the frame: a grown cart commits only its tail; every row names the reads before it", () => {
     const log = playSession().commitLog();
     const cartRows = log.flatMap((b) =>
@@ -132,7 +133,9 @@ describe('footprint trace toolchain over a UI session', () => {
     expect(log.flatMap((b) => b.trace).every((t) => Array.isArray(t.readKeys))).toBe(true);
   });
 
-  it('commitLog() hands out frozen bundles: a write throws and the record stays what was committed', () => {
+  // This file is an ES module, so it runs in strict mode — where a plain
+  // assignment into a frozen object throws (sloppy code ignores it silently).
+  it('commitLog() hands out frozen bundles: a strict-mode write throws and the record stays what was committed', () => {
     const s = playSession();
     const bundle = s.commitLog()[1];
     expect(Object.isFrozen(bundle)).toBe(true);
@@ -148,6 +151,47 @@ describe('footprint trace toolchain over a UI session', () => {
     expect(u.transition.outcome).toBe('committed');
     expect(s.state()['when']).toBeInstanceOf(Date);
     expect('gone' in s.state()).toBe(false);
+  });
+
+  // Through footprintjs 9.21 a Date, Map or Set compared equal to ANY other (they
+  // have no own keys), so a report of a new one committed nothing and state()
+  // kept the old value while the row said 'committed'. footprintjs 9.22.0 gave
+  // its net-change compare typed arms (`equalPairs`).
+  it('a DIFFERENT Date, Map or Set is a change: it commits a set row and state() moves', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(
+      s.updateState(
+        { when: new Date('2026-07-02'), index: new Map([['k', 1]]), tags: new Set(['a']) },
+        { stimulus: 'push' },
+      ),
+    );
+    const u = okUpdate(
+      s.updateState(
+        { when: new Date('2026-07-03'), index: new Map([['k', 2]]), tags: new Set(['b']) },
+        { stimulus: 'push' },
+      ),
+    );
+    const last = s.commitLog().at(-1)!;
+    expect(last.runtimeStageId).toBe(u.transition.id);
+    expect(last.trace.map((t) => [t.path, t.verb])).toEqual([
+      ['when', 'set'],
+      ['index', 'set'],
+      ['tags', 'set'],
+    ]);
+    expect(s.state()['when']).toEqual(new Date('2026-07-03'));
+    expect(s.state()['index']).toEqual(new Map([['k', 2]]));
+    expect(s.state()['tags']).toEqual(new Set(['b']));
+  });
+
+  // The session reads an undefined-valued key as absent (above); since
+  // footprintjs 9.19.1 the net-change compare does too, at every depth.
+  it('a report that differs from state only by an own undefined field is no change: nothing commits', () => {
+    const s = shop().createSession({ node: 'catalog', state: initialState });
+    okUpdate(s.updateState({ o: { a: 1 } }, { stimulus: 'push' }));
+    okUpdate(s.updateState({ o: { a: 1, b: undefined } }, { stimulus: 'push' }));
+    const last = s.commitLog().at(-1)!;
+    expect(last.trace).toEqual([]);
+    expect(s.state()['o']).toEqual({ a: 1 });
   });
 
   it('runtimeStageIds stay unique across unbounded revisits (monotonic counter)', () => {

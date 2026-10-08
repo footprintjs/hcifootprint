@@ -5,59 +5,88 @@
 ### Fixed
 
 - **Runs on footprintjs 9.44 again; the floor is now `footprintjs ^9.44.1`.**
-  2.6.0 declared `^9.10.1`, so a fresh install resolves footprintjs 9.44.1,
-  and against it 2.6.0 does not compile (`Property 'useCommitValues' does
-  not exist on type 'StageContext'`) and every committed transition throws
-  `TypeError: ctx.useCommitValues is not a function` (702 of 3,366 tests
-  failed). footprintjs 9.35.0 put its four observability dials, the
-  redaction rule and the mirror flag on ONE frozen `RunPolicy`, held by
-  reference by every frame; 9.36.0 removed the per-dial `StageContext`
-  setters (`useCommitValues`, `useWriteProvenance`) the session called on
-  each fresh frame. The session now builds its policy once, at
-  construction, the way footprintjs's own executor builds a run's, and
-  installs it on every transition's frame (`src/traverse/session.ts ·
-  #policy`, `#commitDelta`), all through `footprintjs/advanced`:
+  Every published release before this one (0.2.0 through 2.6.0) declares
+  `footprintjs ^9.10.1`, so a fresh install today resolves footprintjs
+  9.44.1, and then every committed session transition throws
+  `TypeError: ctx.useCommitValues is not a function` (this repository's
+  own source stops compiling too; 702 of 3,366 tests failed). footprintjs
+  9.35.0 put its four observability dials, the redaction rule and the
+  mirror flag on ONE frozen `RunPolicy`, held by reference by every frame;
+  9.36.0 removed the per-dial `StageContext` setters (`useCommitValues`,
+  `useWriteProvenance`) the session called on each fresh frame. The session
+  now puts its run together the way footprintjs's own executor does — one
+  policy, built once and handed to an `ExecutionRuntime` — and takes every
+  transition's frame from that runtime with `newRoot`, the engine's own
+  door for a frame under the run's policy (`src/traverse/session.ts ·
+  #runtime`, `#commitDelta`). All through `footprintjs/advanced`; nothing
+  here re-derives how a frame is built:
 
   ```ts
-  runPolicy({ commitValues, writeProvenance: 'reads-prefix' }, new RedactionRule(), false); // once per session
-  ctx.usePolicy(policy); // on every transition's fresh StageContext
+  // once per session
+  const runtime = new ExecutionRuntime('session', 'session', undefined, initial,
+    runPolicy({ commitValues, writeProvenance: 'reads-prefix' }, new RedactionRule(), false));
+  // every transition: a fresh frame under that policy
+  const ctx = runtime.newRoot(stageName, stageName);
   ```
 
   The per-call marks for `redactedKeys` now land on that one session rule,
   as an executor's land on its run's rule (before, each transition's
-  `ScopeFacade` made a throwaway rule of its own).
-  - **Why a floor and not a pin:** `runPolicy` and `usePolicy` arrive in
-    footprintjs 9.35.0 and the setters are gone from 9.36.0, so no range
-    serves both; `^9.44.1` is the release this patch is built and tested
+  `ScopeFacade` made a throwaway rule of its own). Nothing the session
+  returns differs either way.
+  - **Why the range moves:** `runPolicy`, the `ExecutionRuntime` policy
+    argument and `newRoot` arrive in footprintjs 9.35.0 and the setters are
+    gone from 9.36.0, so no footprintjs release serves both the old code and
+    the new; `^9.44.1` is the release this patch is built and tested
     against.
-  - **The record is unchanged:** a session's commit log is byte-identical
-    to 2.6.0's on footprintjs 9.10.1 under both `commitValues` modes
-    (values, verbs, `readKeys`, `redactedPaths`, the `'REDACTED'`
-    placeholder), compared over the trace fixture's whole session. No
-    public hcifootprint API changed.
+  - **What did not change:** for JSON-shaped state, a session's commit log
+    is byte-identical to 2.6.0's on footprintjs 9.10.1 under both
+    `commitValues` modes (values, verbs, `readKeys`, `redactedPaths`, the
+    `'REDACTED'` placeholder), and so are `state()`, `transitions()`,
+    `readsByStep()` and `contextBrief()`. Compared over the trace fixture's
+    session and a wider one: a rejected fire, a first Date and nested values
+    pushed, an array grown, shrunk and replaced, same-value and undefined
+    reports, redacted keys rewritten after guard reads, navigation syncs. No
+    public hcifootprint API changed. What does change is below.
   - **Pinned:** two tests in `test/trace.test.ts` read each dial's mark off
     the log: the `'delta'` default commits a grown cart as an `append` of
     its tail, `'full'` as a `set` of the whole array, and every row carries
-    `readKeys`. Before them, a frame committing under footprintjs's
-    defaults passed all 3,366 tests.
+    `readKeys`. Before them, a session whose frames committed under
+    footprintjs's defaults passed all 3,366 tests.
 
-### Changed — what the footprintjs upgrade (9.10.1 → 9.44.1) shows through this API
+### Changed — what the footprintjs upgrade (9.10.1 → 9.44.1) changes through this API
 
-- **`why(key)` can end with a footprintjs honesty note.** The slice text
-  (footprintjs `formatSlice`) adds a `⚠` line when its answer is partial: a
-  key with no whole-value write in the log (under the default `'delta'`, an
-  array only ever appended to, whose base is not in the bundles the slice
-  reads) and a key that was redacted when it was written. On the trace
-  fixture's session every existing line is unchanged; the note is a line
-  added at the end.
-- **`commitLog()` hands out frozen bundles** (footprintjs 9.33.0). A write
-  into one now throws a `TypeError` instead of silently rewriting the
-  record every later reader sees. Pinned in `test/trace.test.ts`.
+- **A different `Date`, `Map` or `Set` is now a change** (footprintjs
+  9.22.0). Through footprintjs 9.21 any two of a kind compared equal, so
+  `updateState({ when: laterDate })` over an earlier Date committed nothing,
+  and `state()`, guards and `contextBrief()` kept the old value while the
+  transition read `committed`. Now it commits a `set` row and state moves,
+  at any depth. A different `RegExp` or `Error` still nets out, as before
+  (footprintjs's compare has no arm for them). Pinned in
+  `test/trace.test.ts`.
+- **A value that differs from state only by an own `undefined` field is no
+  change** (footprintjs 9.19.1): the session's own rule, that an
+  undefined-valued key reads as absent, now holds at every depth. Before,
+  it committed a `set`. Pinned in `test/trace.test.ts`.
+- **`why(key)` can end with a footprintjs honesty note**, in the text a
+  caller reads and in the served `why` tool a model reads
+  (`src/serve/modes.ts`). The slice text (footprintjs `formatSlice`) adds a
+  `⚠` line when its answer is partial: a key that was redacted when it was
+  written, and a key with no whole-value write in the log (under the
+  default `'delta'`, an array only ever appended to, whose base is not in
+  the bundles the slice reads). In every session compared, the existing
+  lines are unchanged and the note is added after them.
+- **`commitLog()` hands out frozen bundles** (footprintjs 9.33.0); treat
+  them as read-only. A plain assignment into one now throws in strict-mode
+  code (ES modules) and is ignored in sloppy code; before, it silently
+  rewrote the record every later reader sees. What `Object.freeze` cannot
+  seal (a Date's time, a Map's or Set's entries, typed-array bytes) can
+  still be changed in place. Pinned in `test/trace.test.ts` (strict mode).
 - **The re-exported `CommitBundle` type gains footprintjs's optional
   `tags?` and `phase?`.** A session's bundles carry neither.
-- **Node:** footprintjs 9.42.0 and later declare `engines.node >= 22`.
-  hcifootprint's own `engines` field is unchanged in this patch; CI runs
-  Node 22.
+- **Node:** footprintjs 9.42.0 and later declare `engines.node >= 22`, so
+  on Node 20 or 21 npm prints an `EBADENGINE` warning for it, and an
+  `engine-strict` install fails. hcifootprint's own `engines` field is
+  unchanged in this patch; CI tests Node 22 only.
 
 ## [2.6.0] - 2026-09-30
 

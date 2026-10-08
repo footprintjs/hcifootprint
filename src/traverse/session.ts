@@ -5,10 +5,11 @@
  * branch. A live UI is inverted: the user/agent drives edge-by-edge, and from
  * any node the driver exposes all guard-passing edges and waits for the world
  * to pick one. So this driver never touches footprint's engine. It reuses the
- * transactional memory/commit/trace stack instead:
+ * transactional memory/commit/trace stack instead — one ExecutionRuntime per
+ * session (footprint's frame-and-run-policy layer, not its executor):
  *
  *   one fired-or-stimulus transition
- *     → one fresh StageContext (runId '' = root namespace)
+ *     → one fresh StageContext from `runtime.newRoot` (runId '' = root namespace)
  *     → tracked reads (guard keys) + tracked writes (the settled delta)
  *     → commit() → one CommitBundle in the EventLog
  *
@@ -23,11 +24,9 @@
  * runtimeStageId uniqueness via a monotonic counter.
  */
 import {
-  EventLog,
+  ExecutionRuntime,
   RedactionRule,
   ScopeFacade,
-  SharedMemory,
-  StageContext,
   buildRuntimeStageId,
   createExecutionCounter,
   evaluateFilter,
@@ -37,7 +36,6 @@ import type {
   CommitBundle,
   ExecutionCounter,
   FilterCondition,
-  RunPolicy,
 } from "footprintjs/advanced";
 import { detectSchema } from "footprintjs";
 import type {
@@ -570,8 +568,29 @@ export class Session {
   /** Fingerprint of the served structure at the last coalesced flush. */
   #structureFingerprint = "";
   #structureFlushScheduled = false;
-  readonly #heap: SharedMemory;
-  readonly #log: EventLog;
+  /**
+   * This session's footprintjs run: the heap (`globalStore`), the commit log
+   * (`executionHistory`) and ONE run policy, put together the way footprintjs's
+   * own executor puts a run together (`FlowChartExecutor · createTraverser`:
+   * `runPolicy(dials, rule, mirror)` handed to `new ExecutionRuntime`). Every
+   * transition takes a fresh frame from it with `newRoot` — the engine's own
+   * door for a frame under the run's policy (`#commitDelta`) — so each frame
+   * holds the policy BY REFERENCE and this file never re-derives how a frame is
+   * built. The session is the run: no transition commits under another dial.
+   *
+   * - Dials: `commitValues` from SessionOptions (default 'delta');
+   *   `writeProvenance: 'reads-prefix'` always, so each committed write names
+   *   the guard keys read before it — what `why`'s slice attributes with.
+   * - Rule: ONE `RedactionRule` for the session — the per-call marks
+   *   `#commitDelta` makes for `redactedKeys` land on it, as an executor's do
+   *   on its run's rule. Without one, each transition's ScopeFacade would make
+   *   a throwaway rule of its own (its bare-frame fallback, `ScopeFacade ·
+   *   rule`) and swap a derived policy onto the frame. Nothing the session
+   *   returns differs either way; the commit log carries 'REDACTED' for
+   *   `redactedKeys` through the per-call mark.
+   * - No mirror: the session serves no redacted heap.
+   */
+  readonly #runtime: ExecutionRuntime;
   readonly #counter: ExecutionCounter;
   readonly #redacted: Set<string>;
   /**
@@ -593,25 +612,6 @@ export class Session {
    * gate comparing real values while the rendered copies carry markers.
    */
   readonly #redactedFields: RedactedFields;
-  /**
-   * This session's footprintjs run policy, built ONCE the way footprintjs's own
-   * executor builds a run's (`FlowChartExecutor · createTraverser` →
-   * `runPolicy(dials, rule, mirror)`) and installed BY REFERENCE on every fresh
-   * StageContext (`#commitDelta`). The session is the run: no transition can
-   * commit under a different dial than the rest.
-   *
-   * - Dials: `commitValues` from SessionOptions (default 'delta');
-   *   `writeProvenance: 'reads-prefix'` always, so each committed write names
-   *   the guard keys read before it — what `why`'s slice attributes with.
-   * - Rule: ONE `RedactionRule` for the session — the per-call marks
-   *   `#commitDelta` makes for `redactedKeys` land on it, as an executor's do
-   *   on its run's rule. Without one, each transition's ScopeFacade would make
-   *   a throwaway rule of its own (its bare-frame fallback, `ScopeFacade ·
-   *   rule`) and swap a derived policy onto the frame.
-   * - No mirror: the session keeps no redacted heap (only an ExecutionRuntime
-   *   installs one; the commit log carries 'REDACTED' for `redactedKeys`).
-   */
-  readonly #policy: RunPolicy;
   readonly #transitions: TransitionRecord[] = [];
   readonly #pending: PendingTransition[] = [];
   /**
@@ -1004,8 +1004,23 @@ export class Session {
       opts.effectPolicy?.highEffectRequiresVerify === true;
     this.#now = opts.now ?? Date.now;
     const initial = structuredClone(opts.state ?? {});
-    this.#log = new EventLog(initial);
-    this.#heap = new SharedMemory(undefined, initial);
+    // MUTATION PROOF: build the runtime without this policy (footprintjs's
+    // defaults: 'full', no read provenance) and the two dial tests in
+    // test/trace.test.ts go red — every frame commits under it, via `newRoot`.
+    this.#runtime = new ExecutionRuntime(
+      "session",
+      "session",
+      undefined,
+      initial,
+      runPolicy(
+        {
+          commitValues: opts.commitValues ?? "delta",
+          writeProvenance: "reads-prefix",
+        },
+        new RedactionRule(),
+        false,
+      ),
+    );
     this.#counter = createExecutionCounter();
     this.#redacted = new Set(opts.redactedKeys ?? []);
     // Detached at construction: a consumer mutating the array they passed must not
@@ -1019,14 +1034,6 @@ export class Session {
         ? { produced: [...opts.redactedFields.produced] }
         : {}),
     };
-    this.#policy = runPolicy(
-      {
-        commitValues: opts.commitValues ?? "delta",
-        writeProvenance: "reads-prefix",
-      },
-      new RedactionRule(),
-      false,
-    );
     this.#warn = opts.onWarn ?? ((message) => console.warn(message));
     this.#registry = new ActionRegistry(this.#warn);
     // Detached at construction, exactly as `redactedFields` above is and for the
@@ -5657,11 +5664,15 @@ export class Session {
 
   /**
    * The footprintjs commit log: one bundle per SETTLED/stimulus/sync transition.
-   * The bundles are footprintjs's own, frozen when recorded (footprintjs
-   * 9.33.0): a write into one throws instead of rewriting the session's record.
+   * The bundles are footprintjs's own record, frozen when recorded (footprintjs
+   * 9.33.0) — treat them as read-only. A plain assignment into one throws in
+   * strict-mode code (ES modules) and is silently ignored in sloppy code; what
+   * `Object.freeze` cannot seal (a Date's time, a Map's or Set's entries, a
+   * typed array's bytes) can still be changed in place, and that would change
+   * the record for every later reader.
    */
   commitLog(): CommitBundle[] {
-    return [...this.#log.list()];
+    return [...this.#runtime.executionHistory.list()];
   }
 
   /**
@@ -5677,7 +5688,7 @@ export class Session {
   /** "Why does this state key hold its value?" — footprint backward slice, formatted. */
   why(key: string): string {
     const slice = sliceForKey(
-      this.#log.list(),
+      this.#runtime.executionHistory.list(),
       key,
       keysReadFromMap(this.#readsByStep),
     );
@@ -7183,7 +7194,7 @@ export class Session {
   #changedKeysById(): Map<string, string[]> {
     /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: footprintjs declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
     return new Map(
-      this.#log
+      this.#runtime.executionHistory
         .list()
         .map((b) => [
           b.runtimeStageId,
@@ -7903,7 +7914,7 @@ export class Session {
 
   #stateView(): Record<string, unknown> {
     /* v8 ignore next -- the `?? {}` arm is unreachable: the heap is constructed with the session's initial state, so it always has one to answer with. */
-    return (this.#heap.getState() ?? {}) as Record<string, unknown>;
+    return (this.#runtime.globalStore.getState() ?? {}) as Record<string, unknown>;
   }
 
   /**
@@ -8376,20 +8387,10 @@ export class Session {
     readKeys: string[],
     delta: Record<string, unknown>,
   ): void {
-    const ctx = new StageContext(
-      "",
-      stageName,
-      stageName,
-      this.#heap,
-      "",
-      this.#log,
-    );
+    // A fresh root frame under the session's policy (`ExecutionRuntime ·
+    // newRoot`): runId '' and no parent, so nothing retains it after commit.
+    const ctx = this.#runtime.newRoot(stageName, stageName);
     ctx.runtimeStageId = runtimeStageId;
-    // MUTATION PROOF: drop this line and the frame commits under footprintjs's
-    // defaults ('full', no read provenance) without a word; the two dial tests
-    // in trace.test.ts go red (the 'delta' default, the 'full' option) — and
-    // nothing else in the suite does.
-    ctx.usePolicy(this.#policy);
     const scope = new ScopeFacade(ctx, stageName);
     scope.attachScopeRecorder(this.#recorder);
     for (const key of readKeys) scope.getValue(key);
