@@ -5,7 +5,7 @@
  * questions about the session with zero new query code.
  */
 import { describe, expect, it } from 'vitest';
-import { arrayProvenance, causalChain, formatCausalChain } from 'footprintjs/trace';
+import { arrayProvenance, causalChain, commitValueAt, formatCausalChain } from 'footprintjs/trace';
 import { shop, initialState, okUpdate, wire } from './fixture.js';
 import type { Session } from '../src/index.js';
 
@@ -96,6 +96,50 @@ describe('footprint trace toolchain over a UI session', () => {
     expect(s.why('cart')).toContain('add-to-cart');
     const births = arrayProvenance(s.commitLog(), 'cart').births ?? [];
     expect(births).toHaveLength(2);
+  });
+
+  // THE DIALS REACH EVERY COMMIT. footprintjs 9.36.0 removed the per-dial
+  // StageContext setters this session called on each fresh frame; the dials now
+  // ride ONE frozen RunPolicy (session.ts · #policy, installed by #commitDelta).
+  // Each dial leaves its own mark in the log, so a frame that commits under the
+  // defaults instead ('full', no provenance) fails one of these two.
+  it("the default 'delta' dial reaches the frame: a grown cart commits only its tail; every row names the reads before it", () => {
+    const log = playSession().commitLog();
+    const cartRows = log.flatMap((b) =>
+      b.trace.filter((t) => t.path === 'cart').map((t) => ({ idx: b.idx, verb: t.verb, value: b.overwrite['cart'] })),
+    );
+    expect(cartRows).toEqual([
+      { idx: 1, verb: 'append', value: [{ id: 'p1' }] },
+      { idx: 2, verb: 'append', value: [{ id: 'p2' }] },
+    ]);
+    expect(commitValueAt(log, 2, 'cart')).toEqual([{ id: 'p1' }, { id: 'p2' }]);
+    // writeProvenance 'reads-prefix': every written row carries the guard keys read before it.
+    expect(log.flatMap((b) => b.trace).every((t) => Array.isArray(t.readKeys))).toBe(true);
+    const order = log.find((b) => b.runtimeStageId.startsWith('place-order'))!;
+    expect(order.trace.map((t) => t.path)).toEqual(['orderId']);
+    expect([...(order.trace[0].readKeys ?? [])].sort()).toEqual(['authenticated', 'cartCount']);
+  });
+
+  it("commitValues: 'full' reaches the frame too: the same cart is a set of its whole value, provenance unchanged", () => {
+    const log = playSession('full').commitLog();
+    const cartRows = log.flatMap((b) =>
+      b.trace.filter((t) => t.path === 'cart').map((t) => ({ idx: b.idx, verb: t.verb, value: b.overwrite['cart'] })),
+    );
+    expect(cartRows).toEqual([
+      { idx: 1, verb: 'set', value: [{ id: 'p1' }] },
+      { idx: 2, verb: 'set', value: [{ id: 'p1' }, { id: 'p2' }] },
+    ]);
+    expect(log.flatMap((b) => b.trace).every((t) => Array.isArray(t.readKeys))).toBe(true);
+  });
+
+  it('commitLog() hands out frozen bundles: a write throws and the record stays what was committed', () => {
+    const s = playSession();
+    const bundle = s.commitLog()[1];
+    expect(Object.isFrozen(bundle)).toBe(true);
+    expect(() => {
+      (bundle.overwrite as Record<string, unknown>)['cartCount'] = 999;
+    }).toThrow(TypeError);
+    expect(s.commitLog()[1].overwrite['cartCount']).toBe(1);
   });
 
   it('Date values survive settlement; undefined values are dropped from state (pinned semantics)', () => {

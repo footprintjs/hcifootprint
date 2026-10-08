@@ -8,6 +8,7 @@ The commit discipline that makes footprint's toolchain work unchanged on UI sess
 
 ```
 one settled transition → one fresh StageContext (runId '')
+  → ctx.usePolicy(the session's ONE RunPolicy)
   → tracked reads (guard keys) + tracked writes (the settled delta)
   → commit() → one CommitBundle
 ```
@@ -17,6 +18,15 @@ so `causalChain` / `sliceForKey` / `arrayProvenance` answer "why is the app in t
 Also lives here: CAS on `cursorVersion` + guard re-evaluation at fire time · settlement/attribution (transitionId-precise > explicit-stimulus > FIFO) · tier-2 effect-signature inference (exactly-one match, `inferred` flag) · journey frames (commit/leave/demote, derived dependency DAG) · `contextBrief()` (the traverse-path delta, authored strings only).
 
 Longevity rules (from the footprint execution-model adjudication): fresh context per transition (never `createNext`), `runId` stays `''`, monotonic `runtimeStageId` counter.
+
+**One run policy per session (2.6.1).** footprintjs's dials ride ONE frozen `RunPolicy` (footprintjs 9.35.0; the per-dial `StageContext` setters were removed in 9.36.0). The session builds it once, the way footprintjs's own executor builds a run's, and every transition's frame holds it by reference (`session.ts · #policy`, `#commitDelta`):
+
+```ts
+// SessionOptions.commitValues (default 'delta'); read provenance always on, for why()
+runPolicy({ commitValues, writeProvenance: 'reads-prefix' }, new RedactionRule(), false);
+```
+
+Each dial leaves a mark in the log — `'delta'` commits a grown array as an `append` of its tail, `'reads-prefix'` puts `readKeys` on every row — and `test/trace.test.ts` reads both marks back, so a frame that slips back to footprintjs's defaults fails there.
 
 ## settlement.ts + handler-result.ts — "was it actually done?"
 
