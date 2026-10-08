@@ -84,10 +84,12 @@
   still be changed in place. Pinned in `test/trace.test.ts` (strict mode).
 - **The re-exported `CommitBundle` type gains footprintjs's optional
   `tags?` and `phase?`.** A session's bundles carry neither.
-- **Node:** footprintjs 9.42.0 and later declare `engines.node >= 22`, so
-  on Node 20 or 21 npm prints an `EBADENGINE` warning for it, and an
-  `engine-strict` install fails. hcifootprint's own `engines` field is
-  unchanged in this patch; CI tests Node 22 only.
+- **Node 22 or later is required.** footprintjs 9.42.0 and later declare
+  `engines.node >= 22`, so hcifootprint, which needs footprintjs ^9.44.1,
+  cannot run on older Node versions either. Its own `engines` field now
+  says so (`>=22`, was `>=20`). On Node 20 or 21, npm prints an
+  `EBADENGINE` warning, and an `engine-strict` install fails. CI tests
+  Node 22.
 
 ## [2.6.0] - 2026-09-30
 
