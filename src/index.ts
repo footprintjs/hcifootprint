@@ -44,7 +44,7 @@ export type { RouteStep } from './graph/reach.js';
 // `CommitBundle[]` and `toMCPTools()` hands back `MCPToolDescription[]`; both
 // are footprintjs types, and a consumer should not have to know that to write
 // down what they were given.
-export type { CommitBundle } from 'footprintjs/advanced';
+export type { CommitBundle } from 'footprintjs/trace';
 export type { MCPToolDescription } from 'footprintjs';
 // Versioned Action Binding Protocol: one callable definition, many live
 // bindings, and structured identities for every join. This is the deliberate

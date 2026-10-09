@@ -2,13 +2,13 @@
 
 **Job:** the `traverse()` counterpart to footprintjs's `run()`. A `Session` is a traversal moved **one edge at a time from outside** — `fire()` (agent), wrapped triggers / the future DOM sensor (user), `sync()` (world) — all into ONE footprint commit log with provenance.
 
-**Depends on:** `atom/`, `registry/`, `serve/`, and footprintjs's memory/commit/trace machinery — its frame-and-run-policy layer, `ExecutionRuntime` included (deliberately NOT its executor).
+**Depends on:** `atom/`, `registry/`, `serve/`, and footprintjs's record — written through `footprintjs/write` (the record layer footprintjs's own engine writes with) and read through `footprintjs/trace`. Deliberately NOT its executor, frame or scope.
 
 The commit discipline that makes footprint's toolchain work unchanged on UI sessions:
 
 ```
-one settled transition → one fresh StageContext from runtime.newRoot (runId '', under the session's ONE RunPolicy)
-  → tracked reads (guard keys) + tracked writes (the settled delta)
+one settled transition → one fresh RecordFrame at the root address (under the session's ONE encoding)
+  → noted reads (guard keys) + staged writes (the settled delta)
   → commit() → one CommitBundle
 ```
 
@@ -16,19 +16,26 @@ so `causalChain` / `sliceForKey` / `arrayProvenance` answer "why is the app in t
 
 Also lives here: CAS on `cursorVersion` + guard re-evaluation at fire time · settlement/attribution (transitionId-precise > explicit-stimulus > FIFO) · tier-2 effect-signature inference (exactly-one match, `inferred` flag) · journey frames (commit/leave/demote, derived dependency DAG) · `contextBrief()` (the traverse-path delta, authored strings only).
 
-Longevity rules (from the footprint execution-model adjudication): fresh context per transition (never `createNext`), `runId` stays `''`, monotonic `runtimeStageId` counter.
+Longevity rules (from the footprint execution-model adjudication): a fresh frame per transition (nothing holds it after its commit), every write at the root address, monotonic `runtimeStageId` counter.
 
-**One run per session (2.6.1).** footprintjs's dials ride ONE frozen `RunPolicy` (footprintjs 9.35.0; the per-dial `StageContext` setters were removed in 9.36.0). The session puts its run together the way footprintjs's own executor does, and never builds a frame by hand: one `ExecutionRuntime` holds the heap, the commit log and the policy, and each transition's frame comes from `newRoot`, so it holds the policy by reference (`session.ts · #runtime`, `#commitDelta`):
+**One record per session, written through `footprintjs/write` (2.7.0).** footprintjs 9.47.0 made its record layer the public way to write a record: the heap (`SharedMemory`), the log (`EventLog`) and one step's frame (`RecordFrame`), the classes its own engine writes with. The session holds the heap, the log and ONE frozen encoding, and builds a fresh frame per transition (`session.ts · #state`, `#log`, `#encoding`, `#commitDelta`). Before 2.7.0 it borrowed the engine's frame for this (`ExecutionRuntime` + `newRoot` + a `ScopeFacade` with a read tap); the record is byte-identical either way:
 
 ```ts
 // once per session — SessionOptions.commitValues (default 'delta'); read provenance always on, for why()
-const runtime = new ExecutionRuntime('session', 'session', undefined, initial,
-  runPolicy({ commitValues, writeProvenance: 'reads-prefix' }, new RedactionRule(), false));
+const state = new SharedMemory(undefined, initial);
+const log = new EventLog(state.getState());
+const encoding = Object.freeze({ commitValues, writeProvenance: 'reads-prefix' });
 // every transition
-const ctx = runtime.newRoot(stageName, stageName);
+const frame = new RecordFrame(state, log);
+frame.useEncoding(encoding);
+for (const key of guardKeys) frame.noteRead([], key);
+for (const [key, value] of Object.entries(delta)) {
+  frame.write(frame.at([], key), value, 'set', redactedKeys.has(key) ? { whole: true } : undefined);
+}
+frame.commit(() => ({ stage: stageName, stageId: stageName, runtimeStageId }));
 ```
 
-Each dial leaves a mark in the log — `'delta'` commits a grown array as an `append` of its tail, `'reads-prefix'` puts `readKeys` on every row — and `test/trace.test.ts` reads both marks back, so a frame that slips back to footprintjs's defaults fails there.
+Each dial leaves a mark in the log — `'delta'` commits a grown array as an `append` of its tail, `'reads-prefix'` puts `readKeys` on every row — and `test/trace.test.ts` reads both marks back, so a frame that slips back to footprintjs's defaults fails there. A `redactedKeys` write carries the whole-value scrub, so the log holds footprintjs's `'REDACTED'` and the heap the value; the redaction test in the same file reads both.
 
 ## settlement.ts + handler-result.ts — "was it actually done?"
 
