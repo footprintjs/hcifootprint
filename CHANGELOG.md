@@ -30,11 +30,13 @@
   sessions of `test/trace.test.ts` — both `commitValues` encodings, a
   redacted key, the growing cart, a Date, a changed Date/Map/Set, an
   own-`undefined` report, 25 revisits — and a commit out of mint order).
-  Replayed through this release's constructor and `#commitDelta`, copied
-  verbatim into that fixture, they give the stored commit log, fold base,
-  state and reads; and the seven sessions played on this release give the
-  same commit log, `state()` and `readsByStep()`. No public hcifootprint API
-  changed.
+  Replayed through the calls this release's constructor and `#commitDelta`
+  make (copied into that fixture, with the session's fields replaced by the
+  captured values), they give the stored commit log, fold base, state and
+  reads. And the seven sessions played on this release give the same commit
+  log, `state()` and `readsByStep()`, pinned here too:
+  `test/record-bytes.test.ts`, against those recorded bytes vendored from the
+  fixture. No public hcifootprint API changed.
   - **Redaction is per key, as before.** A `redactedKeys` write has always
     carried the redaction flag; the log shows `'REDACTED'`, the heap the
     value. footprintjs's engine also keeps the rule of an OBJECT read under a
@@ -44,7 +46,7 @@
     a redacted key), so it is not carried over.
   - **One edge kept on purpose:** a guard key that is the empty string is
     named on the bundle's `readKeys` but not filed in `readsByStep()`, as
-    2.6.1's read tap skipped it.
+    2.6.1's read tap skipped it (pinned in `test/trace.test.ts`).
 - **Why the range moves:** `footprintjs/write` and the record types on
   `footprintjs/trace` arrive in footprintjs 9.47.0, and the `/advanced`
   names 2.6.1 imported are gone from it, so no range serves both.

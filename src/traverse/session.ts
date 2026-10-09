@@ -5672,7 +5672,11 @@ export class Session {
     return formatSlice(slice);
   }
 
-  /** runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup). */
+  /**
+   * runtimeStageId → the guard keys each committed transition read, in guard
+   * order (feed to causalChain's keysRead lookup). An empty key name is left out
+   * here, as 2.6.1 left it out; the bundle's `readKeys` still names it.
+   */
   readsByStep(): ReadonlyMap<string, string[]> {
     return this.#readsByStep;
   }
