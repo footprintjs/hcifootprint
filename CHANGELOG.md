@@ -11,10 +11,11 @@
   session borrowed the engine's frame to write its log: an `ExecutionRuntime`,
   a frame from `newRoot` per transition, a `ScopeFacade` over it, and a
   `ScopeRecorder` read tap to collect the guard keys it read
-  (`footprintjs/advanced`). Same 9.47.0 release: the record's own names
-  leave `footprintjs/advanced` (`buildRuntimeStageId`,
-  `createExecutionCounter`, `ExecutionCounter`, `CommitBundle` are on
-  `footprintjs/trace` only), so 2.6.1 does not load on footprintjs 9.47.0.
+  (`footprintjs/advanced`). In the same release the record's own names
+  get their own doors (`buildRuntimeStageId`, `createExecutionCounter`,
+  `ExecutionCounter`, `CommitBundle` on `footprintjs/trace`); footprintjs
+  keeps the old `/advanced` doors until its 10.0.0, so 2.6.1 keeps working
+  on 9.47.0, and this release imports them from their new door.
 - **What changed.** One session = one heap, one log and one frozen encoding
   (`src/traverse/session.ts · #state`, `#log`, `#encoding`); one transition =
   one fresh `RecordFrame` at the root address (`#commitDelta`): each guard
@@ -48,8 +49,7 @@
     named on the bundle's `readKeys` but not filed in `readsByStep()`, as
     2.6.1's read tap skipped it (pinned in `test/trace.test.ts`).
 - **Why the range moves:** `footprintjs/write` and the record types on
-  `footprintjs/trace` arrive in footprintjs 9.47.0, and the `/advanced`
-  names 2.6.1 imported are gone from it, so no range serves both.
+  `footprintjs/trace` arrive in footprintjs 9.47.0, so it is the floor.
 
 ## [2.6.1] - 2026-10-08
 
