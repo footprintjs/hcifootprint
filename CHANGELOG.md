@@ -1,5 +1,56 @@
 # Changelog
 
+## [2.7.0] - 2026-10-09
+
+### Changed — the session writes its record through `footprintjs/write`; the floor is now `footprintjs ^9.47.0`
+
+- **Why.** footprintjs 9.47.0 makes its record layer the public way to write
+  a record: a new door, `footprintjs/write`, hands out the heap
+  (`SharedMemory`), the log (`EventLog`) and one step's frame
+  (`RecordFrame`) — the classes its own engine writes with. Until now a
+  session borrowed the engine's frame to write its log: an `ExecutionRuntime`,
+  a frame from `newRoot` per transition, a `ScopeFacade` over it, and a
+  `ScopeRecorder` read tap to collect the guard keys it read
+  (`footprintjs/advanced`). In the same release the record's own names
+  get their own doors (`buildRuntimeStageId`, `createExecutionCounter`,
+  `ExecutionCounter`, `CommitBundle` on `footprintjs/trace`); footprintjs
+  keeps the old `/advanced` doors until its 10.0.0, so 2.6.1 keeps working
+  on 9.47.0, and this release imports them from their new door.
+- **What changed.** One session = one heap, one log and one frozen encoding
+  (`src/traverse/session.ts · #state`, `#log`, `#encoding`); one transition =
+  one fresh `RecordFrame` at the root address (`#commitDelta`): each guard
+  key is NOTED on the frame (`noteRead`), each reported key staged as a
+  `set` — a `redactedKeys` key with the whole-value scrub — and the frame
+  committed under the transition's names. The session files the guard keys
+  itself for `readsByStep()` and `why()`; the read tap is gone. The
+  runtimeStageId counter and the record types come from `footprintjs/trace`.
+  The re-exported `CommitBundle` type is footprintjs's same type, now
+  re-exported from `footprintjs/trace`.
+- **What did not change: the record, byte for byte.** footprintjs pins
+  2.6.1's real transitions (its `test/fixtures/hcifootprint/`: the six
+  sessions of `test/trace.test.ts` — both `commitValues` encodings, a
+  redacted key, the growing cart, a Date, a changed Date/Map/Set, an
+  own-`undefined` report, 25 revisits — and a commit out of mint order).
+  Replayed through the calls this release's constructor and `#commitDelta`
+  make (copied into that fixture, with the session's fields replaced by the
+  captured values), they give the stored commit log, fold base, state and
+  reads. And the seven sessions played on this release give the same commit
+  log, `state()` and `readsByStep()`, pinned here too:
+  `test/record-bytes.test.ts`, against those recorded bytes vendored from the
+  fixture. No public hcifootprint API changed.
+  - **Redaction is per key, as before.** A `redactedKeys` write has always
+    carried the redaction flag; the log shows `'REDACTED'`, the heap the
+    value. footprintjs's engine also keeps the rule of an OBJECT read under a
+    redacted key and written under another name in the same step; that
+    never applied here, because a session's committed values never reach a
+    caller by reference (`state()` serves a clone, and guard evidence masks
+    a redacted key), so it is not carried over.
+  - **One edge kept on purpose:** a guard key that is the empty string is
+    named on the bundle's `readKeys` but not filed in `readsByStep()`, as
+    2.6.1's read tap skipped it (pinned in `test/trace.test.ts`).
+- **Why the range moves:** `footprintjs/write` and the record types on
+  `footprintjs/trace` arrive in footprintjs 9.47.0, so it is the floor.
+
 ## [2.6.1] - 2026-10-08
 
 ### Fixed

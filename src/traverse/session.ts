@@ -4,13 +4,14 @@
  * footprint's executor drives a chart to completion and its decide() picks one
  * branch. A live UI is inverted: the user/agent drives edge-by-edge, and from
  * any node the driver exposes all guard-passing edges and waits for the world
- * to pick one. So this driver never touches footprint's engine. It reuses the
- * transactional memory/commit/trace stack instead — one ExecutionRuntime per
- * session (footprint's frame-and-run-policy layer, not its executor):
+ * to pick one. So this driver never touches footprint's engine. It writes
+ * footprint's record directly instead, through `footprintjs/write` — the
+ * record layer footprint's own engine writes with: a heap, a commit log and
+ * one `RecordFrame` per transition (no StageContext, scope or executor):
  *
  *   one fired-or-stimulus transition
- *     → one fresh StageContext from `runtime.newRoot` (runId '' = root namespace)
- *     → tracked reads (guard keys) + tracked writes (the settled delta)
+ *     → one fresh RecordFrame at the root address
+ *     → noted reads (guard keys) + staged writes (the settled delta)
  *     → commit() → one CommitBundle in the EventLog
  *
  * which makes footprint's whole post-hoc toolchain (causalChain, sliceForKey,
@@ -19,31 +20,24 @@
  * commit, evidence-emitting, worker-safe.
  *
  * Longevity rules honored (from the footprint execution-model adjudication):
- * fresh context per transition (never createNext — it retains every context),
- * runId stays '' (non-empty runIds namespace writes and break slice matching),
- * runtimeStageId uniqueness via a monotonic counter.
+ * a fresh frame per transition (nothing holds it after its commit), every
+ * write at the root address (a namespaced address would break slice
+ * matching), runtimeStageId uniqueness via a monotonic counter.
  */
+import { evaluateFilter } from "footprintjs/advanced";
+import type { FilterCondition } from "footprintjs/advanced";
+import { detectSchema } from "footprintjs";
+import type { MCPToolDescription, WhereFilter } from "footprintjs";
 import {
-  ExecutionRuntime,
-  RedactionRule,
-  ScopeFacade,
   buildRuntimeStageId,
   createExecutionCounter,
-  evaluateFilter,
-  runPolicy,
-} from "footprintjs/advanced";
-import type {
-  CommitBundle,
-  ExecutionCounter,
-  FilterCondition,
-} from "footprintjs/advanced";
-import { detectSchema } from "footprintjs";
-import type {
-  MCPToolDescription,
-  ScopeRecorder,
-  WhereFilter,
-} from "footprintjs";
-import { formatSlice, keysReadFromMap, sliceForKey } from "footprintjs/trace";
+  formatSlice,
+  keysReadFromMap,
+  sliceForKey,
+} from "footprintjs/trace";
+import type { CommitBundle, ExecutionCounter } from "footprintjs/trace";
+import { EventLog, RecordFrame, SharedMemory } from "footprintjs/write";
+import type { RecordEncoding, WriteScrub } from "footprintjs/write";
 import { isParam, matchRoute, segmentsOf } from "../graph/route-match.js";
 import type {
   ActorKind,
@@ -569,28 +563,28 @@ export class Session {
   #structureFingerprint = "";
   #structureFlushScheduled = false;
   /**
-   * This session's footprintjs run: the heap (`globalStore`), the commit log
-   * (`executionHistory`) and ONE run policy, put together the way footprintjs's
-   * own executor puts a run together (`FlowChartExecutor · createTraverser`:
-   * `runPolicy(dials, rule, mirror)` handed to `new ExecutionRuntime`). Every
-   * transition takes a fresh frame from it with `newRoot` — the engine's own
-   * door for a frame under the run's policy (`#commitDelta`) — so each frame
-   * holds the policy BY REFERENCE and this file never re-derives how a frame is
-   * built. The session is the run: no transition commits under another dial.
+   * This session's footprintjs record, written through `footprintjs/write` —
+   * the record layer footprintjs's own engine writes with, so a session's log
+   * and a flowchart's come from the same code and the same bytes:
    *
-   * - Dials: `commitValues` from SessionOptions (default 'delta');
-   *   `writeProvenance: 'reads-prefix'` always, so each committed write names
-   *   the guard keys read before it — what `why`'s slice attributes with.
-   * - Rule: ONE `RedactionRule` for the session — the per-call marks
-   *   `#commitDelta` makes for `redactedKeys` land on it, as an executor's do
-   *   on its run's rule. Without one, each transition's ScopeFacade would make
-   *   a throwaway rule of its own (its bare-frame fallback, `ScopeFacade ·
-   *   rule`) and swap a derived policy onto the frame. Nothing the session
-   *   returns differs either way; the commit log carries 'REDACTED' for
-   *   `redactedKeys` through the per-call mark.
-   * - No mirror: the session serves no redacted heap.
+   * - `#state`: the heap (`SharedMemory`), seeded once with the session's
+   *   initial state; every transition's commit swaps in its next generation.
+   * - `#log`: the commit log (`EventLog`); its fold base is that seed.
+   * - `#encoding`: the two dials every transition's frame encodes under,
+   *   frozen and handed BY REFERENCE (`RecordFrame · useEncoding`), so no
+   *   transition commits under another dial. `commitValues` comes from
+   *   SessionOptions (default 'delta'); `writeProvenance: 'reads-prefix'`
+   *   always, so each committed write names the guard keys read before it —
+   *   what `why`'s slice attributes with.
+   *
+   * Redaction is per key and decided HERE (`#commitDelta`): a key in
+   * `#redacted` is written with the `{ whole: true }` scrub, so the log and
+   * every reader of it carry footprintjs's `'REDACTED'` placeholder while the
+   * heap keeps the value. No mirror: the session serves no redacted heap.
    */
-  readonly #runtime: ExecutionRuntime;
+  readonly #state: SharedMemory;
+  readonly #log: EventLog;
+  readonly #encoding: RecordEncoding;
   readonly #counter: ExecutionCounter;
   readonly #redacted: Set<string>;
   /**
@@ -635,7 +629,7 @@ export class Session {
    * would turn a legitimate late question into a fabricated "unknown".
    */
   readonly #settlements = new Map<string, FireSettlement>();
-  /** runtimeStageId → keys tracked-read, collected live via the scope channel. */
+  /** runtimeStageId → the guard keys its transition read, noted by `#commitDelta`. */
   readonly #readsByStep = new Map<string, string[]>();
   /**
    * WHAT THIS SESSION HAS TOLD A CALLER IS STALE AND NOBODY HAS ACKNOWLEDGED —
@@ -716,7 +710,6 @@ export class Session {
    * a session that declared none holds an empty ledger and pays nothing.
    */
   readonly #onceReceipts = new OnceLedger();
-  readonly #recorder: ScopeRecorder;
   /** The one open journey frame (v0: one at a time). */
   #frame: JourneyFrame | null = null;
   /**
@@ -1004,23 +997,17 @@ export class Session {
       opts.effectPolicy?.highEffectRequiresVerify === true;
     this.#now = opts.now ?? Date.now;
     const initial = structuredClone(opts.state ?? {});
-    // MUTATION PROOF: build the runtime without this policy (footprintjs's
-    // defaults: 'full', no read provenance) and the two dial tests in
-    // test/trace.test.ts go red — every frame commits under it, via `newRoot`.
-    this.#runtime = new ExecutionRuntime(
-      "session",
-      "session",
-      undefined,
-      initial,
-      runPolicy(
-        {
-          commitValues: opts.commitValues ?? "delta",
-          writeProvenance: "reads-prefix",
-        },
-        new RedactionRule(),
-        false,
-      ),
-    );
+    // The heap is seeded once (the seed is detached again inside SharedMemory),
+    // and the log's fold base is that seed — the state before the first commit.
+    this.#state = new SharedMemory(undefined, initial);
+    this.#log = new EventLog(this.#state.getState());
+    // MUTATION PROOF: leave a frame on footprintjs's defaults (no
+    // `useEncoding`: 'full', no read provenance) and the two dial tests in
+    // test/trace.test.ts go red — every frame encodes under this one object.
+    this.#encoding = Object.freeze({
+      commitValues: opts.commitValues ?? "delta",
+      writeProvenance: "reads-prefix",
+    });
     this.#counter = createExecutionCounter();
     this.#redacted = new Set(opts.redactedKeys ?? []);
     // Detached at construction: a consumer mutating the array they passed must not
@@ -1058,16 +1045,6 @@ export class Session {
       max: opts.maxAcknowledgements,
       warn: (message) => this.warn(message),
     });
-    this.#recorder = {
-      id: "hcifootprint-session",
-      onRead: (event) => {
-        /* v8 ignore next -- unreachable: footprintjs stamps both a key and a runtimeStageId on every read it reports, so this tap never sees a half-formed event. The guard is what keeps a malformed one out of the reads index instead of filing it under 'undefined'. */
-        if (!event.key || !event.runtimeStageId) return;
-        const reads = this.#readsByStep.get(event.runtimeStageId) ?? [];
-        reads.push(event.key);
-        this.#readsByStep.set(event.runtimeStageId, reads);
-      },
-    };
   }
 
   get node(): string {
@@ -5672,7 +5649,7 @@ export class Session {
    * the record for every later reader.
    */
   commitLog(): CommitBundle[] {
-    return [...this.#runtime.executionHistory.list()];
+    return [...this.#log.list()];
   }
 
   /**
@@ -5688,14 +5665,18 @@ export class Session {
   /** "Why does this state key hold its value?" — footprint backward slice, formatted. */
   why(key: string): string {
     const slice = sliceForKey(
-      this.#runtime.executionHistory.list(),
+      this.#log.list(),
       key,
       keysReadFromMap(this.#readsByStep),
     );
     return formatSlice(slice);
   }
 
-  /** runtimeStageId → tracked read keys (feed to causalChain's keysRead lookup). */
+  /**
+   * runtimeStageId → the guard keys each committed transition read, in guard
+   * order (feed to causalChain's keysRead lookup). An empty key name is left out
+   * here, as 2.6.1 left it out; the bundle's `readKeys` still names it.
+   */
   readsByStep(): ReadonlyMap<string, string[]> {
     return this.#readsByStep;
   }
@@ -7194,7 +7175,7 @@ export class Session {
   #changedKeysById(): Map<string, string[]> {
     /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: footprintjs declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
     return new Map(
-      this.#runtime.executionHistory
+      this.#log
         .list()
         .map((b) => [
           b.runtimeStageId,
@@ -7914,7 +7895,7 @@ export class Session {
 
   #stateView(): Record<string, unknown> {
     /* v8 ignore next -- the `?? {}` arm is unreachable: the heap is constructed with the session's initial state, so it always has one to answer with. */
-    return (this.#runtime.globalStore.getState() ?? {}) as Record<string, unknown>;
+    return (this.#state.getState() ?? {}) as Record<string, unknown>;
   }
 
   /**
@@ -8380,26 +8361,45 @@ export class Session {
     return `${t.cause.principal} ${t.cause.stimulus} changed: ${changed}`;
   }
 
-  /** One transition = one fresh StageContext = one CommitBundle. */
+  /**
+   * One transition = one record frame = one CommitBundle, written through
+   * `footprintjs/write`: a fresh frame at the root address over the session's
+   * heap and log, encoding under the session's dials. Nothing holds the frame
+   * after its commit.
+   *
+   * - Reads: every guard key is NOTED on the frame (`noteRead`), so each row
+   *   the transition writes names the keys read before it (`readKeys`, under
+   *   'reads-prefix'), and filed under the transition's id for `why()`
+   *   (`#readsByStep`). An empty key is noted but not filed, as 2.6.1's read
+   *   tap skipped it.
+   * - Writes: every reported key is staged as a `set`; a key in `#redacted`
+   *   with the whole-value scrub, so the log carries footprintjs's 'REDACTED'
+   *   and the heap the value.
+   * - Commit: the bundle is named by the transition — its stage name as
+   *   `stage` and `stageId`, its record id as `runtimeStageId`. A report that
+   *   changes nothing commits the empty bundle: still a cursor stop.
+   */
   #commitDelta(
     stageName: string,
     runtimeStageId: string,
     readKeys: string[],
     delta: Record<string, unknown>,
   ): void {
-    // A fresh root frame under the session's policy (`ExecutionRuntime ·
-    // newRoot`): runId '' and no parent, so nothing retains it after commit.
-    const ctx = this.#runtime.newRoot(stageName, stageName);
-    ctx.runtimeStageId = runtimeStageId;
-    const scope = new ScopeFacade(ctx, stageName);
-    scope.attachScopeRecorder(this.#recorder);
-    for (const key of readKeys) scope.getValue(key);
+    const frame = new RecordFrame(this.#state, this.#log);
+    frame.useEncoding(this.#encoding);
+    for (const key of readKeys) frame.noteRead([], key);
+    const filed = readKeys.filter((key) => key !== "");
+    if (filed.length > 0) this.#readsByStep.set(runtimeStageId, filed);
     for (const [key, value] of Object.entries(delta)) {
-      scope.setValue(key, value, this.#redacted.has(key));
+      const scrub = this.#redacted.has(key) ? REDACT_WHOLE : undefined;
+      frame.write(frame.at([], key), value, "set", scrub);
     }
-    ctx.commit();
+    frame.commit(() => ({ stage: stageName, stageId: stageName, runtimeStageId }));
   }
 }
+
+/** The scrub a `redactedKeys` write carries: the log shows the placeholder for the whole value. */
+const REDACT_WHOLE: WriteScrub = Object.freeze({ whole: true });
 
 /**
  * The literal address an edge's GESTURE yields, or undefined when it yields

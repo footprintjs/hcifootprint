@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { arrayProvenance, causalChain, commitValueAt, formatCausalChain } from 'footprintjs/trace';
 import { shop, initialState, okUpdate, wire } from './fixture.js';
+import { buildNavigationGraph } from '../src/index.js';
 import type { Session } from '../src/index.js';
 
 /** user logs in, agent adds two products, walks to checkout, places the order */
@@ -98,12 +99,11 @@ describe('footprint trace toolchain over a UI session', () => {
     expect(births).toHaveLength(2);
   });
 
-  // THE DIALS REACH EVERY COMMIT. footprintjs 9.36.0 removed the per-dial
-  // StageContext setters this session called on each fresh frame; the dials now
-  // ride ONE frozen RunPolicy, handed to the session's ExecutionRuntime and held
-  // by every frame its `newRoot` makes (session.ts · #runtime, #commitDelta).
-  // Each dial leaves its own mark in the log, so a frame that commits under the
-  // defaults instead ('full', no provenance) fails both of these.
+  // THE DIALS REACH EVERY COMMIT. The two dials ride ONE frozen RecordEncoding
+  // (session.ts · #encoding), handed to every transition's RecordFrame
+  // (#commitDelta · useEncoding; footprintjs/write, 2.7.0). Each dial leaves its
+  // own mark in the log, so a frame that commits under footprintjs's defaults
+  // instead ('full', no provenance) fails both of these.
   it("the default 'delta' dial reaches the frame: a grown cart commits only its tail; every row names the reads before it", () => {
     const log = playSession().commitLog();
     const cartRows = log.flatMap((b) =>
@@ -193,6 +193,33 @@ describe('footprint trace toolchain over a UI session', () => {
     expect(last.trace).toEqual([]);
     // toStrictEqual: toEqual would ignore an own undefined `b` and pass either way.
     expect(s.state()['o']).toStrictEqual({ a: 1 });
+  });
+
+  // A guard may name the empty key (nothing refuses it). 2.6.1 read every guard key
+  // through footprintjs's frame, so the bundle's readKeys named it, and filed reads
+  // for why() through a read tap that skipped an empty key. 2.7.0 notes the read on
+  // its RecordFrame and files it itself; this pins both halves of that edge.
+  it("an empty guard key is named on the bundle's readKeys but not filed in readsByStep()", () => {
+    const graph = buildNavigationGraph('edge', {
+      does: 'An action guarded on an empty key',
+      pages: { home: { route: '/' } },
+      actions: {
+        toggle: {
+          on: 'home',
+          does: 'Toggle the flag',
+          binding: { kind: 'element', locator: { role: 'button', name: 'Toggle' }, actuation: 'click' },
+          when: { '': { eq: 'on' }, ready: { eq: true } },
+          writes: ['done'],
+        },
+      },
+    });
+    const s = graph.createSession({ node: 'home', state: { '': 'on', ready: true } });
+    wire(s, 'toggle');
+    s.fire('toggle', { source: 'agent' });
+    okUpdate(s.updateState({ done: true }));
+    const bundle = s.commitLog().find((b) => b.runtimeStageId.startsWith('toggle'))!;
+    expect(bundle.trace.map((t) => [t.path, t.readKeys])).toEqual([['done', ['', 'ready']]]);
+    expect(s.readsByStep().get(bundle.runtimeStageId)).toEqual(['ready']);
   });
 
   it('runtimeStageIds stay unique across unbounded revisits (monotonic counter)', () => {
