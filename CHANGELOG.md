@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [3.0.0] - 2026-10-09
 
-### Breaking — record types and readers belong to foottrace
+**Breaking: `CommitBundle` now comes from `foottrace`.**
 
 - `CommitBundle` is no longer re-exported from `hcifootprint`. Add
   `foottrace ^1.0.0` to your application's dependencies and import it directly
@@ -13,7 +13,8 @@
   const rows: CommitBundle[] = session.commitLog();
   ```
 
-  This public type removal requires a major release; it must not ship as a 2.x minor.
+  This public type removal requires this major release. Existing `^2` users
+  stay on 2.x until they choose to upgrade.
 - Record readers and runtime IDs now come from `foottrace`; the heap, event log,
   frame and encoding types come from `foottrace/write`. These are the same record
   implementations, with no adapter or copied implementation. The frozen 2.6.1
