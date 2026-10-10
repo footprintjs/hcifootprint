@@ -99,7 +99,7 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | one wrapper so the app's OWN call and the agent's fire land in the same record | `contextful` | `src/contextful/contextful.ts` | 1.6.0 |
 | hiding a secret inside a payload rather than a whole state key | `redactFields` + `REDACTED` | `src/traverse/redact-fields.ts` | 0.8.0 |
 | a ledger of what the agent could NOT do | `GapRecord` (written by `Session.reportGap`) | `src/atom/types.ts` | 0.2.0 |
-| asking why a piece of state holds the value it holds — the footprintjs backward slice, over the session's own commit log | `Session.why` | `src/traverse/session.ts` | 0.2.0 |
+| asking why a piece of state holds the value it holds — the foottrace backward slice, over the session's own commit log | `Session.why` | `src/traverse/session.ts` | 0.2.0 |
 | a CI gate that catches a graph that has drifted from the app | `lintGraph` + `checkGraph` | `src/testing/` | 0.2.0 |
 | a headless test that drives the REAL session as a user or as the agent | `testApp` | `src/testing/harness.ts` | 0.2.0 |
 | proving a graph SOURCE adapter does not silently drop a declared field | `conformSource` | `src/testing/conform.ts` | 1.4.0 |
@@ -133,7 +133,7 @@ imported) · `/sensor` · `/react` · `/testing` · `/testing/lint` (engine-free
 | atom/ | the domain types, layer 0. `Affordance = binding × guard × effect × schema`; `Transition = cause × payload × outcome`. No runtime code. |
 | graph/ | the authoring spine every graph door throws through (guards, segments, routes) + `matchRoute`, `reach`, `step-deps`, and the growable `sources/` |
 | tree/ | `buildNavigationGraph` — pages → areas / tabs / modals → actions, validated, frozen, plus the flat projection every other layer runs on |
-| traverse/ | the driver. `Session` / `InteractionSession`: one settled transition → one fresh StageContext → one footprintjs `CommitBundle`, so `causalChain`/`sliceForKey` work with zero new query code |
+| traverse/ | the driver. `Session` / `InteractionSession`: one settled transition → one fresh `RecordFrame` from `foottrace/write` → one foottrace `CommitBundle`, so `causalChain`/`sliceForKey` work with zero new query code; guard/schema helpers stay on `footprintjs/advanced` |
 | registry/ | what is wired RIGHT NOW: `affordanceId → the app's real handler`, in groups so unmount cleanup is one call |
 | presence/ | refcounted mount handles + explicit visibility signals, as plain data. What presence MEANS lives one layer up |
 | serve/ | LLM-facing emission: MCP descriptors, `serveToAgent` (journeys as fixed tools), the tool-name encoder |

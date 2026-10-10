@@ -377,6 +377,13 @@ mcpServer(session);
 [Adoption ladder](https://footprintjs.github.io/hcifootprint/docs/get-started/adoption-ladder) —
 start in guide mode, where the agent can only *describe* what's possible.
 
+The session's record is provided by `foottrace`. If you name its rows, import
+`CommitBundle` from `foottrace` instead of `hcifootprint`; trace readers such as
+`causalChain` and `sliceForKey` come from `foottrace` too. Add `foottrace ^1.0.0`
+to your application's dependencies when importing these names. This type export removal
+is a breaking change from 2.x; session methods and record bytes are unchanged.
+HCI supports `footprintjs ^9.47.0 || ^10.0.0` with `foottrace ^1.0.0`.
+
 ---
 
 ## Honest by construction
@@ -437,7 +444,8 @@ npm run docs:truth             # does the documentation describe what ships?
 
 ## Built on
 
-[footprintjs](https://github.com/footprintjs/footPrint) for the graph engine and commit log ·
+[footprintjs](https://github.com/footprintjs/footPrint) for guard evaluation and schema normalization ·
+[foottrace](https://github.com/footprintjs/foottrace) for the commit log and its readers ·
 [agentfootprint](https://github.com/footprintjs/agentfootprint) if you want the agent loop too.
 
 ## Citing

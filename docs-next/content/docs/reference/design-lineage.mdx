@@ -8,6 +8,30 @@ The library's shape was decided in numbered design documents, kept in the repo u
 records the constraint that forced the design, not just the winner — read them when you want
 to know *why* a surface is the way it is.
 
+## The shared record — migrating from 2.x
+
+The session writes its record with `RecordFrame`, `SharedMemory` and `EventLog`
+from `foottrace/write`. Trace readers such as `causalChain` and `sliceForKey`
+come from `foottrace`. They read the same record bytes as before extraction.
+
+`Session.commitLog()` still returns `CommitBundle[]`, but hcifootprint no longer
+re-exports `CommitBundle`. Add `foottrace ^1.0.0` to your application's dependencies
+and import this type from its owner, `foottrace`:
+
+```ts twoslash
+import { buildNavigationGraph } from 'hcifootprint';
+import type { CommitBundle } from 'foottrace';
+
+const graph = buildNavigationGraph('shop', { pages: { catalog: {} } });
+const session = graph.createSession();
+const rows: CommitBundle[] = session.commitLog();
+```
+
+The removed type export is a breaking change from 2.x. The session methods and
+record bytes are unchanged. HCI depends on `foottrace ^1.0.0` and accepts
+`footprintjs ^9.47.0 || ^10.0.0`; guard evaluation and schema normalization stay
+in footprintjs.
+
 ## D18 — the navigation graph
 
 The canonical authoring surface: pages → areas / tabs / modals → tools, one `does` sentence

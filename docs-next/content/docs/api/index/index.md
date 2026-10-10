@@ -73,7 +73,6 @@ title: index
 - [CaptureFailure](/api/index/interfaces/CaptureFailure)
 - [Cause](/api/index/interfaces/Cause)
 - [ChannelGap](/api/index/interfaces/ChannelGap)
-- [CommitBundle](/api/index/interfaces/CommitBundle)
 - [ConcurrencyPolicy](/api/index/interfaces/ConcurrencyPolicy)
 - [ConfirmReceipts](/api/index/interfaces/ConfirmReceipts)
 - [ConfirmRecord](/api/index/interfaces/ConfirmRecord)

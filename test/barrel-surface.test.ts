@@ -7,11 +7,11 @@ import * as barrel from '../src/index.js';
  * DECISION (recorded in docs/design/action-binding-protocol.md): the root
  * barrel is one door too many names wide, and the remedy — subpath doors
  * like `hcifootprint/action`, the way `/react` already is — moves exports,
- * which is breaking. So it is a 3.0 decision, to be SPENT ONCE, not nibbled
- * at. Until then this list keeps the surface from drifting: every addition
- * to the root is a deliberate act that edits this file and answers "why the
- * root, and not a subpath at 3.0?" in its PR. Removals are refused outright
- * — a removal IS the 3.0 move, and it does not happen by accident.
+ * which is breaking. That broader reorganization remains a separate design
+ * decision. E5 removes only the `CommitBundle` type re-export so the record
+ * has one public owner, `foottrace`; it requires a major release without
+ * implementing the planned subpath reorganization. Every other addition or
+ * removal remains a deliberate surface decision recorded in this file.
  *
  * This pins the RUNTIME half of the surface (values). Type-only exports are
  * pinned by the API docs gate (`docs:truth`), which fails on undocumented
@@ -131,7 +131,6 @@ const ROOT_VALUE_EXPORTS = [
   'CaptureFailure',
   'Cause',
   'ChannelGap',
-  'CommitBundle',
   'CommitJourneyResult',
   'ConcurrencyPolicy',
   'ConfirmReceipts',

@@ -73,7 +73,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "footprintjs": "^9.47.0"
+    "footprintjs": "^9.47.0 || ^10.0.0",
+    "foottrace": "^1.0.0"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": ">=1.0.0",

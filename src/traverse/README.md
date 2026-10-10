@@ -2,9 +2,9 @@
 
 **Job:** the `traverse()` counterpart to footprintjs's `run()`. A `Session` is a traversal moved **one edge at a time from outside** — `fire()` (agent), wrapped triggers / the future DOM sensor (user), `sync()` (world) — all into ONE footprint commit log with provenance.
 
-**Depends on:** `atom/`, `registry/`, `serve/`, and footprintjs's record — written through `footprintjs/write` (the record layer footprintjs's own engine writes with) and read through `footprintjs/trace`. Deliberately NOT its executor, frame or scope.
+**Depends on:** `atom/`, `registry/`, `serve/`, and foottrace's record — written through `foottrace/write` and read through `foottrace`. Guard evaluation and schema helpers still come from `footprintjs/advanced`; its executor, frame and scope are not used.
 
-The commit discipline that makes footprint's toolchain work unchanged on UI sessions:
+The commit discipline that makes foottrace's toolchain work unchanged on UI sessions:
 
 ```
 one settled transition → one fresh RecordFrame at the root address (under the session's ONE encoding)
@@ -18,9 +18,11 @@ Also lives here: CAS on `cursorVersion` + guard re-evaluation at fire time · se
 
 Longevity rules (from the footprint execution-model adjudication): a fresh frame per transition (nothing holds it after its commit), every write at the root address, monotonic `runtimeStageId` counter.
 
-**One record per session, written through `footprintjs/write` (2.7.0).** footprintjs 9.47.0 made its record layer the public way to write a record: the heap (`SharedMemory`), the log (`EventLog`) and one step's frame (`RecordFrame`), the classes its own engine writes with. The session holds the heap, the log and ONE frozen encoding, and builds a fresh frame per transition (`session.ts · #state`, `#log`, `#encoding`, `#commitDelta`). Before 2.7.0 it borrowed the engine's frame for this (`ExecutionRuntime` + `newRoot` + a `ScopeFacade` with a read tap); the record is byte-identical either way:
+**One record per session, written through `foottrace/write`.** The record layer introduced in footprintjs 9.47.0 now lives in foottrace 1.0.0: the heap (`SharedMemory`), the log (`EventLog`) and one step's frame (`RecordFrame`). The session holds the heap, the log and ONE frozen encoding, and builds a fresh frame per transition (`session.ts · #state`, `#log`, `#encoding`, `#commitDelta`). Before 2.7.0 it borrowed the engine's frame for this (`ExecutionRuntime` + `newRoot` + a `ScopeFacade` with a read tap); the record is byte-identical across both moves:
 
 ```ts
+import { EventLog, RecordFrame, SharedMemory } from 'foottrace/write';
+
 // once per session — SessionOptions.commitValues (default 'delta'); read provenance always on, for why()
 const state = new SharedMemory(undefined, initial);
 const log = new EventLog(state.getState());
@@ -35,7 +37,9 @@ for (const [key, value] of Object.entries(delta)) {
 frame.commit(() => ({ stage: stageName, stageId: stageName, runtimeStageId }));
 ```
 
-Each dial leaves a mark in the log — `'delta'` commits a grown array as an `append` of its tail, `'reads-prefix'` puts `readKeys` on every row — and `test/trace.test.ts` reads both marks back, so a frame that slips back to footprintjs's defaults fails there. A `redactedKeys` write carries the whole-value scrub, so the log holds footprintjs's `'REDACTED'` and the heap the value; the redaction test in the same file reads both.
+Each dial leaves a mark in the log — `'delta'` commits a grown array as an `append` of its tail, `'reads-prefix'` puts `readKeys` on every row — and `test/trace.test.ts` reads both marks back, so a frame that slips back to foottrace's defaults fails there. A `redactedKeys` write carries the whole-value scrub, so the log holds foottrace's `'REDACTED'` and the heap the value; the redaction test in the same file reads both.
+
+`Session.commitLog()` returns `CommitBundle[]`. Import that type directly from `foottrace`; hcifootprint no longer re-exports it. The runtime API and record bytes are unchanged. The supported footprintjs range is `^9.47.0 || ^10.0.0`.
 
 ## settlement.ts + handler-result.ts — "was it actually done?"
 
@@ -192,4 +196,3 @@ World-motion scoping (the version split): node presence/visibility flips
 flush ONE microtask-coalesced `structure-swap` transition and bump
 `version` + `structureVersion`; instance churn inside `repeats` containers
 bumps nothing global. StrictMode/HMR mount flicker cancels to nothing.
-

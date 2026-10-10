@@ -904,7 +904,7 @@ that could never act (see the gate below).
 
 ### commitLog()
 
-> **commitLog**(): [`CommitBundle`](/api/index/interfaces/CommitBundle)[]
+> **commitLog**(): [`CommitBundle`](https://github.com/footprintjs/foottrace/blob/main/src/lib/memory/types.ts)[]
 
 Defined in: [src/traverse/session.ts:5651](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L5651)
 
@@ -918,7 +918,7 @@ the record for every later reader.
 
 #### Returns
 
-[`CommitBundle`](/api/index/interfaces/CommitBundle)[]
+[`CommitBundle`](https://github.com/footprintjs/foottrace/blob/main/src/lib/memory/types.ts)[]
 
 #### Inherited from
 

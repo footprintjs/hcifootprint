@@ -90,15 +90,17 @@ const noDoes: JourneyDef = { steps: ['add-to-cart'] };
 void noDoes;
 
 /**
- * WRITING DOWN WHAT YOU WERE HANDED MUST NEVER REQUIRE A DEPENDENCY YOU DID NOT
- * CHOOSE. `CommitBundle` and `MCPToolDescription` are re-exported for what this
- * package RETURNS; `WhereFilter` is the same rule on the input side — it is the
+ * Record types have one public owner: `CommitBundle` comes from `foottrace`,
+ * and the session's return type must be assignable to it. `MCPToolDescription`
+ * remains re-exported for tool descriptors; `WhereFilter` is the
  * shape of every `when:` and `enabledWhen:`, half of `VerifyContract`, and the
  * type of `Journey.precondition`. A consumer factoring a guard into a helper
  * has to be able to name it from here.
  */
+import type { CommitBundle } from 'foottrace';
+// @ts-expect-error the record type's public door is foottrace, not hcifootprint
+import type { CommitBundle as RemovedCommitBundle } from '../src/index.js';
 import type {
-  CommitBundle,
   MCPToolDescription,
   VerifyContract,
   WhereFilter,
@@ -109,7 +111,7 @@ const reusableGuard: WhereFilter = { 'cart.items': { gt: 0 } };
 const guarded: JourneyDef = { does: 'Check out', steps: [], when: reusableGuard };
 // …and really is one half of the exported contract union.
 const contract: VerifyContract = reusableGuard;
-declare const bundles: CommitBundle[];
+const bundles: CommitBundle[] = session.commitLog();
 declare const tools: MCPToolDescription[];
 void guarded;
 void contract;
