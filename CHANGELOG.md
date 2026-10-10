@@ -1,5 +1,28 @@
 # Changelog
 
+## [3.0.0] - 2026-10-09
+
+**Breaking: `CommitBundle` now comes from `foottrace`.**
+
+- `CommitBundle` is no longer re-exported from `hcifootprint`. Add
+  `foottrace ^1.0.0` to your application's dependencies and import it directly
+  when annotating the rows returned by `session.commitLog()`:
+
+  ```ts
+  import type { CommitBundle } from 'foottrace';
+  const rows: CommitBundle[] = session.commitLog();
+  ```
+
+  This public type removal requires this major release. Existing `^2` users
+  stay on 2.x until they choose to upgrade.
+- Record readers and runtime IDs now come from `foottrace`; the heap, event log,
+  frame and encoding types come from `foottrace/write`. These are the same record
+  implementations, with no adapter or copied implementation. The frozen 2.6.1
+  session fixture remains unchanged.
+- Adds `foottrace ^1.0.0` and accepts `footprintjs ^9.47.0 || ^10.0.0`.
+  `evaluateFilter`, `normalizeSchema` and `FilterCondition` remain on
+  `footprintjs/advanced`. Session methods and record bytes are unchanged.
+
 ## [2.7.0] - 2026-10-09
 
 ### Changed — the session writes its record through `footprintjs/write`; the floor is now `footprintjs ^9.47.0`

@@ -29,8 +29,9 @@
     "ScalarMutation"
   ],
   "externalSymbolLinkMappings": {
-    "footprintjs": {
-      "UntrackedSource": "#"
+    "foottrace": {
+      "CommitBundle": "https://github.com/footprintjs/foottrace/blob/main/src/lib/memory/types.ts",
+      "UntrackedSource": "https://github.com/footprintjs/foottrace/blob/main/src/lib/memory/types.ts"
     }
   }
 }

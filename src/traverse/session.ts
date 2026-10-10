@@ -5,7 +5,7 @@
  * branch. A live UI is inverted: the user/agent drives edge-by-edge, and from
  * any node the driver exposes all guard-passing edges and waits for the world
  * to pick one. So this driver never touches footprint's engine. It writes
- * footprint's record directly instead, through `footprintjs/write` — the
+ * the shared record directly instead, through `foottrace/write` — the
  * record layer footprint's own engine writes with: a heap, a commit log and
  * one `RecordFrame` per transition (no StageContext, scope or executor):
  *
@@ -14,7 +14,7 @@
  *     → noted reads (guard keys) + staged writes (the settled delta)
  *     → commit() → one CommitBundle in the EventLog
  *
- * which makes footprint's whole post-hoc toolchain (causalChain, sliceForKey,
+ * which makes foottrace's whole post-hoc toolchain (causalChain, sliceForKey,
  * arrayProvenance, commitValueAt) work on UI sessions unchanged. Guard
  * evaluation itself is footprint's pure `evaluateFilter` — no scope, no
  * commit, evidence-emitting, worker-safe.
@@ -34,10 +34,10 @@ import {
   formatSlice,
   keysReadFromMap,
   sliceForKey,
-} from "footprintjs/trace";
-import type { CommitBundle, ExecutionCounter } from "footprintjs/trace";
-import { EventLog, RecordFrame, SharedMemory } from "footprintjs/write";
-import type { RecordEncoding, WriteScrub } from "footprintjs/write";
+} from "foottrace";
+import type { CommitBundle, ExecutionCounter } from "foottrace";
+import { EventLog, RecordFrame, SharedMemory } from "foottrace/write";
+import type { RecordEncoding, WriteScrub } from "foottrace/write";
 import { isParam, matchRoute, segmentsOf } from "../graph/route-match.js";
 import type {
   ActorKind,
@@ -563,7 +563,7 @@ export class Session {
   #structureFingerprint = "";
   #structureFlushScheduled = false;
   /**
-   * This session's footprintjs record, written through `footprintjs/write` —
+   * This session's foottrace record, written through `foottrace/write` —
    * the record layer footprintjs's own engine writes with, so a session's log
    * and a flowchart's come from the same code and the same bytes:
    *
@@ -7173,7 +7173,7 @@ export class Session {
    * did not think so, on the same screen, from the same session.
    */
   #changedKeysById(): Map<string, string[]> {
-    /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: footprintjs declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
+    /* v8 ignore next 5 -- both `?? {}` arms are unreachable and v8 can only exempt the statement they live in: foottrace declares `overwrite` and `updates` as REQUIRED fields of a CommitBundle, so every bundle carries both halves, empty or not. They are the guard for reading a log written by a version that did not. */
     return new Map(
       this.#log
         .list()
@@ -8363,7 +8363,7 @@ export class Session {
 
   /**
    * One transition = one record frame = one CommitBundle, written through
-   * `footprintjs/write`: a fresh frame at the root address over the session's
+   * `foottrace/write`: a fresh frame at the root address over the session's
    * heap and log, encoding under the session's dials. Nothing holds the frame
    * after its commit.
    *

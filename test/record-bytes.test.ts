@@ -1,7 +1,7 @@
 /**
  * A session's record is byte-identical to what 2.6.1 wrote.
  *
- * 2.7.0 writes a session's record through `footprintjs/write` (a `SharedMemory`, an
+ * Since 2.7.0 the session writes through the record layer, now `foottrace/write` (a `SharedMemory`, an
  * `EventLog` and one `RecordFrame` per transition) where 2.6.1 borrowed the engine's
  * frame (`ExecutionRuntime` + `newRoot` + `ScopeFacade` + a read tap). footprintjs pins
  * 2.6.1's real sessions — the six below from `test/trace.test.ts` and a commit out of
@@ -13,7 +13,7 @@
  * pinnedText`, copied below): JSON with key order kept, written by `stringifySnapshot`,
  * after one pass that spells what JSON drops (Date, Map, Set, an own `undefined`).
  *
- * A byte that moves here is a footprintjs record change or a session change: never
+ * A byte that moves here is a foottrace record change or a session change: never
  * re-pin to make it pass without naming which (footprintjs test/fixtures/README.md).
  *
  * Test types: Byte-identity (seven sessions) · Contract (the vendored set is the set played).

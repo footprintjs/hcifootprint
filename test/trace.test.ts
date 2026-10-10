@@ -5,7 +5,7 @@
  * questions about the session with zero new query code.
  */
 import { describe, expect, it } from 'vitest';
-import { arrayProvenance, causalChain, commitValueAt, formatCausalChain } from 'footprintjs/trace';
+import { arrayProvenance, causalChain, commitValueAt, formatCausalChain } from 'foottrace';
 import { shop, initialState, okUpdate, wire } from './fixture.js';
 import { buildNavigationGraph } from '../src/index.js';
 import type { Session } from '../src/index.js';
@@ -101,7 +101,7 @@ describe('footprint trace toolchain over a UI session', () => {
 
   // THE DIALS REACH EVERY COMMIT. The two dials ride ONE frozen RecordEncoding
   // (session.ts · #encoding), handed to every transition's RecordFrame
-  // (#commitDelta · useEncoding; footprintjs/write, 2.7.0). Each dial leaves its
+  // (#commitDelta · useEncoding; foottrace/write). Each dial leaves its
   // own mark in the log, so a frame that commits under footprintjs's defaults
   // instead ('full', no provenance) fails both of these.
   it("the default 'delta' dial reaches the frame: a grown cart commits only its tail; every row names the reads before it", () => {

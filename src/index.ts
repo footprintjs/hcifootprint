@@ -39,12 +39,8 @@ export { matchRoute } from './graph/route-match.js';
 export type { RoutedPages } from './graph/route-match.js';
 /** One declared hop in a route — what `Session.howToReach` answers with. */
 export type { RouteStep } from './graph/reach.js';
-// Types this package's own signatures RETURN, re-exported so naming a return
-// value never requires importing from a dependency. `commitLog()` hands back
-// `CommitBundle[]` and `toMCPTools()` hands back `MCPToolDescription[]`; both
-// are footprintjs types, and a consumer should not have to know that to write
-// down what they were given.
-export type { CommitBundle } from 'footprintjs/trace';
+// `toMCPTools()` returns this footprintjs type. Record types have one public
+// owner: import `CommitBundle` from `foottrace` to name `commitLog()`'s rows.
 export type { MCPToolDescription } from 'footprintjs';
 // Versioned Action Binding Protocol: one callable definition, many live
 // bindings, and structured identities for every join. This is the deliberate
