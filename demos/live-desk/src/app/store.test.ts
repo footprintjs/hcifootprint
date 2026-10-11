@@ -59,6 +59,10 @@ describe('the store as an app store', () => {
       store.actions().find((action) => identityOf(action) === `desk.inbox.tickets.archive-ticket[${id}]`);
 
     expect(archiveOf(NAMED_TICKET_ID)?.enabled).toBe(false);
+    expect(archiveOf(NAMED_TICKET_ID)?.blockedBecause).toEqual({
+      says: 'Reply to this ticket before archiving it.',
+      clearedBy: 'app',
+    });
     store.commands.reply(NAMED_TICKET_ID, { message: 'On its way.' });
     expect(archiveOf(NAMED_TICKET_ID)?.enabled).toBe(true);
   });

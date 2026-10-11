@@ -12,7 +12,7 @@
     "verify": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && vitest run && vite build"
   },
   "dependencies": {
-    "agentfootprint": "^7.9.0",
+    "agentfootprint": "^10.1.0",
     "hcifootprint": "file:../..",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
