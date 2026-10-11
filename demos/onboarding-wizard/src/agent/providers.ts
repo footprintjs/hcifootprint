@@ -1,5 +1,5 @@
 import type { LLMProvider } from 'agentfootprint';
-import { browserAnthropic, browserOpenai, mock } from 'agentfootprint/llm-providers';
+import { browserAnthropic, browserOpenai, mock } from 'agentfootprint/providers';
 
 import { wizardRespond } from './mockScript.js';
 
@@ -7,14 +7,12 @@ import { wizardRespond } from './mockScript.js';
  * Provider construction — the only place a key VALUE is used, and it arrives as
  * an argument and leaves as a provider. It is never stored, logged or returned.
  *
- * All three symbols come from the `agentfootprint/llm-providers` subpath, not
+ * All three symbols come from the `agentfootprint/providers` subpath, not
  * the root barrel (the root exports the LLM *types* and `providerFromEnv`).
  *
- * Model rules that each cause a hard 400 on current Claude models if broken:
- *   1. Never pass `temperature` — omitting the field is the fix.
- *   2. Never set `thinking` — the shape the provider would emit is the removed
- *      `{type:'enabled',budget_tokens}` form.
- *   3. Always pass `defaultModel`; the built-in default is a legacy id.
+ * This demo keeps an explicit model and leaves temperature and thinking
+ * unspecified. These are its existing app choices; model-specific capability
+ * handling belongs to AgentFootprint, not to this wrapper.
  *
  * MOCK IS THE DEFAULT, and it is not a lesser mode: the scripted model reads
  * real tool results and drives the real session, so `npm run dev` and

@@ -2,21 +2,19 @@
  * Provider construction — the only place a key value is used, and it arrives as
  * an argument and leaves as a provider.
  *
- * Provider symbols come from the `agentfootprint/llm-providers` subpath (the
+ * Provider symbols come from the `agentfootprint/providers` subpath (the
  * root barrel exports `providerFromEnv` and the LLM types only). The browser
  * arms are the two that can genuinely run in a tab: Bedrock needs long-lived AWS
  * credentials, and Azure's own doc comment warns it may need a same-origin proxy
  * a static demo cannot provide.
  *
- * Model rules, each of which 400s on current Claude models if broken:
- *   • never pass `temperature` — omit the field entirely;
- *   • never set `thinking` — the shape browserAnthropic would emit is the
- *     removed `{type:'enabled',budget_tokens}` form;
- *   • always pass `defaultModel` — the built-in default is a legacy id;
- *   • give the Anthropic arm room: max_tokens caps thinking + text together.
+ * This demo deliberately keeps its existing generation settings: an explicit
+ * model and token limit, with temperature and thinking left unspecified.
+ * AgentFootprint owns model-specific capability handling; these are app choices,
+ * not limitations of the current provider.
  */
 import type { LLMProvider } from 'agentfootprint';
-import { browserAnthropic, browserOpenai, mock } from 'agentfootprint/llm-providers';
+import { browserAnthropic, browserOpenai, mock } from 'agentfootprint/providers';
 import { deskRespond } from './mockScript.js';
 
 export type ProviderChoice = 'mock' | 'anthropic' | 'openai';

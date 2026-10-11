@@ -5,7 +5,7 @@ import type { ServeResult, JourneyToolsPort } from 'hcifootprint';
 /**
  * THE BRIDGE — Mode B's tool surface, handed to an agentfootprint Agent.
  *
- * `journeysAsTools(session)` already produces the exact tool array and the router
+ * `serveToAgent(session)` already produces the exact tool array and the router
  * for it, so this file adds exactly two things and nothing else:
  *
  *   1. NAME SANITISING. The library's names are dotted ('onboarding.journey.signup')

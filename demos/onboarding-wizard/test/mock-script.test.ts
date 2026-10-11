@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { payloadFromExpects, readIntent } from '../src/agent/mockScript.js';
+import { payloadFromExpects, readIntent, wizardRespond } from '../src/agent/mockScript.js';
+import type { LLMRequest } from 'agentfootprint';
+import { serveToAgent } from 'hcifootprint';
+import { createWizardApp } from '../src/app/wizard.js';
 import { STARTER_MESSAGES } from '../src/agent/systemPrompt.js';
 import { sanitizeToolName } from '../src/agent/tools.js';
 
@@ -62,5 +65,39 @@ describe('tool names an LLM will accept', () => {
     expect(sanitizeToolName('onboarding.journey.import-signup')).toBe('onboarding_journey_import-signup');
     expect(sanitizeToolName('onboarding.whats_here')).toBe('onboarding_whats_here');
     expect(sanitizeToolName('a b/c')).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+});
+
+describe('scoped journey discovery', () => {
+  it('consults an advertised journey omitted from the current page, then follows its real refusal', () => {
+    const app = createWizardApp();
+    try {
+      const port = serveToAgent(app.session);
+      const look = port.call('onboarding.whats_here', {});
+      expect(look.journeysElsewhere).toBe(1);
+      expect(look.journeys).not.toContainEqual(expect.objectContaining({ journey: 'signup' }));
+      const request: LLMRequest = {
+        model: 'scripted',
+        messages: [{ role: 'tool', content: JSON.stringify(look), toolCallId: 'look' }],
+        tools: port.tools().map((tool) => ({ ...tool, name: sanitizeToolName(tool.name) })),
+      };
+      expect(wizardRespond(request).toolCalls).toEqual([
+        { id: 'call_2', name: 'onboarding_journey_signup', args: {} },
+      ]);
+      const refused = port.call('onboarding.journey.signup', {});
+      expect(refused).toMatchObject({ judgment: 'blocked', journey: 'signup' });
+      expect(app.store.snapshot().emailVerified).toBe(false);
+      const next = wizardRespond({
+        ...request,
+        messages: [...request.messages, { role: 'tool', content: JSON.stringify(refused), toolCallId: 'journey' }],
+      });
+      expect(next.toolCalls).toEqual([
+        { id: 'call_3', name: 'onboarding_do_action', args: { action: 'welcome.verify-email' } },
+      ]);
+      // Reading a refusal proposes an ordinary app action; it never changes state itself.
+      expect(app.store.snapshot().emailVerified).toBe(false);
+    } finally {
+      app.destroy();
+    }
   });
 });

@@ -1,7 +1,7 @@
 /**
  * The bridge — hcifootprint's Mode B port, handed to an agentfootprint Agent.
  *
- * Mode B (`journeysAsTools`, hcifootprint src/serve/modes.ts:124) hands back a
+ * Mode B (`serveToAgent`) hands back a
  * tool array that NEVER changes for the life of a conversation, and moves all
  * disclosure onto the result channel. This desk declares no skills — every
  * action arrives from the store at runtime — so the array is the three fixed
@@ -24,7 +24,7 @@
  */
 import { defineTool } from 'agentfootprint';
 import type { Tool } from 'agentfootprint';
-import { journeysAsTools } from 'hcifootprint';
+import { serveToAgent } from 'hcifootprint';
 import type { ServeResult } from 'hcifootprint';
 import type { DeskSession } from '../desk/wiring.js';
 
@@ -55,7 +55,7 @@ export function wireName(portName: string): string {
 const settleTick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 export function createBridge(session: DeskSession): DeskBridge {
-  const port = journeysAsTools(session);
+  const port = serveToAgent(session);
   const calls: ToolCallRecord[] = [];
 
   const tools = port.tools().map((described) =>

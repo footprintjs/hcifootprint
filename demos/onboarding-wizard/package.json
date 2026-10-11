@@ -14,7 +14,7 @@
     "verify": "npm run typecheck && vitest run && vite build"
   },
   "dependencies": {
-    "agentfootprint": "^7.9.0",
+    "agentfootprint": "^10.1.0",
     "hcifootprint": "file:../..",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

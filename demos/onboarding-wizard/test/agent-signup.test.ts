@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { mock } from 'agentfootprint/providers';
+import type { LLMRequest } from 'agentfootprint';
 
 import { buildProvider } from '../src/agent/providers.js';
 import { createConversation } from '../src/agent/runAgent.js';
 import { STARTER_MESSAGES } from '../src/agent/systemPrompt.js';
 import { createWizardApp } from '../src/app/wizard.js';
 import { readReceipts } from '../src/panels/receipts.js';
+import { wizardRespond } from '../src/agent/mockScript.js';
 
 /**
  * t1 — THE AGENT OPERATES THE APP, END TO END, with no key and no network.
@@ -16,6 +19,75 @@ import { readReceipts } from '../src/panels/receipts.js';
  * test rather than a screenshot.
  */
 describe('the agent completes the signup journey', () => {
+  it('a failed first request can retry as a fresh run, then continue only the successful turn', async () => {
+    const app = createWizardApp();
+    let failing = true;
+    const requests: LLMRequest[] = [];
+    const provider = mock({
+      respond(request) {
+        requests.push(request);
+        if (failing) throw new Error('Offline test: provider unavailable');
+        return wizardRespond(request);
+      },
+      thinkingMs: 0,
+      chunkDelayMs: 0,
+    });
+    const chat = createConversation({
+      session: app.session,
+      provider: { provider, mode: 'mock', modelLabel: 'scripted', problem: null },
+    });
+    try {
+      const failed = await chat.ask(STARTER_MESSAGES[0]);
+      expect(failed.trouble).toContain('provider unavailable');
+      expect(app.session.node).toBe('welcome');
+      const retryStart = requests.length;
+      failing = false;
+      const retried = await chat.ask(STARTER_MESSAGES[0]);
+      expect(retried.trouble).toBeNull();
+      expect(requests[retryStart]?.messages.filter((message) => message.role === 'user')).toHaveLength(1);
+      expect(app.session.node).toBe('review');
+      expect(app.store.snapshot().signedUp).toBe(false);
+      const confirmed = await chat.ask('yes, go ahead');
+      expect(confirmed.trouble).toBeNull();
+      expect(app.store.snapshot().signedUp).toBe(true);
+    } finally {
+      app.destroy();
+    }
+  });
+
+  it('a new app conversation starts fresh rather than inheriting the previous approval or profile', async () => {
+    const requests: LLMRequest[] = [];
+    const provider = mock({
+      respond(request) {
+        requests.push(request);
+        return wizardRespond(request);
+      },
+      thinkingMs: 0,
+      chunkDelayMs: 0,
+    });
+    const built = { provider, mode: 'mock' as const, modelLabel: 'scripted', problem: null };
+    const firstApp = createWizardApp();
+    const first = createConversation({ session: firstApp.session, provider: built });
+    await first.ask(STARTER_MESSAGES[0]);
+    await first.ask('yes');
+    expect(firstApp.store.snapshot().signedUp).toBe(true);
+    firstApp.destroy();
+
+    const resetApp = createWizardApp();
+    try {
+      const reset = createConversation({ session: resetApp.session, provider: built });
+      const resetStart = requests.length;
+      const result = await reset.ask(STARTER_MESSAGES[1]);
+      expect(result.trouble).toBeNull();
+      expect(requests[resetStart]?.messages.filter((message) => message.role === 'user')).toHaveLength(1);
+      expect(JSON.stringify(requests[resetStart]?.messages)).not.toContain('Ada Lovelace');
+      expect(resetApp.store.snapshot()).toMatchObject({ profileName: 'Grace Hopper', signedUp: false });
+      expect(resetApp.session.node).toBe('review');
+    } finally {
+      resetApp.destroy();
+    }
+  });
+
   it('walks welcome → profile → plan → review → done, stopping for the human at the high-effect step', async () => {
     const app = createWizardApp();
     const chat = createConversation({
@@ -109,10 +181,16 @@ describe('the agent completes the signup journey', () => {
    * something the turn did not do, which is the one thing this demo may not do.
    */
   it('mentions a placeholder only on the turn that actually sent one', async () => {
+    // Four real turns test attribution, not simulated typing. Keep the real
+    // scripted decisions and app execution without the mock's 30ms/word delay.
+    const provider = {
+      ...buildProvider({ kind: 'mock' }),
+      provider: mock({ respond: wizardRespond, thinkingMs: 0, chunkDelayMs: 0 }),
+    };
     const named = createWizardApp();
     const namedChat = createConversation({
       session: named.session,
-      provider: buildProvider({ kind: 'mock' }),
+      provider,
     });
     const namedFirst = await namedChat.ask(STARTER_MESSAGES[0]);
     const namedSecond = await namedChat.ask('yes, go ahead');
@@ -124,7 +202,7 @@ describe('the agent completes the signup journey', () => {
     const vague = createWizardApp();
     const vagueChat = createConversation({
       session: vague.session,
-      provider: buildProvider({ kind: 'mock' }),
+      provider,
     });
     const vagueFirst = await vagueChat.ask('sign me up please');
     const vagueSecond = await vagueChat.ask('yes');

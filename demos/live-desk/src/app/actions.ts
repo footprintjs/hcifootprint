@@ -149,6 +149,7 @@ export function buildActions(
           // the channel built for it — `enabled`, which serves the button
           // greyed-out-but-visible and refuses a fire as TOOL_DISABLED.
           enabled: ticket.replied,
+          blockedBecause: { says: 'Reply to this ticket before archiving it.', clearedBy: 'app' },
           handler: () => commands.archive(ticket.id),
         });
       }

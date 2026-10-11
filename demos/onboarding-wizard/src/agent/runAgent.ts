@@ -1,5 +1,5 @@
 import { Agent, isPaused } from 'agentfootprint';
-import { journeysAsTools } from 'hcifootprint';
+import { serveToAgent } from 'hcifootprint';
 
 import type { OnboardingSession } from '../app/graph.js';
 import { settle as defaultSettle } from '../app/settle.js';
@@ -53,7 +53,7 @@ export function createConversation(opts: ConversationOptions): Conversation {
   const settle = opts.settle ?? defaultSettle;
   // The serving mode: skills as fixed tools, three generics, disclosure in
   // results. confirmHighEffect stays ON — the confirm gate is the demo.
-  const port = journeysAsTools(opts.session, { source: 'agent', confirmHighEffect: true });
+  const port = serveToAgent(opts.session, { source: 'agent', confirmHighEffect: true });
   const bridge = createToolBridge(port, settle);
 
   const agent = Agent.create({
@@ -68,6 +68,9 @@ export function createConversation(opts: ConversationOptions): Conversation {
     .build();
 
   let lastTurnVersion = 0;
+  // This app uses followUp only after a completed turn. A new Conversation
+  // (including an app reset) starts with no prior conversation.
+  let hasCompletedTurn = false;
 
   return {
     mode: opts.provider.mode,
@@ -81,13 +84,15 @@ export function createConversation(opts: ConversationOptions): Conversation {
       let text = '';
       let trouble: string | null = null;
       try {
-        const raw = await agent.run({
-          message: `<session-context>\n${brief.text}\n</session-context>\n\n${message}`,
-        });
+        const turnMessage = `<session-context>\n${brief.text}\n</session-context>\n\n${message}`;
+        const raw = hasCompletedTurn
+          ? await agent.followUp(turnMessage)
+          : await agent.run({ message: turnMessage });
         if (isPaused(raw)) {
           trouble = 'The run paused for input, which this demo does not wire.';
         } else {
           text = raw;
+          hasCompletedTurn = true;
         }
       } catch (error) {
         // A provider failure is a first-class outcome, not a crash: the panels

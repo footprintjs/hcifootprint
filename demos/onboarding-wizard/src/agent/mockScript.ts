@@ -103,6 +103,9 @@ function readTranscript(req: LLMRequest): Transcript {
     }
     if (message.role === 'user' && message.content.trim().length > 0) {
       said = stripEnvelope(message.content);
+      // Canonical followUp retains previous turns. The reply's claims about
+      // values SENT must describe this turn, not an earlier profile fill.
+      sentInputs.length = 0;
     }
   }
   const lastLook = [...results].reverse().find((result) => 'actions' in result) ?? null;
@@ -267,7 +270,19 @@ function decide(transcript: Transcript, names: ToolNames): Move {
 
   const goal = list(lastLook.journeys).find((journey) => str(journey.journey) === GOAL_JOURNEY);
   if (!goal) {
-    return { kind: 'say', text: `This app does not offer a '${GOAL_JOURNEY}' journey, so I cannot start one.` };
+    // whats_here lists only journeys whose entry is on this page. The static
+    // tool list already proved that our goal exists; ask that tool for its
+    // current status instead of interpreting a scoped omission as absence.
+    if (lookIsStale()) return look();
+    if (str(last.journey) === GOAL_JOURNEY && str(last.judgment) === 'blocked') {
+      const unlock = list(lastLook.actions).find((action) => str(action.action) === `${youAreOn}.${UNLOCK_LEAF}`);
+      if (unlock) return doAction(names, str(unlock.action));
+      return { kind: 'say', text: str(last.why) || 'The signup journey is blocked by the app.' };
+    }
+    if (str(last.reason) === 'ENTRY_NOT_MATERIALIZED') {
+      return forward(names, lastLook, youAreOn, '', lookIsStale());
+    }
+    return { kind: 'call', tool: names.goalJourney, args: {} };
   }
 
   // 5. The journey is not feasible yet. Feasibility is a fact only a LOOK
