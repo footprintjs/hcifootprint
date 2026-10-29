@@ -12,11 +12,37 @@ Defined in: [src/serve/mcp-server.ts:34](https://github.com/footprintjs/hcifootp
 
 ## Properties
 
+### actionProjection?
+
+> `optional` **actionProjection?**: `object`
+
+Defined in: [src/serve/modes.ts:114](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L114)
+
+Opt in to complete action rows in bounded pages on `whats_here`.
+`maxBytes` bounds ONLY UTF-8 `JSON.stringify(actions)` (including brackets
+and commas), never the entire result. Safe integer, at least 2.
+The result names omissions and a port-local `actionProjection.nextCursor`;
+pass it back as `actionCursor`. Changed session or semantic row facts
+invalidate the continuation; citation-only offerId rotation does not.
+One outstanding continuation per port; no rows retained.
+An oversized single row is refused with `requiredBytes`, never trimmed.
+Absent: existing schemas and results stay byte-identical.
+
+#### maxBytes
+
+> **maxBytes**: `number`
+
+#### Inherited from
+
+[`JourneyToolsOptions`](/api/index/interfaces/JourneyToolsOptions).[`actionProjection`](/api/index/interfaces/JourneyToolsOptions#actionprojection)
+
+***
+
 ### confirmHighEffect?
 
 > `optional` **confirmHighEffect?**: `boolean`
 
-Defined in: [src/serve/modes.ts:59](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L59)
+Defined in: [src/serve/modes.ts:60](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L60)
 
 Require confirm:true before firing high-effect steps/actions. Default true.
 
@@ -30,7 +56,7 @@ Require confirm:true before firing high-effect steps/actions. Default true.
 
 > `optional` **journeyTools?**: `"per-journey"` \| `"single"`
 
-Defined in: [src/serve/modes.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L101)
+Defined in: [src/serve/modes.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L102)
 
 How journeys are offered in the TOOL channel. Default `'per-journey'` —
 today's behaviour, byte for byte.
@@ -108,7 +134,7 @@ is already holding would be the only thing dishonest here.
 
 > `optional` **source?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/serve/modes.ts:69](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L69)
+Defined in: [src/serve/modes.ts:70](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L70)
 
 Principal stamped on fires made through this port. Default 'agent'.
 

@@ -713,6 +713,24 @@ const result = port.call(name, args);           // route a tool_use; return `res
 
 `MCPToolDescription` = `{ name, description, inputSchema }` (source: footprintjs).
 
+Optional bounded action rows: `serveToAgent(session, { actionProjection: { maxBytes: 4096 } })`.
+This bounds ONLY UTF-8 `JSON.stringify(result.actions)` bytes (including brackets and commas),
+not the rest of the response or tokens. Rows are complete and stay in existing order. Successful
+reads add `actionProjection: { maxBytes, bytes, total, offset, shown, omitted, nextCursor?, means }`;
+`omitted` counts rows remaining AFTER this page. Pass the latest `nextCursor` as `actionCursor` to
+`whats_here`; it inherits `sinceVersion`. One continuation per port; a fresh read supersedes it.
+State, position, structure, semantic live row or availability changes refuse `ACTION_CURSOR_STALE`:
+start again without a cursor. Citation-only offerId rotation does not invalidate pagination; returned
+rows keep the complete citation, whose standing is still checked at execution. Cursors are read
+citations, never authority; all execution gates still run.
+Malformed/overlong/cross-port/consumed cursors refuse `ACTION_CURSOR_INVALID`; invalid bounded
+arguments refuse `ACTION_PROJECTION_ARGUMENTS_INVALID`. An oversized next row refuses
+`ACTION_ROW_TOO_LARGE` with `action`, `requiredBytes`, `maxBytes`: construct a port with that larger
+budget. No row is trimmed and no empty-page continuation loops. Unserializable rows refuse
+`ACTION_ROW_NOT_SERIALIZABLE`. The budget is a safe integer >= 2. Without the option, tool schemas
+and results are byte-unchanged; with it, the fixed `whats_here` schema adds `actionCursor` once.
+`mcpServer` accepts the same option. Source: `src/serve/action-projection.ts`, `src/serve/modes.ts`.
+
 ### The three call shapes
 
 - **`shop.whats_here` →** `{ ok: true, facts, brief, actions: [{ action, does, goesTo?, holds?,

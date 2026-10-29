@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Adds opt-in `actionProjection: { maxBytes }` to `serveToAgent` and
+  `mcpServer`. It bounds only UTF-8 JSON bytes of the `whats_here` actions
+  array, preserving complete rows and the existing order. Results report exact
+  bytes, omissions and a port-local continuation; changed session or live
+  availability facts invalidate it. Oversized rows name the exact required
+  budget. Default schemas and results remain byte-identical, verified against
+  a fixture captured from `b00995a`.
+
 ## [3.0.0] - 2026-10-09
 
 **Breaking: `CommitBundle` now comes from `foottrace`.**

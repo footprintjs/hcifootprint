@@ -77,6 +77,68 @@ moves — which is exactly why this is opt-in. Switching is breaking for a host 
 `<graph>.journey.<id>` tool names: those names are answered `UNKNOWN_TOOL` with the list that does
 exist, never routed silently.
 
+## Bounded action rows
+
+For a page with many actions, opt in when constructing the port:
+
+```ts
+const port = serveToAgent(session, { actionProjection: { maxBytes: 4096 } });
+const first = port.call('shop.whats_here');
+const projection = first.actionProjection as { nextCursor?: string };
+if (projection.nextCursor) {
+  const next = port.call('shop.whats_here', { actionCursor: projection.nextCursor });
+}
+```
+
+`maxBytes` bounds **only the UTF-8 bytes of `JSON.stringify(result.actions)`**, including the
+array's brackets and commas. It must be a safe integer of at least 2. The rest of the result,
+including `facts`, `brief`, journeys and route guidance, is outside this budget. This does not
+claim a bound on total response bytes or model tokens.
+
+Rows use the existing serializer, in their existing order. A row is included whole: its guard
+stamps, input contract, confirmation and ownership markers, offer id and live facts are never
+trimmed to fit. Omitted rows are not recorded as having disclosed their stale stamps.
+
+Every successful bounded read carries `actionProjection` with `maxBytes`, exact `bytes`, `total`,
+zero-based `offset`, `shown`, and `omitted` (the number remaining after this page). When more rows
+remain, `nextCursor` names the next read. Send it back as `actionCursor`; `sinceVersion` is inherited,
+and supplying a different history scope is refused. Only the latest continuation from this port
+is accepted; starting another fresh read supersedes it. No rows or session snapshot are retained
+by the continuation, only counters, an offset and a bounded checksum.
+Port namespaces require Node 22 or a browser with `crypto.getRandomValues` when
+the option is enabled. This avoids deterministic namespace collisions across
+independently loaded package copies or hot reloads without requiring
+secure-context-only `randomUUID`. They are citations, not authentication
+credentials; execution permissions still belong to the session.
+
+Each page scans the current action list for semantic changes. This is an
+actions-array output-size cap, not a CPU or total-response cap; traversing more
+pages repeats that scan.
+
+Session state, position and structure changes invalidate the continuation. Semantic live row facts
+and underlying availability facts are checked as well, including changes that precede the session's
+coalesced structure update. `ACTION_CURSOR_STALE` means start again without `actionCursor`.
+Only citation bookkeeping (`offerId` and its underlying `offerRef`) is excluded from that check;
+rotating an offer id alone does not change the action's meaning or invalidate pagination. The row
+still carries its complete original citation. Execution checks that exact citation's standing through
+the existing Session gate. When freshness requires citations, size the session's `maxOffers` to retain
+the available list: a smaller ledger can evict offers on every look, so execution can refuse an
+expired citation even though pagination succeeds. A checksum is change detection for this read,
+never permission or proof of effect: execution still goes through the same guards and approval
+gates. Malformed, consumed, superseded, cross-port or overlong cursors
+are refused as `ACTION_CURSOR_INVALID`. Bounded arguments are validated as an object containing
+only `sinceVersion`, `routeTo` and `actionCursor`.
+
+If the next row cannot fit alone, `ACTION_ROW_TOO_LARGE` names `action` and exact `requiredBytes`.
+Create a port whose `actionProjection.maxBytes` is at least that value. Nothing is performed and no
+fields are removed; there is no empty page with a continuation that repeats forever. A row that
+cannot be JSON-encoded is refused as `ACTION_ROW_NOT_SERIALIZABLE`, identifying the action whose
+declared schema or live reader needs correction.
+
+Without `actionProjection`, the existing tool schemas and result bytes remain unchanged. With it,
+the fixed `whats_here` schema adds `actionCursor` once, when the port is built; it stays identical
+throughout the conversation. The option is also accepted by `mcpServer`.
+
 ## Reading a result
 
 Every result is a plain data object. `ok` plus `judgment` route it: on an open frame

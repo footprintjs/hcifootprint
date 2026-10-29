@@ -1,0 +1,141 @@
+{
+  "tools": [
+    {
+      "name": "small.whats_here",
+      "description": "Describe the current position: the page, the open journey (if any), what happened recently, and the actions and journeys available right now. The reply also carries facts — the app’s own authoritative record of what has actually been done and what was refused. Call this whenever you are unsure whether something has already happened; trust facts over your own account of the conversation. Pass sinceVersion (the version from any earlier result) to get only what changed since your last look — including what the user did themselves in the meantime.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sinceVersion": {
+            "type": "number",
+            "description": "A version from a previous result: the reply narrates only the delta since it."
+          },
+          "routeTo": {
+            "type": "string",
+            "description": "A page id you want to get to: the reply adds the declared hops from here, each naming the action that makes it. Fewest hops, which is arithmetic — not a recommendation, and not a promise that those hops are open right now."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "small.why",
+      "description": "Explain why a state key currently holds its value: the causal chain of session actions — and who fired each one — that produced it. Pass a state key name seen in results or guards.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "A state key name, as seen in results, guards, or evidence."
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "small.do_action",
+      "description": "Perform one available action outside any journey flow. Call whats_here first to see action names. A high-effect action first returns needs-confirm WITH receipts (what it will do and why): show the human, then call again with confirm: true to proceed — or decline: true if they refuse.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "An action name from whats_here."
+          },
+          "input": {
+            "type": "object",
+            "description": "The step input. Each result states what the next step expects. Match the shape in that step’s expects field — an input that does not returns PAYLOAD_INVALID carrying what was expected."
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "Required true to proceed with a high-effect step (after the human approves the receipts)."
+          },
+          "decline": {
+            "type": "boolean",
+            "description": "Set true to record that the human refused a high-effect step (closes the ask; nothing fires)."
+          },
+          "instance": {
+            "type": "string",
+            "description": "Which instance to act on, when the step lists instances (e.g. an order id)."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "small.did_it_work",
+      "description": "Find out how an action came to rest — whether the app actually did it. Pass the transitionId from that action’s result. This answers immediately either way: the final outcome, or that the app has not finished yet (call again). Use it whenever a result came back with effectStatus \"pending\". It also takes the askId from a needs-confirm result, and answers whether the human has decided yet — a paused action is not a failed one.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "transitionId": {
+            "type": "string",
+            "description": "The transitionId carried by the result of the action you performed — or the askId from a needs-confirm result, to learn whether the human has decided."
+          }
+        },
+        "required": [
+          "transitionId"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "here": {
+    "ok": true,
+    "facts": "FACTS FROM THE APP (authoritative). Every line below is the app’s own record of what happened. Where anything said in this conversation disagrees with it — including anything you or the user stated was done — these lines are what actually happened; the conversation is a claim about them.\nYou are on: page.\nNo actions have been performed in this app this session.",
+    "brief": "You are on: page.\nSession so far (version 0):\n  (no actions)\nPending: none.\nAvailable now: page.save, page.pay [high-effect].\nMounted here: page.",
+    "actions": [
+      {
+        "action": "page.save",
+        "does": "Save draft",
+        "expects": "none"
+      },
+      {
+        "action": "page.pay",
+        "does": "Pay",
+        "highEffect": true
+      }
+    ],
+    "journeys": [],
+    "youAreOn": "page",
+    "version": 0
+  },
+  "unknown": {
+    "ok": false,
+    "judgment": "error",
+    "reason": "UNKNOWN_ACTION",
+    "actions": [
+      "page.save",
+      "page.pay"
+    ],
+    "youAreOn": "page",
+    "version": 0
+  },
+  "pause": {
+    "ok": false,
+    "judgment": "needs-confirm",
+    "action": "page.pay",
+    "does": "Pay",
+    "performed": false,
+    "why": "Nothing has been done. This is a question for the human, not a failure — do not report it as an error, and confirm: true is not the human’s answer.",
+    "askId": "ask#1",
+    "receipts": {
+      "willDo": {
+        "does": "Pay"
+      },
+      "because": [],
+      "youAreOn": "page",
+      "version": 0,
+      "recentSteps": []
+    },
+    "howToAct": "Show the human what this will do (see receipts), then call again with confirm: true to proceed — or decline: true if they refuse.",
+    "youAreOn": "page",
+    "version": 0
+  }
+}
