@@ -1,0 +1,91 @@
+---
+title: Browser WebMCP
+description: Register an existing serving port with a browser context, preserving the session's execution and approval rules.
+---
+
+The optional `hcifootprint/webmcp` entry point registers the tools from an existing
+`serveToAgent` port. It contains no second action registry, action handlers or
+policy implementation. The application still declares and wires its actions in
+the usual way, and the session rechecks each call against the current world.
+
+This is **unreleased source**. WebMCP is evolving, and browser implementations
+differ. The [October 2026 draft](https://webmachinelearning.github.io/webmcp/)
+exposes `document.modelContext`; Lightpanda 1.0.2 exposes
+`navigator.modelContext`. Pass the context supplied by your host explicitly:
+
+```ts
+import { serveToAgent } from 'hcifootprint';
+import { registerWebMcpTools } from 'hcifootprint/webmcp';
+import type { WebMcpContext } from 'hcifootprint/webmcp';
+
+async function mount(context: WebMcpContext) {
+  const owner = new AbortController();
+  const registration = await registerWebMcpTools(serveToAgent(session), context, {
+    signal: owner.signal,
+  });
+
+  // When this page/component/session is no longer available:
+  registration.dispose(); // or owner.abort()
+}
+```
+
+The bridge reads no browser globals at import time. It loads no React, MCP SDK
+or session runtime by itself; the serving port is supplied by the caller.
+Synchronous and asynchronous browser registration are supported. The host must
+support the registration `AbortSignal` to remove listings when their owner is
+disposed.
+
+`registerWebMcpTools` accepts a `WebMcpContext` and optional `WebMcpOptions`
+(the owner's signal), and returns a `WebMcpRegistration` with `dispose()`.
+Each `WebMcpTool` contains the existing name, description and input schema plus
+the delegated execution callback. These structural types let a host provide its
+own browser context without installing another SDK.
+
+## Execution and approval have one owner
+
+Every callback delegates to `port.call(name, input)`. The port's principal,
+freshness, input validation, materialization and approval policy remain in force.
+For enforced human approval, configure the session with
+`requireHumanApproval: true` and use the application's authenticated approval
+door. An agent's `confirm: true` and a browser's `requestUserInteraction` are
+not proof of a human decision. The bridge does not call that browser method.
+
+Results are the serving port's structured results. A refusal or a pause remains
+a refusal or a pause. An asynchronous handler may return `effectStatus:
+'pending'`; ask the existing `did_it_work` tool for the later result. The bridge
+does not manufacture a success, wait on a new timer, or serialize application
+data through a second format.
+
+## Lifecycle and isolation
+
+Callbacks activate only after all registrations succeed. A failed registration
+aborts this group, leaving another owner's tools alone. An external abort also
+interrupts initialization if a browser never settles its registration promise.
+Even if a host retains an obsolete callback, it cannot dispatch after disposal.
+
+An execution signal is checked before dispatch. Disposal or cancellation after
+dispatch cannot undo an action or erase its recorded outcome; callers must
+still use the session's settlement record to learn what happened. Browser
+cancellation alone is not transaction rollback.
+
+Use a separate serving port and session per user/conversation, with the same
+identity and lifecycle boundaries as the rest of your application. This bridge
+does not create isolated cookie jars, network sandboxes, or browser contexts.
+Those remain the host's responsibility. Registering tools does not grant an
+untrusted web page permission to call a privileged session: choose which host
+receives the context and port.
+
+## Lightpanda 1.0.2 interoperability result
+
+The dedicated local CDP test used the official 1.0.2 binary. Native discovery,
+guard and approval refusals, approved execution, pending/settled results,
+session isolation, unmount refusal and disposal all passed without a model call.
+The bridge contains independently written code; it does not copy Lightpanda's
+AGPL implementation.
+
+Two host limitations remain visible. Lightpanda permits one browser context per
+CDP connection, so the isolation check used separate connections. Its asynchronous
+WebMCP response notification also needed another CDP task to progress; the test
+sent a harmless `Runtime.evaluate('0')` after invocation. That is a documented
+test-driver workaround, not a timer or behavior change in the library. This
+test does not establish compatibility with every browser or WebMCP revision.

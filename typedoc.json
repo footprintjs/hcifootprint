@@ -3,6 +3,7 @@
   "entryPoints": [
     "src/index.ts",
     "src/mcp.ts",
+    "src/webmcp.ts",
     "src/react/index.ts",
     "src/sensor/index.ts",
     "src/testing/index.ts",

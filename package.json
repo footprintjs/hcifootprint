@@ -19,6 +19,10 @@
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
     },
+    "./webmcp": {
+      "types": "./dist/webmcp.d.ts",
+      "default": "./dist/webmcp.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
@@ -112,6 +116,9 @@
     "*": {
       "mcp": [
         "dist/mcp.d.ts"
+      ],
+      "webmcp": [
+        "dist/webmcp.d.ts"
       ],
       "react": [
         "dist/react/index.d.ts"
