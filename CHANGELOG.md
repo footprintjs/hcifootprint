@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Journey completion now follows the existing action settlements instead of counting
+  an early commit as a finished action. An asynchronous action without declared
+  writes stays in progress while its handler runs, and a failed or rolled-back
+  attempt cannot leave the journey marked done. Plan, standing, progress text and
+  frame completion share the same decision; pending steps are not offered again.
+  Existing unobservable and inferred evidence markers are preserved.
+- Clarifies single-action bindings, callable batches and model-turn journeys in the
+  README and adoption skill, including the difference between execution progress,
+  handler completion and verified effects.
+
 ## [3.1.0] - 2026-10-29
 
 ### Added

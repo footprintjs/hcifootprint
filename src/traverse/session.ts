@@ -2244,8 +2244,8 @@ export class Session {
   }
 
   /**
-   * Close the open frame. Default reason: 'completed' if every step was
-   * committed while the frame was open, else 'cancelled'. Returns the closed
+   * Close the open frame. Default reason: 'completed' if every step
+   * came to rest successfully while the frame was open, else 'cancelled'. Returns the closed
    * frame, or null when none was open.
    */
   leaveJourney(opts?: {
@@ -2253,13 +2253,13 @@ export class Session {
   }): JourneyFrame | null {
     if (!this.#frame) return null;
     const journey = this.spec.journeys[this.#frame.journeyId];
-    // Completion counts observed AND inferred steps; inferredSteps on the
-    // returned frame says which of them were guesses.
-    const allDone = journey.steps.every(
-      (step) =>
-        this.#frame!.firedSteps.includes(step) ||
-        this.#frame!.inferredSteps.includes(step),
-    );
+    const completed = this.#journeyCompletions(this.#frame);
+    const allDone = journey.steps.every((step) => completed.has(step));
+    if (opts?.reason === "completed" && !allDone) {
+      throw new Error(
+        `hcifootprint: journey '${journey.id}' cannot be completed while steps are unsettled or unsuccessful. Read journeyPlan() and settlementOf() before closing it, or leave with reason 'cancelled'.`,
+      );
+    }
     this.#frame.status = opts?.reason ?? (allDone ? "completed" : "cancelled");
     this.#frame.closedAtVersion = this.#version;
     this.#frames.push(this.#frame);
@@ -2376,6 +2376,46 @@ export class Session {
   }
 
   /**
+   * One completion decision over existing frame membership and settlement facts.
+   * A committed record is not a finished handler. No copied task ledger is kept:
+   * each read folds the latest actual attempt in this pass, and keeps inferred
+   * completion marked as such until an actual attempt supersedes that guess.
+   */
+  #journeyCompletions(frame: JourneyFrame | null): ReadonlyMap<string, "done" | "inferred-done"> {
+    const completed = new Map<string, "done" | "inferred-done">();
+    if (!frame) return completed;
+    for (const step of frame.inferredSteps) completed.set(step, "inferred-done");
+    const fired = new Set(frame.firedSteps);
+    for (const step of fired) completed.delete(step);
+    const candidates = new Set([...fired, ...frame.inferredSteps]);
+    const latest = new Map<string | undefined, TransitionRecord | undefined>(
+      [...candidates].map((step) => [step, undefined]),
+    );
+    let remaining = candidates.size;
+    for (let index = this.#transitions.length - 1; index >= 0 && remaining > 0; index--) {
+      const row = this.#transitions[index];
+      if (row.cursorVersion <= frame.openedAtVersion) break;
+      if (row.cause.kind !== "fired" ||
+          (row.cause.inferred && row.attribution.basis === "signature-match")) continue;
+      const step = row.cause.affordanceId;
+      if (!latest.has(step) || latest.get(step) !== undefined) continue;
+      latest.set(step, row);
+      remaining--;
+    }
+    for (const step of candidates) {
+      const row = latest.get(step);
+      if (!row) continue;
+      completed.delete(step);
+      const settlement = this.#settlements.get(row.id);
+      if (fired.has(step) && row.outcome === "committed" &&
+          settlement?.outcome === "committed" && settlement.effectStatus !== "refused") {
+        completed.set(step, "done");
+      }
+    }
+    return completed;
+  }
+
+  /**
    * The DERIVED intra-journey dependency DAG with live status. Dependencies are
    * computed, never authored: step B depends on step A when A's declared
    * effect.writes overlap B's guard keys — the guard×effect atoms already
@@ -2388,6 +2428,8 @@ export class Session {
         `hcifootprint: unknown journey '${journeyId}'. Known: ${Object.keys(this.spec.journeys).join(", ")}.`,
       );
     }
+    const frameForJourney = this.#frame?.journeyId === journeyId ? this.#frame : null;
+    const completed = this.#journeyCompletions(frameForJourney);
     const steps: JourneyPlanStep[] = journey.steps.map((stepId) => {
       const aff = this.spec.affordances[stepId];
       const dependsOn = stepDependencies(
@@ -2397,17 +2439,11 @@ export class Session {
       );
 
       const { matched, conditions, unevaluable } = this.#evalGuard(aff.guard);
-      const frameForJourney =
-        this.#frame?.journeyId === journeyId ? this.#frame : null;
-      const status = frameForJourney?.firedSteps.includes(stepId)
-        ? "done"
-        : frameForJourney?.inferredSteps.includes(stepId)
-          ? "inferred-done"
-          : !matched
+      const status = completed.get(stepId) ?? (!matched
             ? "blocked"
             : aff.on.includes(this.#node)
               ? "ready"
-              : "off-node";
+              : "off-node");
       return {
         affordanceId: stepId,
         description: aff.description,
@@ -2581,7 +2617,8 @@ export class Session {
       };
     }
 
-    const failedAt = this.#lastAttemptCameToRestBadly(step);
+    const failedAt = this.#lastAttemptCameToRestBadly(step,
+      this.#frame?.journeyId === journeyId ? this.#frame.openedAtVersion : undefined);
     if (failedAt !== undefined) {
       return {
         journeyId,
@@ -2636,10 +2673,13 @@ export class Session {
    * without a second pass: a fire that went well after a failed one is simply
    * the row this walk stops on.
    */
-  #lastAttemptCameToRestBadly(affordanceId: string): string | undefined {
+  #lastAttemptCameToRestBadly(affordanceId: string, afterVersion?: number): string | undefined {
     for (let i = this.#transitions.length - 1; i >= 0; i--) {
       const row = this.#transitions[i];
-      if (row.cause.kind !== "fired" || row.cause.affordanceId !== affordanceId)
+      if (afterVersion !== undefined && row.cursorVersion <= afterVersion) break;
+      if (row.cause.kind !== "fired" ||
+          (row.cause.inferred && row.attribution.basis === "signature-match") ||
+          row.cause.affordanceId !== affordanceId)
         continue;
       const badly =
         this.#settlements.get(row.id)?.effectStatus === "refused" ||
@@ -7505,7 +7545,7 @@ export class Session {
       const journey = this.spec.journeys[this.#frame.journeyId];
       lines.push(
         `Open journey: ${this.#frame.journeyId} — ${journey.description} ` +
-          `(${this.#frame.firedSteps.length}/${journey.steps.length} steps done).`,
+          `(${this.#journeyCompletions(this.#frame).size}/${journey.steps.length} steps done).`,
       );
     }
     for (const f of this.#frames) {

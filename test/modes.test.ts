@@ -115,7 +115,7 @@ describe('what a committed journey opens up arrives as DATA, never as new tools'
     expect(session.confirms()).toHaveLength(0); // no ask ever landed, so no trace
   });
 
-  it('high-effect steps stop at needs-confirm and never auto-cross', () => {
+  it('high-effect steps stop at needs-confirm and never auto-cross', async () => {
     const { session, port } = freshPort();
     port.call('shop.journey.purchase', {});
     port.call('shop.journey.purchase', { step: 'add-to-cart' });
@@ -128,6 +128,8 @@ describe('what a committed journey opens up arrives as DATA, never as new tools'
     const fired = port.call('shop.journey.purchase', { step: 'place-order', confirm: true });
     expect(fired['did']).toBe('checkout.place-order');
     session.updateState({ orders: ['o-1'] });
+    // Navigation also has a deferred handler: committed is not finished.
+    await Promise.all(session.awaitingSettlement().map((id) => session.settlementOf(id)));
     // every step done → the frame closes itself as completed on the next look
     const finished = port.call('shop.journey.purchase', {});
     expect(finished['frame']).toBe('completed');
