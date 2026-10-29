@@ -1,8 +1,16 @@
 # hcifootprint — LLM-facing API surface
 
-> Agents and humans: this single page is meant to be read INSTEAD of the source. It is
-> verified against the code; where a claim cites a source file, that file is the authority.
-> Package: `hcifootprint` 1.13.0. Zero-dependency core.
+> Agents and humans: this single page is meant to be read INSTEAD of the source.
+> Package facts are generated below; authored guidance cites source files as its authority.
+
+<!-- hcifootprint:metadata:start -->
+<!-- Generated from package.json by npm run docs:agents:sync. -->
+> Package: `hcifootprint` 3.1.0.
+> Node.js: `>=22`.
+> Public imports (7): `hcifootprint`, `hcifootprint/mcp`, `hcifootprint/webmcp`, `hcifootprint/react`, `hcifootprint/sensor`, `hcifootprint/testing`, `hcifootprint/testing/lint`.
+<!-- hcifootprint:metadata:end -->
+
+App-building agents can use the portable [adoption skill](skills/hcifootprint-adoption/SKILL.md).
 
 ## What this is
 
@@ -10,7 +18,7 @@ hcifootprint turns a web app's interaction surface into a typed, traversable **j
 an LLM agent can plan over and act on — as the signed-in user, through the app's own buttons
 and handlers. You author a navigation tree in your own vocabulary (pages, containers, actions);
 the library derives the agent-facing journey graph, gates every action on a serializable guard,
-and records each occurrence in a footprintjs commit log. Nothing is hidden silently: anything
+and records each occurrence in a foottrace commit log. Nothing is hidden silently: anything
 the runtime derives rather than observes is stamped with an honesty marker, and every refused
 action returns a typed reason. It is not tied to any agent framework — you get a fixed
 MCP-shaped tool surface any host can drive.
@@ -21,14 +29,21 @@ MCP-shaped tool surface any host can drive.
 `tools:` / `skills:` are GONE — not deprecated: they no longer type-check, and a definition that
 reaches the runtime with one throws `GraphValidationError` naming the key to write instead.
 
-## The six entry points
+## Import entry points
 
-Everything below §1 is the ROOT entry point. The other five are separate imports so nothing you do
+Everything below §1 is the ROOT entry point. The subpaths are separate imports so nothing you do
 not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships).
 
+<!-- hcifootprint:imports:start -->
 - `hcifootprint` — authoring, callable Action Bindings, session, serving, graph sources. §1–§7 below.
 - `hcifootprint/mcp` — `mcpServer(session, opts?)`, `McpServerOptions`. A real MCP server; needs the
   `@modelcontextprotocol/sdk` peer dep, which is why it is not in the root (§5 covers `settleWithinMs`).
+- `hcifootprint/webmcp` — `registerWebMcpTools(port, context, { signal })`, with types
+  `WebMcpContext`, `WebMcpTool`, `WebMcpOptions`, `WebMcpRegistration`. Registers an existing
+  serving port with an explicitly supplied browser context; no browser globals, MCP SDK or React
+  load on import. Read the [browser and lifecycle guidance](https://footprintjs.github.io/hcifootprint/docs/reference/webmcp).
+  Dispose or abort on unmount. The same session still owns freshness, execution and approval;
+  browser WebMCP support is evolving, not universal.
 - `hcifootprint/react` — `ControlSurfaceProvider`, `useControlSurface`, `useControl`,
   `useActionBinding`, `useWorking`; types `ControlSurfaceProviderProps`, `ControlRef`, `ControlSpec`,
   `ActionBindingProjection`, `ActionBindingProjector`, `ActionBindingRefCallback`,
@@ -64,6 +79,7 @@ not use is ever pulled in (`sideEffects: false`, ESM-only, `dist/` is what ships
   It tracks presence, never position. Every cure is a runtime call no static check can see
   (`observeFocus`, a fire inside the tab, a mount that declares its controls), so it is never an
   error).
+<!-- hcifootprint:imports:end -->
 
 ---
 
@@ -205,7 +221,7 @@ Extends the base `SessionOptions` (source: `src/atom/types.ts`) plus two tree-on
   `state` was provided, else false. Without a tap, declared-writes fires settle on handler
   completion (or immediately) with `effectVerified: 'unobservable'` instead of pending forever.
 - `redactedKeys?: string[]` — keys stored as `'REDACTED'` in the commit log; live state keeps raw values.
-- `commitValues?: 'full' | 'delta'` — commit-log value encoding (footprintjs dial). Default `'delta'`.
+- `commitValues?: 'full' | 'delta'` — commit-log value encoding (foottrace dial). Default `'delta'`.
 - `onWarn?: (message: string) => void` — dev-warning sink (StrictMode re-registrations, handler
   errors, sensor drift). Default `console.warn`.
 - `captureProduced?: boolean` — capture each handler's RETURN value onto its transition
@@ -216,9 +232,11 @@ Extends the base `SessionOptions` (source: `src/atom/types.ts`) plus two tree-on
   `NOT_MATERIALIZED` rejection. For guide/tour/plan flows. Default false (fail-closed).
 - `requireHumanApproval?: boolean | { expiresAfterMs?: number; refuseWhenWorldMoved?: boolean }` —
   refuse a high-effect AGENT fire unless it carries `FireOptions.askId`, a pointer to a confirm-journal
-  row a person's own control recorded (`approveAsk`), or a standing `alwaysApprove` grant. Without it
-  `confirm: true` is the agent's own request to proceed and authorizes nothing by itself. Default absent
-  (fail-closed, byte-identical). Both staleness rules default off — the stamps are always recorded.
+  row a person's own control recorded (`approveAsk`), or a standing `alwaysApprove` grant. Without
+  this option, the default confirmation flow can proceed on the agent's `confirm: true`; that is
+  not proof that a person approved. Approval enforcement is opt-in: set `requireHumanApproval`
+  when a recorded human decision must gate execution. Both staleness rules default off — the stamps
+  are always recorded.
 - `dormantGraceMs?: number` — how long a registration outside the router-confirmed page may
   persist before drift telemetry fires. Default 3000ms.
 - `now?: () => number` — the clock the grace timers and the confirm chain read (epoch ms). Default

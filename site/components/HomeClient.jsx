@@ -302,7 +302,7 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
       <section className="hp-hero" data-scene="0" id="top">
         <div className="hp-hero-row">
           <div className="hp-hero-copy">
-            <div className="hp-eyebrow"><i />MIT · ONE DEPENDENCY · TREE-SHAKEABLE</div>
+            <div className="hp-eyebrow"><i />MIT · MODULAR IMPORTS · TREE-SHAKEABLE</div>
             <h1 className="hp-h1">hcifootprint</h1>
             {/* THE HERO READS TWICE TOO. It was the seven scenes alone at first,
                 which left the switch changing the argument but not the opening
@@ -400,6 +400,10 @@ export default function HomeClient({ version, code, lineCount, lineWord }) {
             <h2 className="hp-h2">{lineWord} declared lines.</h2>
             <p>This is a real integration, rewritten against the current library and compiled before it was published here. It reads like a description of the app rather than a description of the library.</p>
             <p>Three declared sources, one session, one navigate. There is no wrapper to keep in sync and no generated file to regenerate.</p>
+            <p className="v-tech">Serve that session through direct <code>tools() + call()</code>, an <a href={`${DOCS}map/mcp`}>MCP server</a>, or the optional <a href={`${DOCS}reference/webmcp`}>WebMCP browser bridge</a>. Supply the browser context explicitly and own registration with an <code>AbortSignal</code>; the same session checks execution and approval.</p>
+            <p className="v-prod">Connect the same app to your agent loop, an MCP host, or a browser that supports <a href={`${DOCS}reference/webmcp`}>WebMCP</a>. You choose the browser connection and clean it up when the screen closes. Your app&rsquo;s execution and approval rules still apply.</p>
+            <p className="v-tech">For large action lists, opt into <a href={`${DOCS}map/modes#bounded-action-rows`}><code>actionProjection.maxBytes</code></a>: complete rows, explicit omissions and stale continuations refused. It bounds the action array&rsquo;s UTF-8 JSON bytes, not the whole response or model tokens.</p>
+            <p className="v-prod">Large action lists can arrive in <a href={`${DOCS}map/modes#bounded-action-rows`}>bounded pages</a>, with each action intact and anything omitted counted. A stale continuation means the agent must look again. This limits the action list, not the whole reply or model bill.</p>
             <div className="hp-claims">
               <span>no wrappers</span>
               <span>no proxies</span>

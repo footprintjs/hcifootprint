@@ -104,8 +104,15 @@ const result = port.call('shop.journey.purchase', {}); // → { readySteps, judg
 
 The agent plans over journeys, sees only what's available at the current position, and acts
 through your own handlers — with the human able to approve high-effect steps. That's the whole
-integration: `tools()` + `call()` for any framework, or [a real MCP server](doc:mcp) as a
-one-liner.
+integration: `tools()` + `call()` for any framework, [a real MCP server](doc:mcp), or the optional
+[browser WebMCP bridge](doc:webmcp). The bridge takes your host's context explicitly and uses an
+owner `AbortSignal` for cleanup; it delegates to the same session and approval rules. Read its
+browser compatibility and React lifecycle guidance before registering.
+
+For large action lists, `actionProjection: { maxBytes: 4096 }` on `serveToAgent` opts into
+[bounded action rows](doc:modes#bounded-action-rows): complete rows, explicit omissions and
+continuation cursors that refuse stale state. The limit covers the `actions` array's UTF-8 JSON
+bytes, not the whole response or model tokens. Default serving is unchanged.
 
 ## Where next
 

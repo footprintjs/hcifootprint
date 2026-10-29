@@ -56,6 +56,8 @@
     "example:wizard": "tsx examples/guarded-wizard/run.ts",
     "example:already-true": "tsx examples/already-true/run.ts",
     "docs:api": "node scripts/gen-fumadocs-api.mjs",
+    "docs:agents:sync": "node scripts/sync-agent-guide.mjs --write",
+    "docs:agents:check": "node scripts/sync-agent-guide.mjs --check",
     "docs:links": "node scripts/check-doc-links.mjs --strict",
     "docs:truth": "node scripts/docs-truth-check.mjs --verbose",
     "docs:truth:check": "node scripts/docs-truth-check.mjs --check",

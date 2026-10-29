@@ -63,9 +63,21 @@ And it's a **real MCP server**, not just a shape. One line — `mcpServer(sessio
 `tools/list` + `tools/call`, and you pick the transport (stdio, SSE, HTTP). Any MCP host —
 Claude Desktop, Cursor, LangGraph's MCP adapter — auto-discovers it and drives the **same live
 session** the human is using. The SDK is an optional peer dependency isolated to that subpath, so
-the core stays zero-dependency. Over MCP a high-effect step returns `judgment: needs-confirm`, and
-the host gets human approval before calling again with `confirm: true` — portable human-in-the-loop,
-no framework-specific pause/resume required.
+the SDK stays out of the other entry points. Over MCP a high-effect step returns
+`judgment: needs-confirm`, and the host collects the human's decision. To enforce that decision,
+configure the session with `requireHumanApproval: true`; an agent's `confirm: true` alone is not
+proof of approval. No framework-specific pause/resume is required.
+
+The same serving port can register with a browser through the optional `hcifootprint/webmcp`
+entry point. The host supplies the browser context explicitly and owns registration with an
+`AbortSignal`, including cleanup on unmount. Calls still pass through the session's execution
+and approval rules. [Browser WebMCP](https://footprintjs.github.io/hcifootprint/docs/reference/webmcp)
+documents host compatibility and React lifecycle requirements.
+
+Large action lists can use opt-in `actionProjection.maxBytes` on the port or MCP server.
+It bounds only the `actions` array's UTF-8 JSON bytes, retaining complete rows, counting omissions
+and refusing stale continuation cursors. It does not cap the entire response or model tokens.
+See [bounded action rows](https://footprintjs.github.io/hcifootprint/docs/map/modes#bounded-action-rows).
 
 <!--section:stays-true-->
 
@@ -83,7 +95,7 @@ graph declares. `checkGraph(graph, { initialState })` rolls both into a one-call
 That honesty is the throughline. Anything the runtime *derives* rather than *observes* is flagged —
 `activation: 'assumed'`, `presence: 'unknown'`, `guardUnevaluated` — and every refused action returns
 a *typed* reason (`BLOCKED_BY_OVERLAY`, `STILL_MOUNTING`, …) so the agent replans instead of
-hallucinating. Under the hood every action lands in a real footprintjs commit log, so
+hallucinating. Under the hood every action lands in a real foottrace commit log, so
 `session.why(key)` gives a causal answer to *"why is the app in this state?"* with zero extra code.
 
 **Get it:** `npm install hcifootprint` ·

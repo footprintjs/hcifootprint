@@ -18,6 +18,16 @@ await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTT
 `mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the
 transport** and run it wherever your session lives.
 
+For large action lists, pass `actionProjection: { maxBytes: 4096 }` to `mcpServer` to opt into
+[bounded action rows](doc:modes#bounded-action-rows). The byte limit covers only the `actions`
+array, with whole rows, explicit omissions and stale continuations refused; it does not cap
+the rest of the response or model tokens.
+
+Browser [WebMCP registration](doc:webmcp) is available through `hcifootprint/webmcp` over an
+existing serving port. The host supplies its browser context and owns cleanup with an
+`AbortSignal`; execution and approval remain with the same session. See that guide for
+browser compatibility and React lifecycle requirements.
+
 ## Waiting, at the one boundary where it belongs
 
 A promise cannot cross a wire. In process, `fire()` hands its caller `whenSettled` and the
@@ -106,9 +116,9 @@ available here.
 ## The subpath is the dependency boundary
 
 The SDK is an **optional peer dependency**, imported only behind the `hcifootprint/mcp`
-subpath — the main entry never touches it, so the core stays zero-dependency and you pull the
-SDK in only if you use it. (The same pattern bounds `hcifootprint/testing` and
-`hcifootprint/testing/lint` — see [Tree-shaking](doc:tree-shaking).) All four entry points
+subpath — the main entry never touches it, and you install the SDK only if you use it.
+(The same pattern bounds `hcifootprint/testing` and
+`hcifootprint/testing/lint` — see [Tree-shaking](doc:tree-shaking).) The entry points
 are documented in the [API Reference](/api).
 
 ## Human-in-the-loop, portably

@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-3459%20passing-f5b301?style=flat" alt="3459 tests passing">
+  <img src="https://img.shields.io/badge/tests-3471%20passing-f5b301?style=flat" alt="3471 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -36,7 +36,8 @@ npm install hcifootprint
 > **1.0 — the names are frozen.** You author **actions**, you name **journeys**, and a **tool** is
 > what is served to a model. The pre-1.0 spellings (`tools:`, `skills:`) are gone, not deprecated —
 > see the [migration](CHANGELOG.md#100---2026-08-02).
-> **Agents:** [`llms.txt`](llms.txt) is the whole API surface on one page.
+> **Coding agents:** start with the portable [adoption skill](skills/hcifootprint-adoption/SKILL.md).
+> [`llms.txt`](llms.txt) carries the API guide, with package version and import metadata generated from `package.json`.
 
 ---
 
@@ -327,7 +328,8 @@ Three consequences, in order of how much they matter:
   teaches — so the agent replans instead of inventing a cause.
 - **A smaller model goes further.** The reasoning that used to reconstruct your app from a DOM dump is
   simply not spent. This is context engineering, not model choice.
-- **Tokens are bounded by the page, not the app.** What's on screen is what's sent.
+- **Context is scoped to the current page.** Large action lists can also use an opt-in byte
+  budget for complete action rows; that is not a bound on the whole response or model tokens.
 
 → [Reading an action row](https://footprintjs.github.io/hcifootprint/docs/actions/reading-an-action-row) ·
 [Grounding](https://footprintjs.github.io/hcifootprint/docs/actions/grounding) ·
@@ -372,6 +374,18 @@ now* arrives inside each result.
 import { mcpServer } from 'hcifootprint/mcp';
 mcpServer(session);
 ```
+
+For an existing agent loop, `serveToAgent(session)` exposes `tools()` + `call()` directly.
+The optional [`hcifootprint/webmcp`](https://footprintjs.github.io/hcifootprint/docs/reference/webmcp)
+entry point registers that same port with an explicitly supplied browser context. The owner
+uses an `AbortSignal` for cleanup, including React unmount; execution and approval still belong
+to the session. Browser support varies, so follow the host and lifecycle guidance.
+
+For large action lists, opt into `actionProjection: { maxBytes: 4096 }` on `serveToAgent` or
+`mcpServer`. The limit covers only the UTF-8 JSON bytes of the `actions` array. Rows stay whole,
+omissions are explicit, and a cursor retrieves the next page; changed state refuses a stale
+continuation. [Bounded action rows](https://footprintjs.github.io/hcifootprint/docs/map/modes#bounded-action-rows)
+explains the limits and refusals. This does not cap the rest of the response or model tokens.
 
 → [Quick start](https://footprintjs.github.io/hcifootprint/docs/get-started/quick-start) ·
 [Adoption ladder](https://footprintjs.github.io/hcifootprint/docs/get-started/adoption-ladder) —
