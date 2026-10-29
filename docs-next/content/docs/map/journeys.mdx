@@ -8,6 +8,12 @@ qualified path or unambiguous suffix, resolved loudly at build time), and an opt
 precondition. Journeys are what [Mode B serves as fixed tools](doc:modes) — one tool per journey,
 forever.
 
+This is the Session's named-flow surface across model turns: the planner reads the current
+steps, chooses an action, and reads the resulting evidence before continuing. A journey does not
+automatically execute a batch. For an already-known sequence of callable `defineAction` bindings,
+the separate [walk](doc:the-walk) runs sequential plans with fresh offers and a per-step manifest.
+Callable walks do not automatically become Session journeys or MCP/WebMCP tools.
+
 It is also **the one relational thing you declare.** A preferred order toward a goal is meaning,
 and meaning is yours. Everything else relational — a step's dependencies, [what would free a
 greyed control](doc:what-would-free-it), [the route to a page](doc:how-to-reach) — is DERIVED from
@@ -65,6 +71,15 @@ chain order, and the **first one not done** — the *governing* step — names t
 
 Every arm also carries `stepsDone` and `stepsTotal`, so a journey nobody has started reads
 `'in-progress'` with `stepsDone: 0` — the honest reading of *open, and nothing holds it*.
+
+A dispatched step is not automatically a completed one. Journey completion follows the Session's
+existing settlement truth: mere dispatch or an early committed record does not make a step done,
+and an unresolved settlement does not count as completion.
+That does not introduce a verification requirement for an unobservable contract or turn an
+`inferred-done` step into observed proof. Inspect the action's receipt and honesty markers for
+what was performed, observed or verified; `standing` is the flow's position, not a stronger grade
+of evidence. A browser observation can supply that evidence when the app's adapter defines it
+as authoritative, but a click or visible change alone does not automatically verify business success.
 
 **`'failed'` is never minted from a pause.** Not from `needs-confirm`, not from a relayed decline,
 not from any approval refusal, not from a guard, disabled or materialization refusal. A refusal is

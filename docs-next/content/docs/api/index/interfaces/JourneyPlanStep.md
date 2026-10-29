@@ -20,7 +20,7 @@ Defined in: [src/atom/types.ts:3285](https://github.com/footprintjs/hcifootprint
 
 > `optional` **blockedOn?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:3295](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3295)
+Defined in: [src/atom/types.ts:3296](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3296)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/atom/types.ts:3295](https://github.com/footprintjs/hcifootprint
 
 > **dependsOn**: [`DependencyEdge`](/api/index/interfaces/DependencyEdge)[]
 
-Defined in: [src/atom/types.ts:3293](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3293)
+Defined in: [src/atom/types.ts:3294](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3294)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: [src/atom/types.ts:3286](https://github.com/footprintjs/hcifootprint
 
 > `optional` **guardUnevaluated?**: `string`[]
 
-Defined in: [src/atom/types.ts:3297](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3297)
+Defined in: [src/atom/types.ts:3298](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3298)
 
 Guard keys absent from the state view — the step shows 'ready', taken on faith.
 
@@ -54,7 +54,7 @@ Guard keys absent from the state view — the step shows 'ready', taken on faith
 
 > `optional` **humanDecides?**: `true`
 
-Defined in: [src/atom/types.ts:3308](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3308)
+Defined in: [src/atom/types.ts:3309](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3309)
 
 THE DECISION AT THIS STEP IS A PERSON'S — the presence stamp
 [AvailableEdge.humanDecides](/api/index/interfaces/AvailableEdge#humandecides) carries, on the plan row, so a serving
@@ -71,7 +71,7 @@ list membership in a frame result, not a status word.
 
 > **onNodes**: `string`[]
 
-Defined in: [src/atom/types.ts:3294](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3294)
+Defined in: [src/atom/types.ts:3295](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3295)
 
 ***
 
@@ -79,8 +79,9 @@ Defined in: [src/atom/types.ts:3294](https://github.com/footprintjs/hcifootprint
 
 > **status**: [`StepStatus`](/api/index/type-aliases/StepStatus)
 
-Defined in: [src/atom/types.ts:3292](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3292)
+Defined in: [src/atom/types.ts:3293](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3293)
 
-'done' = committed while the current frame was open; 'blocked' = guard
+'done' = a fire in the current frame has a successful retained settlement
+and its live record is still committed; 'blocked' = guard
 fails (see blockedOn); 'ready' = fireable here and now; 'off-node' =
 guard passes but the step lives on another page (navigate first).

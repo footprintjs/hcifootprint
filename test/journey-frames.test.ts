@@ -91,7 +91,7 @@ describe('committing to a journey, and always being able to walk out of it', () 
     expect(s.journeyFrame()).toBeNull();
   });
 
-  it('tracks fired steps; leaveJourney() auto-detects completed vs cancelled', () => {
+  it('tracks committed steps; completion waits for their handler settlement', async () => {
     const g = buildNavigationGraph('g', {
       pages: {
         a: {},
@@ -117,8 +117,11 @@ describe('committing to a journey, and always being able to walk out of it', () 
     const completed = g.createSession({ node: 'a' });
     completed.registerHandlers({ group: 'app', handlers: { 'step-1': () => undefined } });
     completed.commitJourney('one-step');
-    completed.fire('step-1', { source: 'agent' });
+    const fired = completed.fire('step-1', { source: 'agent' });
+    if (!fired.ok) throw new Error('the registered step should fire');
     expect(completed.journeyFrame()!.firedSteps).toEqual(['step-1']);
+    expect(completed.journeyStanding('one-step').standing).toBe('in-progress');
+    await fired.whenSettled;
     expect(completed.leaveJourney()!.status).toBe('completed');
     expect(completed.frames().map((f) => f.status)).toEqual(['completed']);
   });

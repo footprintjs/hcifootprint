@@ -43,7 +43,7 @@ The v2 public additions are deliberately semantic or name an unavoidable public 
   internal registration/update option shapes remain private implementation plumbing.
 
 The earlier runtime names and registry helper types are not compatibility aliases on this
-next-major surface.
+callable surface.
 
 ### Callable definitions and exact live instances
 
@@ -55,7 +55,7 @@ defineAction(id, {
   invocation,
   inputSchema?,
   guard?: { when?, enabledWhen?, blockedBecause? },
-  settle?: { writes?, reads?, goTo?, verify?, observability?, progress? },
+  settle?: { writes?, reads?, goTo?, verify?, observability?, progress?, evidence?, onReturn? },
   principal?: { mayInvoke?, decisionOwner?, requiresHumanApproval? },
   needs?,
   produces?,
@@ -82,18 +82,29 @@ never guesses from mutable `Function.length`. `inputSchema` describes the defini
 `ActionDef.input`; that is a separate legacy declaration surface.
 
 `needs` contains named `{ kind, schema?, from? }` inputs and `produces` contains one
-`{ kind, schema? }` output. Their declaration records are validated, detached, and frozen; their
-optional schema capabilities retain identity for the future layer that will interpret them. They
-remain inert here: no channel matching, UI rendering, value collection, or output routing happens.
+`{ kind, schema? }` output. Their declaration records are validated, detached, and frozen. A
+single invocation does not automatically collect these inputs or render/route the output.
+Their kind names are [governed at connect](doc:kind-governance); explicit
+[surface queries](doc:surfaces-and-gaps) match kinds and count misses, and
+[`requestInput`](doc:requesting-input) records the surfaces that collect its kind. A
+[walk](doc:the-walk) can explicitly carry a declared `produces` value to a later action.
+The optional `needs`/`produces` schema slots remain opaque declarations: they do not validate
+or infer a dataflow graph. Payload validation belongs to the action's `inputSchema` and supported
+adapter, not to those channel declarations.
 
 Contract activation is explicit. The framework-neutral runtime can enforce a self-validating or
-adapter-backed `inputSchema`, and it always enforces `principal.mayInvoke`. It has no application-state
-or authoritative-evidence port, so `contractActivation: 'require-active'` rejects `guard.when`,
+adapter-backed `inputSchema`, and it always enforces `principal.mayInvoke`. It has no application-state port
+or approval journal, so `contractActivation: 'require-active'` rejects `guard.when`,
 `guard.enabledWhen`, and `settle.verify` instead of claiming to evaluate them. It also rejects
 `principal.requiresHumanApproval` because this runtime has no approval journal. Disclosure mode
-carries those clauses as metadata only. `guard.blockedBecause`, `principal.decisionOwner`, settlement
-declarations other than `verify`, and `needs`/`produces` are disclosures here. Use a Session or another
-integration with the required state, evidence, and approval ports when those clauses must be active.
+carries those clauses as metadata only. `guard.blockedBecause`, `principal.decisionOwner`,
+`settle.writes`/`reads`/`goTo`/`observability`, and `needs`/`produces` describe the contract; they
+do not themselves supply state observations or route values. Other settlement declarations have
+active runtime rails: `settle.progress` records reported stages, `settle.evidence` gates declared
+effect evidence and validates its value when a supported catalog schema exists, and
+`settle.onReturn` sends the definition's authored verdict through the normal settlement funnel.
+Use a Session or another integration with the required state and approval ports when those
+clauses must be active.
 
 ```ts
 import { connectAction, createActionRuntime, defineAction } from 'hcifootprint';
@@ -302,6 +313,17 @@ returns, throws, or rejects. A closed snapshot contains exact `declared`, `obser
 `required: true`, a started invocation that reports no stage closes with `integrity: 'unmet'`.
 Unknown stages and reporting failures are instrumentation errors: they are routed to
 `onInvocationError` and never replace the handler result or invocation status.
+
+This progress channel reports what the application handler observed; it is not a model's thinking
+stream or an automatic task-success verdict. An app can use browser observations as authoritative
+settlement evidence when its adapter defines and reports that contract. A click, a changed screen,
+or a closed progress stream alone does not automatically verify the intended business outcome.
+
+For several callable actions, use the existing [walk](doc:the-walk) with live offer checks,
+explicit output carry, row manifests and interruption. Its `completed` flag describes performed
+invocations, not verified effects. [Session journeys](doc:journeys) instead describe a named flow
+across model turns; callable bindings and walks do not automatically become Session affordances or
+MCP/WebMCP tools.
 
 An unverified effect may become `abandoned` only with explicit authority:
 `{ kind: 'cancelled', reason }`, `{ kind: 'deadline', deadlineAt }`, or

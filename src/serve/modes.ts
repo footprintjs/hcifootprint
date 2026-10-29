@@ -1834,7 +1834,12 @@ export function serveToAgent(
     const edges = new Map(rows.map((edge) => [edge.affordanceId, edge]));
     // A step whose fire is still awaiting the app's state report is NOT ready
     // to fire again — advertising it would instruct the model to double-fire.
-    const awaiting = new Set(session.pending().map((pendingInfo) => pendingInfo.affordanceId));
+    const awaitingState = new Set(session.pending().map((pendingInfo) => pendingInfo.affordanceId));
+    // The existing latch owner also knows handlers with no declared writes.
+    // They never join pending(), but must not be offered for a second fire.
+    const journeyStepIds = new Set(plan.steps.map((step) => step.affordanceId));
+    const unsettled = new Map([...unsettledByAction()].filter(([action]) => journeyStepIds.has(action)));
+    const awaiting = new Set([...awaitingState, ...unsettled.keys()]);
     // NOR IS A STEP WHOSE CONTROL THE APP HAS SWITCHED OFF. `journeyPlan` calls
     // it 'ready' because the DECLARED graph is satisfied — its guard holds and
     // the cursor is on its page — and that is a true and useful fact. It is not
@@ -1901,7 +1906,8 @@ export function serveToAgent(
       // move this turn", `standing` is "where does this chain stand".
       standing: session.journeyStanding(journeyId).standing,
       judgment: ready.length === 0 ? 'navigate-or-wait' : ready.length === 1 ? 'one-ready-step' : 'needs-choice',
-      ...(awaiting.size > 0 ? { awaitingState: [...awaiting] } : {}),
+      ...(awaitingState.size > 0 ? { awaitingState: [...awaitingState] } : {}),
+      ...(unsettled.size > 0 ? { awaitingSettlement: [...unsettled.values()], ...settleWithData() } : {}),
       ...(awaitingHuman.length > 0 ? { awaitingHuman } : {}),
       ...(withTheHuman.length > 0 ? { withTheHuman, withTheHumanMeans: WITH_THE_HUMAN_MEANS } : {}),
       readySteps: ready.map((step) => {
@@ -1963,7 +1969,10 @@ export function serveToAgent(
             ...(edge?.busy !== undefined ? { busy: edge.busy } : {}),
           };
         }),
-      howToAct: ready.length > 0 ? PICK_A_READY_STEP_HOWTO : NO_READY_STEP_HOWTO,
+      howToAct: ready.length > 0 ? PICK_A_READY_STEP_HOWTO
+        : unsettled.size > 0
+          ? `Actions in awaitingSettlement have not finished. Do not perform them again. Call ${didItWorkName} with one of those transitionId values to learn how it came to rest; laterSteps describes any other unavailable steps.`
+          : NO_READY_STEP_HOWTO,
     };
   }
 

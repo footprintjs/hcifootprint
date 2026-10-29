@@ -626,13 +626,17 @@ if (offer?.inputMode === 'bound') agent.invoke(offer);
 
 The exact declaration shape is
 `defineAction(id, { does, invocation, inputSchema?, guard?, settle?, principal?, needs?, produces?, role?, mutate })`.
-It is the next-major replacement for the earlier 1.x callable-binding draft; removed draft names are
+It replaces the earlier 1.x callable-binding draft; removed draft names are
 not compatibility aliases. The separate graph/Session surface remains available.
 `guard` owns `{ when?, enabledWhen?, blockedBecause? }`; `settle` owns
-`{ writes?, reads?, goTo?, verify?, observability?, progress? }`; `principal` owns
+`{ writes?, reads?, goTo?, verify?, observability?, progress?, evidence?, onReturn? }`; `principal` owns
 `{ mayInvoke?, decisionOwner?, requiresHumanApproval? }`. `mutate` is required. Calling the returned
-definition directly preserves normal JavaScript behavior. `needs` and `produces` are inert typed
-declarations for a later channel broker; this runtime does not render, collect, match, or route them.
+definition directly preserves normal JavaScript behavior. A single invocation does not automatically
+collect `needs` or route/render `produces`. Their kind names are governed at connect; explicit
+`declareSurface`/`surfacesFor` queries match kinds and record channel gaps, and `requestInput` records
+which surfaces collect its kind. A walk can explicitly carry a declared `produces` value to a later
+step. The `needs`/`produces` schema slots do not automatically validate or connect that dataflow;
+payload validation belongs to the action's `inputSchema` and supported adapter, not to those slots.
 
 Every definition authors one invocation mode; the runtime never guesses it from `Function.length`:
 
@@ -649,7 +653,7 @@ application `inputSchemaAdapter`; strict activation rejects a schema it cannot e
 `contractActivation: 'disclosure'` explicitly carries it as metadata. Validators and adapters gate
 the exact payload and never replace it with parser output.
 
-This framework-neutral runtime has no application-state, authoritative-evidence, or approval port.
+This framework-neutral runtime has no application-state port or approval journal.
 `require-active` therefore rejects `guard.when`, `guard.enabledWhen`, `settle.verify`, and
 `principal.requiresHumanApproval`; disclosure mode carries them without claiming enforcement.
 `principal.mayInvoke` is different: it is always enforced before offer enumeration evaluates any
@@ -672,7 +676,7 @@ the new reader can be used; offer generation captures input once and invocation 
 `whenInvoked` is `performed` when the handler returned/resolved, `refused` only when it never started,
 and `failed` when it started then threw/rejected. Effect truth is a separate `whenEffectSettled` rail;
 only authoritative evidence may verify it. `verified` requires both an authored evidence-bearing
-settlement clause (nonempty `settle.writes`, `settle.goTo`, `settle.verify`, or
+settlement clause (nonempty `settle.writes`, `settle.goTo`, `settle.verify`, `settle.evidence`, or
 `settle.observability` other than `unobservable`) and `verifiable` live coverage on that exact
 invocation. `settle.reads` and `settle.progress` do not qualify. A preflight refusal automatically
 refuses the effect as not attempted. Once both rails are terminal, `forgetTransition(ref)` is the
@@ -682,6 +686,23 @@ retention boundary.
 `not-started` after preflight refusal, then `closed` with exact `declared`/`observed`/`unreported`.
 `unreported` is declared minus observed stages. `required: true` plus no observation produces silent
 `integrity: 'unmet'`; progress instrumentation never replaces the handler result.
+
+**Continuing across actions:** `beginWalk(runtime, 'agent')` admits a known sequential plan,
+re-reads each live offer at that step, and invokes through the same principal port. An explicit
+`carry: { from: index }` requires an earlier action declaring `produces`; it does not infer a
+dependency graph from `needs`. The manifest records `ran`, `refused`, `never-reached` rows and
+transition refs. `onRow` reports landed rows; `interrupt({ by, reason })` stops future steps at
+a step boundary. Replan under the same walk identity after a refusal or new decision.
+`manifest.completed` means all invocations performed: the walk waits for `whenInvoked`, not
+`whenEffectSettled`, so it is not a blanket verified-success verdict. Use actual effect evidence
+before depending on a delayed commit. See the
+[two-action example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk).
+
+Session journeys are the separate named-flow surface for model turns: plans, ready/later steps,
+human pauses and settlement are served through `serveToAgent`, MCP or WebMCP. A callable walk
+does not automatically become a Session journey or a served tool. Browser observation may provide
+authoritative evidence through an app-defined adapter contract; a click or visible change alone
+does not automatically verify the business result.
 
 `abandoned` requires explicit authority: `cancelled` with a reason, a `deadline`, or named
 `evidence-exhausted` sources. Detach, unmount, and disconnect are not abandonment. Transitions survive

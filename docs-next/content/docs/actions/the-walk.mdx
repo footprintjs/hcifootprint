@@ -14,34 +14,83 @@ prove before anything runs; execution re-derives every step's offer at its
 own turn; and the answer is a manifest** — ran, refused, never-reached, per
 row — so partial execution is legible instead of summarized.
 
-```ts
+The example below uses a fixed local archive and records an open request; it makes no model or
+network call. Replace those application functions with the ones your app already owns.
+
+```ts twoslash
 import { beginWalk, connectAction, createActionRuntime, defineAction } from 'hcifootprint';
+import type { ActionLifecycle } from 'hcifootprint';
+const archive = { mostRecent: async (_kind: string) => 'run-42' };
+const view = { open: (ref: string) => ({ requestedRun: ref }) };
+const runIdSchema = {
+  safeParse(value: unknown) {
+    return typeof value === 'string' && value.length > 0
+      ? { success: true as const, data: value }
+      : { success: false as const, error: { issues: [{ message: 'Expected a run id' }] } };
+  },
+};
+// ---cut---
 
 const findRun = defineAction('runs.find', {
   does: 'Find the most recent zone-redundancy run',
   invocation: 'inputless',
   produces: { kind: 'run.ref' },
-  mutate: () => archive.mostRecent('zone-redundancy'),
+  settle: { progress: { stages: ['searching', 'found'], required: true } },
+  mutate: async (lifecycle?: ActionLifecycle) => {
+    lifecycle?.reportProgress('searching');
+    const ref = await archive.mostRecent('zone-redundancy');
+    lifecycle?.reportProgress('found');
+    return ref;
+  },
 });
 const openRun = defineAction('runs.open', {
-  does: 'Open one run on screen',
+  does: 'Request that one run opens on screen',
   invocation: 'scalar',
-  inputSchema: { safeParse: () => ({ success: true as const }) },
-  mutate: (ref: string) => screen.open(ref),
+  inputSchema: runIdSchema,
+  mutate: (ref: string) => view.open(ref),
 });
 
 const runtime = createActionRuntime();
-connectAction(runtime, findRun, { node: 'runs' });
+connectAction(runtime, findRun, {
+  node: 'runs',
+  onInvocation(invocation) {
+    invocation.progress?.subscribe(snapshot => console.log(snapshot));
+  },
+});
 connectAction(runtime, openRun, { node: 'runs' });
 
 const walk = beginWalk(runtime, 'agent');
 const manifest = await walk.run([
   { action: findRun },
   { action: openRun, carry: { from: 0 } },
-]);
+], { onRow: row => console.log(row.status) });
 // manifest.rows    → [{ status: 'ran', transition }, { status: 'ran', transition }]
 // manifest.counts  → { planned: 2, ran: 2, refused: 0, neverReached: 0 }
 ```
+
+The first action's declared output is carried explicitly into the second action's validated
+payload. The progress subscription reports stages inside the first invocation; `onRow` reports
+each manifest row as it lands. `ran` rows land after `whenInvoked` settles. Neither requires a model
+call between these known steps. A missing offer, ambiguous instance, refusal or failed invocation stops later steps;
+the caller can inspect the manifest and replan under the same walk identity.
+
+## Invocation completion and effect truth
+
+`manifest.completed` means every invocation `performed`: the walk awaits `whenInvoked`, not
+`whenEffectSettled`. In this example, an open request returning is not proof that the screen
+committed or that a business effect succeeded. The transition's effect status and authoritative
+settlement remain separate. A closed progress stream is not that settlement either.
+
+Batch steps whose next inputs and availability are known. If the next step depends on a delayed
+commit, a fresh observation or a decision nobody owns yet, return to the host/planner or person,
+read the actual evidence, and submit the next plan. The walk does not invent a pause/resume
+protocol, infer a dependency graph from `needs`, or automatically become a
+[Session journey](doc:journeys) served through MCP/WebMCP.
+
+Browser observations can be authoritative evidence when the app's adapter defines and reports
+that contract. Merely clicking or seeing a change does not automatically verify the intended
+business outcome. The [binding settlement rules](doc:live-bindings)
+keep a handler result, execution progress and effect evidence distinct.
 
 ## The laws, and why each one
 
@@ -62,9 +111,9 @@ const manifest = await walk.run([
   actually taken — which is not the route anybody planned, and comparing
   the two is where the interesting failures live.
 
-Admission failures **throw** (nothing ran, so an exception is honest).
-Execution failures **never throw** — they are manifest rows, because by then
-something did happen and the caller needs the ledger, not a stack trace.
+Admission failures **throw** before execution. Reached invocation refusals and failures are
+recorded in the manifest, with transition refs for steps that ran, so partial execution is not
+hidden behind a single success/failure summary.
 
 ## Breaking the walk
 
@@ -89,9 +138,9 @@ manifest.interrupted;
 
 The semantics that keep it sound:
 
-- **Step-boundary only.** The in-flight step finishes and settles normally —
-  an L1 transition is atomic, and tearing one mid-flight would violate
-  settlement law. L2 stops future steps; L1 transitions are never torn.
+- **Step-boundary only.** The current invocation finishes; its effect may still await
+  authoritative observation. The walk stops future steps, without cancelling that invocation
+  or rolling back a side effect.
 - **`interrupted` is a manifest field, not a row status.** Un-run rows stay
   `never-reached`, but the manifest says who stopped it and why — because
   "the plan was wrong" and "the person knows something the plan didn't"

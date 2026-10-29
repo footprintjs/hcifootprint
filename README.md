@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-3471%20passing-f5b301?style=flat" alt="3471 tests passing">
+  <img src="https://img.shields.io/badge/tests-3488%20passing-f5b301?style=flat" alt="3488 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -45,18 +45,23 @@ npm install hcifootprint
 
 An agent can already reach your app. The question is how it *operates* one.
 
-| How agents drive a UI today | The cost |
+| How agents drive a UI today | What the integration still needs |
 |---|---|
-| Screenshot the page, reason over pixels | slow, fragile, redone every turn |
-| Dump the DOM into the prompt | every wrapper and class, re-sent each turn — and it still guesses what does what |
-| Hard-coded selectors, RPA scripts | break on the next redesign |
+| Observe the page and operate browser controls | a way to connect what was clicked or seen to the intended business result |
+| Inspect the DOM | a choice of context to send, and the action's meaning beyond its markup |
+| Use selectors or RPA scripts | mappings kept current as the interface changes |
 
-All three relearn your app from scratch on every visit.
+These approaches work from the rendered interface. Browser automation remains useful
+for apps you do not own and for observing what a real screen does. With hcifootprint, an app you
+do own can also expose the meaning of its actions, their live availability and their outcomes.
+The two approaches can work together: a browser observation can be authoritative evidence when
+the app's adapter defines and reports it that way. A click or visible change alone does not
+automatically establish that the intended business action finished successfully.
 
 **Measured, on a real page**: a five-page demo's rendered DOM is 2,027 tokens; what this library
 sends for the same page is 332 — **6.1× less per turn**, at 41.5 tokens per available action. That is
-one page of one small app whose DOM is dominated by its shell, so treat it as a floor rather than a
-headline; the script is in the repo (`node bench/token-cost/token-cost.mjs`) and the honest way to
+one page of one small app whose DOM is dominated by its shell, not a general saving guarantee;
+the script is in the repo (`node bench/token-cost/token-cost.mjs`) and the honest way to
 know your own number is to run it against your own app. A returning human doesn't — they carry a
 mental model of where things are and what they're allowed to do. **Your app holds that same map. This
 hands it to the agent.**
@@ -390,6 +395,24 @@ explains the limits and refusals. This does not cap the rest of the response or 
 → [Quick start](https://footprintjs.github.io/hcifootprint/docs/get-started/quick-start) ·
 [Adoption ladder](https://footprintjs.github.io/hcifootprint/docs/get-started/adoption-ladder) —
 start in guide mode, where the agent can only *describe* what's possible.
+
+### Continue a task across actions
+
+This is not limited to one button per model turn. There are two existing surfaces:
+
+- **Session journeys** describe a named flow across pages and model turns. The served tools
+  disclose ready and later steps, human decisions and settlement; the agent chooses its next move.
+  See [journeys and frames](https://footprintjs.github.io/hcifootprint/docs/map/journeys).
+- **Callable action walks** run an already-known sequence without another model call between
+  every step. `beginWalk(runtime, 'agent')` refreshes each live offer, can carry an earlier declared
+  output, and records which steps ran, refused or were never reached. `onRow` reports each landed
+  row; `interrupt` stops future steps with a reason. A new decision or missing input belongs back
+  with the planner or person. See [the checked two-action example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk).
+
+Within one callable action, `settle.progress` and `reportProgress` expose declared execution stages
+to subscribers. These observations, a returned handler, and a walk's invocation-complete manifest
+are separate from effect verification. Read the action's settlement before claiming business
+success. Callable walks do not automatically become Session journeys, MCP tools or WebMCP tools.
 
 The session's record is provided by `foottrace`. If you name its rows, import
 `CommitBundle` from `foottrace` instead of `hcifootprint`; trace readers such as

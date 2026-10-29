@@ -25,6 +25,20 @@ not automatically become Session affordances or served tools. Read the
 [action-binding guide](https://footprintjs.github.io/hcifootprint/docs/actions/live-bindings)
 when the task needs those bindings.
 
+For a continuing task, choose the existing layer:
+
+- [Session journeys](https://footprintjs.github.io/hcifootprint/docs/map/journeys) describe
+  named flows across pages and model turns. Use the served ready/later steps, human pauses
+  and settlement results to choose the next move; a journey is not an automatic batch executor.
+- [Callable walks](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk) use
+  `beginWalk(runtime, 'agent')` for a known sequential plan. Each step rechecks its live offer;
+  explicit `carry` uses an earlier declared `produces`. Render `onRow` manifests and retain
+  interruption reasons. Replan or ask a person when a new decision is needed.
+- For progress within one callable action, declare `settle.progress`, report actual stages
+  with `reportProgress`, and subscribe through `invocation.progress`. Progress is not effect
+  verification. A walk's `completed` means its invocations performed, not that every effect
+  was verified. Callable walks are not automatically served through Session/MCP/WebMCP.
+
 Choose the host boundary the application needs:
 
 - Direct integration: `serveToAgent(session)`, then `tools()` and `call()`.
@@ -42,14 +56,21 @@ bytes, CPU work or model tokens. Default serving remains unchanged.
 
 ## Preserve the application's meaning
 
-Use a separate session and port for each user or conversation. Keep input
-validation, execution and approval in the existing Session. Leave a model's
-port principal as `agent`; do not stamp it `user` to bypass a refusal.
+Use separate runtime/session and port lifetimes for each user or conversation. For Session
+serving, keep input validation, execution and approval in the existing Session. Callable
+bindings use their own principal port and validation; strict contract activation refuses
+state or approval clauses that runtime cannot enforce. Do not switch to disclosure mode
+merely to make a blocked flow run. Leave a model's port principal as `agent`; do not stamp it
+`user` to bypass a refusal.
 `confirm: true` alone is not proof of human approval: use `requireHumanApproval`
 when enforcement is required, with the application's recorded decision.
 
-A pending result is not completion. Read `did_it_work` rather than repeating
-the action. Keep typed refusals and unknown evidence visible.
+A pending result is not completion. For Session serving, read `did_it_work` rather than
+repeating the action. For callable invocations, distinguish `whenInvoked` from
+`whenEffectSettled`; a handler return or closed progress stream is not a verified effect.
+Keep typed refusals and unknown evidence visible. Browser observations may supply authoritative
+adapter evidence when the app defines that contract; a click or visible change alone is not
+automatically proof of business success.
 
 ## Validate the integration
 

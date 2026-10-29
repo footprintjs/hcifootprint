@@ -3285,7 +3285,8 @@ export interface JourneyPlanStep {
   affordanceId: string;
   description: string;
   /**
-   * 'done' = committed while the current frame was open; 'blocked' = guard
+   * 'done' = a fire in the current frame has a successful retained settlement
+   * and its live record is still committed; 'blocked' = guard
    * fails (see blockedOn); 'ready' = fireable here and now; 'off-node' =
    * guard passes but the step lives on another page (navigate first).
    */
