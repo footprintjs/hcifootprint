@@ -4,7 +4,7 @@ title: WebMcpTool
 
 # Interface: WebMcpTool
 
-Defined in: src/serve/webmcp.ts:10
+Defined in: [src/serve/webmcp.ts:10](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/webmcp.ts#L10)
 
 A tool projected from the existing serving port, never a second action definition.
 
@@ -14,7 +14,7 @@ A tool projected from the existing serving port, never a second action definitio
 
 > **description**: `string`
 
-Defined in: src/serve/webmcp.ts:12
+Defined in: [src/serve/webmcp.ts:12](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/webmcp.ts#L12)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: src/serve/webmcp.ts:12
 
 > **inputSchema**: `JsonSchema`
 
-Defined in: src/serve/webmcp.ts:13
+Defined in: [src/serve/webmcp.ts:13](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/webmcp.ts#L13)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: src/serve/webmcp.ts:13
 
 > **name**: `string`
 
-Defined in: src/serve/webmcp.ts:11
+Defined in: [src/serve/webmcp.ts:11](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/webmcp.ts#L11)
 
 ## Methods
 
@@ -38,7 +38,7 @@ Defined in: src/serve/webmcp.ts:11
 
 > **execute**(`input`, `options?`): `Promise`\<[`ServeResult`](/api/index/type-aliases/ServeResult)\>
 
-Defined in: src/serve/webmcp.ts:14
+Defined in: [src/serve/webmcp.ts:14](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/webmcp.ts#L14)
 
 #### Parameters
 

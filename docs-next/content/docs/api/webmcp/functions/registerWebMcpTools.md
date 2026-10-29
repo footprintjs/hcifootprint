@@ -6,7 +6,7 @@ title: registerWebMcpTools
 
 > **registerWebMcpTools**(`port`, `context`, `options?`): `Promise`\<[`WebMcpRegistration`](/api/webmcp/interfaces/WebMcpRegistration)\>
 
-Defined in: src/serve/webmcp.ts:44
+Defined in: [src/serve/webmcp.ts:44](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/webmcp.ts#L44)
 
 Register a fixed serving port with an explicitly supplied browser WebMCP context.
 
