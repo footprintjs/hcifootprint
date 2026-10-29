@@ -698,6 +698,26 @@ a step boundary. Replan under the same walk identity after a refusal or new deci
 before depending on a delayed commit. See the
 [two-action example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk).
 
+**Unreleased parallel source (not in npm 3.1.1):** `beginWalk` returns an
+`ActionWalkWithParallel` extending the unchanged `ActionWalk`. Items use `ActionParallelStep`,
+which excludes `carry`. `parallel([{ action }, ...],
+{ concurrency?, onRow? })` runs independently available items, defaulting to all N invocations;
+an explicit positive safe integer limit is capped to N and recorded as optional
+`execution: { mode: 'parallel', concurrency }` on the manifest. Each dispatch reads a fresh offer
+and uses the existing principal/input gates and per-action progress/effect records. `carry` is
+refused inside a parallel group. One item's refusal/failure does not stop other independent queued
+items. `onRow` reports completion order; final manifest rows remain in input order. Interruption
+stops queued work and lets running invocations finish. Overlapping `parallel` with `parallel` or
+`run` on the same walk is refused; legacy `run` behavior is unchanged. `completed` still means all
+invocations performed, not that every effect was verified or even settled.
+The limit counts open `whenInvoked` lifetimes, not backend jobs or effects that outlive a handler.
+
+Page-1 → page-2 navigation in one tab is dependent work: keep it sequential and wait for actual
+readiness evidence. A binding's `node` does not verify visibility; different nodes do not prove
+parallel independence. The app owns connection lifetimes and active-page enabledness for hidden
+mounted controls. Separate browser contexts must come from the host. Browser automation can batch
+too; neither batching nor semantic action names alone proves independent business effects.
+
 Session journeys are the separate named-flow surface for model turns: plans, ready/later steps,
 human pauses and settlement are served through `serveToAgent`, MCP or WebMCP. A callable walk
 does not automatically become a Session journey or a served tool. Browser observation may provide

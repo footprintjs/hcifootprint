@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Callable walks can run an explicit array of independent actions with
+  `parallel`, optionally limiting concurrent invocations. Every dispatch uses
+  the existing live offer and principal/input checks, and every item retains
+  its existing transition, progress and effect records. Individual refusals or
+  failures do not hide other outcomes; interruption stops queued items and
+  drains running handlers. Final rows keep input order while observers see
+  completion order. This adds the public `ActionParallelStep` and
+  `ActionWalkWithParallel` types and optional parallel execution metadata on
+  `ActionPlanManifest`; existing structural `ActionWalk` values remain valid.
+  Parallel calls require caller-chosen independence: page labels are not a
+  visibility or cross-page safety check, and handler completion is separate
+  from effect verification. No second action runtime, registry or transport is added.
+
 ## [3.1.1] - 2026-10-29
 
 ### Fixed

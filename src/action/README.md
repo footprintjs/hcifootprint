@@ -14,7 +14,7 @@ The map, one file per concern:
 | `contracts.ts` | contract activation | strict mode rejects clauses this runtime cannot enforce, instead of carrying them as decoration |
 | `coverage.ts` | the four-level trust ladder | `identity → semantic → executable → verifiable` — how much a binding is trusted to *prove* it did something; verified evidence is only accepted from `verifiable` |
 | `host-adapter.ts` | the framework-neutral component adapter | resolve which live element is the target; say `absent`/`ambiguous`/`unsupported` when it cannot — it resolves, it never listens |
-| `walk.ts` | L2: plans, walks, manifests | batched is not blind — every step re-derives its offer at its own turn; partial execution is a legible manifest because screen actions cannot be rolled back |
+| `walk.ts` | L2: sequential/parallel plans, walks, manifests | each dispatch re-derives its live offer through L1; concurrency changes overlap, never the invocation/effect ledger or execution authority |
 | `kinds.ts` | the governed vocabulary | two teams declaring `array` to mean different things, caught at connect time; the catalog is immutable, so it is memoized — consulted once per kind, ever |
 | `channels.ts` | surfaces and the degradation record | a miss is a COUNTED fact (`channelGaps()`) — a month of degraded turns reads back as a backlog written by actual usage |
 | `stored.ts` | the runtime's internal DATA shapes | data separated from logic — one shape, one owner, many operators |
@@ -37,6 +37,7 @@ The map, one file per concern:
 
 Laws every file upholds (the design doc `docs/design/action-binding-protocol.md` carries the full argument):
 
+- **Parallel source is unreleased; npm 3.1.1 remains sequential.** Parallel groups are for independently available actions, without output carry within the group. `node` labels do not establish visibility or independence: the host owns active-page connection/enablement facts and any separate browser contexts. Invocation-complete manifests do not promote effects to verified outcomes.
 - **No recovered control identity.** Definition, binding, offer, transition are typed fields; nothing may `split`/`slice`/suffix-match an id. The dot in `orders.archive` has no semantics.
 - **One definition, many bindings** — and a connection never holds "the current transition". A stored current lets a second press settle the first record.
 - **First terminal wins, and the loser is KEPT** (`lateSettlements`) — quoted, never adopted, never reopening a terminal.

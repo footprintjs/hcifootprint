@@ -39,6 +39,19 @@ For a continuing task, choose the existing layer:
   verification. A walk's `completed` means its invocations performed, not that every effect
   was verified. Callable walks are not automatically served through Session/MCP/WebMCP.
 
+**Parallel source is unreleased:** npm 3.1.1 has sequential `run`, not `parallel`. Only use
+`walk.parallel(steps, { concurrency, onRow })` when the installed build exposes it. It is for
+independently available actions/background work, with no `carry` between parallel items.
+Its concurrency limit bounds running invocations; completion does not await every effect.
+Read the [parallel guide](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk#parallel-independent-actions-unreleased)
+for ordering, failures and interruption.
+
+Keep navigation-dependent page-1 → page-2 work sequential. `node` is a binding label; neither
+it nor different node names prove visibility or independence. The app must disconnect unmounted
+controls, or report enabledness for the active page when hidden controls remain mounted.
+Separate browser contexts exist only if the host provides them. Browser automation can also
+batch: choose based on declared semantics and actual evidence, not an assumed model turn per click.
+
 Choose the host boundary the application needs:
 
 - Direct integration: `serveToAgent(session)`, then `tools()` and `call()`.

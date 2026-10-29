@@ -4,7 +4,7 @@ title: ActionPlanRow
 
 # Interface: ActionPlanRow
 
-Defined in: [src/action/walk.ts:75](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L75)
+Defined in: [src/action/walk.ts:83](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L83)
 
 One step's fate. `ran` means a transition exists — read ITS statuses for
  how the invocation and effect went; the row does not repeat them.
@@ -15,7 +15,7 @@ One step's fate. `ran` means a transition exists — read ITS statuses for
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)
 
-Defined in: [src/action/walk.ts:77](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L77)
+Defined in: [src/action/walk.ts:85](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L85)
 
 ***
 
@@ -23,7 +23,7 @@ Defined in: [src/action/walk.ts:77](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` `optional` **refusal?**: `string`
 
-Defined in: [src/action/walk.ts:81](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L81)
+Defined in: [src/action/walk.ts:89](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L89)
 
 The teaching sentence, verbatim, when the step never became a transition.
 
@@ -33,7 +33,7 @@ The teaching sentence, verbatim, when the step never became a transition.
 
 > `readonly` **status**: [`ActionPlanRowStatus`](/api/index/type-aliases/ActionPlanRowStatus)
 
-Defined in: [src/action/walk.ts:78](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L78)
+Defined in: [src/action/walk.ts:86](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L86)
 
 ***
 
@@ -41,7 +41,7 @@ Defined in: [src/action/walk.ts:78](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` **step**: `number`
 
-Defined in: [src/action/walk.ts:76](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L76)
+Defined in: [src/action/walk.ts:84](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L84)
 
 ***
 
@@ -49,4 +49,4 @@ Defined in: [src/action/walk.ts:76](https://github.com/footprintjs/hcifootprint/
 
 > `readonly` `optional` **transition?**: [`ActionTransitionRef`](/api/index/interfaces/ActionTransitionRef)\<`string`\>
 
-Defined in: [src/action/walk.ts:79](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L79)
+Defined in: [src/action/walk.ts:87](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L87)
