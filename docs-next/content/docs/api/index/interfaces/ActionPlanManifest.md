@@ -4,7 +4,7 @@ title: ActionPlanManifest
 
 # Interface: ActionPlanManifest
 
-Defined in: [src/action/walk.ts:100](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L100)
+Defined in: [src/action/walk.ts:108](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L108)
 
 ## Properties
 
@@ -12,7 +12,7 @@ Defined in: [src/action/walk.ts:100](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **completed**: `boolean`
 
-Defined in: [src/action/walk.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L109)
+Defined in: [src/action/walk.ts:123](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L123)
 
 Every row ran AND performed. A manifest that said "failed" while the
  screen sits two steps along would be worse than no batching.
@@ -23,7 +23,7 @@ Every row ran AND performed. A manifest that said "failed" while the
 
 > `readonly` **counts**: `object`
 
-Defined in: [src/action/walk.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L110)
+Defined in: [src/action/walk.ts:124](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L124)
 
 #### neverReached
 
@@ -43,11 +43,30 @@ Defined in: [src/action/walk.ts:110](https://github.com/footprintjs/hcifootprint
 
 ***
 
+### execution?
+
+> `readonly` `optional` **execution?**: `object`
+
+Defined in: [src/action/walk.ts:113](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L113)
+
+Absent on existing sequential manifests. The effective invocation limit,
+not a claim of isolated UI contexts or verified effects.
+
+#### concurrency
+
+> `readonly` **concurrency**: `number`
+
+#### mode
+
+> `readonly` **mode**: `"parallel"`
+
+***
+
 ### interrupted?
 
 > `readonly` `optional` **interrupted?**: [`ActionWalkInterruption`](/api/index/interfaces/ActionWalkInterruption)
 
-Defined in: [src/action/walk.ts:106](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L106)
+Defined in: [src/action/walk.ts:120](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L120)
 
 Present when a person stopped this plan — distinct from a refused row,
  because "the plan was wrong" and "the person knows something the plan
@@ -59,7 +78,7 @@ Present when a person stopped this plan — distinct from a refused row,
 
 > `readonly` **rows**: readonly [`ActionPlanRow`](/api/index/interfaces/ActionPlanRow)[]
 
-Defined in: [src/action/walk.ts:102](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L102)
+Defined in: [src/action/walk.ts:110](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L110)
 
 ***
 
@@ -67,4 +86,4 @@ Defined in: [src/action/walk.ts:102](https://github.com/footprintjs/hcifootprint
 
 > `readonly` **walk**: [`ActionWalkRef`](/api/index/interfaces/ActionWalkRef)
 
-Defined in: [src/action/walk.ts:101](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L101)
+Defined in: [src/action/walk.ts:109](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L109)

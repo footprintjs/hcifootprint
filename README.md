@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-3488%20passing-f5b301?style=flat" alt="3488 tests passing">
+  <img src="https://img.shields.io/badge/tests-3541%20passing-f5b301?style=flat" alt="3541 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -413,6 +413,22 @@ Within one callable action, `settle.progress` and `reportProgress` expose declar
 to subscribers. These observations, a returned handler, and a walk's invocation-complete manifest
 are separate from effect verification. Read the action's settlement before claiming business
 success. Callable walks do not automatically become Session journeys, MCP tools or WebMCP tools.
+
+**Unreleased source:** the parallel-walk addition introduces `walk.parallel([...], { concurrency })`
+for independently available actions, including background reads. npm **3.1.1 does not have this
+method**. The sequential `run` API remains unchanged. Parallel dispatch still refreshes every
+offer and uses the existing principal/input gates, progress channels and effect receipts; it does
+not prove that the actions are independent or visible.
+
+**Page 1 → page 2 in one browser tab is a sequence.** When a second action depends on navigation
+or a screen becoming ready, use sequential execution and wait for the application's actual readiness
+evidence before the next action.
+A binding's `node` is a label, not a visibility check, and two different nodes do not prove
+independence. Disconnect unmounted controls and reflect the active page in enabledness for
+controls kept mounted but hidden. Separate browser contexts help only when the host actually
+provides them; hcifootprint does not create them. Browsers can batch operations too—the useful
+choice is the app's declared meaning and live checks, not a claim that every browser click needs
+another model turn. See [parallel semantics and the background-read example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk#parallel-independent-actions-unreleased).
 
 The session's record is provided by `foottrace`. If you name its rows, import
 `CommitBundle` from `foottrace` instead of `hcifootprint`; trace readers such as

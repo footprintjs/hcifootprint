@@ -4,9 +4,9 @@ title: beginWalk
 
 # Function: beginWalk()
 
-> **beginWalk**(`runtime`, `principal`, `options?`): [`ActionWalk`](/api/index/interfaces/ActionWalk)
+> **beginWalk**(`runtime`, `principal`, `options?`): [`ActionWalkWithParallel`](/api/index/interfaces/ActionWalkWithParallel)
 
-Defined in: [src/action/walk.ts:177](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L177)
+Defined in: [src/action/walk.ts:210](https://github.com/footprintjs/hcifootprint/blob/main/src/action/walk.ts#L210)
 
 ## Parameters
 
@@ -26,4 +26,4 @@ Defined in: [src/action/walk.ts:177](https://github.com/footprintjs/hcifootprint
 
 ## Returns
 
-[`ActionWalk`](/api/index/interfaces/ActionWalk)
+[`ActionWalkWithParallel`](/api/index/interfaces/ActionWalkWithParallel)

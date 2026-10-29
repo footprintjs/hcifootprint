@@ -4,6 +4,8 @@ import { thrownMessage } from './describe-thrown.js';
 import type {
   ActionDefinitionRecord,
   ActionDefinitionRef,
+  ActionInvocation,
+  ActionOffer,
   ActionRuntime,
   ActionTransitionRef,
   DefinedAction,
@@ -68,6 +70,12 @@ export interface ActionPlanStep {
   readonly carry?: { readonly from: number };
 }
 
+/** Independent calls selected by the caller; one item cannot consume another
+ * item's output. Node labels alone never establish parallel safety. */
+export type ActionParallelStep = Omit<ActionPlanStep, 'carry'> & {
+  readonly carry?: never;
+};
+
 export type ActionPlanRowStatus = 'ran' | 'refused' | 'never-reached';
 
 /** One step's fate. `ran` means a transition exists — read ITS statuses for
@@ -100,6 +108,12 @@ export interface ActionWalkInterruption {
 export interface ActionPlanManifest {
   readonly walk: ActionWalkRef;
   readonly rows: readonly ActionPlanRow[];
+  /** Absent on existing sequential manifests. The effective invocation limit,
+   * not a claim of isolated UI contexts or verified effects. */
+  readonly execution?: {
+    readonly mode: 'parallel';
+    readonly concurrency: number;
+  };
   /** Present when a person stopped this plan — distinct from a refused row,
    *  because "the plan was wrong" and "the person knows something the plan
    *  didn't" must be treated completely differently by whoever replans. */
@@ -150,6 +164,25 @@ export interface ActionWalk {
   };
 }
 
+/** The factory's extended surface. Existing structural ActionWalk values
+ * remain valid without implementing the new operation. */
+export interface ActionWalkWithParallel extends ActionWalk {
+  /** Run caller-selected independent actions with bounded asynchronous overlap.
+   * Admission failures throw before dispatch. Individual refusals/failures do
+   * not stop independent queued items; interruption stops only undispatched
+   * items and waits for running handlers. Completion concerns whenInvoked,
+   * never automatic effect verification. */
+  parallel(
+    steps: readonly ActionParallelStep[],
+    options?: {
+      /** Defaults to the number of items. Must be a positive safe integer. */
+      readonly concurrency?: number;
+      /** Completion order; the final manifest retains input order. */
+      readonly onRow?: (row: ActionPlanRow) => void;
+    },
+  ): Promise<ActionPlanManifest>;
+}
+
 /**
  * Whether the walking principal OWNS a declared decision. Two vocabularies
  * meet here — `Principal` says who is reading ('user' | 'agent' | 'system' |
@@ -178,7 +211,7 @@ export function beginWalk(
   runtime: ActionRuntime,
   principal: Principal,
   options: { readonly walkId?: string } = {},
-): ActionWalk {
+): ActionWalkWithParallel {
   const port: PrincipalActionPort = runtime.forPrincipal(principal);
   const next = (walkCounters.get(runtime) ?? 0) + 1;
   walkCounters.set(runtime, next);
@@ -188,6 +221,8 @@ export function beginWalk(
   });
   const manifests: ActionPlanManifest[] = [];
   let armed: { readonly by: Principal; readonly reason: string } | undefined;
+  let activeRuns = 0;
+  let parallelActive = false;
 
   function interrupt(input: {
     readonly by: Principal;
@@ -216,10 +251,11 @@ export function beginWalk(
   /** Admission — declaration-only checks, atomically before any execution. */
   function admit(
     steps: readonly ActionPlanStep[],
+    operation: 'run' | 'parallel' = 'run',
   ): readonly ActionDefinitionRecord[] {
     if (!Array.isArray(steps) || steps.length === 0) {
       throw new TypeError(
-        'hcifootprint: walk.run() needs at least one planned step — an empty plan is not a shorter walk.',
+        `hcifootprint: walk.${operation}() needs at least one planned step — an empty plan is not a shorter walk.`,
       );
     }
     return steps.map((step, index) => {
@@ -277,151 +313,273 @@ export function beginWalk(
     });
   }
 
-  async function run(
-    steps: readonly ActionPlanStep[],
-    options: {
-      readonly onRow?: (row: ActionPlanRow) => void;
-    } = {},
-  ): Promise<ActionPlanManifest> {
-    const records = admit(steps);
-    const rows: ActionPlanRow[] = [];
-    let stopped = false;
-    let interruption: ActionWalkInterruption | undefined;
-    const land = (row: ActionPlanRow): void => {
-      rows.push(row);
-      // Listener isolation — the recorder law: an observer that throws must
-      // never change what the walk does or records.
-      try {
-        options.onRow?.(row);
-      } catch {
-        /* the row already landed; a broken listener is its own problem */
-      }
-    };
+  function notify(
+    row: ActionPlanRow,
+    options: { readonly onRow?: (row: ActionPlanRow) => void },
+  ): void {
+    try { options.onRow?.(row); } catch { /* observation never changes execution */ }
+  }
 
-    for (let index = 0; index < steps.length; index += 1) {
-      const step = steps[index]!;
-      const record = records[index]!;
-      const base = { step: index, definition: record.ref };
-      // THE BREAK DOOR — checked at every step boundary, step zero included.
-      // The in-flight step always finished before we got here, so nothing is
-      // torn; the armed intent is consumed exactly once.
-      if (armed !== undefined && interruption === undefined && !stopped) {
-        interruption = Object.freeze({ ...armed, beforeStep: index });
-        armed = undefined;
-        stopped = true;
-      }
-      if (stopped) {
-        land(Object.freeze({ ...base, status: 'never-reached' as const }));
-        continue;
-      }
-      // Re-derived at THIS step's turn, never trusted from plan time: offers
-      // are the guard surface, and only what holds NOW is served.
-      const offered = port
-        .offers(step.action)
-        .filter(
-          (offer) =>
-            step.instance === undefined ||
-            offer.ref.binding.instance === step.instance,
-        );
-      if (offered.length === 0) {
-        land(
-          Object.freeze({
-            ...base,
-            status: 'refused' as const,
-            refusal: `no offer is currently served for '${record.ref.definitionId}'${step.instance === undefined ? '' : ` (instance '${step.instance}')`} to principal '${principal}' — its guard does not hold, or no control is connected. The plan stopped here; re-read and replan.`,
-          }),
-        );
-        stopped = true;
-        continue;
-      }
-      if (offered.length > 1) {
-        land(
-          Object.freeze({
-            ...base,
-            status: 'refused' as const,
-            refusal: `${String(offered.length)} live bindings serve '${record.ref.definitionId}' (instances: ${offered.map((o) => o.ref.binding.instance ?? '(none)').join(', ')}) — name the instance; a plan never guesses which control was meant.`,
-          }),
-        );
-        stopped = true;
-        continue;
-      }
-      const offer = offered[0]!;
-      // A carried step is reached only when every earlier row RAN and
-      // performed (anything else stops the walk), and `carry.from` is an
-      // earlier step (admit) — so the producer's row always has a transition.
-      const payload =
-        step.carry !== undefined
-          ? runtime.transitionFor(rows[step.carry.from]!.transition!)?.produced
-          : step.input;
-      try {
-        if (offer.inputMode === 'open' && payload === undefined) {
-          throw new Error(
-            `hcifootprint: '${record.ref.definitionId}' serves an OPEN offer needing one payload, and this step has none — state the input or carry a declared output.`,
-          );
-        }
-        if (offer.inputMode !== 'open' && (step.input !== undefined || step.carry !== undefined)) {
-          throw new Error(
-            `hcifootprint: '${record.ref.definitionId}' serves a '${offer.inputMode}' offer, which takes no caller payload — ${offer.inputMode === 'bound' ? 'bound offers capture their input when minted' : 'inputless offers take nothing'}; drop this step's input.`,
-          );
-        }
-        const invocation =
-          offer.inputMode === 'open'
-            ? port.invoke(offer as never, payload)
-            : port.invoke(offer as never);
-        const transition = invocation.transition;
-        try {
-          await invocation.whenInvoked;
-        } catch {
-          // The transition itself records the failure; the row only says the
-          // step RAN and points at it — one owner per fact.
-        }
-        land(
-          Object.freeze({ ...base, status: 'ran' as const, transition }),
-        );
-        const outcome = runtime.transitionFor(transition)?.invocationStatus;
-        if (outcome !== 'performed') stopped = true;
-      } catch (error) {
-        // Never became a transition — a refusal in L1's own words (stale
-        // offer, payload law, principal verdict). The sentence IS the value.
-        land(
-          Object.freeze({
-            ...base,
-            status: 'refused' as const,
-            refusal: thrownMessage(error),
-          }),
-        );
-        stopped = true;
-      }
+  function offerFor(
+    step: ActionPlanStep,
+    record: ActionDefinitionRecord,
+    guidance: string,
+  ): { readonly offer: ActionOffer } | { readonly refusal: string } {
+    const offered = port.offers(step.action).filter(
+      (offer) => step.instance === undefined || offer.ref.binding.instance === step.instance,
+    );
+    if (offered.length === 0) {
+      return { refusal: `no offer is currently served for '${record.ref.definitionId}'${step.instance === undefined ? '' : ` (instance '${step.instance}')`} to principal '${principal}' — its guard does not hold, or no control is connected. ${guidance}` };
     }
+    if (offered.length > 1) {
+      return { refusal: `${String(offered.length)} live bindings serve '${record.ref.definitionId}' (instances: ${offered.map((o) => o.ref.binding.instance ?? '(none)').join(', ')}) — name the instance; a plan never guesses which control was meant.` };
+    }
+    return { offer: offered[0]! };
+  }
 
-    const ran = rows.filter((row) => row.status === 'ran');
+  function invokeStep(
+    base: { readonly step: number; readonly definition: ActionDefinitionRef },
+    step: ActionPlanStep,
+    offer: ActionOffer,
+    payload: unknown,
+  ): { readonly invocation: ActionInvocation<unknown> } | { readonly row: ActionPlanRow } {
+    try {
+      if (offer.inputMode === 'open' && payload === undefined) {
+        throw new Error(
+          `hcifootprint: '${base.definition.definitionId}' serves an OPEN offer needing one payload, and this step has none — state the input or carry a declared output.`,
+        );
+      }
+      if (offer.inputMode !== 'open' && (step.input !== undefined || step.carry !== undefined)) {
+        throw new Error(
+          `hcifootprint: '${base.definition.definitionId}' serves a '${offer.inputMode}' offer, which takes no caller payload — ${offer.inputMode === 'bound' ? 'bound offers capture their input when minted' : 'inputless offers take nothing'}; drop this step's input.`,
+        );
+      }
+      const invocation: ActionInvocation<unknown> = offer.inputMode === 'open'
+        ? port.invoke(offer, payload)
+        : port.invoke(offer);
+      return { invocation };
+    } catch (error) {
+      return {
+        row: Object.freeze({ ...base, status: 'refused', refusal: thrownMessage(error) }),
+      };
+    }
+  }
+
+  function finish(
+    rows: ActionPlanRow[],
+    planned: number,
+    completed: boolean,
+    interruption?: ActionWalkInterruption,
+    execution?: ActionPlanManifest['execution'],
+  ): ActionPlanManifest {
     const manifest: ActionPlanManifest = Object.freeze({
       walk: ref,
       rows: Object.freeze(rows),
+      ...(execution !== undefined ? { execution } : {}),
       ...(interruption !== undefined ? { interrupted: interruption } : {}),
-      completed:
-        rows.length > 0 &&
-        rows.every(
-          (row) =>
-            row.status === 'ran' &&
-            runtime.transitionFor(row.transition!)?.invocationStatus ===
-              'performed',
-        ),
+      completed,
       counts: Object.freeze({
-        planned: steps.length,
-        ran: ran.length,
+        planned,
+        ran: rows.filter((row) => row.status === 'ran').length,
         refused: rows.filter((row) => row.status === 'refused').length,
-        neverReached: rows.filter((row) => row.status === 'never-reached')
-          .length,
+        neverReached: rows.filter((row) => row.status === 'never-reached').length,
       }),
     });
     manifests.push(manifest);
     return manifest;
   }
 
+  async function run(
+    steps: readonly ActionPlanStep[],
+    options: {
+      readonly onRow?: (row: ActionPlanRow) => void;
+    } = {},
+  ): Promise<ActionPlanManifest> {
+    if (parallelActive) throw new Error('hcifootprint: this walk has an active parallel plan; await it before starting another plan.');
+    activeRuns++;
+    try {
+      const records = admit(steps);
+      const rows: ActionPlanRow[] = [];
+      let stopped = false;
+      let interruption: ActionWalkInterruption | undefined;
+      const land = (row: ActionPlanRow): void => {
+        rows.push(row);
+        notify(row, options);
+      };
+
+      for (let index = 0; index < steps.length; index += 1) {
+        const step = steps[index]!;
+        const record = records[index]!;
+        const base = { step: index, definition: record.ref };
+        // THE BREAK DOOR — checked at every step boundary, step zero included.
+        // The in-flight step always finished before we got here, so nothing is
+        // torn; the armed intent is consumed exactly once.
+        if (armed !== undefined && interruption === undefined && !stopped) {
+          interruption = Object.freeze({ ...armed, beforeStep: index });
+          armed = undefined;
+          stopped = true;
+        }
+        if (stopped) {
+          land(Object.freeze({ ...base, status: 'never-reached' as const }));
+          continue;
+        }
+        // Re-derived at THIS step's turn, never trusted from plan time: offers
+        // are the guard surface, and only what holds NOW is served.
+        const selected = offerFor(step, record, 'The plan stopped here; re-read and replan.');
+        if ('refusal' in selected) {
+          land(
+            Object.freeze({
+              ...base,
+              status: 'refused' as const,
+              refusal: selected.refusal,
+            }),
+          );
+          stopped = true;
+          continue;
+        }
+        // A carried step is reached only when every earlier row RAN and
+        // performed (anything else stops the walk), and `carry.from` is an
+        // earlier step (admit) — so the producer's row always has a transition.
+        const payload =
+          step.carry !== undefined
+            ? runtime.transitionFor(rows[step.carry.from]!.transition!)?.produced
+            : step.input;
+        const attempt = invokeStep(base, step, selected.offer, payload);
+        if ('row' in attempt) {
+          land(attempt.row);
+          stopped = true;
+          continue;
+        }
+        try { await attempt.invocation.whenInvoked; }
+        catch { /* the transition records how this invocation came to rest */ }
+        const transition = attempt.invocation.transition;
+        land(Object.freeze({ ...base, status: 'ran', transition }));
+        if (runtime.transitionFor(transition)?.invocationStatus !== 'performed') stopped = true;
+      }
+
+      return finish(
+        rows,
+        steps.length,
+        rows.length > 0 &&
+          rows.every(
+            (row) =>
+              row.status === 'ran' &&
+              runtime.transitionFor(row.transition!)?.invocationStatus ===
+                'performed',
+          ),
+        interruption,
+      );
+    } finally {
+      activeRuns--;
+    }
+  }
+
+  async function parallel(
+    steps: readonly ActionParallelStep[],
+    options: { readonly concurrency?: number; readonly onRow?: (row: ActionPlanRow) => void } = {},
+  ): Promise<ActionPlanManifest> {
+    if (parallelActive || activeRuns > 0) {
+      throw new Error('hcifootprint: this walk already has an active plan; await it before starting a parallel plan.');
+    }
+    parallelActive = true;
+    try {
+      if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+        throw new TypeError('hcifootprint: walk.parallel() options must be a record.');
+      }
+      const onRow = options.onRow;
+      if (onRow !== undefined && typeof onRow !== 'function') {
+        throw new TypeError('hcifootprint: walk.parallel() onRow must be a function.');
+      }
+      if (!Array.isArray(steps) || steps.length === 0) admit(steps, 'parallel');
+      // Capture plan structure once. Payload objects keep their existing identity;
+      // no schema adapter or copied plan is permitted to transform their values.
+      const planned = Array.from(steps, (step) => {
+        if (step === null || typeof step !== 'object') {
+          throw new TypeError('hcifootprint: walk.parallel() needs a planned action record at every array position.');
+        }
+        if (step.carry !== undefined) {
+          throw new TypeError('hcifootprint: parallel actions cannot carry another item’s output; run dependent steps sequentially.');
+        }
+        return Object.freeze({ action: step.action, instance: step.instance, input: step.input });
+      });
+      const records = admit(planned, 'parallel');
+      const requested = options.concurrency === undefined ? planned.length : options.concurrency;
+      if (!Number.isSafeInteger(requested) || requested <= 0) {
+        throw new TypeError('hcifootprint: walk.parallel() concurrency must be a positive safe integer.');
+      }
+      const concurrency = Math.min(requested, planned.length);
+      const observation = Object.freeze({ onRow });
+      const rows: ActionPlanRow[] = [];
+      let next = 0;
+      let performed = true;
+      let interruption: ActionWalkInterruption | undefined;
+      const land = (row: ActionPlanRow): void => {
+        rows[row.step] = row;
+        notify(row, observation);
+      };
+      const stoppedBefore = (index: number): boolean => {
+        if (interruption === undefined && armed !== undefined) {
+          interruption = Object.freeze({ ...armed, beforeStep: index });
+          armed = undefined;
+        }
+        return interruption !== undefined;
+      };
+      const worker = async (): Promise<void> => {
+        while (next < planned.length) {
+          const index = next++;
+          const step = planned[index]!;
+          const record = records[index]!;
+          const base = { step: index, definition: record.ref };
+          if (stoppedBefore(index)) {
+            performed = false;
+            land(Object.freeze({ ...base, status: 'never-reached' }));
+            continue;
+          }
+          try {
+            const selected = offerFor(step, record, 'This item was refused; other independent items may still run.');
+            // Offer readers are application code and may request a stop. No
+            // call has crossed the principal port yet, so this item is queued.
+            if (stoppedBefore(index)) {
+              performed = false;
+              land(Object.freeze({ ...base, status: 'never-reached' }));
+              continue;
+            }
+            if ('refusal' in selected) {
+              performed = false;
+              land(Object.freeze({ ...base, status: 'refused', refusal: selected.refusal }));
+              continue;
+            }
+            const attempt = invokeStep(base, step, selected.offer, step.input);
+            if ('row' in attempt) {
+              performed = false;
+              land(attempt.row);
+              continue;
+            }
+            let succeeded = false;
+            try { succeeded = (await attempt.invocation.whenInvoked).status === 'performed'; }
+            catch { /* a minted transition remains a ran row even if waiting fails */ }
+            if (!succeeded) performed = false;
+            land(Object.freeze({ ...base, status: 'ran', transition: attempt.invocation.transition }));
+          } catch (error) {
+            performed = false;
+            land(stoppedBefore(index)
+              ? Object.freeze({ ...base, status: 'never-reached' })
+              : Object.freeze({ ...base, status: 'refused', refusal: thrownMessage(error) }));
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: concurrency }, worker));
+      return finish(rows, planned.length, performed, interruption,
+        Object.freeze({ mode: 'parallel', concurrency }));
+    } finally {
+      parallelActive = false;
+    }
+  }
+
   return Object.freeze({
     ref,
     run,
+    parallel,
     interrupt,
     record: () =>
       Object.freeze({ ref, manifests: Object.freeze([...manifests]) }),

@@ -14,6 +14,9 @@ prove before anything runs; execution re-derives every step's offer at its
 own turn; and the answer is a manifest** — ran, refused, never-reached, per
 row — so partial execution is legible instead of summarized.
 
+Browser automation can batch operations too. The walk's guarantee is reuse of the app's declared
+actions and live invocation checks; it does not require or imply a model round trip per browser click.
+
 The example below uses a fixed local archive and records an open request; it makes no model or
 network call. Replace those application functions with the ones your app already owns.
 
@@ -91,6 +94,92 @@ Browser observations can be authoritative evidence when the app's adapter define
 that contract. Merely clicking or seeing a change does not automatically verify the intended
 business outcome. The [binding settlement rules](doc:live-bindings)
 keep a handler result, execution progress and effect evidence distinct.
+
+## Parallel independent actions (unreleased)
+
+This source addition is **not in npm 3.1.1**. `beginWalk` returns an `ActionWalkWithParallel`
+that extends the existing `ActionWalk`; sequential `run` and its output carry are unchanged.
+Each item uses the public `ActionParallelStep` type, which excludes output `carry` between items.
+Use `parallel` only for actions the application knows are independently available.
+
+### One tab still has one current page
+
+Navigating from page 1 and then using page 2 is dependent work. Keep that sequence out of a parallel
+group, and read the application's actual readiness evidence before acting on the next page.
+The callable runtime treats `node` as a binding label. It does not inspect the browser, prove
+visibility, establish independence or create isolated contexts. Different node names are not a
+parallel-safety test.
+
+The host must disconnect a control when it unmounts. If hidden controls remain mounted, their
+enabledness must reflect the active page. Only describe separate browser contexts when the host
+actually provides them. Parallel work fits independently available actions or background work that
+does not compete for the same navigation state; an action's name or placement alone is not proof.
+
+### Two independent background reads
+
+This checked example uses fixed local values and makes no network or model calls. Both connections
+use the same background label: their independence comes from the application functions, not the label.
+
+```ts twoslash
+import { beginWalk, connectAction, createActionRuntime, defineAction } from 'hcifootprint';
+
+const readOrders = defineAction('summary.read-orders', {
+  does: 'Read the order count from the local snapshot',
+  invocation: 'inputless',
+  mutate: async () => ({ orders: 12 }),
+});
+const readStock = defineAction('summary.read-stock', {
+  does: 'Read the stock count from the independent local snapshot',
+  invocation: 'inputless',
+  mutate: async () => ({ stock: 7 }),
+});
+
+const runtime = createActionRuntime();
+connectAction(runtime, readOrders, { node: 'background' });
+connectAction(runtime, readStock, { node: 'background' });
+
+const walk = beginWalk(runtime, 'agent');
+const manifest = await walk.parallel([
+  { action: readOrders },
+  { action: readStock },
+], {
+  concurrency: 2,
+  onRow: row => console.log(row.step, row.status),
+});
+// manifest.execution → { mode: 'parallel', concurrency: 2 }
+// manifest.rows stays in input order; onRow reports each row as it completes.
+```
+
+Every dispatch resolves the current offer and uses the existing principal, input and live-binding
+gates. Each invocation keeps its own transition, any declared progress channel and effect receipt.
+There is no second action registry or ledger, and no automatic Session/MCP/WebMCP bridge.
+
+The concurrency limit counts open `whenInvoked` lifetimes only. If a handler returns after
+starting a backend job, its slot becomes free even while that job or an effect is still running.
+This limit does not cap backend jobs or effects that outlive their handlers, and it does not
+create worker threads. The host still owns any longer-lived work limit and the evidence that
+establishes its result.
+
+### Limits and results
+
+- Omit `concurrency` to dispatch up to all N items. An explicit limit must be a positive safe integer;
+  the actual limit is at most N and rides the manifest as
+  `execution: { mode: 'parallel', concurrency }`.
+- `carry` is not accepted inside a parallel group. A consumer of another action's output belongs
+  in a sequential plan or a later plan after the required evidence arrives.
+- Declaration/admission errors refuse before work starts. Once dispatch begins, an individual
+  item's refusal or failed invocation does not stop other independent queued items. Every item
+  gets its own manifest row; a `ran` row points at the existing transition and its outcomes.
+- `onRow` reports completion order, while final manifest rows remain in input order. A refused or
+  never-reached item has no invocation to await. `ran` rows land after `whenInvoked` settles.
+- `interrupt` stops dispatching queued items and lets running invocations finish. It does not
+  cancel a handler or undo an effect. Overlapping `parallel` with another `parallel` or `run` on
+  the same walk is refused; this does not change legacy `run` behavior.
+  A stop requested by an offer reader is checked again before invocation; work already inside
+  the invocation is not cancelled.
+  If every item was already dispatched, the interrupt remains armed for the next plan.
+- `completed` remains an invocation verdict: all invocations performed. Neither the concurrency
+  limit nor the returned manifest waits for every effect to settle or makes an effect verified.
 
 ## The laws, and why each one
 
