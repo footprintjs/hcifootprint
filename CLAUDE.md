@@ -86,6 +86,8 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | deriving which action would unblock another one | `Session.whatUnblocks` / `unblockingDependencies` | `src/graph/step-deps.ts` | 1.0.0 |
 | turning a URL your router already owns back into a page id | `matchRoute` | `src/graph/route-match.ts` | 0.4.0 |
 | serving a model only what is reachable from where the cursor stands, with a tool list whose bytes never change | `serveToAgent` | `src/serve/modes.ts` | 1.0.0 |
+| serving complete action rows in bounded pages, with explicit omissions and stale continuations refused | `JourneyToolsOptions.actionProjection` (on `serveToAgent`) | `src/serve/modes.ts` | 3.1.0 |
+| registering the existing serving tools in a browser without another action registry or execution policy | `registerWebMcpTools` (from `hcifootprint/webmcp`) | `src/serve/webmcp.ts` | 3.1.0 |
 | a way for a model to abandon a journey it committed to | `leaveJourneyTool` | `src/serve/mcp.ts` | 1.0.0 |
 | narrowing what is served to the steps of one flow, and tracking that pass at it | `JourneyFrame` (opened by `Session.commitJourney`) | `src/atom/types.ts` | 1.0.0 |
 | making a caller's string safe as a tool name without two names folding into one | `encodeToolName` | `src/serve/tool-name.ts` | 1.8.0 |
@@ -126,7 +128,7 @@ found it.
 ## Module map
 
 Entry points: `hcifootprint` (authoring + session) · `/mcp` (the only place the MCP SDK is
-imported) · `/sensor` · `/react` · `/testing` · `/testing/lint` (engine-free static lint).
+imported) · `/webmcp` (browser registration, no SDK) · `/sensor` · `/react` · `/testing` · `/testing/lint` (engine-free static lint).
 
 | src/ | one job |
 |---|---|

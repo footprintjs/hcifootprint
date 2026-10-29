@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [3.1.0] - 2026-10-29
 
 ### Added
 
@@ -16,7 +16,9 @@
   session execution, freshness and human-approval rules. Registration is owned
   by an abort signal; disposal blocks future dispatch without hiding actions
   already in flight. No browser globals or optional peer dependencies load on
-  import. This source change is not a release.
+  import. React effect-lifecycle guidance covers initialization, unmount and
+  StrictMode without adding a new hook. Default behavior and execution policy
+  remain unchanged.
 
 ## [3.0.0] - 2026-10-09
 
