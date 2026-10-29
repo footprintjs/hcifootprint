@@ -3,6 +3,7 @@
   "icon": "BookText",
   "pages": [
     "tree-shaking",
+    "webmcp",
     "testing",
     "design-lineage",
     "[API Reference](/api)"

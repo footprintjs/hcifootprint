@@ -12,3 +12,4 @@ title: hcifootprint
 - [sensor](/api/sensor)
 - [testing](/api/testing)
 - [testing/lint](/api/testing/lint)
+- [webmcp](/api/webmcp)

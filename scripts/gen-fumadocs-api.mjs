@@ -47,6 +47,7 @@ const FOLDER_TITLES = {
 const MODULE_TITLES = {
   index: 'hcifootprint',
   mcp: 'hcifootprint/mcp',
+  webmcp: 'hcifootprint/webmcp',
   react: 'hcifootprint/react',
   'react/index': 'hcifootprint/react',
   sensor: 'hcifootprint/sensor',

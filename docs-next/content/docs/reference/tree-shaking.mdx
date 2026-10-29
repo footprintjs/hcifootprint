@@ -4,13 +4,14 @@ description: True-ESM, sideEffects false, leaf modules — importing one helper 
 ---
 
 hcifootprint ships **true ESM only** (`"type": "module"`, no CJS build), built by plain `tsc`
-with no bundler — `dist/` mirrors `src/` one to one. Four entry points, each a real
+with no bundler — `dist/` mirrors `src/` one to one. Entry points have separate
 dependency boundary:
 
 | import | contents | extra deps |
 |---|---|---|
 | `hcifootprint` | the whole authoring + session + serving surface | none (zero-dependency core over footprintjs) |
 | `hcifootprint/mcp` | `mcpServer` | `@modelcontextprotocol/sdk` (optional peer) |
+| `hcifootprint/webmcp` | browser WebMCP registration over a supplied serving port | none |
 | `hcifootprint/testing` | the drift harness (`testApp`, `lintGraph`, …) | none |
 | `hcifootprint/testing/lint` | static graph lint only — loads no engine code | none |
 

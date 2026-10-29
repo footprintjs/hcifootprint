@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+### Added
+
 - Adds opt-in `actionProjection: { maxBytes }` to `serveToAgent` and
   `mcpServer`. It bounds only UTF-8 JSON bytes of the `whats_here` actions
   array, preserving complete rows and the existing order. Results report exact
@@ -9,6 +11,12 @@
   availability facts invalidate it. Oversized rows name the exact required
   budget. Default schemas and results remain byte-identical, verified against
   a fixture captured from `b00995a`.
+- Optional `hcifootprint/webmcp` entry point: register an existing serving port
+  with an explicitly supplied browser WebMCP context. Calls retain the same
+  session execution, freshness and human-approval rules. Registration is owned
+  by an abort signal; disposal blocks future dispatch without hiding actions
+  already in flight. No browser globals or optional peer dependencies load on
+  import. This source change is not a release.
 
 ## [3.0.0] - 2026-10-09
 
