@@ -37,7 +37,7 @@ The map, one file per concern:
 
 Laws every file upholds (the design doc `docs/design/action-binding-protocol.md` carries the full argument):
 
-- **Parallel source is unreleased; npm 3.1.1 remains sequential.** Parallel groups are for independently available actions, without output carry within the group. `node` labels do not establish visibility or independence: the host owns active-page connection/enablement facts and any separate browser contexts. Invocation-complete manifests do not promote effects to verified outcomes.
+- **Parallel groups are available since 3.2.0.** They are for independently available actions, without output carry within the group. `node` labels do not establish visibility or independence: the host owns active-page connection/enablement facts and any separate browser contexts. Invocation-complete manifests do not promote effects to verified outcomes.
 - **No recovered control identity.** Definition, binding, offer, transition are typed fields; nothing may `split`/`slice`/suffix-match an id. The dot in `orders.archive` has no semantics.
 - **One definition, many bindings** — and a connection never holds "the current transition". A stored current lets a second press settle the first record.
 - **First terminal wins, and the loser is KEPT** (`lateSettlements`) — quoted, never adopted, never reopening a terminal.

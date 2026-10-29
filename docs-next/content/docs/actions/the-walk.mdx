@@ -95,9 +95,9 @@ that contract. Merely clicking or seeing a change does not automatically verify 
 business outcome. The [binding settlement rules](doc:live-bindings)
 keep a handler result, execution progress and effect evidence distinct.
 
-## Parallel independent actions (unreleased)
+## Parallel independent actions
 
-This source addition is **not in npm 3.1.1**. `beginWalk` returns an `ActionWalkWithParallel`
+Available since **3.2.0**. `beginWalk` returns an `ActionWalkWithParallel`
 that extends the existing `ActionWalk`; sequential `run` and its output carry are unchanged.
 Each item uses the public `ActionParallelStep` type, which excludes output `carry` between items.
 Use `parallel` only for actions the application knows are independently available.
