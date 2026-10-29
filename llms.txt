@@ -5,7 +5,7 @@
 
 <!-- hcifootprint:metadata:start -->
 <!-- Generated from package.json by npm run docs:agents:sync. -->
-> Package: `hcifootprint` 3.1.0.
+> Package: `hcifootprint` 3.1.1.
 > Node.js: `>=22`.
 > Public imports (7): `hcifootprint`, `hcifootprint/mcp`, `hcifootprint/webmcp`, `hcifootprint/react`, `hcifootprint/sensor`, `hcifootprint/testing`, `hcifootprint/testing/lint`.
 <!-- hcifootprint:metadata:end -->
