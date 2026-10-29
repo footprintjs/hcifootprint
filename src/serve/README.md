@@ -45,3 +45,16 @@ were measured before they were changed (a 60-page app declaring 57 journeys):
 This file consumes ONLY the public Session surface — a pure projection,
 independently testable (`test/modes.test.ts`).
 
+`actionProjection: { maxBytes }` optionally bounds only the UTF-8 JSON bytes of
+the `whats_here` actions array. Complete rows still come from `edgeData`, in
+their existing order. `action-projection.ts` measures brackets/commas and rows,
+reports omissions, and retains one port-local continuation (offset, counters,
+checksum; never rows). Current Session counters plus semantic row/availability
+checks invalidate a changed read. Only citation bookkeeping is excluded from
+the checksum; rows retain their complete offerId, checked by the existing
+execution gate. The cursor authorizes nothing. Only included
+rows record their disclosed stale stamps. An oversized row names the exact
+required budget instead of trimming facts or returning a zero-row loop.
+The default port's schemas, results and evaluation order remain unchanged.
+`test/bounded-action-projection.test.ts` includes a baseline serializer fixture.
+

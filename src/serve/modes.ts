@@ -53,6 +53,7 @@ import type {
 } from '../atom/types.js';
 import type { Session } from '../traverse/session.js';
 import { errorText } from './error-text.js';
+import { createActionProjection } from './action-projection.js';
 
 export interface JourneyToolsOptions {
   /** Require confirm:true before firing high-effect steps/actions. Default true. */
@@ -99,6 +100,18 @@ export interface JourneyToolsOptions {
    * `UNKNOWN_TOOL` with the list that does — never routed silently.
    */
   journeyTools?: 'per-journey' | 'single';
+  /**
+   * Opt in to complete action rows in bounded pages on `whats_here`.
+   * `maxBytes` bounds ONLY UTF-8 `JSON.stringify(actions)` (including brackets
+   * and commas), never the entire result. Safe integer, at least 2.
+   * The result names omissions and a port-local `actionProjection.nextCursor`;
+   * pass it back as `actionCursor`. Changed session or semantic row facts
+   * invalidate the continuation; citation-only offerId rotation does not.
+   * One outstanding continuation per port; no rows retained.
+   * An oversized single row is refused with `requiredBytes`, never trimmed.
+   * Absent: existing schemas and results stay byte-identical.
+   */
+  actionProjection?: { maxBytes: number };
 }
 
 export interface JourneyCallArgs {
@@ -799,6 +812,8 @@ export function serveToAgent(
   const confirmHighEffect = opts?.confirmHighEffect ?? true;
   const source: Principal = opts?.source ?? 'agent';
   const graphId = session.graphId;
+  const actionProjection = opts?.actionProjection === undefined
+    ? undefined : createActionProjection(opts.actionProjection);
   /**
    * TWO different truths, and conflating them was a lie served to a model.
    *
@@ -956,6 +971,13 @@ export function serveToAgent(
             type: 'string',
             description: ROUTE_TO_ARG_DESCRIPTION,
           },
+          ...(actionProjection === undefined ? {} : {
+            actionCursor: {
+              type: 'string',
+              maxLength: 128,
+              description: 'The most recent actionProjection.nextCursor from this port. Continues complete action rows under the configured actions-array byte budget; omit it for a fresh read.',
+            },
+          }),
         },
         additionalProperties: false,
       },
@@ -1187,12 +1209,38 @@ export function serveToAgent(
     return elsewhere > 0 ? { journeysElsewhere: elsewhere, journeysElsewhereMeans: JOURNEYS_ELSEWHERE_MEANS } : {};
   }
 
-  function callWhatsHere(sinceVersion?: number, routeTo?: string): ServeResult {
+  function projectionPosition() {
+    return {
+      version: session.version, stateVersion: session.stateVersion,
+      structureVersion: session.structureVersion, node: session.node,
+    };
+  }
+
+  function callWhatsHere(sinceVersion?: number, routeTo?: string, rawArgs?: unknown): ServeResult {
+    const position = actionProjection === undefined ? undefined : projectionPosition();
+    const prepared = actionProjection?.prepare(rawArgs, position!);
+    if (prepared?.ok === false) return { ...prepared, ...positionData() };
+    if (prepared !== undefined) sinceVersion = prepared.sinceVersion;
     const since = sinceVersion === undefined ? undefined : { sinceVersion };
     const brief = session.contextBrief(since);
     const rows = session.available().edges;
     const turn = turnFacts(rows, sinceVersion);
     const scoped = journeysHere();
+    const projected = actionProjection?.project(
+      rows, (edge) => edgeData(edge, turn, false),
+      (edge) => {
+        // schema is an in-process validator; expects already carries its wire
+        // contract. All semantic availability facts, including materialization,
+        // participate in continuation change detection. Citation rotation is
+        // bookkeeping, so neither offerRef nor the serialized offerId is part
+        // of the checksum; returned rows still carry their complete citation.
+        const { schema: _schema, offerRef: _offerRef, ...facts } = edge;
+        return facts;
+      },
+      prepared!, position!, projectionPosition,
+      (edge) => { staleData(edge, turn.changed); },
+    );
+    if (projected?.ok === false) return { ...projected, ...positionData() };
     return {
       ok: true,
       // FIRST, and on the call a model already makes. The field failure was a
@@ -1202,7 +1250,7 @@ export function serveToAgent(
       // refused fire is a gap row, not a transition).
       facts: session.groundTruth(since).text,
       brief: brief.text,
-      actions: rows.map((edge) => edgeData(edge, turn)),
+      ...(projected ?? { actions: rows.map((edge) => edgeData(edge, turn)) }),
       journeys: scoped.here.map((journey) => ({
         journey: journey.id,
         does: journey.description,
@@ -2340,7 +2388,7 @@ export function serveToAgent(
    * (`acknowledgeStale`, or an agent fire of that control) — never for another
    * look, which is the defect rather than the fix.
    */
-  function staleData(edge: AvailableEdge, changed: ReadonlySet<string>): ServeResult {
+  function staleData(edge: AvailableEdge, changed: ReadonlySet<string>, record = true): ServeResult {
     const declared = [...(edge.reads ?? []), ...(edge.writes ?? [])];
     if (declared.length === 0) return {};
     const carried = session.carriedStale(edge.affordanceId);
@@ -2350,7 +2398,7 @@ export function serveToAgent(
     // Recorded against the row that carries it, so what is carried is what was
     // SAID — and a key a control both reads and writes is one fact on the
     // ledger, served on both halves of the row.
-    session.carryStale(edge.affordanceId, stale);
+    if (record) session.carryStale(edge.affordanceId, stale);
     const reads = edge.reads?.filter(outstanding) ?? [];
     const writes = edge.writes?.filter(outstanding) ?? [];
     return {
@@ -2472,7 +2520,7 @@ export function serveToAgent(
     }
   }
 
-  function edgeData(edge: AvailableEdge, turn: TurnFacts): ServeResult {
+  function edgeData(edge: AvailableEdge, turn: TurnFacts, recordStale = true): ServeResult {
     return {
       action: edge.affordanceId,
       does: edge.description,
@@ -2551,7 +2599,7 @@ export function serveToAgent(
       // MOVED SINCE YOU LOOKED AND YOU HAVE NOT ANSWERED, and whether one of
       // your own fires of it is still out there. All facts about this row that
       // only the session knows; none of them refuses anything.
-      ...staleData(edge, turn.changed),
+      ...staleData(edge, turn.changed, recordStale),
       ...priorFireData(edge, turn.unsettled),
       // THE NAME OF THIS ROW, and only where a fire will be asked for it. An
       // offer is minted for every row (it is identity, not enforcement), but a
@@ -2650,6 +2698,7 @@ export function serveToAgent(
         return callWhatsHere(
           typeof parsed['sinceVersion'] === 'number' ? parsed['sinceVersion'] : undefined,
           typeof parsed['routeTo'] === 'string' ? parsed['routeTo'] : undefined,
+          args,
         );
       }
       if (name === whyName) {

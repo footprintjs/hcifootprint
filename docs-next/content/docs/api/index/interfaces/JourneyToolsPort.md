@@ -4,7 +4,7 @@ title: JourneyToolsPort
 
 # Interface: JourneyToolsPort
 
-Defined in: [src/serve/modes.ts:152](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L152)
+Defined in: [src/serve/modes.ts:165](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L165)
 
 ## Extended by
 
@@ -16,7 +16,7 @@ Defined in: [src/serve/modes.ts:152](https://github.com/footprintjs/hcifootprint
 
 > **call**(`name`, `args?`): [`ServeResult`](/api/index/type-aliases/ServeResult)
 
-Defined in: [src/serve/modes.ts:156](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L156)
+Defined in: [src/serve/modes.ts:169](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L169)
 
 Route a tool_use by name. Unknown names return a structured error result.
 
@@ -40,7 +40,7 @@ Route a tool_use by name. Unknown names return a structured error result.
 
 > `optional` **settledAnswer**(`transitionId`): [`ServeResult`](/api/index/type-aliases/ServeResult) \| `undefined`
 
-Defined in: [src/serve/modes.ts:214](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L214)
+Defined in: [src/serve/modes.ts:227](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L227)
 
 What `did_it_work` would ANSWER about a fire that has come to rest — the
 same facts, in the same words, minus that tool's own envelope. For the
@@ -91,7 +91,7 @@ written against an earlier release must keep compiling.
 
 > **tools**(): [`MCPToolDescription`](/api/index/interfaces/MCPToolDescription)[]
 
-Defined in: [src/serve/modes.ts:154](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L154)
+Defined in: [src/serve/modes.ts:167](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L167)
 
 The STATIC tool array — identical bytes for the life of the conversation.
 
@@ -105,7 +105,7 @@ The STATIC tool array — identical bytes for the life of the conversation.
 
 > `optional` **whenSettled**(`transitionId`): `Promise`\<[`FireSettlement`](/api/index/interfaces/FireSettlement)\>
 
-Defined in: [src/serve/modes.ts:179](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L179)
+Defined in: [src/serve/modes.ts:192](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L192)
 
 How a fire came to rest — the ASYNC door, for the caller that holds this
 port and nothing else (a relay, a transport wrapper). `call()` is
