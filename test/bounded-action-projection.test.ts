@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildNavigationGraph, serveToAgent } from '../src/index.js';
 import type { JourneyToolsOptions, ServeResult } from '../src/index.js';
 import { readFileSync } from 'node:fs';
@@ -185,6 +185,28 @@ describe('bounded complete action rows', () => {
 });
 
 describe('continuations refer to one unchanged read on one port', () => {
+  it('rejects cursors from independently loaded package copies, as during hot reload', async () => {
+    vi.resetModules();
+    const firstModule = await import('../src/index.js');
+    vi.resetModules();
+    const secondModule = await import('../src/index.js');
+    expect(firstModule.serveToAgent).not.toBe(secondModule.serveToAgent);
+    const spec = { pages: { page: { actions: {
+      a: { does: 'Continue' }, b: { does: 'Continue' },
+    } } } };
+    const firstSession = firstModule.buildNavigationGraph('copy', spec).createSession();
+    const secondSession = secondModule.buildNavigationGraph('copy', spec).createSession();
+    const row = actionsOf(firstModule.serveToAgent(firstSession).call('copy.whats_here'))[0];
+    const firstPort = firstModule.serveToAgent(firstSession, { actionProjection: { maxBytes: bytes([row]) } });
+    const secondPort = secondModule.serveToAgent(secondSession, { actionProjection: { maxBytes: bytes([row]) } });
+    const firstCursor = cursorOf(firstPort.call('copy.whats_here'));
+    const secondCursor = cursorOf(secondPort.call('copy.whats_here'));
+    expect(firstCursor).not.toBe(secondCursor);
+    expect(secondPort.call('copy.whats_here', { actionCursor: firstCursor })).toMatchObject({ reason: 'ACTION_CURSOR_INVALID' });
+    expect(firstPort.call('copy.whats_here', { actionCursor: secondCursor })).toMatchObject({ reason: 'ACTION_CURSOR_INVALID' });
+    expect(actionsOf(secondPort.call('copy.whats_here', { actionCursor: secondCursor }))[0].action).toBe('page.b');
+  });
+
   for (const change of ['state', 'position', 'enabled', 'busy', 'registration'] as const) {
     it(`refuses a continuation after ${change} changes`, () => {
       const { session, group, port } = fixture();
@@ -249,6 +271,19 @@ describe('continuations refer to one unchanged read on one port', () => {
 });
 
 describe('opt-in validation and compatibility', () => {
+  it('needs only Web Crypto getRandomValues, without requiring secure-context randomUUID', () => {
+    const uuid = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() => {
+      throw new Error('randomUUID is unavailable outside a secure context');
+    });
+    try {
+      const { port } = fixture();
+      expect(port.call('list.whats_here').ok).toBe(true);
+      expect(uuid).not.toHaveBeenCalled();
+    } finally {
+      uuid.mockRestore();
+    }
+  });
+
   it('snapshots the configured budget once instead of retaining a live option', () => {
     const { session, maxBytes } = fixture();
     let current = maxBytes;

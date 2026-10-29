@@ -105,6 +105,15 @@ remain, `nextCursor` names the next read. Send it back as `actionCursor`; `since
 and supplying a different history scope is refused. Only the latest continuation from this port
 is accepted; starting another fresh read supersedes it. No rows or session snapshot are retained
 by the continuation, only counters, an offset and a bounded checksum.
+Port namespaces require Node 22 or a browser with `crypto.getRandomValues` when
+the option is enabled. This avoids deterministic namespace collisions across
+independently loaded package copies or hot reloads without requiring
+secure-context-only `randomUUID`. They are citations, not authentication
+credentials; execution permissions still belong to the session.
+
+Each page scans the current action list for semantic changes. This is an
+actions-array output-size cap, not a CPU or total-response cap; traversing more
+pages repeats that scan.
 
 Session state, position and structure changes invalidate the continuation. Semantic live row facts
 and underlying availability facts are checked as well, including changes that precede the session's

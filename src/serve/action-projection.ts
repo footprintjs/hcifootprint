@@ -24,11 +24,6 @@ interface Continuation {
 type Refusal = { ok: false; judgment: 'error'; reason: string; why: string } & Row;
 type Prepared = { ok: true; offset: number; sinceVersion: number | undefined };
 
-// Port-local handles are citations, not secrets. A namespace distinguishes two
-// live ports even when they have each served their first page. Nothing parses
-// a caller's token into an offset; only the one retained token is accepted.
-let nextProjection = 0;
-
 const MAX_CURSOR_LENGTH = 128;
 
 function refusal(reason: string, why: string): Refusal {
@@ -74,7 +69,13 @@ export function createActionProjection(option: { maxBytes: number }) {
     typeof maxBytes !== 'number' || !Number.isSafeInteger(maxBytes) || maxBytes < 2) {
     throw new TypeError('hcifootprint: actionProjection needs { maxBytes }, a safe integer of at least 2: the UTF-8 JSON byte budget for the actions array only.');
   }
-  const namespace = ++nextProjection;
+  // Port-local handles are citations, not authority. A random namespace also
+  // separates independently loaded package copies and hot-reloaded modules:
+  // their module-local counters could both have issued the same first cursor.
+  // Read Web Crypto only when this opt-in port is built. getRandomValues works
+  // without the secure-context restriction of randomUUID; Node 22 provides it.
+  const namespace = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)),
+    (byte) => byte.toString(16).padStart(2, '0')).join('');
   let sequence = 0;
   let continuation: Continuation | undefined;
 
