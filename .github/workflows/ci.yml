@@ -66,6 +66,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      - name: Agent guide package metadata is current
+        run: npm run docs:agents:check
+
       - name: Install docs-next deps
         working-directory: docs-next
         run: npm ci

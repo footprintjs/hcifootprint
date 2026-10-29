@@ -146,9 +146,18 @@ imported) · `/webmcp` (browser registration, no SDK) · `/sensor` · `/react` �
 
 ## Gates
 
+`llms.txt` is the app-building API guide; `skills/hcifootprint-adoption/SKILL.md`
+is the portable adoption workflow. Keep API detail in the guide rather than copying
+it into the skill. The guide's marked version/import block is generated from
+`package.json`: after changing the package version or exports, run
+`npm run docs:agents:sync` and commit its output. The command preserves authored
+prose and refuses missing import descriptions; `docs:agents:check` is read-only
+and fails CI when the output is stale. Historical "since" versions stay historical.
+
 ```bash
 npm run typecheck        # tsc --noEmit, plus the test tsconfig
 npm test                 # vitest, then the posttest badge gate (README's count must match the run)
+npm run docs:agents:check # generated package facts and authored import descriptions match package.json
 npm run docs:truth:check # does the shipped surface still have the docs the baseline recorded?
 npm run build            # dist/, ESM-first — docs:truth reads dist, so build before it
 ```
