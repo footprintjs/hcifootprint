@@ -414,10 +414,9 @@ to subscribers. These observations, a returned handler, and a walk's invocation-
 are separate from effect verification. Read the action's settlement before claiming business
 success. Callable walks do not automatically become Session journeys, MCP tools or WebMCP tools.
 
-**Unreleased source:** the parallel-walk addition introduces `walk.parallel([...], { concurrency })`
-for independently available actions, including background reads. npm **3.1.1 does not have this
-method**. The sequential `run` API remains unchanged. Parallel dispatch still refreshes every
-offer and uses the existing principal/input gates, progress channels and effect receipts; it does
+**Since 3.2.0:** `walk.parallel([...], { concurrency })` runs independently available actions,
+including background reads. The sequential `run` API remains unchanged. Parallel dispatch still
+refreshes every offer and uses the existing principal/input gates, progress channels and effect receipts; it does
 not prove that the actions are independent or visible.
 
 **Page 1 → page 2 in one browser tab is a sequence.** When a second action depends on navigation
@@ -428,7 +427,7 @@ independence. Disconnect unmounted controls and reflect the active page in enabl
 controls kept mounted but hidden. Separate browser contexts help only when the host actually
 provides them; hcifootprint does not create them. Browsers can batch operations too—the useful
 choice is the app's declared meaning and live checks, not a claim that every browser click needs
-another model turn. See [parallel semantics and the background-read example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk#parallel-independent-actions-unreleased).
+another model turn. See [parallel semantics and the background-read example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk#parallel-independent-actions).
 
 The session's record is provided by `foottrace`. If you name its rows, import
 `CommitBundle` from `foottrace` instead of `hcifootprint`; trace readers such as

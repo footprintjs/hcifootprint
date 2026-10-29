@@ -5,7 +5,7 @@
 
 <!-- hcifootprint:metadata:start -->
 <!-- Generated from package.json by npm run docs:agents:sync. -->
-> Package: `hcifootprint` 3.1.1.
+> Package: `hcifootprint` 3.2.0.
 > Node.js: `>=22`.
 > Public imports (7): `hcifootprint`, `hcifootprint/mcp`, `hcifootprint/webmcp`, `hcifootprint/react`, `hcifootprint/sensor`, `hcifootprint/testing`, `hcifootprint/testing/lint`.
 <!-- hcifootprint:metadata:end -->
@@ -698,7 +698,7 @@ a step boundary. Replan under the same walk identity after a refusal or new deci
 before depending on a delayed commit. See the
 [two-action example](https://footprintjs.github.io/hcifootprint/docs/actions/the-walk).
 
-**Unreleased parallel source (not in npm 3.1.1):** `beginWalk` returns an
+**Parallel actions (since 3.2.0):** `beginWalk` returns an
 `ActionWalkWithParallel` extending the unchanged `ActionWalk`. Items use `ActionParallelStep`,
 which excludes `carry`. `parallel([{ action }, ...],
 { concurrency?, onRow? })` runs independently available items, defaulting to all N invocations;

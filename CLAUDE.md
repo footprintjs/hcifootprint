@@ -88,7 +88,7 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | serving a model only what is reachable from where the cursor stands, with a tool list whose bytes never change | `serveToAgent` | `src/serve/modes.ts` | 1.0.0 |
 | serving complete action rows in bounded pages, with explicit omissions and stale continuations refused | `JourneyToolsOptions.actionProjection` (on `serveToAgent`) | `src/serve/modes.ts` | 3.1.0 |
 | registering the existing serving tools in a browser without another action registry or execution policy | `registerWebMcpTools` (from `hcifootprint/webmcp`) | `src/serve/webmcp.ts` | 3.1.0 |
-| starting independent callable actions as one bounded parallel array, with per-item results and interruption of queued work | `ActionWalkWithParallel.parallel` (returned by `beginWalk`; node labels do not establish independence) | `src/action/walk.ts` | Unreleased |
+| starting independent callable actions as one bounded parallel array, with per-item results and interruption of queued work | `ActionWalkWithParallel.parallel` (returned by `beginWalk`; node labels do not establish independence) | `src/action/walk.ts` | 3.2.0 |
 | a way for a model to abandon a journey it committed to | `leaveJourneyTool` | `src/serve/mcp.ts` | 1.0.0 |
 | narrowing what is served to the steps of one flow, and tracking that pass at it | `JourneyFrame` (opened by `Session.commitJourney`) | `src/atom/types.ts` | 1.0.0 |
 | making a caller's string safe as a tool name without two names folding into one | `encodeToolName` | `src/serve/tool-name.ts` | 1.8.0 |
