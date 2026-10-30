@@ -1,5 +1,5 @@
 /**
- * ALREADY TRUE — an action whose effect the world already holds.
+ * ALREADY TRUE — the declared verify conditions held before the action fired.
  *
  * The failure this module exists to end was reported from a real recorded run
  * by a consumer integration. An agent pressed a control while the thing that
@@ -17,10 +17,10 @@
  *
  * THE RULE, in one sentence, and it is the sentence pinned in every home:
  *
- *   An effect that is already true is not a pending one. When an action's
- *   declarative verify contract covers every key it declares it writes and
- *   already holds at fire time, the fire never waits for a state report that
- *   nothing will send — it settles on its own handler and answers `alreadyTrue`
+ *   Matching verify conditions are fire-time evidence, not an action result.
+ *   When an action's declarative verify contract covers every key it declares
+ *   it writes and already holds at fire time, the fire settles on its handler
+ *   path rather than waiting for a state report and answers `alreadyTrue`
  *
  * WHICH DECLARATION THIS READS, AND WHY IT IS THE ONLY ONE THAT CAN.
  * `Effect.writes` is KEY NAMES ONLY, by stated law (`src/atom/types.ts`): the
@@ -29,8 +29,10 @@
  * never establish, and a rule built on it would have to INVENT the value it
  * compared against. {@link VerifyContract} in its declarative {@link WhereFilter}
  * form is the one declaration that carries VALUES — the app's own statement of
- * what must hold once the action has run — so it is what this asks. An action
- * that declares `writes` and no declarative verify behaves exactly as it always
+ * what must hold once the action has run — so it is what this asks. A broad
+ * range can hold before a requested change or an invalid input: this evidence
+ * never proves that the requested work is unnecessary or that no write occurs.
+ * An action that declares `writes` and no declarative verify behaves exactly as it always
  * did: nothing is guessed on its behalf, and the correction is one line of
  * declaration next to the action.
  *
@@ -47,26 +49,24 @@
  *    question it was never written to answer.
  * 3. The contract NAMES every declared write. This is the partial boundary, and
  *    it is exact: an action that writes `view.domain` and `view.tab` under a
- *    contract that constrains only the first has a declared effect the contract
- *    says nothing about, so nothing here may call it already true.
+ *    contract that constrains only the first has a declared write the contract
+ *    says nothing about, so this marker must be absent.
  * 4. The contract HOLDS right now, evaluably — `filterVerdict` === 'held'. A
- *    'failed' verdict is the ordinary case (there is real work to do). An
+ *    'failed' verdict does not qualify for this marker. An
  *    'unevaluable' one is honest absence: a key the state view has never held
  *    is a key this library did not read, and an unread key is never evidence.
  * 5. If the action declares `effect.navigatesTo`, the session is ALREADY on
- *    that node. Page motion is part of the effect, and an effect that is only
- *    partly already true is not already true.
+ *    that node. The marker must not imply the declared destination was already
+ *    observed when it was not.
  *
  * WHAT IT CHANGES, AND WHAT IT DELIBERATELY DOES NOT. The handler still runs:
  * the library does not decide on the app's behalf that a press was pointless,
- * and an app that hangs analytics or focus off that control keeps them. What
- * changes is only WHAT THE FIRE WAITS ON — the handler rail, which always
- * answers, instead of the state rail, which here cannot. The fire therefore
- * never joins the state-report queue, which is the second half of the fix: a
- * phantom sitting in that queue would let the NEXT real report settle it by
- * FIFO, certifying an agent's no-op as the verified cause of motion somebody
- * else performed. That is the same reasoning the allowed-unmaterialized fire
- * already runs on, said about a different cause.
+ * and an app that hangs analytics or focus off that control keeps them. The
+ * fire uses its existing handler settlement path rather than requiring a
+ * state report: an idempotent write may publish no change at all. The handler
+ * can nevertheless write, remain pending, fail, or produce a false verify
+ * verdict. Read those actual results separately; this snapshot records only
+ * the earlier conditions, never the eventual success or absence of a change.
  */
 import type { WhereFilter } from 'footprintjs';
 import type { FilterCondition } from 'footprintjs/advanced';
@@ -74,7 +74,7 @@ import type { Affordance } from '../atom/types.js';
 import { filterVerdict } from './verify.js';
 
 /**
- * The conditions that ALREADY hold, or `undefined` when this fire is an
+ * The conditions that hold BEFORE FIRING, or `undefined` when this fire is an
  * ordinary one.
  *
  * Presence is the marker and the value is the evidence, deliberately in one

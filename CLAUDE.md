@@ -16,18 +16,20 @@ it — **human** (a real click, `principal: 'user'`), **agent** (the four served
 own `Cause.kind: 'stimulus'`. Same pattern at three altitudes: footprintjs walks stages,
 agentfootprint (`defineSkillMap`) walks skills, this walks screens.
 
-**An effect already held (1.12.0):** **An effect that is already true is not a pending one. When an
-action's declarative verify contract covers every key it declares it writes and already holds at
-fire time, the fire never waits for a state report that nothing will send — it settles on its own
-handler and answers `alreadyTrue`.** The rule lives in ONE small module (traverse/already-true.ts,
+**Fire-time verify evidence (1.12.0):** **Matching verify conditions are fire-time evidence, not an
+action result. When an action's declarative verify contract covers every key it declares it writes
+and already holds at fire time, the fire settles on its handler path rather than waiting for a
+state report and answers `alreadyTrue`.** The rule lives in ONE small module (traverse/already-true.ts,
 five conditions) called from `fire()` before the record is minted; it flips exactly one boolean in
 the state-tap arm's guard, so an already-true fire falls through to the tapless block and waits on
-the HANDLER rail instead. It reads `verify` and NOT `writes` — `writes` is key names only by stated
+the HANDLER rail instead. Condition values come from `verify`, not `writes` — `writes` is key names only by stated
 law, so nothing here can know the value an action would set. The marker is `alreadyTrue:
 FilterCondition[]` on the fire result AND the row (presence is the mark, the value is the evidence:
 one field, not a boolean beside a list), served by modes.ts on the fire result and the settled
-`did_it_work` answer with one authored sentence. NOT stamped on an allowed-unmaterialized fire —
-that fate already has `materialized: false`.
+`did_it_work` answer with one authored sentence. It records the earlier check, not success or an
+absence of writes; the handler may change state or fail. Read `effectStatus`, `outcome`,
+`outcomeNow` when present, and any error for the result. NOT stamped on an allowed-unmaterialized
+fire — that fate already has `materialized: false`.
 
 **Refusals teach, including the four that did not (1.12.0):** `TRANSITION_ID_REQUIRED`,
 `ACTION_REQUIRED`, `KEY_REQUIRED` and `JOURNEY_REQUIRED` were raised as `{ok:false, judgment:'error',
@@ -80,7 +82,7 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 | recording who moved the cursor, including when it did not move | `InteractionSession.focusHistory` + `FocusMove` | `src/traverse/nav-session.ts` | 1.8.0 |
 | tracking which tab is active — telling the agent WHERE INSIDE the page the person is, without moving what is served | `InteractionSession.observeFocus` + `lookingAt` (the deepest-node rule: sync pages, observe the deeper place) | `src/traverse/nav-session.ts` | 1.11.0 |
 | working out why the ledger says “system unknown changed: …” instead of naming what happened | `updateState` + `observeFocus` (an unattributed state report has no stimulus and no principal to print — and labelling it costs its attribution, a named known limit; if what moved is POSITION, report it as position instead) | `src/traverse/session.ts` | 1.11.0 |
-| working out why `did_it_work` keeps saying still-pending about an action whose effect was already true | `alreadyTrueNow` + `FireResult.alreadyTrue` (declare `verify` beside `writes`: `writes` is key names only, so nothing here can know the value your handler would set) | `src/traverse/already-true.ts` | 1.12.0 |
+| working out why `did_it_work` keeps saying still-pending when the declared verify conditions already held | `alreadyTrueNow` + `FireResult.alreadyTrue` (fire-time evidence; the handler still runs and its result is separate) | `src/traverse/already-true.ts` | 1.12.0 |
 | working out what a bare `TRANSITION_ID_REQUIRED` / `ACTION_REQUIRED` / `KEY_REQUIRED` / `JOURNEY_REQUIRED` wanted — or getting a lost transition id back out of the port | the four now carry `why` + the valid set + the position (`awaitingSettlement` on the transition one; no `openTransitions` was minted) | `src/serve/modes.ts` | 1.12.0 |
 | walking the fewest declared hops from here to some page | `Session.howToReach` / `routeBetween` + `RouteStep` | `src/graph/reach.ts` | 1.0.0 |
 | deriving which action would unblock another one | `Session.whatUnblocks` / `unblockingDependencies` | `src/graph/step-deps.ts` | 1.0.0 |

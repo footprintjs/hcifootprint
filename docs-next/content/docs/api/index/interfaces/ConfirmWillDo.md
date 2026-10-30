@@ -4,7 +4,7 @@ title: ConfirmWillDo
 
 # Interface: ConfirmWillDo
 
-Defined in: [src/atom/types.ts:2817](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2817)
+Defined in: [src/atom/types.ts:2813](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2813)
 
 The plain-words "what firing will do" claim that leads a receipt: the
 authored edge description plus its declared, honesty-tagged effect. `writes`
@@ -18,7 +18,7 @@ atom takes everywhere.
 
 > **does**: `string`
 
-Defined in: [src/atom/types.ts:2819](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2819)
+Defined in: [src/atom/types.ts:2815](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2815)
 
 The authored affordance description (planner-facing string class).
 
@@ -28,7 +28,7 @@ The authored affordance description (planner-facing string class).
 
 > `optional` **effectUnverifiable?**: `boolean`
 
-Defined in: [src/atom/types.ts:2840](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2840)
+Defined in: [src/atom/types.ts:2836](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2836)
 
 True when the edge declares writes but the session has no state tap, so the
 effect can never be verified (settlement would be effectVerified:
@@ -41,7 +41,7 @@ library itself cannot check.
 
 > `optional` **navigatesTo?**: `string`
 
-Defined in: [src/atom/types.ts:2833](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2833)
+Defined in: [src/atom/types.ts:2829](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2829)
 
 Page this edge CLAIMS to navigate to (from effect.navigatesTo). Omitted when none.
 
@@ -51,7 +51,7 @@ Page this edge CLAIMS to navigate to (from effect.navigatesTo). Omitted when non
 
 > `optional` **reads?**: `string`[]
 
-Defined in: [src/atom/types.ts:2831](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2831)
+Defined in: [src/atom/types.ts:2827](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2827)
 
 State keys this edge CLAIMS its outcome depends on (from effect.reads).
 Omitted when none — the same presence law `writes` keeps.
@@ -67,6 +67,6 @@ block, never an observation.
 
 > `optional` **writes?**: `string`[]
 
-Defined in: [src/atom/types.ts:2821](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2821)
+Defined in: [src/atom/types.ts:2817](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2817)
 
 State keys this edge CLAIMS to write (from effect.writes). Omitted when none.

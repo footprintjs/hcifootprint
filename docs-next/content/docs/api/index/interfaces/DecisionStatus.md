@@ -4,7 +4,7 @@ title: DecisionStatus
 
 # Interface: DecisionStatus
 
-Defined in: [src/atom/types.ts:3129](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3129)
+Defined in: [src/atom/types.ts:3125](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3125)
 
 ONE DECISION THAT BELONGS TO A PERSON, and whether it has been made — the rows
 [Session.decisions](/api/index/classes/Session#decisions) serves, read at the moment you ask.
@@ -24,7 +24,7 @@ journey, so a row exists for every declaring control wherever it lives.
 
 > `optional` **about?**: `string`
 
-Defined in: [src/atom/types.ts:3132](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3132)
+Defined in: [src/atom/types.ts:3128](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3128)
 
 The app's own words for what is being decided — DATA (see [HumanDecides.about](/api/index/interfaces/HumanDecides#about)).
 
@@ -34,7 +34,7 @@ The app's own words for what is being decided — DATA (see [HumanDecides.about]
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:3130](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3130)
+Defined in: [src/atom/types.ts:3126](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3126)
 
 ***
 
@@ -42,7 +42,7 @@ Defined in: [src/atom/types.ts:3130](https://github.com/footprintjs/hcifootprint
 
 > **made**: `boolean` \| `"unknown"`
 
-Defined in: [src/atom/types.ts:3148](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3148)
+Defined in: [src/atom/types.ts:3144](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3144)
 
 Whether the app's own `doneWhen` holds RIGHT NOW, evaluated fresh on every
 call:
@@ -64,7 +64,7 @@ rather than treated as failed.
 
 > `optional` **madeBy?**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:3166](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3166)
+Defined in: [src/atom/types.ts:3162](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3162)
 
 WHO MADE IT — served beside `made: true` only, and minted from exactly the
 identity-bearing rungs of `updateState`'s attribution ladder: a delta naming

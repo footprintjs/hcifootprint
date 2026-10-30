@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-3541%20passing-f5b301?style=flat" alt="3541 tests passing">
+  <img src="https://img.shields.io/badge/tests-3547%20passing-f5b301?style=flat" alt="3547 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -264,11 +264,11 @@ from whatever unlabelled state keys happen to move. `lintGraph` proves the autho
 
 → [Map & Walker](https://footprintjs.github.io/hcifootprint/docs/map/map-and-walker)
 
-### When the action is already done
+### When verify conditions already held
 
-> **An effect that is already true is not a pending one. When an action's declarative verify
-> contract covers every key it declares it writes and already holds at fire time, the fire never
-> waits for a state report that nothing will send — it settles on its own handler and answers
+> **Matching verify conditions are fire-time evidence, not an action result. When an action's
+> declarative verify contract covers every key it declares it writes and already holds at fire
+> time, the fire settles on its handler path rather than waiting for a state report and answers
 > `alreadyTrue`.**
 
 An agent pressed a control while the thing it does was already the case — it asked to open a domain
@@ -289,9 +289,10 @@ your handler would set):
 }
 ```
 
-The fire comes back carrying `alreadyTrue` — the conditions that already hold — plus one authored
-sentence that tells the model to move on. Your handler still runs; what changed is only what the
-fire *waits on*.
+The fire comes back carrying `alreadyTrue` — the conditions that held before it fired. Your handler
+still runs and may change state or fail; the marker changes only what the fire *waits on*. Read
+`effectStatus`, `outcome`, `outcomeNow` when present, and any error for the result. A broad condition
+such as "quantity is between 1 and 99" does not prove that the requested quantity was applied.
 
 → [When it is already true](https://footprintjs.github.io/hcifootprint/docs/actions/already-true)
 
