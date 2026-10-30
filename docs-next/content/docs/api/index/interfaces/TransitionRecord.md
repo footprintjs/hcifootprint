@@ -17,22 +17,20 @@ rejected/rolled-back rows exist only here — that asymmetry is deliberate
 
 > `optional` **alreadyTrue?**: `FilterCondition`[]
 
-Defined in: [src/atom/types.ts:1382](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1382)
+Defined in: [src/atom/types.ts:1380](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1380)
 
 THE CONDITIONS THIS ACTION'S OWN VERIFY CONTRACT ALREADY MET, at the moment
-it fired — present only on a fire whose declared effect the world already
-held, and absent on every ordinary one.
+it fired — fire-time evidence, not a verdict on what the handler did.
 
-An effect that is already true is not a pending one. When an action's
-declarative verify contract covers every key it declares it writes and
-already holds at fire time, the fire never waits for a state report that
-nothing will send — it settles on its own handler and answers `alreadyTrue`.
+Matching verify conditions are fire-time evidence, not an action result.
+When an action's declarative verify contract covers every key it declares
+it writes and already holds at fire time, the fire settles on its handler
+path rather than waiting for a state report and answers `alreadyTrue`.
 
-ON THE ROW, not only on the result, and that is the deliberate half: a
-press that legitimately did nothing is still something the record should be
-able to show. It shows as an ordinary committed row carrying this marker —
-never as a move that happened, because nothing was written and the commit
-bundle under it is empty (footprint's deliberate-cursor-stop idiom).
+ON THE ROW, not only on the result: the earlier check remains recorded even
+if the handler later writes, fails, or is rolled back. It does not establish
+that the requested work was unnecessary or that the current conditions still
+hold. Read the actual outcome, effect verification and error separately.
 
 WHY THE VERIFY CONTRACT AND NOT `effect.writes`. `writes` is key names only,
 by the law stated on it: this library never learns the value an action would
@@ -116,7 +114,7 @@ answer — and on a stimulus nobody attributed the two honestly disagree
 
 > `optional` **captured?**: [`ActionCapture`](/api/index/interfaces/ActionCapture)
 
-Defined in: [src/atom/types.ts:1411](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1411)
+Defined in: [src/atom/types.ts:1409](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1409)
 
 D21 — THE CAPTURE ENVELOPE, present only on a fire of a `contextful()`
 action: what was true the moment before it ran, how it came to rest, what
@@ -305,7 +303,7 @@ Populated once the handler resolves (await the settlement to read it).
 
 > `optional` **repeated?**: `object`
 
-Defined in: [src/atom/types.ts:1390](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1390)
+Defined in: [src/atom/types.ts:1388](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L1388)
 
 THIS FIRE WAS A KNOWING SECOND OCCURRENCE of a `mode: 'once'` action, let
 through because a person acted on the screen after the first occurrence's

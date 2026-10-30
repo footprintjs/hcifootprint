@@ -6,7 +6,7 @@ title: serveToAgent
 
 > **serveToAgent**(`session`, `opts?`): [`JourneyToolsPortWithSettlement`](/api/index/interfaces/JourneyToolsPortWithSettlement)
 
-Defined in: [src/serve/modes.ts:808](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L808)
+Defined in: [src/serve/modes.ts:806](https://github.com/footprintjs/hcifootprint/blob/main/src/serve/modes.ts#L806)
 
 ## Parameters
 

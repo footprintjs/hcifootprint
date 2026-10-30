@@ -333,11 +333,10 @@ these ways, and never blocks:
   person has not answered. A step declaring no `writes` never joins the first list while its
   handler runs, and an ask joins none of the first two: nothing was fired.
 
-- **already true** — `alreadyTrue: [...]` rides the settled arm, and the fire result before it, when
-  what the action promises [was already the case when it fired](doc:already-true). The pair it makes
-  legible is `effectStatus: 'performed'` (your side did run) beside `effectVerified: 'unobservable'`
-  (no report exists to check the declared writes against) — two words a reader given only them
-  would add up to *something happened*.
+- **already true** — `alreadyTrue: [...]` records declared verify conditions that
+  [held before firing](doc:already-true), on both the immediate and settled answers. It is historical
+  evidence, not proof of success, no change or current conditions. A handler may still write or
+  fail; use `effectStatus`, `outcome`, `outcomeNow` when present, and any error for its result.
 
 A settlement is a **receipt** of how the fire came to rest, and first settlement wins — so the
 record can move afterwards (a server rejecting an order the app already reported flips it to
