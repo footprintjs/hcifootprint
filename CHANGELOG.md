@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Explain `alreadyTrue` as verify conditions that held before an action fired. Matching conditions no longer imply that no work was needed, nothing changed, or the action succeeded; the actual settlement, failure and later rollback remain visible alongside that evidence.
+
 ## [3.2.0] - 2026-10-29
 
 ### Added

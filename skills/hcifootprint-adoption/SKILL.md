@@ -81,6 +81,9 @@ when enforcement is required, with the application's recorded decision.
 A pending result is not completion. For Session serving, read `did_it_work` rather than
 repeating the action. For callable invocations, distinguish `whenInvoked` from
 `whenEffectSettled`; a handler return or closed progress stream is not a verified effect.
+For Session results, `alreadyTrue` records declared verify conditions that held before firing.
+It is not completion, proof of no change, or proof that a requested input was applied; the handler
+may still write or fail. Read `effectStatus`, `outcome`, `outcomeNow` when present, and any error.
 Keep typed refusals and unknown evidence visible. Browser observations may supply authoritative
 adapter evidence when the app defines that contract; a click or visible change alone is not
 automatically proof of business success.

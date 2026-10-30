@@ -14,7 +14,7 @@ describe('the already-true example', () => {
     const port = serveToAgent(wireDesk('billing'), { source: 'agent' });
     const pressed = port.call('desk.do_action', { action: 'open-billing' });
     expect(pressed['alreadyTrue']).toHaveLength(1);
-    expect(pressed['why']).toContain('That was already the case');
+    expect(pressed['why']).toContain('held before this action fired');
     await flush();
     const polled = port.call('desk.did_it_work', { transitionId: pressed['transitionId'] as string });
     expect(polled).toMatchObject({ settled: true, effectStatus: 'performed', verifyHeld: true });
@@ -52,7 +52,7 @@ describe('the already-true example', () => {
     const printed = log.mock.calls.map((call) => String(call[0])).join('\n');
     log.mockRestore();
     expect(printed).toContain('ALREADY TRUE');
-    expect(printed).toContain('That was already the case');
+    expect(printed).toContain('held before this action fired');
     expect(printed).toContain('THE HONEST LIMIT');
   });
 });

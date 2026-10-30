@@ -407,7 +407,7 @@ const ARRIVAL_OBSERVED_MEANS =
   'A matching observation landed after this action: the app reported being on the page this action ' +
   'said it goes to. That is corroboration, not proof that this action caused it.';
 
-// AN EFFECT THAT IS ALREADY TRUE, said once and served from two doors — the
+// FIRE-TIME VERIFY EVIDENCE, said once and served from two doors — the
 // fire's own result and the poll one call later — so a reader meets the same
 // sentence whichever way it asks. The failure it ends was recorded by a
 // consumer integration: an agent pressed a control while the thing that control
@@ -416,15 +416,13 @@ const ARRIVAL_OBSERVED_MEANS =
 // model read "still pending" as "the app is still working" and spent fifteen of
 // its thirty steps on it.
 //
-// So the sentence has to do three things in the order a reader needs them: say
-// the outcome is ALREADY TRUE, say that nothing was written, and name the field
-// carrying what holds right now — and it must never say "nothing ran", because
-// the handler is still invoked (see src/traverse/already-true.ts).
+// The marker records that earlier check, not the requested value or the
+// handler's result. Even a broad condition may hold before a handler changes
+// state or fails. Keep that history beside the actual result, never over it.
 const ALREADY_TRUE_WHY =
-  'That was already the case. This action’s own verify contract — the condition the app said must ' +
-  'hold once it had run — already held before it fired, so nothing needed changing and nothing was ' +
-  'written. Do not wait for a change and do not perform it again: alreadyTrue lists the conditions ' +
-  'that hold right now.';
+  'These declared verify conditions held before this action fired. alreadyTrue records that earlier ' +
+  'check, not whether the action succeeded or changed anything. Read effectStatus, outcome, ' +
+  'outcomeNow when present, and any error for the actual result.';
 
 // THE FOUR MISSING-ARGUMENT REFUSALS. A wrong input fails BY NAME with the
 // correction attached and the valid values carried — the law every other
@@ -1606,15 +1604,11 @@ export function serveToAgent(
       ...(settled.transition.materialized === false
         ? { materialized: false, why: NOTHING_EXECUTED_IT }
         : {}),
-      // The same marker one call later, carried onto the POLL exactly as the
-      // tour marker above is — and for the same reason. A fire that came to rest
-      // having changed nothing reads as 'performed' on the effectStatus axis
-      // (our side did run to completion) and 'unobservable' on the state axis
-      // (no report exists to check writes against), and a reader given only
-      // those two learns that something happened. This is the third fact that
-      // makes the pair legible. Same word as the fire result, so a consumer
-      // branches on one name; never both `why` sentences on one payload, because
-      // an unmaterialized fire never carries this marker.
+      // The same fire-time evidence one call later. This snapshot remains true
+      // as history even when the handler wrote a new value, failed, or was
+      // rolled back. It never overrules the settlement or the later outcome.
+      // An unmaterialized fire never carries this marker, so the two `why`
+      // sentences cannot collide.
       ...(settled.transition.alreadyTrue
         ? { alreadyTrue: structuredClone(settled.transition.alreadyTrue), why: ALREADY_TRUE_WHY }
         : {}),
@@ -2088,16 +2082,15 @@ export function serveToAgent(
         ...(fired.transition.guardUnevaluated ? { guardUnevaluated: [...fired.transition.guardUnevaluated] } : {}),
         // Honest no-op (allowUnmaterializedFires tour): nothing ran, nothing is bound.
         ...(fired.executed === false ? { executed: false, materialized: false } : {}),
-        // THE EFFECT WAS ALREADY TRUE. Served at FIRE time, which is the whole
+        // THE VERIFY CONDITIONS HELD BEFORE FIRING. Served at FIRE time, the whole
         // point: the model that burned fifteen steps on this had the answer
         // available in the very first result and was told 'pending' instead.
         // Copy: fired.alreadyTrue is the live record's own array.
         //
-        // Beside `howToSettle` above, never instead of it. Both are true — the
-        // handler really has not finished, and what it promises really is
-        // already the case — and one poll now ends in an answer rather than in
-        // the same word forever. Mutually exclusive with the tour marker by
-        // construction: an unmaterialized fire never carries this one.
+        // Beside `howToSettle` above, never instead of it. The handler may still
+        // be pending or fail; a preheld condition does not establish its result
+        // or whether the requested work was needed. Mutually exclusive with the
+        // tour marker by construction: an unmaterialized fire never carries this one.
         ...(fired.alreadyTrue
           ? { alreadyTrue: structuredClone(fired.alreadyTrue), why: ALREADY_TRUE_WHY }
           : {}),
