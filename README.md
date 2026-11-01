@@ -2,6 +2,8 @@
 
 <p align="center"><b>Human &amp; Agent · Computer Interaction</b></p>
 
+<p align="center">A TypeScript library for declaring web-app actions and journeys, serving their live availability to agents, and recording interaction outcomes.</p>
+
 <p align="center">
   <strong>Your agent can reach your app — but it's flying blind.<br/>
   Your app already knows what can be done here, and by whom. Hand the agent that map.</strong>
