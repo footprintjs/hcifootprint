@@ -537,7 +537,7 @@ class DefaultActionRuntime implements ActionRuntime {
       .get(ref.binding.bindingId)
       ?.get(ref.principal)?.offer;
     if (current !== offer || this.#offers.get(ref.offerId) !== offer) {
-      if (current !== undefined) {
+      if (current !== undefined && current.ref.binding === ref.binding) {
         throw new ActionOfferRefusal('ACTION_OFFER_STALE',
           `hcifootprint: offer '${ref.offerId}' is stale — the facts it was exposed under have changed, and binding '${ref.binding.bindingId}' now serves offer '${current.ref.offerId}' to principal '${ref.principal}'. Re-read offers and invoke the current one; never retry a stale offer, its moment is gone.`,
         );

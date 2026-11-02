@@ -65,6 +65,21 @@ describe('machine-readable offer refusal before any invocation', () => {
     expect(error.nextStep).toBe('read-current-offers');
     expect(s.calls()).toBe(0);
   });
+  it('colliding local ids in two live runtimes do not make a foreign offer stale', async () => {
+    const source = setup(), target = setup();
+    expect(source.offer.ref.binding.bindingId).toBe(target.offer.ref.binding.bindingId);
+    expect(source.offer.ref.offerId).toBe(target.offer.ref.offerId);
+    expect(source.offer.ref.binding).not.toBe(target.offer.ref.binding);
+    const error = thrown(() => target.port.invoke(source.offer));
+    expect(error.code).toBe('ACTION_OFFER_UNAVAILABLE');
+    expect(error.execution).toBe('not-started');
+    expect(error.nextStep).toBe('read-current-offers');
+    expect(source.calls()).toBe(0); expect(target.calls()).toBe(0);
+    expect(source.runtime.transitions()).toEqual([]);
+    expect(target.runtime.transitions()).toEqual([]);
+    expect((await target.port.invoke(target.offer).whenInvoked).status).toBe('performed');
+    expect(target.calls()).toBe(1); expect(source.calls()).toBe(0);
+  });
   it('an existing live offer cannot cross principal authority', () => {
     const s = setup();
     // Deliberate negative control: runtime validation also protects untyped JS.
