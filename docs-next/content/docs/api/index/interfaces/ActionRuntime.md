@@ -4,7 +4,7 @@ title: ActionRuntime
 
 # Interface: ActionRuntime
 
-Defined in: [src/action/types.ts:892](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L892)
+Defined in: [src/action/types.ts:903](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L903)
 
 Framework-neutral store and execution port for connected actions.
 
@@ -14,7 +14,7 @@ Framework-neutral store and execution port for connected actions.
 
 > `readonly` **contractActivation**: [`ActionContractActivation`](/api/index/type-aliases/ActionContractActivation)
 
-Defined in: [src/action/types.ts:893](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L893)
+Defined in: [src/action/types.ts:904](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L904)
 
 ## Methods
 
@@ -22,7 +22,7 @@ Defined in: [src/action/types.ts:893](https://github.com/footprintjs/hcifootprin
 
 > **bindingFor**(`binding`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\> \| `undefined`
 
-Defined in: [src/action/types.ts:960](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L960)
+Defined in: [src/action/types.ts:971](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L971)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [src/action/types.ts:960](https://github.com/footprintjs/hcifootprin
 
 > **bindings**(`definition?`): [`ActionBindingSnapshot`](/api/index/interfaces/ActionBindingSnapshot)\<`string`\>[]
 
-Defined in: [src/action/types.ts:959](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L959)
+Defined in: [src/action/types.ts:970](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L970)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [src/action/types.ts:959](https://github.com/footprintjs/hcifootprin
 
 > **channelGaps**(): readonly [`ChannelGap`](/api/index/interfaces/ChannelGap)[]
 
-Defined in: [src/action/types.ts:909](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L909)
+Defined in: [src/action/types.ts:920](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L920)
 
 Every kind somebody needed served and nothing could, counted.
 
@@ -74,7 +74,7 @@ readonly [`ChannelGap`](/api/index/interfaces/ChannelGap)[]
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `true`, `Mode`\>
 
-Defined in: [src/action/types.ts:926](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L926)
+Defined in: [src/action/types.ts:937](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L937)
 
 Connect a scalar binding whose exact payload is owned by a required live
 `options.input` reader.
@@ -111,7 +111,7 @@ Connect a scalar binding whose exact payload is owned by a required live
 
 > **connect**\<`F`, `Id`, `Mode`\>(`definition`, `options`): [`ActionConnection`](/api/index/interfaces/ActionConnection)\<`F`, `Id`, `false`, `Mode`\>
 
-Defined in: [src/action/types.ts:942](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L942)
+Defined in: [src/action/types.ts:953](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L953)
 
 Connect without a bound input reader. Scalar definitions keep a required
 direct payload door; inputless/host definitions forbid `options.input`.
@@ -150,7 +150,7 @@ direct payload door; inputless/host definitions forbid `options.input`.
 
 > **declareContext**(`declaration`): [`DeclaredContextHandle`](/api/index/interfaces/DeclaredContextHandle)
 
-Defined in: [src/action/types.ts:978](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L978)
+Defined in: [src/action/types.ts:989](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L989)
 
 Declare outcome context — "what the person set with a control, still
 standing" — folded by the library at settlement time: the newest
@@ -173,7 +173,7 @@ live context per id.
 
 > **declareSurface**(`declaration`): [`SurfaceHandle`](/api/index/interfaces/SurfaceHandle)
 
-Defined in: [src/action/types.ts:899](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L899)
+Defined in: [src/action/types.ts:910](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L910)
 
 Declare what one frontend surface can serve — collects and shows, by
  kind, governed by the mounted catalog. One live surface per id.
@@ -194,7 +194,7 @@ Declare what one frontend surface can serve — collects and shows, by
 
 > **forgetTransition**(`transition`): `boolean`
 
-Defined in: [src/action/types.ts:965](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L965)
+Defined in: [src/action/types.ts:976](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L976)
 
 Release a fully settled transition from runtime history.
 
@@ -214,7 +214,7 @@ Release a fully settled transition from runtime history.
 
 > **forPrincipal**\<`P`\>(`principal`): [`PrincipalActionPort`](/api/index/interfaces/PrincipalActionPort)\<`P`\>
 
-Defined in: [src/action/types.ts:921](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L921)
+Defined in: [src/action/types.ts:932](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L932)
 
 Bind offer generation and invocation to one explicit reader principal.
 
@@ -240,7 +240,7 @@ Bind offer generation and invocation to one explicit reader principal.
 
 > **kindGovernance**(): [`KindGovernanceReport`](/api/index/interfaces/KindGovernanceReport)
 
-Defined in: [src/action/types.ts:896](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L896)
+Defined in: [src/action/types.ts:907](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L907)
 
 What this runtime can say about its own kind governance — mounted or
  not, the fingerprint, every kind seen, and the ungoverned remainder.
@@ -255,7 +255,7 @@ What this runtime can say about its own kind governance — mounted or
 
 > **openRequests**(): readonly [`InputRequestSnapshot`](/api/index/interfaces/InputRequestSnapshot)[]
 
-Defined in: [src/action/types.ts:919](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L919)
+Defined in: [src/action/types.ts:930](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L930)
 
 Every request still open, oldest first — what a surface renders.
 
@@ -269,7 +269,7 @@ readonly [`InputRequestSnapshot`](/api/index/interfaces/InputRequestSnapshot)[]
 
 > **requestInput**(`input`): [`InputRequestHandle`](/api/index/interfaces/InputRequestHandle)
 
-Defined in: [src/action/types.ts:912](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L912)
+Defined in: [src/action/types.ts:923](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L923)
 
 Ask a person for one value of a governed kind, from an offered list —
  the HITL request lifecycle, offered-set law included.
@@ -304,7 +304,7 @@ readonly (`string` \| [`RequestChoice`](/api/index/interfaces/RequestChoice))[]
 
 > **surfacesFor**(`query`): readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
 
-Defined in: [src/action/types.ts:905](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L905)
+Defined in: [src/action/types.ts:916](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L916)
 
 Who can collect this kind, or show it — and a MISS is recorded, not
  just returned empty: the degradation record is the backlog written by
@@ -326,7 +326,7 @@ readonly [`SurfaceDeclaration`](/api/index/interfaces/SurfaceDeclaration)[]
 
 > **transitionFor**(`transition`): [`ActionTransitionSnapshot`](/api/index/interfaces/ActionTransitionSnapshot) \| `undefined`
 
-Defined in: [src/action/types.ts:961](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L961)
+Defined in: [src/action/types.ts:972](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L972)
 
 #### Parameters
 
@@ -344,7 +344,7 @@ Defined in: [src/action/types.ts:961](https://github.com/footprintjs/hcifootprin
 
 > **transitions**(`query?`): readonly [`ActionTransitionSnapshot`](/api/index/interfaces/ActionTransitionSnapshot)[]
 
-Defined in: [src/action/types.ts:971](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L971)
+Defined in: [src/action/types.ts:982](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L982)
 
 Every retained transition matching the query, OLDEST INVOCATION FIRST —
 the order transitions were minted, which is the order a person or agent
