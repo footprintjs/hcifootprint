@@ -400,6 +400,10 @@ export function beginWalk(
     try {
       const records = admit(steps);
       const rows: ActionPlanRow[] = [];
+      // Execution consumes the original returned values, not their historical
+      // quotations. This local array dies with the run; it is not another log.
+      // Copying or releasing history must never change a plan's behavior.
+      const outputs: unknown[] = [];
       let stopped = false;
       let interruption: ActionWalkInterruption | undefined;
       const land = (row: ActionPlanRow): void => {
@@ -442,7 +446,7 @@ export function beginWalk(
         // earlier step (admit) — so the producer's row always has a transition.
         const payload =
           step.carry !== undefined
-            ? runtime.transitionFor(rows[step.carry.from]!.transition!)?.produced
+            ? outputs[step.carry.from]
             : step.input;
         const attempt = invokeStep(base, step, selected.offer, payload);
         if ('row' in attempt) {
@@ -450,23 +454,24 @@ export function beginWalk(
           stopped = true;
           continue;
         }
-        try { await attempt.invocation.whenInvoked; }
-        catch { /* the transition records how this invocation came to rest */ }
+        let performed = false;
+        try {
+          const outcome = await attempt.invocation.whenInvoked;
+          if (outcome.status === 'performed') {
+            performed = true;
+            outputs[index] = outcome.produced;
+          }
+        }
+        catch { /* a broken outcome promise cannot establish performance */ }
         const transition = attempt.invocation.transition;
         land(Object.freeze({ ...base, status: 'ran', transition }));
-        if (runtime.transitionFor(transition)?.invocationStatus !== 'performed') stopped = true;
+        if (!performed) stopped = true;
       }
 
       return finish(
         rows,
         steps.length,
-        rows.length > 0 &&
-          rows.every(
-            (row) =>
-              row.status === 'ran' &&
-              runtime.transitionFor(row.transition!)?.invocationStatus ===
-                'performed',
-          ),
+        rows.length > 0 && !stopped,
         interruption,
       );
     } finally {

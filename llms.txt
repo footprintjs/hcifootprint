@@ -692,6 +692,19 @@ invocation. `settle.reads` and `settle.progress` do not qualify. A preflight ref
 refuses the effect as not attempted. Once both rails are terminal, `forgetTransition(ref)` is the
 retention boundary.
 
+`invocation.transition` is available immediately, even while the handler or effect is pending.
+Retain that exact occurrence before returning from an action tool; send its opaque broker handle
+and the current `runtime.transitionFor(ref)` snapshot. Forward actual progress and the two promise
+outcomes locally. Do not withhold the handle behind an indefinite effect wait. A transport disconnect
+or deadline changes delivery, never the recorded business outcome. A missing retained row is not
+evidence that work is pending, complete, failed or cancelled.
+
+Historical `produced` and plain-data `error` fields are captured at handler completion. Plain records
+and arrays are copied/frozen; the live `whenInvoked` value/error remains the original application
+object. Opaque instances retain identity. `captureFailure: 'produced' | 'error'` means that field
+could not be captured and is absent; `onInvocationError` receives the actual capture error. It does
+not turn a performed invocation into a failure or an unverified effect into verified evidence.
+
 `settle.progress` declares transition stages. Snapshots are `open` with exact `declared`/`observed`,
 `not-started` after preflight refusal, then `closed` with exact `declared`/`observed`/`unreported`.
 `unreported` is declared minus observed stages. `required: true` plus no observation produces silent
@@ -721,6 +734,13 @@ stops queued work and lets running invocations finish. Overlapping `parallel` wi
 `run` on the same walk is refused; legacy `run` behavior is unchanged. `completed` still means all
 invocations performed, not that every effect was verified or even settled.
 The limit counts open `whenInvoked` lifetimes, not backend jobs or effects that outlive a handler.
+Sequential carry and completion use the actual invocation outcomes, so releasing retained history
+does not change execution. The plan keeps raw carried values only for its current run.
+
+Tool hosts must disclose their scheduling contract. Multiple tool calls in one model reply do not
+establish parallel execution. Use the explicit native parallel plan for caller-chosen independent
+actions; keep dependent work sequential. Handler completion, progress closure and effect evidence
+remain separate facts, all driven by actual events rather than elapsed time.
 
 Page-1 → page-2 navigation in one tab is dependent work: keep it sequential and wait for actual
 readiness evidence. A binding's `node` does not verify visibility; different nodes do not prove

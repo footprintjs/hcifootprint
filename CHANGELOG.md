@@ -4,6 +4,15 @@
 
 ### Fixed
 
+- Action history now captures plain returned/thrown data when the handler
+  completes, so later application mutation cannot rewrite earlier snapshots.
+  Live return/error values and plan `carry` retain their original identities;
+  sequential plans consume execution outcomes independently of history retention.
+  If a field cannot be captured, the additive optional
+  `ActionTransitionSnapshot.captureFailure` names the omitted field and the
+  existing instrumentation callback receives the error. Application success or
+  failure is unchanged. Opaque objects retain their documented identity policy.
+
 - Offer admission now throws `ActionOfferRefusal` with an explicit code,
   `execution: 'not-started'` and a next step when a retained offer is stale,
   unavailable or belongs to another principal. Bridges can preserve a known

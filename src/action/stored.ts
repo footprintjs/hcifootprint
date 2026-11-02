@@ -76,6 +76,8 @@ export interface StoredTransition {
   effectSettling?: boolean;
   produced?: unknown;
   error?: unknown;
+  /** History could not capture this field; the raw execution outcome is unchanged. */
+  captureFailure?: 'produced' | 'error';
   evidence?: unknown;
   evidenceKind?: string;
   reason?: unknown;

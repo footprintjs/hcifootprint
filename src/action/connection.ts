@@ -1083,6 +1083,36 @@ class DefaultActionRuntime implements ActionRuntime {
       }
     };
 
+    // History captures plain records/arrays at completion. Execution keeps the
+    // original return/error: opaque capabilities keep their existing identity,
+    // and neither a getter failure nor this instrumentation may change the app's
+    // outcome. An unreadable field is explicitly unavailable, never a live alias.
+    type Quotation =
+      | { readonly captured: true; readonly value: unknown }
+      | { readonly captured: false; readonly error: unknown };
+    const quote = (value: unknown): Quotation => {
+      try {
+        return { captured: true, value: snapshotDeclaration(value) };
+      } catch (error) {
+        return { captured: false, error };
+      }
+    };
+    const captureCompletion = (
+      status: 'performed' | 'refused' | 'failed',
+      field: 'produced' | 'error',
+      value: unknown,
+      prepared?: Quotation,
+    ): void => {
+      const quotation = prepared ?? quote(value);
+      stored.invocationStatus = status;
+      if (quotation.captured) {
+        stored[field] = quotation.value;
+      } else {
+        stored.captureFailure = field;
+        reportInstrumentationError(quotation.error);
+      }
+    };
+
     let produced: unknown;
     try {
       if (progress?.lifecycle !== undefined) {
@@ -1094,8 +1124,7 @@ class DefaultActionRuntime implements ActionRuntime {
       }
     } catch (error) {
       const status = phase === 'preflight' ? 'refused' : 'failed';
-      stored.invocationStatus = status;
-      stored.error = error;
+      captureCompletion(status, 'error', error);
       progress?.close();
       this.#ledger.railClosed(stored);
       const outcome = Object.freeze({
@@ -1125,9 +1154,8 @@ class DefaultActionRuntime implements ActionRuntime {
       return invocation;
     }
 
-    const performed = (value: Output): ActionReturnOutcome<Output, Id> => {
-      stored.invocationStatus = 'performed';
-      stored.produced = value;
+    const performed = (value: Output, prepared?: Quotation): ActionReturnOutcome<Output, Id> => {
+      captureCompletion('performed', 'produced', value, prepared);
       progress?.close();
       this.#ledger.railClosed(stored);
       return Object.freeze({
@@ -1137,8 +1165,7 @@ class DefaultActionRuntime implements ActionRuntime {
       });
     };
     const failed = (error: unknown): ActionReturnOutcome<Output, Id> => {
-      stored.invocationStatus = 'failed';
-      stored.error = error;
+      captureCompletion('failed', 'error', error);
       progress?.close();
       this.#ledger.railClosed(stored);
       return Object.freeze({
@@ -1164,10 +1191,28 @@ class DefaultActionRuntime implements ActionRuntime {
       }) as ActionInvocation<Output, Id, Behavior>;
     }
 
+    // Native promise resolution reads `then` first, exactly as before. Quote
+    // ordinary synchronous data before returning to its caller, but publish it
+    // only at the existing microtask close. A possible thenable/accessor stays
+    // on the native resolution path; reflection failure cannot change execution.
+    const resolved = Promise.resolve(produced as Output);
+    let prepared: Quotation | undefined;
+    try {
+      if (produced !== null && typeof produced === 'object') {
+        const array = Array.isArray(produced);
+        const prototype = array ? undefined : Object.getPrototypeOf(produced);
+        if ((array || prototype === Object.prototype || prototype === null) &&
+          !('then' in produced)) {
+          prepared = quote(produced);
+        }
+      }
+    } catch {
+      // Classification is instrumentation, not an alternate promise executor.
+    }
     const whenInvoked: Promise<ActionInvocationSettlement<Output, Id>> =
-      Promise.resolve(produced as Output).then(
+      resolved.then(
         (value) => {
-          const outcome = performed(value);
+          const outcome = performed(value, value === produced ? prepared : undefined);
           judge(outcome);
           return outcome;
         },

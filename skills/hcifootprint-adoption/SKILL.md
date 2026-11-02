@@ -25,6 +25,11 @@ not automatically become Session affordances or served tools. Read the
 [action-binding guide](https://footprintjs.github.io/hcifootprint/docs/actions/live-bindings)
 when the task needs those bindings.
 
+Retain each native invocation immediately and return its broker handle with the
+observed state. Deliver actual progress and settlement events through the host;
+keep transport cancellation/deadlines outside business settlement. Do not hide
+the handle behind an indefinite effect wait or infer completion from a timer.
+
 For a continuing task, choose the existing layer:
 
 - [Session journeys](https://footprintjs.github.io/hcifootprint/docs/map/journeys) describe
