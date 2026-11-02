@@ -94,8 +94,7 @@ describe('the effect is already true: the fire answers instead of waiting', () =
         redacted: false,
       },
     ]);
-    // It NEVER joins the state-report queue — the half that stops a later real
-    // report settling this fire by FIFO.
+    // The fire remains visible as pending until its own handler settles.
     expect(session.pending().map((p) => p.affordanceId)).toEqual(['workspace.open-billing']);
     expect(session.pending()[0]!.id).toBe(f.transition.id);
   });
@@ -412,8 +411,8 @@ describe('what the agent is told, on the wire', () => {
     const done = port.call('desk.do_action', { action: 'open-billing' });
     expect(done['ok']).toBe(true);
     expect(done['alreadyTrue']).toHaveLength(1);
-    expect(done['why']).toContain('That was already the case');
-    expect(done['why']).toContain('do not perform it again');
+    expect(done['why']).toContain('held before this action fired');
+    expect(done['why']).toContain('not whether the action succeeded or changed anything');
     await flush();
     // …and one poll ENDS, where before it repeated 'still-pending' forever.
     const answer = port.call('desk.did_it_work', { transitionId: done['transitionId'] as string });

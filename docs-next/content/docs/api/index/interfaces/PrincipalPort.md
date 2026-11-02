@@ -4,7 +4,7 @@ title: PrincipalPort
 
 # Interface: PrincipalPort
 
-Defined in: [src/atom/types.ts:2407](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2407)
+Defined in: [src/atom/types.ts:2403](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2403)
 
 A SESSION DOOR WITH THE PRINCIPAL ALREADY ON IT — `session.asAgent()`,
 `asHuman()`, `asSystem()`.
@@ -33,7 +33,7 @@ refuses on principle. The port binds ACT doors only.
 
 > `readonly` **as**: [`ActorKind`](/api/index/type-aliases/ActorKind)
 
-Defined in: [src/atom/types.ts:2409](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2409)
+Defined in: [src/atom/types.ts:2405](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2405)
 
 The actor kind this port speaks as. Read-only — a port never changes principals.
 
@@ -43,7 +43,7 @@ The actor kind this port speaks as. Read-only — a port never changes principal
 
 > `readonly` **principal**: [`Principal`](/api/index/type-aliases/Principal)
 
-Defined in: [src/atom/types.ts:2411](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2411)
+Defined in: [src/atom/types.ts:2407](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2407)
 
 The principal its acts are FILED under ('human' files as 'user').
 
@@ -53,7 +53,7 @@ The principal its acts are FILED under ('human' files as 'user').
 
 > `optional` **updateState?**: `undefined`
 
-Defined in: [src/atom/types.ts:2430](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2430)
+Defined in: [src/atom/types.ts:2426](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2426)
 
 NO `updateState` HERE, and the absence is the design.
 
@@ -72,7 +72,7 @@ meanings stay apart.
 
 > **fire**(`affordanceId`, `opts?`): [`FireResult`](/api/index/type-aliases/FireResult)
 
-Defined in: [src/atom/types.ts:2413](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2413)
+Defined in: [src/atom/types.ts:2409](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2409)
 
 Fire, as this principal. Every other [FireOptions](/api/index/interfaces/FireOptions) field still applies.
 
@@ -96,7 +96,7 @@ Fire, as this principal. Every other [FireOptions](/api/index/interfaces/FireOpt
 
 > **reportGap**(`opts`): [`GapRecord`](/api/index/interfaces/GapRecord)
 
-Defined in: [src/atom/types.ts:2417](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2417)
+Defined in: [src/atom/types.ts:2413](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2413)
 
 Record unmet demand, as this principal.
 
@@ -116,7 +116,7 @@ Record unmet demand, as this principal.
 
 > **sync**(`observedNode`, `opts?`): [`SyncResult`](/api/index/type-aliases/SyncResult)
 
-Defined in: [src/atom/types.ts:2415](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2415)
+Defined in: [src/atom/types.ts:2411](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L2411)
 
 Report where the app now is, as this principal.
 

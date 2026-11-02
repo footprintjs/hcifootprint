@@ -779,7 +779,7 @@ describe('the already-true rule is ONE sentence, identical in every home that sa
     'src/traverse/already-true.ts', // where the rule is decided
     'src/atom/types.ts', //            where its marker is published, twice
   ];
-  const HEAD = 'An effect that is already true is not a pending one';
+  const HEAD = 'Matching verify conditions are fire-time evidence, not an action result';
   const TAIL = 'answers `alreadyTrue`';
 
   /** EVERY copy in the file, not the first one — see the deepest-node pin above. */
@@ -797,9 +797,9 @@ describe('the already-true rule is ONE sentence, identical in every home that sa
 
   it('every copy in all six homes is byte-identical prose', () => {
     const canonical =
-      'An effect that is already true is not a pending one. When an action\'s declarative verify ' +
+      'Matching verify conditions are fire-time evidence, not an action result. When an action\'s declarative verify ' +
       'contract covers every key it declares it writes and already holds at fire time, the fire ' +
-      'never waits for a state report that nothing will send — it settles on its own handler and ' +
+      'settles on its handler path rather than waiting for a state report and ' +
       'answers `alreadyTrue`';
     expect(sentencesIn(homes[0]!)[0]).toBe(canonical);
     for (const home of homes) {
@@ -842,7 +842,7 @@ describe('the already-true rule is ONE sentence, identical in every home that sa
       action: 'open-billing',
     });
     const why = served['why'] as string;
-    expect(why).toContain('That was already the case');
+    expect(why).toContain('held before this action fired');
     expect(flatten(readDocPage('already-true'))).toContain(flatten(why));
   });
 });
