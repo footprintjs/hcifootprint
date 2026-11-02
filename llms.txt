@@ -572,8 +572,16 @@ affordance or MCP tool automatically. Use it when a framework adapter, interacti
 developer tool must address and invoke the exact mounted instance.
 
 Root runtime exports: `defineAction`, `actionDefinitionOf`, `isDefinedAction`,
-`createActionRuntime`, `connectAction`, `ActionInputValidationError`,
+`createActionRuntime`, `connectAction`, `ActionInputValidationError`, `ActionOfferRefusal`,
 `assertBindingCoverage`, `isBindingCoverage`, `composeActionInvocation`, and `resolveActionHost`.
+Known offer-admission refusals throw `ActionOfferRefusal` before an invocation starts.
+Read its `code`, `execution: 'not-started'` and `nextStep` instead of parsing the
+message. Stale/unavailable offers require a fresh read; wrong-principal offers
+require the matching authority. This never refreshes an offer or retries it.
+Catch it only around the synchronous `port.invoke(...)` admission. A handler can
+throw any error after starting; its `whenInvoked` result is still a failed
+invocation, never a safe admission refusal. Unknown transport errors stay unknown.
+
 Root types: `ActionDefinitionRef`, `ActionBindingRef`, `ActionOfferRef`, `ActionInputRef`,
 `ActionTransitionRef`, `ActionDefinitionContract`, `DefineActionOptions`, `ReadonlyActionDefinitionContract`,
 `ActionDefinitionRecord`, `DefinedAction`, `ActionGuardContract`, `ActionSettleContract`,

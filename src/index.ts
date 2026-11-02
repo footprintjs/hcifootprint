@@ -51,6 +51,8 @@ export {
   isDefinedAction,
 } from './action/definition.js';
 export type { DefineActionOptions } from './action/definition.js';
+export { ActionOfferRefusal } from './action/offer-refusal.js';
+export type { ActionOfferRefusalCode } from './action/offer-refusal.js';
 export {
   ActionInputValidationError,
   connectAction,

@@ -73,6 +73,7 @@ import { SurfaceBoard } from './surface-board.js';
 import { RequestDesk } from './request.js';
 import type { InputRequestHandle, InputRequestSnapshot, RequestChoice } from './request.js';
 import { assertBindingCoverage } from './coverage.js';
+import { ActionOfferRefusal } from './offer-refusal.js';
 import type {
   ActionDefinitionRef,
   ActionDefinitionRecord,
@@ -537,21 +538,21 @@ class DefaultActionRuntime implements ActionRuntime {
       ?.get(ref.principal)?.offer;
     if (current !== offer || this.#offers.get(ref.offerId) !== offer) {
       if (current !== undefined) {
-        throw new Error(
+        throw new ActionOfferRefusal('ACTION_OFFER_STALE',
           `hcifootprint: offer '${ref.offerId}' is stale — the facts it was exposed under have changed, and binding '${ref.binding.bindingId}' now serves offer '${current.ref.offerId}' to principal '${ref.principal}'. Re-read offers and invoke the current one; never retry a stale offer, its moment is gone.`,
         );
       }
       if (this.#registry.registrationFor(ref.binding) !== undefined) {
-        throw new Error(
+        throw new ActionOfferRefusal('ACTION_OFFER_STALE',
           `hcifootprint: offer '${ref.offerId}' is stale and binding '${ref.binding.bindingId}' no longer serves offers to principal '${ref.principal}' — its facts changed and nobody has re-read since. Re-read offers to see what is available now.`,
         );
       }
-      throw new Error(
+      throw new ActionOfferRefusal('ACTION_OFFER_UNAVAILABLE',
         `hcifootprint: offer '${ref.offerId}' is not a live offer of this runtime — either it was never returned here, or its control has since detached. Re-read offers; this refusal cannot tell those two apart and will not guess.`,
       );
     }
     if (ref.principal !== principal) {
-      throw new Error(
+      throw new ActionOfferRefusal('ACTION_OFFER_WRONG_PRINCIPAL',
         `hcifootprint: offer '${ref.offerId}' belongs to principal '${ref.principal}', not '${principal}'. Invoke it through authority for the principal that received it.`,
       );
     }

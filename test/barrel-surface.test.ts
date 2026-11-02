@@ -72,6 +72,7 @@ const ROOT_VALUE_EXPORTS = [
   'ActionInputSchemaContext',
   'ActionInputSchemaResult',
   'ActionInputValidationError',
+  'ActionOfferRefusal',
   'ActionInvocation',
   'ActionInvocationInput',
   'ActionInvocationMiddleware',

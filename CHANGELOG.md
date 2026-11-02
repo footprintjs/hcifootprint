@@ -4,6 +4,13 @@
 
 ### Fixed
 
+- Offer admission now throws `ActionOfferRefusal` with an explicit code,
+  `execution: 'not-started'` and a next step when a retained offer is stale,
+  unavailable or belongs to another principal. Bridges can preserve a known
+  refusal without parsing error messages or treating it as uncertain execution.
+  Existing messages, authority checks and refusal timing remain unchanged;
+  no offer is refreshed or retried automatically.
+
 - Explain `alreadyTrue` as verify conditions that held before an action fired. Matching conditions no longer imply that no work was needed, nothing changed, or the action succeeded; the actual settlement, failure and later rollback remain visible alongside that evidence.
 
 ## [3.2.0] - 2026-10-29
