@@ -434,6 +434,14 @@ retains it and returns a handle with the actual current snapshot, then forwards
 the native progress/promise events. Transport cancellation and deadline handling
 belong outside domain settlement. There is no clock-driven completion rule.
 
+Application receipts and committed UI evidence remain application-owned and must
+identify the exact action/session before they establish an effect. On connection
+loss, carry the original error with separate observation context: the remote
+business outcome is unknown, not inferred failed, completed or cancelled. Do not
+retry automatically. Duplicate remote effects require a shared app-owner
+idempotency contract; an HCI-only cache cannot establish transport-level
+exactly-once execution.
+
 ## Host adapters
 
 A host adapter is executable code, not a component-name switch:

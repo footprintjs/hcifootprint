@@ -74,8 +74,8 @@ this table, search `src/index.ts` for the nearest noun before writing code.
 
 | If you are about to build… | It is | Where | Since |
 |---|---|---|---|
-| distinguishing an uncaptured historical return/error from an application failure, while preserving the live application value | `ActionTransitionSnapshot.captureFailure` | `src/action/types.ts` | unreleased |
-| distinguishing an expired or unavailable action offer from a handler/transport failure without parsing its error text | `ActionOfferRefusal` + `ActionOfferRefusalCode` | `src/action/offer-refusal.ts` | unreleased |
+| distinguishing an uncaptured historical return/error from an application failure, while preserving the live application value | `ActionTransitionSnapshot.captureFailure` | `src/action/types.ts` | 3.3.0 |
+| distinguishing an expired or unavailable action offer from a handler/transport failure without parsing its error text | `ActionOfferRefusal` + `ActionOfferRefusalCode` | `src/action/offer-refusal.ts` | 3.3.0 |
 | declaring the app's journey map — the official, family-wide name for the authoring door | `defineJourneyMap` + `JourneyMap` (permanent reference-equal aliases of `buildNavigationGraph` / `NavigationGraph`) | `src/tree/appmap.ts` | 1.10.0 |
 | a Walker class to construct, so the agent has something to hold — there is none, on purpose: the walker IS the session | `InteractionSession` | `src/traverse/nav-session.ts` | 1.0.0 |
 | binding an action to a real control by role and accessible name, instead of a CSS selector | `ElementLocator` (one arm of `Binding`, alongside `keychord` / `programmatic` / `url` / `tab`) | `src/atom/types.ts` | 0.2.0 |

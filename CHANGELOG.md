@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-04
+
 ### Fixed
 
 - Action history now captures plain returned/thrown data when the handler

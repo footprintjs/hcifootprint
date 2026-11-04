@@ -319,6 +319,20 @@ stream or an automatic task-success verdict. An app can use browser observations
 settlement evidence when its adapter defines and reports that contract. A click, a changed screen,
 or a closed progress stream alone does not automatically verify the intended business outcome.
 
+An adapter should expose the native invocation identity immediately, then observe its real progress
+and Promise boundaries. The application supplies what the runtime cannot infer: the exact
+action/session receipt and, when required by its contract, the actual committed UI containing that
+receipt. Only that authoritative evidence may establish the corresponding effect. A returned
+request, elapsed timeout or disconnected observer cannot stand in for it.
+
+Connection loss leaves a remote business outcome unknown. Preserve the original error and attach
+action, session and observation context separately; do not infer success, cancellation or remote
+action failure, and do not retry automatically. Native invocation failure and an unverified remote
+effect can coexist. Cancellation needs the application's real cancellation evidence and authority.
+Preventing duplicate remote effects requires an app-owner idempotency contract shared by human and
+agent entry points; an HCI-only cache cannot enforce it. This observation protocol does not promise
+transport-level exactly-once execution or establish a model success, latency, token or cost benefit.
+
 For several callable actions, use the existing [walk](doc:the-walk) with live offer checks,
 explicit output carry, row manifests and interruption. Its `completed` flag describes performed
 invocations, not verified effects. [Session journeys](doc:journeys) instead describe a named flow
