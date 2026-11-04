@@ -42,12 +42,17 @@ export function snapshotTransition(
     coverage: stored.coverage,
     invocationStatus: stored.invocationStatus,
     effectStatus: stored.effectStatus,
-    ...(stored.invocationStatus === 'performed'
+    ...(stored.invocationStatus === 'performed' &&
+    stored.captureFailure !== 'produced'
       ? { produced: stored.produced }
       : {}),
-    ...(stored.invocationStatus === 'refused' ||
-    stored.invocationStatus === 'failed'
+    ...((stored.invocationStatus === 'refused' ||
+    stored.invocationStatus === 'failed') &&
+    stored.captureFailure !== 'error'
       ? { error: stored.error }
+      : {}),
+    ...(stored.captureFailure !== undefined
+      ? { captureFailure: stored.captureFailure }
       : {}),
     ...(stored.effectStatus === 'verified'
       ? { evidence: stored.evidence }

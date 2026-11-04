@@ -4,7 +4,7 @@ title: ActionInputSchemaContext<Id>
 
 # Interface: ActionInputSchemaContext\<Id\>
 
-Defined in: [src/action/types.ts:785](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L785)
+Defined in: [src/action/types.ts:796](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L796)
 
 Context handed to an application-owned synchronous schema validator.
 
@@ -20,7 +20,7 @@ Context handed to an application-owned synchronous schema validator.
 
 > `readonly` **binding**: [`ActionBindingRef`](/api/index/interfaces/ActionBindingRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:787](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L787)
+Defined in: [src/action/types.ts:798](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L798)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [src/action/types.ts:787](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **definition**: [`ActionDefinitionRef`](/api/index/interfaces/ActionDefinitionRef)\<`Id`\>
 
-Defined in: [src/action/types.ts:786](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L786)
+Defined in: [src/action/types.ts:797](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L797)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [src/action/types.ts:786](https://github.com/footprintjs/hcifootprin
 
 > `readonly` **source**: `"evidence"` \| `"bound"` \| `"caller"`
 
-Defined in: [src/action/types.ts:790](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L790)
+Defined in: [src/action/types.ts:801](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L801)
 
 `'evidence'` (2.6.0): the value is a verified settlement's evidence,
  checked against its governed kind's catalog schema.

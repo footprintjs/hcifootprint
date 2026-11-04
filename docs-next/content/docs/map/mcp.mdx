@@ -18,6 +18,15 @@ await server.connect(new StdioServerTransport());  // or an SSE / streamable-HTT
 `mcpServer` returns a standard `@modelcontextprotocol/sdk` `Server`, so **you pick the
 transport** and run it wherever your session lives.
 
+Since hcifootprint 3.3.0, the optional SDK peer must be **1.32.0 or newer**. This wrapper uses
+the SDK's low-level `Server`, not its higher-level `McpServer`. For an HTTP host, configure
+the chosen transport/server's documented request-body limits and bound untrusted application
+inputs and batches before dispatch. The [SDK security fix](https://github.com/advisories/GHSA-46jr-4wx8-v453)
+does not configure those host limits for you. Consumers providing Zod schemas should use a
+patched validator (Zod **4.6.6 or newer**) and the collection/input bounds their application
+contract requires. These are host and input-contract responsibilities, not new action-runtime
+limits or an automatic retry policy.
+
 For large action lists, pass `actionProjection: { maxBytes: 4096 }` to `mcpServer` to opt into
 [bounded action rows](doc:modes#bounded-action-rows). The byte limit covers only the `actions`
 array, with whole rows, explicit omissions and stale continuations refused; it does not cap

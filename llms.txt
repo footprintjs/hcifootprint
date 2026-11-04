@@ -5,7 +5,7 @@
 
 <!-- hcifootprint:metadata:start -->
 <!-- Generated from package.json by npm run docs:agents:sync. -->
-> Package: `hcifootprint` 3.2.0.
+> Package: `hcifootprint` 3.3.0.
 > Node.js: `>=22`.
 > Public imports (7): `hcifootprint`, `hcifootprint/mcp`, `hcifootprint/webmcp`, `hcifootprint/react`, `hcifootprint/sensor`, `hcifootprint/testing`, `hcifootprint/testing/lint`.
 <!-- hcifootprint:metadata:end -->
@@ -402,10 +402,10 @@ with no handler to wrap: a TRUSTED click inside the anchor opens a record-only f
   page already declared (literal segments + `:param`, trailing-slash / query / hash insensitive,
   most-literal-segments wins) and returns `undefined` rather than guessing, which leaves an
   unplaceable path on the existing off-graph behavior. Source: `src/graph/route-match.ts`.
-- `fire()` and AN EFFECT ALREADY HELD (1.12.0) — **An effect that is already true is not a pending
-  one. When an action's declarative verify contract covers every key it declares it writes and
-  already holds at fire time, the fire never waits for a state report that nothing will send — it
-  settles on its own handler and answers `alreadyTrue`.** The field failure: an agent pressed a
+- `fire()` and FIRE-TIME VERIFY EVIDENCE (1.12.0) — **Matching verify conditions are fire-time
+  evidence, not an action result. When an action's declarative verify contract covers every key it
+  declares it writes and already holds at fire time, the fire settles on its handler path rather
+  than waiting for a state report and answers `alreadyTrue`.** The field failure: an agent pressed a
   control while the thing it does was already the case, the app's store published nothing because
   nothing changed, `updateState()` never ran, and the fire waited on the state rail forever —
   `did_it_work` could only answer `still-pending`, and the model spent fifteen of thirty steps on it.
@@ -415,12 +415,14 @@ with no handler to wrap: a TRUSTED click inside the anchor opens a record-only f
   CONDITIONS: at least one declared write (an action declaring none never joined the state rail, so
   it cannot hang and is never marked); the contract is declarative, not a predicate; the contract
   NAMES EVERY declared write (the partial boundary — some covered, some not, is NOT already true);
-  the contract HOLDS evaluably right now (`unevaluable` claims nothing); any declared `goTo` is the
-  page you are already on. YOUR HANDLER STILL RUNS — read the marker as "nothing needed changing",
-  never as "nothing ran"; a handler that throws is still refused. The fire never joins the
-  state-report queue, so a later real report cannot settle this one by FIFO. The row is an ordinary
-  committed one with an EMPTY commit bundle, `effectVerified: 'unobservable'` (never `false`, so the
-  drift sensor does not read it as drift), the journey step advances, and single flight is released.
+  the contract HOLDS evaluably at fire time (`unevaluable` claims nothing); any declared `goTo` is
+  the page you were on then. YOUR HANDLER STILL RUNS and may write or fail. The marker records an
+  earlier check, not success, no change or current conditions. A broad valid-range predicate does
+  not prove a requested input was applied. The fire never joins the state-report queue, so a later
+  report cannot settle this one by FIFO. Read `effectStatus`, `outcome`, `outcomeNow` when present,
+  and any error for the result; pending or failed steps are not completed by this marker. In the
+  successful idempotent example the row commits with an empty bundle and an unobservable effect;
+  those are that example's results, not guarantees from `alreadyTrue`.
   `alreadyTrue: FilterCondition[]` rides `FireResult`, `TransitionRecord`, the `do_action` result and
   the settled `did_it_work` answer, each with one authored sentence. Source:
   `src/traverse/already-true.ts`.
@@ -570,8 +572,16 @@ affordance or MCP tool automatically. Use it when a framework adapter, interacti
 developer tool must address and invoke the exact mounted instance.
 
 Root runtime exports: `defineAction`, `actionDefinitionOf`, `isDefinedAction`,
-`createActionRuntime`, `connectAction`, `ActionInputValidationError`,
+`createActionRuntime`, `connectAction`, `ActionInputValidationError`, `ActionOfferRefusal`,
 `assertBindingCoverage`, `isBindingCoverage`, `composeActionInvocation`, and `resolveActionHost`.
+Known offer-admission refusals throw `ActionOfferRefusal` before an invocation starts.
+Read its `code`, `execution: 'not-started'` and `nextStep` instead of parsing the
+message. Stale/unavailable offers require a fresh read; wrong-principal offers
+require the matching authority. This never refreshes an offer or retries it.
+Catch it only around the synchronous `port.invoke(...)` admission. A handler can
+throw any error after starting; its `whenInvoked` result is still a failed
+invocation, never a safe admission refusal. Unknown transport errors stay unknown.
+
 Root types: `ActionDefinitionRef`, `ActionBindingRef`, `ActionOfferRef`, `ActionInputRef`,
 `ActionTransitionRef`, `ActionDefinitionContract`, `DefineActionOptions`, `ReadonlyActionDefinitionContract`,
 `ActionDefinitionRecord`, `DefinedAction`, `ActionGuardContract`, `ActionSettleContract`,
@@ -682,6 +692,19 @@ invocation. `settle.reads` and `settle.progress` do not qualify. A preflight ref
 refuses the effect as not attempted. Once both rails are terminal, `forgetTransition(ref)` is the
 retention boundary.
 
+`invocation.transition` is available immediately, even while the handler or effect is pending.
+Retain that exact occurrence before returning from an action tool; send its opaque broker handle
+and the current `runtime.transitionFor(ref)` snapshot. Forward actual progress and the two promise
+outcomes locally. Do not withhold the handle behind an indefinite effect wait. A transport disconnect
+or deadline changes delivery, never the recorded business outcome. A missing retained row is not
+evidence that work is pending, complete, failed or cancelled.
+
+Historical `produced` and plain-data `error` fields are captured at handler completion. Plain records
+and arrays are copied/frozen; the live `whenInvoked` value/error remains the original application
+object. Opaque instances retain identity. `captureFailure: 'produced' | 'error'` means that field
+could not be captured and is absent; `onInvocationError` receives the actual capture error. It does
+not turn a performed invocation into a failure or an unverified effect into verified evidence.
+
 `settle.progress` declares transition stages. Snapshots are `open` with exact `declared`/`observed`,
 `not-started` after preflight refusal, then `closed` with exact `declared`/`observed`/`unreported`.
 `unreported` is declared minus observed stages. `required: true` plus no observation produces silent
@@ -711,6 +734,13 @@ stops queued work and lets running invocations finish. Overlapping `parallel` wi
 `run` on the same walk is refused; legacy `run` behavior is unchanged. `completed` still means all
 invocations performed, not that every effect was verified or even settled.
 The limit counts open `whenInvoked` lifetimes, not backend jobs or effects that outlive a handler.
+Sequential carry and completion use the actual invocation outcomes, so releasing retained history
+does not change execution. The plan keeps raw carried values only for its current run.
+
+Tool hosts must disclose their scheduling contract. Multiple tool calls in one model reply do not
+establish parallel execution. Use the explicit native parallel plan for caller-chosen independent
+actions; keep dependent work sequential. Handler completion, progress closure and effect evidence
+remain separate facts, all driven by actual events rather than elapsed time.
 
 Page-1 → page-2 navigation in one tab is dependent work: keep it sequential and wait for actual
 readiness evidence. A binding's `node` does not verify visibility; different nodes do not prove
@@ -997,10 +1027,11 @@ POLL, so it answers immediately, one of these ways:
   asked about — the superset, and the one a fire question is about; `awaitingHuman` = the cards a person
   has not answered (asks are not fires, so they join neither of the other two lists).
 
-- already true — `alreadyTrue: [...]` rides the settled arm (and the fire result before it) when what
-  the action promises was ALREADY the case when it fired, with one authored sentence. It is what makes
-  `effectStatus: 'performed'` beside `effectVerified: 'unobservable'` legible instead of adding up to
-  "something happened". See `fire()` and AN EFFECT ALREADY HELD in §3.
+- already true — `alreadyTrue: [...]` rides the settled arm (and the fire result before it) as a
+  snapshot of declared verify conditions that held before firing. The same historical evidence can
+  accompany pending, successful or failed execution. It does not establish that nothing changed or
+  that a requested input was applied. Read the separate outcome and error fields; see `fire()` and
+  FIRE-TIME VERIFY EVIDENCE in §3.
 - MISSING ARGUMENT (1.12.0) — `TRANSITION_ID_REQUIRED`, `ACTION_REQUIRED`, `KEY_REQUIRED` and
   `JOURNEY_REQUIRED` were bare codes; they now teach by name with the correction attached, the valid
   values where a valid set exists, and the position. `reason` strings are UNCHANGED (additive only).

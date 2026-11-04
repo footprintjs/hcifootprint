@@ -1355,19 +1355,17 @@ export interface TransitionRecord {
   materialized?: false;
   /**
    * THE CONDITIONS THIS ACTION'S OWN VERIFY CONTRACT ALREADY MET, at the moment
-   * it fired — present only on a fire whose declared effect the world already
-   * held, and absent on every ordinary one.
+   * it fired — fire-time evidence, not a verdict on what the handler did.
    *
-   * An effect that is already true is not a pending one. When an action's
-   * declarative verify contract covers every key it declares it writes and
-   * already holds at fire time, the fire never waits for a state report that
-   * nothing will send — it settles on its own handler and answers `alreadyTrue`.
+   * Matching verify conditions are fire-time evidence, not an action result.
+   * When an action's declarative verify contract covers every key it declares
+   * it writes and already holds at fire time, the fire settles on its handler
+   * path rather than waiting for a state report and answers `alreadyTrue`.
    *
-   * ON THE ROW, not only on the result, and that is the deliberate half: a
-   * press that legitimately did nothing is still something the record should be
-   * able to show. It shows as an ordinary committed row carrying this marker —
-   * never as a move that happened, because nothing was written and the commit
-   * bundle under it is empty (footprint's deliberate-cursor-stop idiom).
+   * ON THE ROW, not only on the result: the earlier check remains recorded even
+   * if the handler later writes, fails, or is rolled back. It does not establish
+   * that the requested work was unnecessary or that the current conditions still
+   * hold. Read the actual outcome, effect verification and error separately.
    *
    * WHY THE VERIFY CONTRACT AND NOT `effect.writes`. `writes` is key names only,
    * by the law stated on it: this library never learns the value an action would
@@ -2103,22 +2101,20 @@ export type FireResult =
       /** Present (false) only on an allowed unmaterialized agent fire: nothing is bound. */
       materialized?: false;
       /**
-       * THE EFFECT WAS ALREADY TRUE — the conditions of this action's own
-       * declarative verify contract that already held when it fired, present
+       * THE VERIFY CONDITIONS HELD BEFORE FIRING — this action's own declarative
+       * verify conditions that already held when it fired, present
        * only then and absent on every ordinary fire.
        *
-       * An effect that is already true is not a pending one. When an action's
-       * declarative verify contract covers every key it declares it writes and
-       * already holds at fire time, the fire never waits for a state report that
-       * nothing will send — it settles on its own handler and answers
-       * `alreadyTrue`.
+       * Matching verify conditions are fire-time evidence, not an action result.
+       * When an action's declarative verify contract covers every key it declares
+       * it writes and already holds at fire time, the fire settles on its handler
+       * path rather than waiting for a state report and answers `alreadyTrue`.
        *
-       * Read it as "nothing needed changing", never as "nothing ran": the
-       * handler is still invoked, because deciding on the app's behalf that a
-       * press was pointless is not something this library does. What changed is
-       * only what the fire WAITS ON — see {@link TransitionRecord.alreadyTrue},
-       * which carries the same array, and `src/traverse/already-true.ts` for the
-       * five conditions.
+       * The handler is still invoked and may change state, remain pending or
+       * fail. This marker establishes none of those results and never says the
+       * requested work was unnecessary. See {@link TransitionRecord.alreadyTrue},
+       * which carries the same historical array, and `src/traverse/already-true.ts`
+       * for the five conditions.
        */
       alreadyTrue?: FilterCondition[];
       /**

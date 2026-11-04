@@ -7,6 +7,7 @@ title: index
 ## Classes
 
 - [ActionInputValidationError](/api/index/classes/ActionInputValidationError)
+- [ActionOfferRefusal](/api/index/classes/ActionOfferRefusal)
 - [ActionRegistry](/api/index/classes/ActionRegistry)
 - [GraphValidationError](/api/index/classes/GraphValidationError)
 - [InteractionSession](/api/index/classes/InteractionSession)
@@ -208,6 +209,7 @@ title: index
 - [ActionObservedInvocation](/api/index/type-aliases/ActionObservedInvocation)
 - [ActionOffer](/api/index/type-aliases/ActionOffer)
 - [ActionOfferFor](/api/index/type-aliases/ActionOfferFor)
+- [ActionOfferRefusalCode](/api/index/type-aliases/ActionOfferRefusalCode)
 - [ActionParallelStep](/api/index/type-aliases/ActionParallelStep)
 - [ActionPlanRowStatus](/api/index/type-aliases/ActionPlanRowStatus)
 - [ActionProgressSnapshot](/api/index/type-aliases/ActionProgressSnapshot)

@@ -59,19 +59,20 @@ declared writes observed?). They disagree honestly — a tapless handler
 completes `'performed'` with `effectVerified: 'unobservable'` — and neither is
 averaged into the other.
 
-## already-true.ts — an effect the world already holds
+## already-true.ts — verify conditions that held before firing
 
 Five conditions, one exported function, no state. It answers ONE question at
-fire time: is what this action promises already the case? When it is, `fire()`
-does not join the state-report queue — nothing will report a change that is not
-happening — and waits on the handler rail instead, which always answers.
+fire time: do the declared verify conditions hold and cover every declared
+write? When they do, `fire()` uses its handler path instead of the state-report
+queue and records the condition evidence as `alreadyTrue`. The handler still
+runs and can write or fail. The marker does not establish success, no change,
+or the conditions after execution.
 
-It reads `verify` and never `writes`, and that is the whole of its honesty:
-`Effect.writes` is key NAMES only by stated law, so the library cannot know the
-value an action would set, and a rule built on it would have to invent the value
-it compared against. The declarative `VerifyContract` is the one declaration
-carrying values. An action declaring `writes` and no declarative verify behaves
-exactly as it always did.
+Condition values come from declarative `verify`; `Effect.writes` contributes
+key names, not intended values. A broad invariant can already hold without a
+requested input having been applied. An action declaring `writes` and no
+declarative verify behaves exactly as it always did. Settlement and any later
+live outcome remain separate from this fire-time evidence.
 
 The evaluator is passed IN — the session's own `#evalGuard`, so this can never
 answer a question differently from the guard that offered the control.

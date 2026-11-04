@@ -412,6 +412,36 @@ settled, `forgetTransition(transitionRef)` is the explicit retention boundary.
 Plain-record/array evidence is detached and frozen before entering history;
 opaque application objects retain their identity.
 
+Historical completion values have a separate ownership boundary from execution.
+Plain returned/thrown records and arrays are copied and frozen when the handler
+completes. `whenInvoked`, `settle.onReturn`, direct returns and sequential `carry`
+keep the original application values. Ordinary synchronous data with no `then`
+member is quoted before `invoke` returns; promise/possible-thenable outputs are
+quoted at their native observed completion. Existing invocation-publication
+timing and native promise assimilation are preserved. History is a quotation, not the storage a
+plan reads to decide whether or how it may continue. Releasing a settled row
+cannot change the already-observed invocation outcome.
+
+An unreadable completion field is omitted and identified by the optional
+`ActionTransitionSnapshot.captureFailure` (`produced` or `error`). The capture
+exception is sent to `onInvocationError`; it does not replace the handler's
+outcome, erase an effect, or fall back to a mutable historical alias. Opaque
+instances keep the existing identity policy; this is not a claim that their
+internal state is immutable.
+
+The invocation identity is available before completion. A transport adapter
+retains it and returns a handle with the actual current snapshot, then forwards
+the native progress/promise events. Transport cancellation and deadline handling
+belong outside domain settlement. There is no clock-driven completion rule.
+
+Application receipts and committed UI evidence remain application-owned and must
+identify the exact action/session before they establish an effect. On connection
+loss, carry the original error with separate observation context: the remote
+business outcome is unknown, not inferred failed, completed or cancelled. Do not
+retry automatically. Duplicate remote effects require a shared app-owner
+idempotency contract; an HCI-only cache cannot establish transport-level
+exactly-once execution.
+
 ## Host adapters
 
 A host adapter is executable code, not a component-name switch:

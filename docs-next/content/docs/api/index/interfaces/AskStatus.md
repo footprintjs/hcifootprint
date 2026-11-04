@@ -4,7 +4,7 @@ title: AskStatus
 
 # Interface: AskStatus
 
-Defined in: [src/atom/types.ts:3071](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3071)
+Defined in: [src/atom/types.ts:3067](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3067)
 
 One high-effect ask and what became of it — the rows [Session.asks](/api/index/classes/Session#asks)
 serves, read at the moment you ask.
@@ -25,7 +25,7 @@ Structural facts only: no receipts, no input, no `by`. This is the answer to
 
 > **affordanceId**: `string`
 
-Defined in: [src/atom/types.ts:3074](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3074)
+Defined in: [src/atom/types.ts:3070](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3070)
 
 The action the card is about.
 
@@ -35,7 +35,7 @@ The action the card is about.
 
 > `optional` **answer?**: `"approved"` \| `"declined"`
 
-Defined in: [src/atom/types.ts:3090](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3090)
+Defined in: [src/atom/types.ts:3086](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3086)
 
 Absent means STILL OPEN — nobody has answered. An agent's relayed decline
 under [SessionOptions.requireHumanApproval](/api/index/interfaces/SessionOptions#requirehumanapproval) leaves it absent, because
@@ -47,7 +47,7 @@ that report closes nothing.
 
 > **askId**: `string`
 
-Defined in: [src/atom/types.ts:3072](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3072)
+Defined in: [src/atom/types.ts:3068](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3068)
 
 ***
 
@@ -55,7 +55,7 @@ Defined in: [src/atom/types.ts:3072](https://github.com/footprintjs/hcifootprint
 
 > `optional` **does?**: `string`
 
-Defined in: [src/atom/types.ts:3082](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3082)
+Defined in: [src/atom/types.ts:3078](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3078)
 
 What the app said that action does, frozen when the card was assembled —
 see [Cause.does](/api/index/interfaces/Cause#does). A card outlives the render that raised it (a person
@@ -69,7 +69,7 @@ id the graph did not have.
 
 > `optional` **instance?**: `string`
 
-Defined in: [src/atom/types.ts:3084](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3084)
+Defined in: [src/atom/types.ts:3080](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3080)
 
 Which row/instance the card is about, when the action takes one.
 
@@ -79,7 +79,7 @@ Which row/instance the card is about, when the action takes one.
 
 > `optional` **revoked?**: `true`
 
-Defined in: [src/atom/types.ts:3113](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3113)
+Defined in: [src/atom/types.ts:3109](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3109)
 
 THE ASK BOOK'S THIRD WORD: the human gave this yes and took it back before
 anything spent it ([Session.revokeAsk](/api/index/classes/Session#revokeask)). `answer` stays `'approved'`
@@ -95,7 +95,7 @@ the past.
 
 > `optional` **spent?**: `boolean`
 
-Defined in: [src/atom/types.ts:3092](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3092)
+Defined in: [src/atom/types.ts:3088](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3088)
 
 True once a fire has spent this approval. One yes authorizes one fire.
 
@@ -105,7 +105,7 @@ True once a fire has spent this approval. One yes authorizes one fire.
 
 > `optional` **stale?**: `true`
 
-Defined in: [src/atom/types.ts:3103](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3103)
+Defined in: [src/atom/types.ts:3099](https://github.com/footprintjs/hcifootprint/blob/main/src/atom/types.ts#L3099)
 
 The human's yes is recorded and unspent, and the app's own
 [HumanApprovalPolicy](/api/index/interfaces/HumanApprovalPolicy) will no longer let a fire cross on it — it ran

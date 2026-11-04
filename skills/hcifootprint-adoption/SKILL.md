@@ -25,6 +25,11 @@ not automatically become Session affordances or served tools. Read the
 [action-binding guide](https://footprintjs.github.io/hcifootprint/docs/actions/live-bindings)
 when the task needs those bindings.
 
+Retain each native invocation immediately and return its broker handle with the
+observed state. Deliver actual progress and settlement events through the host;
+keep transport cancellation/deadlines outside business settlement. Do not hide
+the handle behind an indefinite effect wait or infer completion from a timer.
+
 For a continuing task, choose the existing layer:
 
 - [Session journeys](https://footprintjs.github.io/hcifootprint/docs/map/journeys) describe
@@ -81,6 +86,9 @@ when enforcement is required, with the application's recorded decision.
 A pending result is not completion. For Session serving, read `did_it_work` rather than
 repeating the action. For callable invocations, distinguish `whenInvoked` from
 `whenEffectSettled`; a handler return or closed progress stream is not a verified effect.
+For Session results, `alreadyTrue` records declared verify conditions that held before firing.
+It is not completion, proof of no change, or proof that a requested input was applied; the handler
+may still write or fail. Read `effectStatus`, `outcome`, `outcomeNow` when present, and any error.
 Keep typed refusals and unknown evidence visible. Browser observations may supply authoritative
 adapter evidence when the app defines that contract; a click or visible change alone is not
 automatically proof of business success.

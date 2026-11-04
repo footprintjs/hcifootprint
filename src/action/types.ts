@@ -692,8 +692,19 @@ export interface ActionTransitionSnapshot {
   readonly coverage: BindingCoverage;
   readonly invocationStatus: 'pending' | 'performed' | 'refused' | 'failed';
   readonly effectStatus: 'unverified' | 'verified' | 'refused' | 'abandoned';
+  /**
+   * Plain records/arrays captured at completion; opaque values retain identity.
+   * Execution's original value remains on `whenInvoked`, not this historical view.
+   */
   readonly produced?: unknown;
+  /** Plain data is captured like `produced`; opaque errors retain identity. */
   readonly error?: unknown;
+  /**
+   * This historical field could not be captured and is omitted. The actual
+   * capture error is routed to `onInvocationError`; application status and the
+   * original `whenInvoked` outcome are unchanged. No mutable fallback is stored.
+   */
+  readonly captureFailure?: 'produced' | 'error';
   readonly evidence?: unknown;
   /** Present exactly when the definition declared `settle.evidence` and the
    *  effect verified: the governed kind `evidence` is a value of. */

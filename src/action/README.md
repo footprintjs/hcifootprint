@@ -5,6 +5,12 @@
 **Depends on:** `atom/` (Principal, PrincipalPolicy, VerifyContract), `registry/` (many-binding registration), `traverse/` (principal policy checks).
 **Used by:** `react/` (one framework skin over this core — never the other way around).
 
+Completion capture and execution have different ownership: history quotes plain
+returned/thrown data at completion; live invocation outcomes and plan carry keep
+the original application values. A capture failure is instrumentation, explicitly
+marked on the snapshot, and cannot rewrite the application's outcome. Transport
+deadlines do not settle or cancel an action.
+
 The map, one file per concern:
 
 | file | owns | the reason it exists |
