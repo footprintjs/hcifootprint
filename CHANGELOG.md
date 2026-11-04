@@ -4,6 +4,15 @@
 
 ## [3.3.0] - 2026-11-04
 
+### Security
+
+- Raises the optional MCP SDK peer's supported minimum to `1.32.0` and the
+  development SDK/Zod floors to patched versions. The docs app requires
+  Next.js `16.4.1` or newer. Compatible lockfile updates refresh affected
+  development and docs transitive dependencies. MCP hosts still own HTTP
+  request/body limits and bounded application input; upgrading the SDK alone
+  does not establish those limits for this low-level `Server` wrapper.
+
 ### Fixed
 
 - Action history now captures plain returned/thrown data when the handler

@@ -26,7 +26,7 @@
     "fumadocs-ui": "^16.10.5",
     "hcifootprint": "file:..",
     "lucide-react": "^0.552.0",
-    "next": "^16.2.9",
+    "next": "^16.4.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.1",
