@@ -495,7 +495,11 @@ the library can say so without inventing a gate you never declared.
 npm install && npm test        # the suite, with the badge gate
 npm run build                  # dist/, ESM-first
 npm run docs:truth             # does the documentation describe what ships?
+npm run docs:toolchain:check    # patched documentation dependency traversal
 ```
+
+The documentation generator applies a tracked, development-only TypeDoc
+compatibility patch before it runs. See [the toolchain security note](docs/development-security.md).
 
 ## Built on
 
