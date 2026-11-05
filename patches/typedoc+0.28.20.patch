@@ -1,0 +1,25 @@
+diff --git a/node_modules/typedoc/dist/node-utils.js b/node_modules/typedoc/dist/node-utils.js
+--- a/node_modules/typedoc/dist/node-utils.js
++++ b/node_modules/typedoc/dist/node-utils.js
+@@ -316,6 +316,7 @@
+ }
+ function glob(pattern, root, options = {}) {
+   const mini = new Minimatch2(pattern);
++  const partial = new Minimatch2(pattern, { flipNegate: true });
+   const shouldIncludeNodeModules = pattern.includes("node_modules");
+   const controller = {
+     matches(path) {
+@@ -325,12 +326,7 @@
+       if (childPath[childPath.length - 1] === "node_modules" && !shouldIncludeNodeModules) {
+         return false;
+       }
+-      return mini.set.some((row) => mini.matchOne(
+-        childPath,
+-        row,
+-        /* partial */
+-        true
+-      ));
++      return partial.match(childPath.join("/"), true);
+     },
+     matchDirectories: options.includeDirectories,
+     followSymlinks: options.followSymlinks

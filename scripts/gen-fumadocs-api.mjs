@@ -144,6 +144,13 @@ function writeMetas(dir, relFromOut = '') {
 }
 
 function main() {
+  // Development-only dependency compatibility patch. Apply visibly and fail
+  // before deleting generated pages if the pinned TypeDoc patch no longer fits.
+  execFileSync(process.execPath, ['node_modules/patch-package/index.js', '--error-on-fail'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+  });
+
   // 1. clean (the anti-stale guarantee)
   rmSync(OUT, { recursive: true, force: true });
 

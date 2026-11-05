@@ -1,6 +1,6 @@
 {
   "name": "hcifootprint",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "TypeScript action and journey graphs for agent-accessible web apps, with live availability and recorded interaction outcomes.",
   "homepage": "https://footprintjs.github.io/hcifootprint/",
   "repository": {
@@ -63,7 +63,9 @@
     "docs:truth:check": "node scripts/docs-truth-check.mjs --check",
     "docs:truth:baseline": "node scripts/docs-truth-check.mjs --update-baseline",
     "test:coverage": "vitest run --coverage",
-    "bench:tokens": "node bench/token-cost/token-cost.mjs"
+    "bench:tokens": "node bench/token-cost/token-cost.mjs",
+    "docs:toolchain:prepare": "patch-package --error-on-fail",
+    "docs:toolchain:check": "npm run docs:toolchain:prepare && node --test scripts/typedoc-glob-compat.test.mjs"
   },
   "keywords": [
     "typescript",
@@ -109,10 +111,11 @@
     "esbuild": "^0.28.1",
     "github-slugger": "^2.0.0",
     "gpt-tokenizer": "^3.4.0",
+    "patch-package": "8.0.1",
     "react": "^19.2.8",
     "react-test-renderer": "^19.2.8",
     "tsx": "^4.22.5",
-    "typedoc": "^0.28.19",
+    "typedoc": "0.28.20",
     "typedoc-plugin-markdown": "^4.11.0",
     "typescript": "^5.5.0",
     "unist-util-visit": "^5.0.0",
@@ -143,5 +146,10 @@
   },
   "bugs": {
     "url": "https://github.com/footprintjs/hcifootprint/issues"
+  },
+  "overrides": {
+    "typedoc@0.28.20": {
+      "minimatch": "11.0.1"
+    }
   }
 }

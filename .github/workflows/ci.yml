@@ -69,6 +69,9 @@ jobs:
       - name: Agent guide package metadata is current
         run: npm run docs:agents:check
 
+      - name: Documentation glob traversal uses the patched toolchain
+        run: npm run docs:toolchain:check
+
       - name: Install docs-next deps
         working-directory: docs-next
         run: npm ci

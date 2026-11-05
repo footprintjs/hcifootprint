@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-11-04
+
+### Security
+
+- Clears the three development audit entries from the TypeDoc/minimatch
+  advisory. Pin TypeDoc 0.28.20, scope minimatch 11.0.1 to that toolchain, and
+  keep its public partial-match API compatible through a tracked development
+  patch. Documentation generation explicitly applies and checks the patch;
+  consumer installation gains no lifecycle hook. Native runtime and public
+  exports are unchanged from 3.3.0.
+
+### Reference application
+
+- The separately attached app reference assigns one operation ID per intended
+  execute call and reserves it before dispatch in the shared ordinary/HCI
+  server. Duplicate delivery reuses the original result; conflicting reuse,
+  missing identity and capacity refusals cannot start another action. Original
+  transport errors and unknown outcomes stay separate from owner-confirmed
+  failed or cancelled receipts. This is application-owned admission within
+  one live process/session, not durable or global exactly-once execution.
+- Paired tests in the existing Browser session verified two pre-header-loss
+  deliveries produce one admission/job in both approaches. The original five
+  cases/eleven checks, continuity and expired-request gates also passed.
+  No timers or automatic action/model retries were added. These free tests
+  do not measure a new model success, latency, token or cost advantage.
+
 ## [3.3.0] - 2026-11-04
 
 ### Security
