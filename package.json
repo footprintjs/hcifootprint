@@ -1,6 +1,6 @@
 {
   "name": "hcifootprint",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "TypeScript action and journey graphs for agent-accessible web apps, with live availability and recorded interaction outcomes.",
   "homepage": "https://footprintjs.github.io/hcifootprint/",
   "repository": {
