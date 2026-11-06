@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Migration: FootPrint 11 and Foottrace 1.11.1
+
+- The next major requires `footprintjs ^11.0.0` and `foottrace ^1.11.1`.
+  FootPrint 9 and 10 are no longer supported. Update the application's direct
+  dependencies together and regenerate its lock normally; do not override a
+  nested engine or keep a second physical copy.
+- Record writing stays on `foottrace/write`, record reading on `foottrace`, and
+  schema/guard helpers on `footprintjs` and `footprintjs/advanced`. No HCI public
+  import or action-completion contract changes.
+- Maintained demos move to AgentFootprint 14 and share the root npm workspace
+  install/lock, so the linked HCI and the demo agent use one physical core cohort.
+  Run `npm ci` from the repository root, then the demo workspace verify command.
+  The parked paper harness and its
+  paid comparison protocol are historical and excluded from this migration.
+
 ## [3.3.1] - 2026-11-04
 
 ### Security

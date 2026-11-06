@@ -19,7 +19,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/hcifootprint?style=flat&color=e0a400" alt="npm version">
-  <img src="https://img.shields.io/badge/tests-3598%20passing-f5b301?style=flat" alt="3598 tests passing">
+  <img src="https://img.shields.io/badge/tests-3606%20passing-f5b301?style=flat" alt="3606 tests passing">
   <img src="https://img.shields.io/badge/core-zero--dependency-f5b301?style=flat" alt="zero-dependency core">
   <img src="https://img.shields.io/badge/serves-a%20real%20MCP%20server-f5b301?style=flat" alt="serves a real MCP server">
   <a href="https://github.com/footprintjs/hcifootprint/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
@@ -434,10 +434,11 @@ another model turn. See [parallel semantics and the background-read example](htt
 
 The session's record is provided by `foottrace`. If you name its rows, import
 `CommitBundle` from `foottrace` instead of `hcifootprint`; trace readers such as
-`causalChain` and `sliceForKey` come from `foottrace` too. Add `foottrace ^1.0.0`
+`causalChain` and `sliceForKey` come from `foottrace` too. Add `foottrace ^1.11.1`
 to your application's dependencies when importing these names. This type export removal
 is a breaking change from 2.x; session methods and record bytes are unchanged.
-HCI supports `footprintjs ^9.47.0 || ^10.0.0` with `foottrace ^1.0.0`.
+The next major supports `footprintjs ^11.0.0` with `foottrace ^1.11.1`.
+See the [migration note](CHANGELOG.md#unreleased) before updating an existing application.
 
 ---
 

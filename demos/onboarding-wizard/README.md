@@ -5,9 +5,10 @@ descriptions the app already owned — a route table and a journey list — and 
 **no handlers at all**.
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173, no key needed
-npm run verify   # typecheck + tests + production build
+# From the repository root; both demos share its install and lock.
+npm ci
+npm run dev --workspace onboarding-wizard-demo     # http://localhost:5173, no key needed
+npm run verify --workspace onboarding-wizard-demo  # typecheck + tests + production build
 ```
 
 Everything runs on a deterministic scripted model by default. `npm run dev` and `npm test` need no

@@ -5,9 +5,9 @@ import { defineConfig } from 'vite';
 
 /**
  * Aliases must be ABSOLUTE FILESYSTEM paths resolved from THIS file. A
- * root-absolute '/src/stub-node-module.ts' builds fine (Rollup resolves it
+ * root-absolute '/src/stub-node-module.ts' builds fine (the build resolves it
  * against the project root) but breaks `npm run dev`, because the dev server's
- * esbuild pre-bundling resolves it against the filesystem root. Same trap the
+ * dependency pre-bundling resolves it against the filesystem root. Same trap the
  * Cited demo documents (agentfootprint-demo/vite.config.ts).
  */
 const stub = (file: string): string => fileURLToPath(new URL(`./src/${file}`, import.meta.url));

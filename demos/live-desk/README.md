@@ -11,11 +11,11 @@ refusal and receipt is rendered from a live API return value, and each panel hea
 names the call it came from.
 
 ```bash
-npm run build --prefix ../..   # the demo links hcifootprint from the repo root
-npm install
-npm run dev                    # http://localhost:5173
-npm test                       # the demo's own suite
-npm run verify                 # typecheck + tests + production build
+# From the repository root; both demos share its install and lock.
+npm ci
+npm run dev --workspace live-desk      # http://localhost:5173
+npm test --workspace live-desk         # the demo's own suite
+npm run verify --workspace live-desk   # typecheck + tests + production build
 ```
 
 No key is needed. The assistant runs a scripted model whose answers are assembled from

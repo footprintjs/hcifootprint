@@ -1,0 +1,16 @@
+{
+  "files": {
+    "src/action/connection-builder.ts": 886,
+    "src/action/connection.ts": 1279,
+    "src/action/contracts.ts": 990,
+    "src/action/definition.ts": 1159,
+    "src/action/types.ts": 992,
+    "src/atom/types.ts": 3448,
+    "src/serve/modes.ts": 2820,
+    "src/testing/conform.ts": 835,
+    "src/testing/harness.ts": 630,
+    "src/traverse/nav-session.ts": 1451,
+    "src/traverse/session.ts": 8613
+  },
+  "exclude": []
+}
