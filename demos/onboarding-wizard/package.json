@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "A five-page signup wizard whose graph GROWS from the route table and journey list the app already owns — and whose navigation needs no handlers at all.",
+  "description": "A five-page signup wizard whose graph GROWS from the route table and journey list the app already owns \u2014 and whose navigation needs no handlers at all.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -14,7 +14,7 @@
     "verify": "npm run typecheck && vitest run && vite build"
   },
   "dependencies": {
-    "agentfootprint": "^10.1.0",
+    "agentfootprint": "^14.0.0",
     "hcifootprint": "file:../..",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

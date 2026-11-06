@@ -908,13 +908,13 @@ that could never act (see the gate below).
 
 Defined in: [src/traverse/session.ts:5690](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L5690)
 
-The footprintjs commit log: one bundle per SETTLED/stimulus/sync transition.
-The bundles are footprintjs's own record, frozen when recorded (footprintjs
-9.33.0) — treat them as read-only. A plain assignment into one throws in
-strict-mode code (ES modules) and is silently ignored in sloppy code; what
-`Object.freeze` cannot seal (a Date's time, a Map's or Set's entries, a
-typed array's bytes) can still be changed in place, and that would change
-the record for every later reader.
+The foottrace commit log: one bundle per SETTLED/stimulus/sync transition.
+Treat returned bundles as read-only. Plain frozen structures reject changes;
+mutable built-in values are served as protected copies by Foottrace.
+A reader may change a returned Date, Map, Set or typed array without
+changing the retained record. Later commitLog() calls and replay read the
+recorded values. This protects history independently of the application's
+own live state.
 
 #### Returns
 
