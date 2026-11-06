@@ -437,8 +437,8 @@ The session's record is provided by `foottrace`. If you name its rows, import
 `causalChain` and `sliceForKey` come from `foottrace` too. Add `foottrace ^1.11.1`
 to your application's dependencies when importing these names. This type export removal
 is a breaking change from 2.x; session methods and record bytes are unchanged.
-The next major supports `footprintjs ^11.0.0` with `foottrace ^1.11.1`.
-See the [migration note](CHANGELOG.md#unreleased) before updating an existing application.
+HCI 4 supports `footprintjs ^11.0.0` with `foottrace ^1.11.1`.
+See the [migration note](CHANGELOG.md#400---2026-11-05) before updating an existing application.
 
 ---
 
