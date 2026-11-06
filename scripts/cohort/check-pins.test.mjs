@@ -10,13 +10,15 @@ function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'hci-cohort-pins-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const demos = ['demos/live-desk', 'demos/onboarding-wizard'];
-  const pkg = { name: 'hcifootprint', version: '3.3.1', dependencies: { ...RUNTIME_RANGES }, workspaces: demos };
+  const pkg = { name: 'hcifootprint', version: '3.3.1', dependencies: { ...RUNTIME_RANGES },
+    devDependencies: { vite: '8.3.5' }, workspaces: demos };
   const demo = { dependencies: { agentfootprint: '^14.0.0' } };
   const lock = { packages: { '': structuredClone(pkg),
     ...Object.fromEntries(demos.map((path) => [path, structuredClone(demo)])),
     'node_modules/footprintjs': { version: '11.0.0' },
     'node_modules/foottrace': { version: '1.11.1' },
     'node_modules/agentfootprint': { version: '14.0.0' },
+    'node_modules/vite': { version: '8.3.5' },
   } };
   const docs = { packages: { '..': structuredClone(pkg) } };
   const write = (path, value) => {
@@ -67,4 +69,18 @@ test('detects an old workspace agent in the normal root lock', (t) => {
   lock.packages['demos/onboarding-wizard'].dependencies.agentfootprint = '^10.1.0';
   write('package-lock.json', lock);
   assert.throws(() => checkPins(root), /workspace AF14 metadata is stale/);
+});
+
+test('refuses an undeclared root transformer that demo hoisting can replace', (t) => {
+  const { root, pkg, write } = fixture(t);
+  delete pkg.devDependencies.vite;
+  write('package.json', pkg);
+  assert.throws(() => checkPins(root), /explicitly declare its Vite8 transformer/);
+});
+
+test('detects the demo Vite6 transformer replacing root coverage tooling', (t) => {
+  const { root, lock, write } = fixture(t);
+  lock.packages['node_modules/vite'].version = '6.4.5';
+  write('package-lock.json', lock);
+  assert.throws(() => checkPins(root), /root coverage transformer was replaced/);
 });

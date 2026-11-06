@@ -30,6 +30,8 @@ export function checkPins(root) {
   const read = (path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'));
   const pkg = read('package.json');
   runtimeDependencies(pkg.dependencies, 'package.json');
+  assert.match(pkg.devDependencies?.vite ?? '', /^8\./,
+    'The root coverage toolchain must explicitly declare its Vite8 transformer');
   assert.deepEqual(pkg.workspaces, DEMOS, 'Maintained demos must use the root install/lock authority');
   for (const demo of DEMOS) {
     assert.equal(read(`${demo}/package.json`).dependencies.agentfootprint, '^14.0.0', `${demo}: AF14 is required`);
@@ -41,6 +43,8 @@ export function checkPins(root) {
     runtimeDependencies(metadata?.dependencies, `${path}:${linkedRoot}`);
     assert.equal(metadata.version, pkg.version, `${path}: linked HCI version is stale`);
     if (!ownsRuntime) continue;
+    assert.match(lock.packages['node_modules/vite']?.version ?? '', /^8\./,
+      `${path}: the root coverage transformer was replaced by demo tooling`);
     for (const demo of DEMOS) {
       assert.equal(lock.packages[demo]?.dependencies?.agentfootprint, '^14.0.0', `${path}:${demo}: workspace AF14 metadata is stale`);
     }

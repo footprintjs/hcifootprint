@@ -5,7 +5,9 @@ checks add no completion timer, polling, retry, model call or credential loading
 They do not replace Browser proof or the existing runtime/docs/coverage gates.
 
 - `check-pins.mjs` checks the declared FP11/FT1.11.1 floors, the two maintained
-  AF14 demo workspaces, the single root lock and the linked docs metadata. It is
+  AF14 demo workspaces, the single root lock, the root coverage transformer and
+  the linked docs metadata. The root explicitly owns its Vite8 test toolchain;
+  the maintained demos use the same Vite8/React-plugin6 build cohort. It is
   metadata evidence only. Its first run on the previous declarations must fail.
 - `identity.mjs --workspaces ROOT` checks actual root/demo/AF/HCI/FP/FT resolution
   after the root's normal install. Every consumer must reach the same physical

@@ -6,8 +6,8 @@ import { defineConfig } from 'vite';
 /**
  * Aliases must be ABSOLUTE FILESYSTEM paths resolved from this file. A
  * root-absolute '/src/…' looks like it works — `vite build` accepts it, because
- * Rollup resolves against the project root — but the DEV server's esbuild
- * pre-bundling resolves against the filesystem root and dies. `fileURLToPath`
+ * the build resolves against the project root — but dependency pre-bundling
+ * resolves against the filesystem root and dies. `fileURLToPath`
  * is correct for both, and cross-platform (a bare `new URL(…).pathname` yields
  * '/C:/…' on Windows).
  */
