@@ -35,8 +35,10 @@ node --test scripts/cohort/check-pins.test.mjs scripts/cohort/identity.test.mjs
 
 CI owns the heavy proof, on Node22 and Node24. After its normal root install and
 build, it runs the pin/workspace checks and both demos' existing verification
-scripts. It packs HCI with scripts disabled (the build has already run), creates
-the fresh consumer, runs normal `npm install --ignore-scripts --strict-peer-deps
+scripts. It packs HCI with `npm pack --ignore-scripts` after the explicit build.
+The observed Node22/npm combination still runs HCI's build-only `prepare` hook
+during packing; the flag does not prove that every lifecycle hook was skipped.
+It creates the fresh consumer, runs normal `npm install --ignore-scripts --strict-peer-deps
 --no-audit --no-fund` there, then each of its three check scripts. No overrides,
 hand-edited lock entries or source substitutes belong in the consumer.
 
