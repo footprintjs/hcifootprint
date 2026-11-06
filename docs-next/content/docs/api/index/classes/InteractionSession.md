@@ -909,12 +909,12 @@ that could never act (see the gate below).
 Defined in: [src/traverse/session.ts:5690](https://github.com/footprintjs/hcifootprint/blob/main/src/traverse/session.ts#L5690)
 
 The foottrace commit log: one bundle per SETTLED/stimulus/sync transition.
-Treat returned bundles as read-only. Plain frozen structures reject changes;
-mutable built-in values are served as protected copies by Foottrace.
-A reader may change a returned Date, Map, Set or typed array without
-changing the retained record. Later commitLog() calls and replay read the
-recorded values. This protects history independently of the application's
-own live state.
+Treat returned bundles as read-only. Foottrace serves protected copies of
+Dates, Maps, Sets and ordinary typed-array values, so changing those copies
+cannot rewrite later reads. Shared-memory buffers remain an exception:
+their backing memory is shared by copies, so changing shared memory can
+affect later readers. Other opaque values follow Foottrace's capture
+policy.
 
 #### Returns
 
