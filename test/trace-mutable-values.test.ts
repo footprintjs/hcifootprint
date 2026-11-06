@@ -79,10 +79,13 @@ describe.each(values)('commitLog() reader isolation: $name', (sample) => {
     const fresh = session.commitLog();
     const recorded = fresh.find((bundle) => bundle.runtimeStageId === fired.transition.id);
     assert.ok(recorded);
+    const index = recorded.idx;
+    assert.ok(typeof index === 'number', 'the committed bundle must have an assigned index');
+    expect(index).toBe(fresh.indexOf(recorded));
     expect(recorded.overwrite['user']).toEqual(sample.value());
     expect(session.state()['user']).toEqual(sample.value());
-    expect(commitValueAt(fresh, recorded.idx, 'user')).toEqual(sample.value());
-    const replayed = stateAt({ initialState, commitLog: fresh }, recorded.idx);
+    expect(commitValueAt(fresh, index, 'user')).toEqual(sample.value());
+    const replayed = stateAt({ initialState, commitLog: fresh }, index);
     expect(replayed.basis).toBe('initial+log');
     expect(replayed.state['user']).toEqual(sample.value());
     expect(session.why('user')).toBe(why);

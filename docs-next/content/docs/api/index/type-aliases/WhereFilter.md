@@ -6,7 +6,7 @@ title: WhereFilter<T>
 
 > **WhereFilter**\<`T`\> = `{ [K in keyof T]?: FilterOps<T[K]> }`
 
-Defined in: node\_modules/footprintjs/dist/esm/lib/decide/types.d.ts:27
+Defined in: node\_modules/footprintjs/dist/esm/lib/decide/types.d.ts:28
 
 ## Type Parameters
 
