@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const COHORT = Object.freeze({ footprintjs: '11.0.0', foottrace: '1.11.1' });
 const readPackage = (root) => JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const directories = (path) => readdirSync(path, { withFileTypes: true }).filter((entry) =>
-  entry.isDirectory() || entry.isSymbolicLink() && statSync(join(path, entry.name)).isDirectory());
+  entry.isDirectory() || entry.isSymbolicLink() && statSync(join(path, entry.name), { throwIfNoEntry: false })?.isDirectory());
 
 function packageRoot(from, name) {
   const require = createRequire(join(from, 'package.json'));
@@ -57,7 +57,7 @@ export function installedCopies(consumer) {
     for (const entry of directories(physical)) visitDirectory(join(physical, entry.name));
   }
   function visitModules(path) {
-    if (!existsSync(path)) return;
+    if (!statSync(path, { throwIfNoEntry: false })?.isDirectory()) return;
     for (const entry of directories(path)) {
       const child = join(path, entry.name);
       if (entry.name.startsWith('@')) {

@@ -133,6 +133,22 @@ test('matches Node resolution when a nested module container differs in case', (
   }
 });
 
+for (const kind of ['file', 'file-link', 'dangling-link']) {
+  test(`accepts a non-directory module-container candidate: ${kind}`, (t) => {
+    const { root, modules, ft } = fixture(t);
+    const parent = join(packageAt(join(modules, 'unused'), 'unused'), 'deep');
+    mkdirSync(parent);
+    const candidate = join(parent, 'node_modules');
+    if (kind === 'file') writeFileSync(candidate, 'ordinary fixture data');
+    else if (kind === 'file-link') {
+      writeFileSync(join(parent, 'data'), 'ordinary fixture data');
+      symlinkSync(join(parent, 'data'), candidate);
+    } else symlinkSync(join(parent, 'missing'), candidate);
+    assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('foottrace'), join(ft, 'index.mjs'));
+    assert.doesNotThrow(() => verifyIdentity(root));
+  });
+}
+
 test('finds package aliases but counts a symlink to the canonical package only once', (t) => {
   const { root, modules, ft } = fixture(t);
   symlinkSync(ft, join(modules, 'linked-record'), 'dir');
