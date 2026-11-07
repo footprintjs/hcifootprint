@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const COHORT = Object.freeze({ footprintjs: '11.0.0', foottrace: '1.11.1' });
 const readPackage = (root) => JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const directories = (path) => readdirSync(path, { withFileTypes: true }).filter((entry) =>
+  entry.isDirectory() || entry.isSymbolicLink() && statSync(join(path, entry.name)).isDirectory());
 
 function packageRoot(from, name) {
   const require = createRequire(join(from, 'package.json'));
@@ -36,6 +38,7 @@ function verifyResolutions(consumer, contexts) {
 export function installedCopies(consumer) {
   const copies = Object.fromEntries(Object.keys(COHORT).map((name) => [name, new Set()]));
   const visited = new Set();
+  const walked = new Set();
   function visitPackage(path) {
     const physical = realpathSync(path);
     if (visited.has(physical)) return;
@@ -44,16 +47,23 @@ export function installedCopies(consumer) {
       const pkg = readPackage(physical);
       copies[pkg.name]?.add(physical);
     }
+    visitDirectory(physical);
+  }
+  function visitDirectory(path) {
+    const physical = realpathSync(path);
+    if (walked.has(physical)) return;
+    walked.add(physical);
     visitModules(join(physical, 'node_modules'));
+    for (const entry of directories(physical)) visitDirectory(join(physical, entry.name));
   }
   function visitModules(path) {
     if (!existsSync(path)) return;
-    for (const entry of readdirSync(path, { withFileTypes: true })) {
-      if (entry.name.startsWith('.')) continue;
+    for (const entry of directories(path)) {
       const child = join(path, entry.name);
       if (entry.name.startsWith('@')) {
-        for (const scoped of readdirSync(child)) visitPackage(join(child, scoped));
-      } else if (entry.isDirectory() || entry.isSymbolicLink()) visitPackage(child);
+        visitDirectory(child);
+        for (const scoped of directories(child)) visitPackage(join(child, scoped.name));
+      } else visitPackage(child);
     }
   }
   visitModules(join(consumer, 'node_modules'));

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -41,6 +42,95 @@ test('rejects a hidden same-version record copy under an otherwise unused depend
   const unused = packageAt(join(modules, '@fixture', 'unused'), '@fixture/unused');
   packageAt(join(unused, 'node_modules', 'foottrace'), 'foottrace', '1.11.1');
   assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
+});
+
+for (const container of [
+  '.bin/hidden',
+  '.cache/nested/.hidden/ordinary',
+  'unused/internal/deep',
+  '@fixture/unused/.cache/deep',
+]) {
+  for (const [name, version] of [['footprintjs', '11.0.0'], ['foottrace', '1.11.1']]) {
+    test(`rejects a Node-resolvable ${name} inside ${container}`, (t) => {
+      const { root, modules } = fixture(t);
+      const parent = packageAt(join(modules, container), 'unrelated-container');
+      const extra = packageAt(join(parent, 'node_modules', name), name, version);
+      const require = createRequire(join(parent, 'probe.cjs'));
+      assert.equal(require.resolve(name), join(extra, 'index.mjs'));
+      assert.throws(() => verifyIdentity(root), new RegExp(`extra physical ${name} copies`));
+    });
+  }
+}
+
+test('finds copies below a manifest-bearing hidden container and deeper ordinary folders', (t) => {
+  const { root, modules } = fixture(t);
+  const hidden = packageAt(join(modules, '.bin/hidden'), 'unrelated-container');
+  const parent = join(hidden, 'deeper/ordinary');
+  const extra = packageAt(join(parent, 'node_modules/foottrace'), 'foottrace', '1.11.1');
+  assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('foottrace'), join(extra, 'index.mjs'));
+  assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
+});
+
+test('finds scoped aliases in nested hidden module containers', (t) => {
+  const { root, modules } = fixture(t);
+  const parent = join(modules, '.cache/hidden');
+  const alias = packageAt(join(parent, 'node_modules/@fixture/record-alias'), 'foottrace', '1.11.1');
+  assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('@fixture/record-alias'), join(alias, 'index.mjs'));
+  assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
+});
+
+test('finds a module container directly inside a scope directory', (t) => {
+  const { root, modules } = fixture(t);
+  const parent = join(modules, '@fixture');
+  const extra = packageAt(join(parent, 'node_modules/foottrace'), 'foottrace', '1.11.1');
+  assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('foottrace'), join(extra, 'index.mjs'));
+  assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
+});
+
+test('ignores ordinary fixture manifests and executable links while following canonical directory links once', (t) => {
+  const { root, modules, ft } = fixture(t);
+  const bin = join(modules, '.bin');
+  mkdirSync(bin);
+  writeFileSync(join(modules, '.package-lock.json'), '{}');
+  symlinkSync(join(ft, 'index.mjs'), join(bin, 'record-command'));
+  const uninstalled = packageAt(join(bin, 'fixture'), 'foottrace', '1.11.1');
+  writeFileSync(join(uninstalled, 'package.json'), JSON.stringify({
+    name: 'foottrace', version: '1.11.1', type: 'module', main: './index.mjs',
+  }));
+  const nested = join(bin, 'hidden/node_modules');
+  mkdirSync(nested, { recursive: true });
+  symlinkSync(ft, join(nested, 'foottrace'), 'dir');
+  symlinkSync(bin, join(bin, 'cycle'), 'dir');
+  assert.equal(createRequire(join(bin, 'fixture/probe.cjs')).resolve('foottrace'), join(ft, 'index.mjs'));
+  let proof;
+  assert.doesNotThrow(() => { proof = verifyIdentity(root); });
+  assert.deepEqual(proof.copies.foottrace, [ft]);
+});
+
+test('rejects a linked second physical copy reached through hidden folders', (t) => {
+  const { root, modules } = fixture(t);
+  const extra = packageAt(join(root, 'linked-target'), 'foottrace', '1.11.1');
+  const parent = join(modules, '.cache/hidden');
+  mkdirSync(join(parent, 'node_modules'), { recursive: true });
+  symlinkSync(extra, join(parent, 'node_modules/foottrace'), 'dir');
+  assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('foottrace'), join(extra, 'index.mjs'));
+  assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
+});
+
+test('matches Node resolution when a nested module container differs in case', (t) => {
+  const { root, modules, ft } = fixture(t);
+  const parent = join(modules, '.cache/hidden');
+  const extra = packageAt(join(parent, 'NODE_MODULES/foottrace'), 'foottrace', '1.11.1');
+  const resolved = createRequire(join(parent, 'probe.cjs')).resolve('foottrace');
+  const actual = statSync(resolved), nested = statSync(join(extra, 'index.mjs'));
+  const selectedNested = actual.dev === nested.dev && actual.ino === nested.ino;
+  t.diagnostic(`Node selected ${selectedNested ? 'the nested' : 'the root'} physical copy`);
+  if (selectedNested) {
+    assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
+  } else {
+    assert.equal(resolved, join(ft, 'index.mjs'));
+    assert.deepEqual(verifyIdentity(root).copies.foottrace, [ft]);
+  }
 });
 
 test('finds package aliases but counts a symlink to the canonical package only once', (t) => {
