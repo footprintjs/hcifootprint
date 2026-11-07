@@ -11,8 +11,13 @@ They do not replace Browser proof or the existing runtime/docs/coverage gates.
   metadata evidence only. Its first run on the previous declarations must fail.
 - `identity.mjs --workspaces ROOT` checks actual root/demo/AF/HCI/FP/FT resolution
   after the root's normal install. Every consumer must reach the same physical
-  FP and FT packages. Walking the full nested npm package graph also catches
-  unused extra copies, aliases and copies whose versions happen to match.
+  FP and FT packages. The inventory counts installed module entries, including
+  scoped packages and aliases. It finds nested `node_modules` through every
+  directory container inside those packages, including dot-prefixed folders
+  and containers with their own manifests. Directory links are followed once
+  per real path; file links are ignored. Container manifests outside installed
+  module positions are traversed rather than counted as installed copies.
+  This catches unused extra copies and copies whose versions happen to match.
 - `prepare-consumer.mjs FRESH_DIRECTORY PACKED_TARBALL` creates a fresh consumer
   for the actual `npm pack` output. It writes exact target runtime versions and
   takes optional peers and TypeScript tools from the normal root lock. It does
