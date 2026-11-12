@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-12
+
+### Added
+
+- Works with footprintjs 12: the dependency range is now `^11.0.0 || ^12.0.0`.
+  An application installs one footprintjs, and HCI uses that one. Before this,
+  an application on footprintjs 12 got a second, older engine nested under HCI.
+  An application on footprintjs 11 needs no change. No HCI source or public
+  import changed.
+
 ## [4.0.0] - 2026-11-05
 
 ### Migration: FootPrint 11 and Foottrace 1.11.1

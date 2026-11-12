@@ -44,6 +44,31 @@ test('detects restoration of the FP10 range', (t) => {
   assert.throws(() => checkPins(root), /footprintjs must declare/);
 });
 
+test('accepts a lock on either engine major the range names', (t) => {
+  for (const version of ['11.2.0', '12.0.0']) {
+    const { root, lock, write } = fixture(t);
+    lock.packages['node_modules/footprintjs'].version = version;
+    write('package-lock.json', lock);
+    assert.equal(checkPins(root).locks, 2, `footprintjs@${version}`);
+  }
+});
+
+test('refuses a lock on an engine major the range does not name', (t) => {
+  for (const version of ['10.7.1', '13.0.0', '12.0.0-rc.0']) {
+    const { root, lock, write } = fixture(t);
+    lock.packages['node_modules/footprintjs'].version = version;
+    write('package-lock.json', lock);
+    assert.throws(() => checkPins(root), /unsupported locked footprintjs/, `footprintjs@${version}`);
+  }
+});
+
+test('refuses the one-major range this gate used to require', (t) => {
+  const { root, pkg, write } = fixture(t);
+  pkg.dependencies.footprintjs = '^11.0.0';
+  write('package.json', pkg);
+  assert.throws(() => checkPins(root), /footprintjs must declare \^11\.0\.0 \|\| \^12\.0\.0/);
+});
+
 test('detects stale linked docs metadata', (t) => {
   const { root, docs, write } = fixture(t);
   docs.packages['..'].dependencies.foottrace = '^1.0.0';
