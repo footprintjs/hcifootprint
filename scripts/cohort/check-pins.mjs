@@ -3,7 +3,13 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const RUNTIME_RANGES = Object.freeze({ footprintjs: '^11.0.0', foottrace: '^1.11.1' });
+// WHY TWO ENGINE MAJORS. An application installs ONE footprintjs, and HCI must accept the one it has.
+// When footprintjs 12 became the newest version, a range of ^11.0.0 alone made npm nest a second,
+// older engine under HCI in every application that had moved. So HCI accepts both, and the lock
+// below may hold either. Drop 11 here, in package.json and in the README together.
+export const RUNTIME_RANGES = Object.freeze({ footprintjs: '^11.0.0 || ^12.0.0', foottrace: '^1.11.1' });
+/** The footprintjs majors a lock may hold: the ones RUNTIME_RANGES accepts. */
+const ENGINE_MAJORS = Object.freeze([11, 12]);
 const LOCKS = [
   ['package-lock.json', '', true],
   ['docs-next/package-lock.json', '..', false],
@@ -21,7 +27,7 @@ function supportedVersion(name, version) {
   if (!parts) return false;
   const [, major, minor, patch] = parts.map(Number);
   return name === 'footprintjs'
-    ? major === 11
+    ? ENGINE_MAJORS.includes(major)
     : major === 1 && (minor > 11 || (minor === 11 && patch >= 1));
 }
 

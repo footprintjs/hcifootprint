@@ -4,7 +4,11 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { verifyIdentity, verifyWorkspaceIdentity } from './identity.mjs';
+import { COHORT, verifyIdentity, verifyWorkspaceIdentity } from './identity.mjs';
+
+// The fixtures install the cohort identity.mjs names; the numbers are written there only.
+const FP = COHORT.footprintjs;
+const FT = COHORT.foottrace;
 
 // Metadata-only fixtures exercise the checker. They are not HCI runtime proof.
 function packageAt(path, name, version = '0.0.0') {
@@ -18,8 +22,8 @@ function fixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   packageAt(root, 'identity-fixture');
   const modules = join(root, 'node_modules');
-  const fp = packageAt(join(modules, 'footprintjs'), 'footprintjs', '11.0.0');
-  const ft = packageAt(join(modules, 'foottrace'), 'foottrace', '1.11.1');
+  const fp = packageAt(join(modules, 'footprintjs'), 'footprintjs', FP);
+  const ft = packageAt(join(modules, 'foottrace'), 'foottrace', FT);
   const hci = packageAt(join(modules, 'hcifootprint'), 'hcifootprint', '3.3.1');
   return { root, modules, fp, ft, hci };
 }
@@ -33,14 +37,14 @@ test('accepts one installed physical cohort, without tying HCI to an unreleased 
 
 test('rejects nested FP with the same version even when top-level version is correct', (t) => {
   const { root, hci } = fixture(t);
-  packageAt(join(hci, 'node_modules', 'footprintjs'), 'footprintjs', '11.0.0');
+  packageAt(join(hci, 'node_modules', 'footprintjs'), 'footprintjs', FP);
   assert.throws(() => verifyIdentity(root), /second physical footprintjs/);
 });
 
 test('rejects a hidden same-version record copy under an otherwise unused dependency', (t) => {
   const { root, modules } = fixture(t);
   const unused = packageAt(join(modules, '@fixture', 'unused'), '@fixture/unused');
-  packageAt(join(unused, 'node_modules', 'foottrace'), 'foottrace', '1.11.1');
+  packageAt(join(unused, 'node_modules', 'foottrace'), 'foottrace', FT);
   assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
 });
 
@@ -50,7 +54,7 @@ for (const container of [
   'unused/internal/deep',
   '@fixture/unused/.cache/deep',
 ]) {
-  for (const [name, version] of [['footprintjs', '11.0.0'], ['foottrace', '1.11.1']]) {
+  for (const [name, version] of [['footprintjs', FP], ['foottrace', FT]]) {
     test(`rejects a Node-resolvable ${name} inside ${container}`, (t) => {
       const { root, modules } = fixture(t);
       const parent = packageAt(join(modules, container), 'unrelated-container');
@@ -66,7 +70,7 @@ test('finds copies below a manifest-bearing hidden container and deeper ordinary
   const { root, modules } = fixture(t);
   const hidden = packageAt(join(modules, '.bin/hidden'), 'unrelated-container');
   const parent = join(hidden, 'deeper/ordinary');
-  const extra = packageAt(join(parent, 'node_modules/foottrace'), 'foottrace', '1.11.1');
+  const extra = packageAt(join(parent, 'node_modules/foottrace'), 'foottrace', FT);
   assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('foottrace'), join(extra, 'index.mjs'));
   assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
 });
@@ -74,7 +78,7 @@ test('finds copies below a manifest-bearing hidden container and deeper ordinary
 test('finds scoped aliases in nested hidden module containers', (t) => {
   const { root, modules } = fixture(t);
   const parent = join(modules, '.cache/hidden');
-  const alias = packageAt(join(parent, 'node_modules/@fixture/record-alias'), 'foottrace', '1.11.1');
+  const alias = packageAt(join(parent, 'node_modules/@fixture/record-alias'), 'foottrace', FT);
   assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('@fixture/record-alias'), join(alias, 'index.mjs'));
   assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
 });
@@ -82,7 +86,7 @@ test('finds scoped aliases in nested hidden module containers', (t) => {
 test('finds a module container directly inside a scope directory', (t) => {
   const { root, modules } = fixture(t);
   const parent = join(modules, '@fixture');
-  const extra = packageAt(join(parent, 'node_modules/foottrace'), 'foottrace', '1.11.1');
+  const extra = packageAt(join(parent, 'node_modules/foottrace'), 'foottrace', FT);
   assert.equal(createRequire(join(parent, 'probe.cjs')).resolve('foottrace'), join(extra, 'index.mjs'));
   assert.throws(() => verifyIdentity(root), /extra physical foottrace copies/);
 });
@@ -93,9 +97,9 @@ test('ignores ordinary fixture manifests and executable links while following ca
   mkdirSync(bin);
   writeFileSync(join(modules, '.package-lock.json'), '{}');
   symlinkSync(join(ft, 'index.mjs'), join(bin, 'record-command'));
-  const uninstalled = packageAt(join(bin, 'fixture'), 'foottrace', '1.11.1');
+  const uninstalled = packageAt(join(bin, 'fixture'), 'foottrace', FT);
   writeFileSync(join(uninstalled, 'package.json'), JSON.stringify({
-    name: 'foottrace', version: '1.11.1', type: 'module', main: './index.mjs',
+    name: 'foottrace', version: FT, type: 'module', main: './index.mjs',
   }));
   const nested = join(bin, 'hidden/node_modules');
   mkdirSync(nested, { recursive: true });
@@ -109,7 +113,7 @@ test('ignores ordinary fixture manifests and executable links while following ca
 
 test('rejects a linked second physical copy reached through hidden folders', (t) => {
   const { root, modules } = fixture(t);
-  const extra = packageAt(join(root, 'linked-target'), 'foottrace', '1.11.1');
+  const extra = packageAt(join(root, 'linked-target'), 'foottrace', FT);
   const parent = join(modules, '.cache/hidden');
   mkdirSync(join(parent, 'node_modules'), { recursive: true });
   symlinkSync(extra, join(parent, 'node_modules/foottrace'), 'dir');
@@ -120,7 +124,7 @@ test('rejects a linked second physical copy reached through hidden folders', (t)
 test('matches Node resolution when a nested module container differs in case', (t) => {
   const { root, modules, ft } = fixture(t);
   const parent = join(modules, '.cache/hidden');
-  const extra = packageAt(join(parent, 'NODE_MODULES/foottrace'), 'foottrace', '1.11.1');
+  const extra = packageAt(join(parent, 'NODE_MODULES/foottrace'), 'foottrace', FT);
   const resolved = createRequire(join(parent, 'probe.cjs')).resolve('foottrace');
   const actual = statSync(resolved), nested = statSync(join(extra, 'index.mjs'));
   const selectedNested = actual.dev === nested.dev && actual.ino === nested.ino;
@@ -153,14 +157,14 @@ test('finds package aliases but counts a symlink to the canonical package only o
   const { root, modules, ft } = fixture(t);
   symlinkSync(ft, join(modules, 'linked-record'), 'dir');
   assert.deepEqual(verifyIdentity(root).copies.foottrace, [ft]);
-  packageAt(join(modules, 'unreferenced-engine'), 'footprintjs', '11.0.0');
+  packageAt(join(modules, 'unreferenced-engine'), 'footprintjs', FP);
   assert.throws(() => verifyIdentity(root), /extra physical footprintjs copies/);
 });
 
 test('rejects a coherent but stale cohort', (t) => {
   const { root, fp } = fixture(t);
   packageAt(fp, 'footprintjs', '10.0.0');
-  assert.throws(() => verifyIdentity(root), /Expected actual footprintjs@11.0.0/);
+  assert.throws(() => verifyIdentity(root), new RegExp(`Expected actual footprintjs@${FP.replaceAll('.', '\\.')}`));
 });
 
 function workspaceFixture(t) {
@@ -185,12 +189,12 @@ test('joins actual workspace and AF package resolution to the root cohort', (t) 
 
 test('rejects a standalone nested demo install even with the same FP version', (t) => {
   const { root, desk } = workspaceFixture(t);
-  packageAt(join(desk, 'node_modules/footprintjs'), 'footprintjs', '11.0.0');
+  packageAt(join(desk, 'node_modules/footprintjs'), 'footprintjs', FP);
   assert.throws(() => verifyWorkspaceIdentity(root), /live-desk resolves a second physical footprintjs/);
 });
 
 test('rejects record duplication inside the demo agent dependency', (t) => {
   const { root, modules } = workspaceFixture(t);
-  packageAt(join(modules, 'agentfootprint/node_modules/foottrace'), 'foottrace', '1.11.1');
+  packageAt(join(modules, 'agentfootprint/node_modules/foottrace'), 'foottrace', FT);
   assert.throws(() => verifyWorkspaceIdentity(root), /live-desk:agentfootprint resolves a second physical foottrace/);
 });

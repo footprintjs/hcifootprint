@@ -4,7 +4,10 @@ import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const COHORT = Object.freeze({ footprintjs: '11.0.0', foottrace: '1.11.1' });
+// The exact versions the root lock installs. 11.2.0, not 11.0.0: the demos' agentfootprint (14.4.0, the
+// first that accepts footprintjs 11 or 12) has a peer floor of ^11.1.0. The tests read these numbers
+// from here, so a lock change is one edit in this file.
+export const COHORT = Object.freeze({ footprintjs: '11.2.0', foottrace: '1.11.1' });
 const readPackage = (root) => JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const directories = (path) => readdirSync(path, { withFileTypes: true }).filter((entry) =>
   entry.isDirectory() || entry.isSymbolicLink() && statSync(join(path, entry.name), { throwIfNoEntry: false })?.isDirectory());
