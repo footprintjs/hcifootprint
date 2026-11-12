@@ -169,8 +169,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.a
   try {
     console.log(JSON.stringify(workspace ? verifyWorkspaceIdentity(root) : verifyIdentity(root), null, 2));
   } catch (error) {
-    // One sentence, not a stack: every failure above names the file or package it looked at.
-    console.error(`identity: ${error.message}`);
+    // One sentence, not a stack or an assertion diff: every failure above names what it looked at.
+    console.error(`identity: ${error.message.split('\n')[0]}`);
     process.exitCode = 1;
   }
 }

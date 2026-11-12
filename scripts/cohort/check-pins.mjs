@@ -111,8 +111,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.a
   try {
     console.log(JSON.stringify(checkPins(root)));
   } catch (error) {
-    // One sentence, not a stack: every failure above already names the file and the value.
-    console.error(`check-pins: ${error.message}`);
+    // One sentence, not a stack or an assertion diff: every failure above names the file and the value.
+    console.error(`check-pins: ${error.message.split('\n')[0]}`);
     process.exitCode = 1;
   }
 }
