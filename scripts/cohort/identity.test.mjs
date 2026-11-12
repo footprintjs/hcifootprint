@@ -1,30 +1,41 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { COHORT, verifyIdentity, verifyWorkspaceIdentity } from './identity.mjs';
+import { verifyIdentity, verifyWorkspaceIdentity } from './identity.mjs';
 
-// The fixtures install the cohort identity.mjs names; the numbers are written there only.
-const FP = COHORT.footprintjs;
-const FT = COHORT.foottrace;
+// Fixture numbers, each stated once. identity.mjs holds none: a consumer fixture states the expected
+// versions in its own package.json, a workspace fixture in its root package-lock.json.
+const FP = '11.2.0';
+const FP_OTHER_IN_RANGE = '11.1.0';
+const FP_STALE = '10.0.0';
+const FT = '1.11.1';
+const AF = '14.4.0';
+const AF_OTHER = '14.0.0';
+const HCI = '3.3.1';
+const UNVERSIONED = '0.0.0';
+const RANGE = '^11.0.0';
 
 // Metadata-only fixtures exercise the checker. They are not HCI runtime proof.
-function packageAt(path, name, version = '0.0.0') {
+function packageAt(path, name, version = UNVERSIONED, extra = {}) {
   mkdirSync(path, { recursive: true });
-  writeFileSync(join(path, 'package.json'), JSON.stringify({ name, version, type: 'module', exports: './index.mjs' }));
+  writeFileSync(join(path, 'package.json'), JSON.stringify({ name, version, type: 'module', exports: './index.mjs', ...extra }));
   writeFileSync(join(path, 'index.mjs'), 'export {};\n');
   return path;
 }
 function fixture(t) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'hci-cohort-identity-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  packageAt(root, 'identity-fixture');
+  // A prepared consumer pins the cohort exactly in its own package.json (prepare-consumer.mjs).
+  packageAt(root, 'identity-fixture', UNVERSIONED, { dependencies: { footprintjs: FP, foottrace: FT } });
   const modules = join(root, 'node_modules');
   const fp = packageAt(join(modules, 'footprintjs'), 'footprintjs', FP);
   const ft = packageAt(join(modules, 'foottrace'), 'foottrace', FT);
-  const hci = packageAt(join(modules, 'hcifootprint'), 'hcifootprint', '3.3.1');
+  const hci = packageAt(join(modules, 'hcifootprint'), 'hcifootprint', HCI);
   return { root, modules, fp, ft, hci };
 }
 
@@ -32,7 +43,8 @@ test('accepts one installed physical cohort, without tying HCI to an unreleased 
   const { root, fp, ft } = fixture(t);
   const proof = verifyIdentity(root);
   assert.deepEqual(proof.copies, { footprintjs: [fp], foottrace: [ft] });
-  assert.equal(proof.hci.version, '3.3.1');
+  assert.equal(proof.hci.version, HCI);
+  assert.deepEqual(proof.versions, { footprintjs: FP, foottrace: FT });
 });
 
 test('rejects nested FP with the same version even when top-level version is correct', (t) => {
@@ -163,16 +175,36 @@ test('finds package aliases but counts a symlink to the canonical package only o
 
 test('rejects a coherent but stale cohort', (t) => {
   const { root, fp } = fixture(t);
-  packageAt(fp, 'footprintjs', '10.0.0');
-  assert.throws(() => verifyIdentity(root), new RegExp(`Expected actual footprintjs@${FP.replaceAll('.', '\\.')}`));
+  packageAt(fp, 'footprintjs', FP_STALE);
+  assert.throws(() => verifyIdentity(root), new RegExp(`Expected actual footprintjs@${FP.replaceAll('.', '\\.')}, found ${FP_STALE.replaceAll('.', '\\.')}`));
 });
+
+test('a consumer manifest with a range where an exact version is expected fails and names the file', (t) => {
+  const { root } = fixture(t);
+  packageAt(root, 'identity-fixture', UNVERSIONED, { dependencies: { footprintjs: RANGE, foottrace: FT } });
+  assert.throws(() => verifyIdentity(root),
+    (error) => error.message.startsWith(`${join(root, 'package.json')} dependencies.footprintjs: expected an exact version`));
+});
+
+test('a malformed consumer manifest fails with one sentence naming the file', (t) => {
+  const { root } = fixture(t);
+  writeFileSync(join(root, 'package.json'), '{ not json');
+  assert.throws(() => verifyIdentity(root), (error) => error.message.startsWith(`${join(root, 'package.json')}: is not valid JSON`));
+});
+
+/** The root lock chooses the versions; a fixture writes only the hoisted entries identity.mjs reads. */
+function writeLock(root, versions) {
+  writeFileSync(join(root, 'package-lock.json'), JSON.stringify({ lockfileVersion: 3, packages: Object.fromEntries(
+    Object.entries(versions).map(([name, version]) => [`node_modules/${name}`, { version }])) }));
+}
 
 function workspaceFixture(t) {
   const paths = fixture(t);
-  packageAt(paths.root, 'hcifootprint', '3.3.1');
+  packageAt(paths.root, 'hcifootprint', HCI);
+  writeLock(paths.root, { footprintjs: FP, foottrace: FT, agentfootprint: AF });
   rmSync(paths.hci, { recursive: true });
   symlinkSync(paths.root, paths.hci, 'dir');
-  packageAt(join(paths.modules, 'agentfootprint'), 'agentfootprint', '14.0.0');
+  packageAt(join(paths.modules, 'agentfootprint'), 'agentfootprint', AF);
   const desk = packageAt(join(paths.root, 'demos/live-desk'), 'live-desk');
   const wizard = packageAt(join(paths.root, 'demos/onboarding-wizard'), 'onboarding-wizard-demo');
   symlinkSync(desk, join(paths.modules, 'live-desk'), 'dir');
@@ -197,4 +229,45 @@ test('rejects record duplication inside the demo agent dependency', (t) => {
   const { root, modules } = workspaceFixture(t);
   packageAt(join(modules, 'agentfootprint/node_modules/foottrace'), 'foottrace', FT);
   assert.throws(() => verifyWorkspaceIdentity(root), /live-desk:agentfootprint resolves a second physical foottrace/);
+});
+
+test('a lock and install on another version inside the declared range pass with no script change', (t) => {
+  const { root, fp } = workspaceFixture(t);
+  packageAt(fp, 'footprintjs', FP_OTHER_IN_RANGE);
+  writeLock(root, { footprintjs: FP_OTHER_IN_RANGE, foottrace: FT, agentfootprint: AF });
+  assert.equal(verifyWorkspaceIdentity(root).versions.footprintjs, FP_OTHER_IN_RANGE);
+});
+
+test('rejects an install that differs from the version the root lock chose', (t) => {
+  const { root } = workspaceFixture(t);
+  writeLock(root, { footprintjs: FP_OTHER_IN_RANGE, foottrace: FT, agentfootprint: AF });
+  assert.throws(() => verifyWorkspaceIdentity(root), new RegExp(`Expected actual footprintjs@${FP_OTHER_IN_RANGE.replaceAll('.', '\\.')}`));
+});
+
+test('the demos must resolve the agentfootprint the root lock holds', (t) => {
+  const { root } = workspaceFixture(t);
+  writeLock(root, { footprintjs: FP, foottrace: FT, agentfootprint: AF_OTHER });
+  assert.throws(() => verifyWorkspaceIdentity(root),
+    new RegExp(`live-desk must use the locked agentfootprint@${AF_OTHER.replaceAll('.', '\\.')}, found ${AF.replaceAll('.', '\\.')}`));
+});
+
+test('a lock without the expected entry or with a malformed body fails and names where it looked', (t) => {
+  const { root } = workspaceFixture(t);
+  writeLock(root, { footprintjs: FP, agentfootprint: AF });
+  assert.throws(() => verifyWorkspaceIdentity(root),
+    (error) => error.message === `${join(root, 'package-lock.json')} packages["node_modules/foottrace"].version: expected an exact version, found undefined`);
+  writeFileSync(join(root, 'package-lock.json'), '{ "packages": ');
+  assert.throws(() => verifyWorkspaceIdentity(root), (error) => error.message.startsWith(`${join(root, 'package-lock.json')}: is not valid JSON`));
+  writeFileSync(join(root, 'package-lock.json'), '{}');
+  assert.throws(() => verifyWorkspaceIdentity(root), /has no "packages" object/);
+});
+
+test('the command prints that sentence without a stack and exits non-zero', (t) => {
+  const { root } = workspaceFixture(t);
+  writeFileSync(join(root, 'package-lock.json'), '{}');
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'identity.mjs');
+  const run = spawnSync(process.execPath, [script, '--workspaces', root], { encoding: 'utf8' });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /^identity: .*package-lock\.json: has no "packages" object/);
+  assert.doesNotMatch(run.stderr, /\n\s+at /, 'no stack trace');
 });

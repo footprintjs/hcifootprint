@@ -35,12 +35,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+      - name: Install the root and demo workspace graph normally
+        run: npm ci --strict-peer-deps
+      # After the install: check-pins reads ranges with the `semver` devDependency.
       - name: Declared cohort and normal locks
         run: npm run test:cohort:pins
       - name: Identity checker fault cases
         run: npm run test:cohort
-      - name: Install the root and demo workspace graph normally
-        run: npm ci --strict-peer-deps
       - run: npm run build
       - name: Root and both demos share physical core packages
         run: node scripts/cohort/identity.mjs --workspaces .

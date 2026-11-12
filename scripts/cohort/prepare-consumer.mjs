@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { COHORT } from './identity.mjs';
+import { COHORT_PACKAGES } from './identity.mjs';
+
+// WHY THE COHORT IS READ FROM THE LOCK. The consumer pins footprintjs and foottrace to the exact
+// versions the root lock installs, read here with `lockedVersion` like react and typescript, never
+// typed into a script. identity.mjs then reads those pins back from the consumer's package.json, so a
+// lock change inside HCI's declared ranges needs no edit in this folder.
 
 /** Prepare only; CI owns the visible normal npm install and each proof command. */
 export function prepareConsumer(consumer, tarball) {
@@ -19,11 +24,12 @@ export function prepareConsumer(consumer, tarball) {
     assert.equal(typeof version, 'string', `${name} must be pinned in the normal root lock`);
     return version;
   };
+  const runtimeVersions = Object.fromEntries(COHORT_PACKAGES.map((name) => [name, lockedVersion(name)]));
   mkdirSync(consumer);
   writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({
     name: 'hcifootprint-packed-cohort-proof', private: true, type: 'module',
     scripts: { 'check:types': 'tsc --noEmit', 'check:identity': 'node identity.mjs', 'check:runtime': 'node runtime.mjs' },
-    dependencies: { hcifootprint: `file:${tarball}`, ...COHORT,
+    dependencies: { hcifootprint: `file:${tarball}`, ...runtimeVersions,
       react: lockedVersion('react'), '@modelcontextprotocol/sdk': lockedVersion('@modelcontextprotocol/sdk') },
     devDependencies: { typescript: lockedVersion('typescript'), '@types/node': lockedVersion('@types/node'), '@types/react': lockedVersion('@types/react') },
   }, null, 2)}\n`);
@@ -34,7 +40,7 @@ export function prepareConsumer(consumer, tarball) {
     files: ['types.mts'],
   }, null, 2)}\n`);
   for (const name of ['identity.mjs', 'runtime.mjs', 'types.mts']) copyFileSync(join(here, name), join(consumer, name));
-  return { consumer, tarball, runtimeVersions: COHORT, installed: false };
+  return { consumer, tarball, runtimeVersions, installed: false };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
