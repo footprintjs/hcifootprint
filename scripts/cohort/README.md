@@ -1,10 +1,13 @@
 # Current-cohort compatibility proof
 
-This folder verifies the intended FP11.0.0 / Foottrace1.11.1 installation. Its
+This folder verifies the intended installation: the exact footprintjs and
+Foottrace versions that `identity.mjs · COHORT` names (the ones the root lock
+installs; today footprintjs 11.2.0 and Foottrace 1.11.1). Its
 checks add no completion timer, polling, retry, model call or credential loading.
 They do not replace Browser proof or the existing runtime/docs/coverage gates.
 
-- `check-pins.mjs` checks the declared FP11/FT1.11.1 floors, the two maintained
+- `check-pins.mjs` checks the declared ranges (footprintjs 11 or 12, Foottrace
+  from 1.11.1), a lock on one of those engine majors, the two maintained
   AF14 demo workspaces, the single root lock, the root coverage transformer and
   the linked docs metadata. The root explicitly owns its Vite8 test toolchain;
   the maintained demos use the same Vite8/React-plugin6 build cohort. It is
