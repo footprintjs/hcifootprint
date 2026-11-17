@@ -4,11 +4,37 @@ title: UseActionBindingOptions<Props, Input, Interactive, Id, ActionOutput, Host
 
 # Type Alias: UseActionBindingOptions\<Props, Input, Interactive, Id, ActionOutput, HostOutput\>
 
-> **UseActionBindingOptions**\<`Props`, `Input`, `Interactive`, `Id`, `ActionOutput`, `HostOutput`\> = `object` & \{ `input?`: `undefined`; `inputKey?`: `never`; \} \| \{ `input`: (`props`) => `Input`; `inputKey`: `unknown`; \}
+> **UseActionBindingOptions**\<`Props`, `Input`, `Interactive`, `Id`, `ActionOutput`, `HostOutput`\> = `object` & (\{ `input?`: `undefined`; `inputKey?`: `never`; \} \| \{ `input`: (`props`) => `Input`; `inputKey`: `unknown`; \})
 
 Defined in: [src/react/use-action-binding.ts:50](https://github.com/footprintjs/hcifootprint/blob/main/src/react/use-action-binding.ts#L50)
 
 Stable identity, host facts, and explicit input ownership for one React binding.
+
+## Type Parameters
+
+### Props
+
+`Props`
+
+### Input
+
+`Input`
+
+### Interactive
+
+`Interactive` *extends* `object`
+
+### Id
+
+`Id` *extends* `string` = `string`
+
+### ActionOutput
+
+`ActionOutput` = `unknown`
+
+### HostOutput
+
+`HostOutput` = `unknown`
 
 ## Type Declaration
 
@@ -84,29 +110,3 @@ Optional sink for an `onInvocation` observer failure.
 > `readonly` `optional` **projector?**: [`ActionBindingProjector`](/api/react/interfaces/ActionBindingProjector)\<`Interactive`, `Id`\> \| `null`
 
 The watcher/projector that owns a portal's physical interactive root.
-
-## Type Parameters
-
-### Props
-
-`Props`
-
-### Input
-
-`Input`
-
-### Interactive
-
-`Interactive` *extends* `object`
-
-### Id
-
-`Id` *extends* `string` = `string`
-
-### ActionOutput
-
-`ActionOutput` = `unknown`
-
-### HostOutput
-
-`HostOutput` = `unknown`

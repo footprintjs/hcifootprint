@@ -4,7 +4,7 @@ title: contextful
 
 # Variable: contextful
 
-> `const` **contextful**: \<`A`, `R`\>(`fn`, `options`) => (...`args`) => `R` & `object`
+> `const` **contextful**: (\<`A`, `R`\>(`fn`, `options`) => (...`args`) => `R`) & `object`
 
 Defined in: [src/contextful/contextful.ts:144](https://github.com/footprintjs/hcifootprint/blob/main/src/contextful/contextful.ts#L144)
 

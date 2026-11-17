@@ -160,7 +160,7 @@ Defined in: [src/action/types.ts:760](https://github.com/footprintjs/hcifootprin
 
 ##### update
 
-`Update` & `HasInputReader` *extends* `true` ? `Update` *extends* `object` ? `never` : `unknown` : `"input"` *extends* keyof `Update` ? `never` : `unknown`
+`Update` & (`HasInputReader` *extends* `true` ? `Update` *extends* `object` ? `never` : `unknown` : `"input"` *extends* keyof `Update` ? `never` : `unknown`)
 
 #### Returns
 

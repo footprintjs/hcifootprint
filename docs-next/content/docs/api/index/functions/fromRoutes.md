@@ -45,7 +45,7 @@ otherwise.
 
 #### crossLinks?
 
-`true` \| readonly keyof `R` & `string`[]
+`true` \| readonly (keyof `R` & `string`)[]
 
 ## Returns
 

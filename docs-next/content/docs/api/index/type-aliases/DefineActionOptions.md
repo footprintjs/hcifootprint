@@ -4,13 +4,43 @@ title: DefineActionOptions<Mode, HasProgress, F, Id, Stages, Input, Output>
 
 # Type Alias: DefineActionOptions\<Mode, HasProgress, F, Id, Stages, Input, Output\>
 
-> **DefineActionOptions**\<`Mode`, `HasProgress`, `F`, `Id`, `Stages`, `Input`, `Output`\> = `object` & `Mode` *extends* `"inputless"` ? `HasProgress` *extends* `true` ? `object` : `object` : `Mode` *extends* `"scalar"` ? `HasProgress` *extends* `true` ? `object` : `object` : `Mode` *extends* `"host"` ? `HasProgress` *extends* `true` ? `never` : `object` : `never`
+> **DefineActionOptions**\<`Mode`, `HasProgress`, `F`, `Id`, `Stages`, `Input`, `Output`\> = `object` & (`Mode` *extends* `"inputless"` ? `HasProgress` *extends* `true` ? `object` : `object` : `Mode` *extends* `"scalar"` ? `HasProgress` *extends* `true` ? `object` : `object` : `Mode` *extends* `"host"` ? `HasProgress` *extends* `true` ? `never` : `object` : `never`)
 
 Defined in: [src/action/definition.ts:232](https://github.com/footprintjs/hcifootprint/blob/main/src/action/definition.ts#L232)
 
 The complete options record accepted by one `defineAction()` overload.
 `Mode` selects the invocation door and `HasProgress` selects whether the
 mutation receives the narrow lifecycle capability.
+
+## Type Parameters
+
+### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
+
+### HasProgress
+
+`HasProgress` *extends* `boolean`
+
+### F
+
+`F` *extends* (...`args`) => `any`
+
+### Id
+
+`Id` *extends* `string` = `string`
+
+### Stages
+
+`Stages` *extends* readonly `string`[] = readonly `string`[]
+
+### Input
+
+`Input` = `unknown`
+
+### Output
+
+`Output` = `ReturnType`\<`F`\>
 
 ## Type Declaration
 
@@ -56,33 +86,3 @@ records it without routing or rendering it.
 ### role?
 
 > `readonly` `optional` **role?**: [`CanonicalRole`](/api/index/type-aliases/CanonicalRole)
-
-## Type Parameters
-
-### Mode
-
-`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
-
-### HasProgress
-
-`HasProgress` *extends* `boolean`
-
-### F
-
-`F` *extends* (...`args`) => `any`
-
-### Id
-
-`Id` *extends* `string` = `string`
-
-### Stages
-
-`Stages` *extends* readonly `string`[] = readonly `string`[]
-
-### Input
-
-`Input` = `unknown`
-
-### Output
-
-`Output` = `ReturnType`\<`F`\>
