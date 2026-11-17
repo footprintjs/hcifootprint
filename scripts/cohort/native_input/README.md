@@ -24,6 +24,9 @@ Inputs come only from the reviewed `../native-input.json` row and fixed source
 paths. Artifact data does not choose executable code or policy. The workflow
 token is removed before any dependency script/test runs; an authenticated API
 redirect never forwards its Authorization header to the signed asset host.
+Every native checkout explicitly disables credential persistence. The parsed
+workflow regression checks every job and sibling checkout, refuses ambiguous
+YAML, and preserves the one explicit token scope at the producer-fetch entry.
 No `.env`/provider keys, model calls, polling timers or automatic retries exist.
 
 The three install owners are root+both demos, separately linked docs, and the
