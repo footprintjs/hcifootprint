@@ -13,6 +13,32 @@ from native_input.runner import NativeRun, run_native
 
 
 class RecipeTests(unittest.TestCase):
+    def test_root_resolution_requests_the_qualified_core_without_selecting_demo_saves(self):
+        with tempfile.TemporaryDirectory(prefix='hci-native-resolution-') as directory:
+            audit = Path(directory); (audit / 'inputs').mkdir()
+            run = NativeRun.__new__(NativeRun)
+            run.audit = audit
+            run.input = {'archive': {'filename': 'original.tgz'},
+                         'coreVersions': {'footprintjs': '13.0.0', 'foottrace': '2.0.0'}}
+            run.guard = SimpleNamespace(write=lambda *args: None, admit_inputs=lambda *args: None,
+                                        project=lambda *args: None, fresh_locks=lambda: None)
+            commands = []
+            class Captured(Exception): pass
+            def command(label, argv, **kwargs):
+                commands.append((label, argv)); raise Captured()
+            run.command = command
+            with patch.dict(os.environ, {'GH_TOKEN': 'fixture'}), \
+                 patch('native_input.runner.fetch_candidate', return_value=(b'original-zip', {})), \
+                 patch('native_input.runner.inspect_candidate', return_value={'tarball': b'original-tgz', 'facts': {}}):
+                with self.assertRaises(Captured): run.execute()
+            label, argv = commands[0]
+            self.assertEqual(label, 'root-lock')
+            self.assertIn('footprintjs@13.0.0', argv)
+            self.assertIn('foottrace@2.0.0', argv)
+            self.assertIn('--save-prefix=^', argv)
+            self.assertIn('--strict-peer-deps', argv)
+            self.assertNotIn('--workspaces', argv)
+
     def test_primary_command_failure_survives_secondary_guard_failure(self):
         with tempfile.TemporaryDirectory(prefix='hci-recipe-') as directory:
             results = {}

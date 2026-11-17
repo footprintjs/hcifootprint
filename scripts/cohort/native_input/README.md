@@ -33,6 +33,16 @@ consumer specimens remain guarded across commands. Both demo AF realpaths
 must match the one admitted image. Every installed AF/HCI member is joined to
 the original archive; matching version strings alone are insufficient.
 
+The two authored locks are captured byte-for-byte, then removed only from the
+isolated setup before npm generates fresh strict native locks. Reusing a stale
+registry lock can retain an incompatible old hoisted package even after the
+two demo requests change. No lock entries are rewritten by hand; actual generated
+bytes are retained, and restoration reinstates both original locks exactly.
+The root npm request names the qualified exact core releases, keeping the
+authored caret ranges unchanged. It does not select workspace-wide package saves;
+the ordinary root install still links and locks both declared workspaces. Source
+guards reject any manifest rewrite, and native pins require the exact core URL/SRI.
+
 The native result explicitly leaves ordinary registry readiness and final
 producer whole-CI readiness false. Only the qualified producer's named
 documentation bootstrap job may be held; all HCI gates still run. Restore

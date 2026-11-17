@@ -120,8 +120,10 @@ class NativeRun:
         self.guard.write('original-source-data.json', self.validated['facts'])
         self.guard.admit_inputs([zip_path, archive])
         self.guard.project(archive)
+        self.guard.fresh_locks()
         npm = ['npm', 'install', '--package-lock-only', '--ignore-scripts', '--strict-peer-deps', '--no-audit', '--no-fund']
-        self.command('root-lock', npm + ['--workspaces', '--include-workspace-root'], locks=['package-lock.json'])
+        core = [name + '@' + self.input['coreVersions'][name] for name in ['footprintjs', 'foottrace']]
+        self.command('root-lock', npm + ['--save-prefix=^', *core], locks=['package-lock.json'])
         self.command('docs-lock', npm, cwd=self.root / 'docs-next', locks=['docs-next/package-lock.json'])
         self.command('root-install', ['npm', 'ci', '--strict-peer-deps'], installation=True)
         self.command('native-pins', ['node', 'scripts/cohort/native_input.mjs', 'pins'])

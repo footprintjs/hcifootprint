@@ -137,6 +137,14 @@ class SourceGuard:
         self.expected_inputs.update({str(path): digest(Path(path)) for path in paths})
         self.write(label + '-inputs.json', self.expected_inputs)
 
+    def fresh_locks(self):
+        """Generate genuine native graphs without reusing stale registry selections."""
+        self.verify('fresh-lock-baseline-before')
+        for name in ['package-lock.json', 'docs-next/package-lock.json']:
+            self.files.remove_generated(self.root / name)
+            del self.expected[name]
+        self.verify('fresh-lock-baseline-after')
+
     def project(self, archive):
         for demo in DEMOS:
             name = demo + '/package.json'

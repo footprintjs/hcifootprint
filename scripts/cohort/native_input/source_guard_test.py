@@ -31,6 +31,19 @@ class GuardTests(unittest.TestCase):
         self.guard.restore()
         self.assertEqual(before, {n: (self.root / n).read_bytes() for n in ORIGINALS})
 
+    def test_fresh_native_locks_do_not_reuse_stale_registry_resolution(self):
+        before = {n: (self.root / n).read_bytes() for n in ORIGINALS}
+        self.guard.fresh_locks()
+        for name in ['package-lock.json', 'docs-next/package-lock.json']:
+            self.assertFalse((self.root / name).exists())
+        self.guard.verify('fresh-locks')
+        for name in ['package-lock.json', 'docs-next/package-lock.json']:
+            (self.root / name).write_text('{"genuine-generated-fixture":true}')
+            self.guard.accept([name])
+        self.guard.verify('genuine-locks')
+        self.guard.restore()
+        self.assertEqual(before, {n: (self.root / n).read_bytes() for n in ORIGINALS})
+
     def test_hidden_untracked_and_authored_changes_refuse(self):
         for name in ['authored.mjs', '.hidden-state']:
             with self.subTest(name=name):
