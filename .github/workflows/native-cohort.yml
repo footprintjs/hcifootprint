@@ -1,0 +1,46 @@
+name: Native source cohort
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  NPM_CONFIG_FETCH_RETRIES: '0'
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  native-source:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: hci-native/source
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Original input, strict native contexts and every HCI gate
+        working-directory: hci-native/source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HCI_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+          HCI_SOURCE_BASE: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/cohort/native_input.mjs
+      - name: Retain actual source, input, graph, command and restoration proof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hcifootprint-native-${{ matrix.node }}-${{ github.event.pull_request.head.sha }}
+          path: |
+            hci-native/proof/
+            hci-native/inputs/original-source.zip
+            hci-native/pack/
+          if-no-files-found: error

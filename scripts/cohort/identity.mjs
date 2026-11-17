@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 // someone found the literal. Now:
 //   - workspace mode (`--workspaces ROOT`) reads `packages['node_modules/<name>'].version` from ROOT's
 //     package-lock.json, for the cohort and for the demos' agentfootprint;
+//   - docs mode (`--docs ROOT`) uses that same root lock, checks the linked docs install, then rechecks
+//     the existing workspace identity without replacing either installation's own metadata;
 //   - consumer mode reads the consumer's own package.json `dependencies`, which prepare-consumer.mjs
 //     writes as the exact versions of that same root lock.
 // This file is copied into a fresh consumer and run there, so it imports only `node:` builtins; it
@@ -163,11 +165,24 @@ export function verifyWorkspaceIdentity(root) {
   return { kind: 'actual-workspace-cohort-identity', workspaces, ...verifyResolutions(root, contexts, expected) };
 }
 
+/** Docs install separately and intentionally link HCI to this exact source checkout. */
+export function verifyDocsIdentity(root) {
+  root = realpathSync(root);
+  const docs = realpathSync(join(root, 'docs-next'));
+  const hci = packageRoot(docs, 'hcifootprint');
+  assert.equal(hci, root, 'Docs HCI must resolve to the current root source');
+  const expected = lockedVersions(root);
+  const result = verifyResolutions(docs,
+    { consumer: docs, root, hcifootprint: hci, footprintjs: packageRoot(docs, 'footprintjs') }, expected);
+  return { kind: 'actual-docs-cohort-identity', root, docs, hci, ...result, workspace: verifyWorkspaceIdentity(root) };
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   const workspace = process.argv[2] === '--workspaces';
-  const root = resolve(process.argv[workspace ? 3 : 2] ?? '.');
+  const docs = process.argv[2] === '--docs';
+  const root = resolve(process.argv[workspace || docs ? 3 : 2] ?? '.');
   try {
-    console.log(JSON.stringify(workspace ? verifyWorkspaceIdentity(root) : verifyIdentity(root), null, 2));
+    console.log(JSON.stringify(workspace ? verifyWorkspaceIdentity(root) : docs ? verifyDocsIdentity(root) : verifyIdentity(root), null, 2));
   } catch (error) {
     // One sentence, not a stack or an assertion diff: every failure above names what it looked at.
     console.error(`identity: ${error.message.split('\n')[0]}`);

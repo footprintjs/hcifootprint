@@ -100,3 +100,31 @@ hand-edited lock entries or source substitutes belong in the consumer.
 
 Keep the actual outputs when reporting a result. A syntax check or a fixture
 test pass does not establish that the installed runtime or types passed.
+
+## Qualified native source input
+
+`native_input.mjs` is the sole fixed native CI facade. Its private component
+is described in [native_input/README.md](native_input/README.md). The separate
+`Native source cohort` workflow runs on the exact PR source head, on both
+maintained Node versions, and retains actual input, command, physical graph,
+compiler, archive-member and restoration evidence.
+
+The reviewed input row names one original AgentFootprint RC archive and exact
+published core versions/registry SRIs. It never rebuilds or relabels the
+producer. Only the two demo AF requests temporarily use that original tarball;
+normal npm creates the strict root/workspace and separate docs setup locks.
+Original raw manifests and locks are restored after the run. The fresh packed
+consumer keeps its original specimens and receives no invented AF dependency.
+
+Ordinary `check-pins.mjs` remains unchanged in policy and refuses non-registry
+requests/prereleases. A qualified native pin verdict is separate and reuses its
+plain structural/range assertions. The retained normal locks remain a prior
+published baseline while the AF RC is unpublished; they are never presented as
+candidate install proof. Native CI cannot make the ordinary registry jobs green.
+
+Native readiness permits only the explicitly recorded producer docs/Lens
+bootstrap hold. It is not final producer/registry acceptance. Every HCI gate,
+including HCI docs, remains required. Token access is measured in this workflow;
+403/404, changed input or another failed producer gate refuses without a retry,
+credential fallback or settings change. No Browser proof, benchmark score,
+timeout or paid comparison is supplied by these source checks.
