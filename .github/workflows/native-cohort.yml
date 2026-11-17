@@ -27,6 +27,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
+      # npm10's fresh peer resolver can crash before strict installation on Node22.
+      # Keep the same supported, exact package manager in both native contexts.
+      - name: Pin the native package manager
+        run: npm install --global npm@11.19.1 --ignore-scripts --no-audit --no-fund
       - name: Original input, strict native contexts and every HCI gate
         working-directory: hci-native/source
         env:
@@ -43,4 +47,5 @@ jobs:
             hci-native/proof/
             hci-native/inputs/original-source.zip
             hci-native/pack/
+            hci-native/npm-cache/_logs/
           if-no-files-found: error

@@ -42,6 +42,9 @@ The root npm request names the qualified exact core releases, keeping the
 authored caret ranges unchanged. It does not select workspace-wide package saves;
 the ordinary root install still links and locks both declared workspaces. Source
 guards reject any manifest rewrite, and native pins require the exact core URL/SRI.
+Both hosted Node contexts use npm11.19.1: the Node22-bundled npm10 fresh peer
+resolver crashed before installation (`npm/cli#9787`). Strict peers remain enabled;
+the exact tool version and original npm diagnostic logs are retained with results.
 
 The native result explicitly leaves ordinary registry readiness and final
 producer whole-CI readiness false. Only the qualified producer's named
