@@ -40,10 +40,17 @@ function earlyPreflight(workflow) {
   let entries = 0;
   for (const job of Object.values(workflow.jobs)) {
     const steps = job.steps ?? [];
-    const entry = steps.findIndex(step => step.run === 'node scripts/cohort/native_input.mjs');
+    const entry = steps.findIndex(step => ['node scripts/cohort/native_input.mjs',
+      'node scripts/cohort/native_input.mjs view-${{ matrix.view }}'].includes(step.run));
     if (entry < 0) continue;
     entries++;
-    assert.equal(job.if, undefined, 'Required native work cannot be conditional');
+    const isView = steps[entry].run !== 'node scripts/cohort/native_input.mjs';
+    if (isView) {
+      assert.equal(job.if, '${{ always() }}', 'Proof views must expose failed or cancelled dependencies');
+      assert.equal(job.needs, 'native-source');
+      assert.equal(steps[entry].env.HCI_EXECUTORS_RESULT, '${{ needs.native-source.result }}');
+      assert.equal(steps[entry].env.HCI_VIEW_NODE, '${{ matrix.node }}');
+    } else assert.equal(job.if, undefined, 'Required native work cannot be conditional');
     assert.ok(job['continue-on-error'] === undefined || job['continue-on-error'] === false);
     const firstShell = steps.findIndex(step => Object.hasOwn(step, 'run'));
     const preflight = steps[firstShell];
@@ -70,16 +77,60 @@ function earlyPreflight(workflow) {
       assert.ok(step['continue-on-error'] === undefined || step['continue-on-error'] === false);
     }
     const tail = steps.slice(entry + 1);
-    assert.equal(tail.length, 1, 'Only proof retention follows native execution');
-    assert.match(tail[0].uses ?? '', /^actions\/upload-artifact@/);
-    assert.equal(tail[0].run, undefined, 'No later shell effect may bypass refusal');
-    assert.equal(tail[0].if, 'always()');
+    assert.equal(tail.length, isView ? 0 : 1, 'Only proof retention follows native execution');
+    if (!isView) {
+      assert.match(tail[0].uses ?? '', /^actions\/upload-artifact@/);
+      assert.equal(tail[0].run, undefined, 'No later shell effect may bypass refusal');
+      assert.equal(tail[0].if, 'always()');
+    }
   }
   assert.ok(entries > 0, 'The native execution entry must remain present');
 }
 
 test('metadata preflight precedes npm setup and cannot be bypassed', () => {
   earlyPreflight(native());
+});
+
+test('every same-run proof reader preserves admission, failure and source bindings', () => {
+  const workflow = native();
+  for (const fault of [
+    j => { j.if = false; }, j => { j['continue-on-error'] = true; },
+    j => { j.steps[2].if = 'always()'; },
+    j => { j.steps[3].if = 'always()'; },
+    j => { j.steps[3].env.HCI_EXECUTORS_RESULT = 'success'; },
+    j => { j.steps[3].env.HCI_VIEW_NODE = '24'; },
+    j => j.steps.push({ run: 'npm install', if: 'always()' }),
+    j => { j.steps[0].with.ref = 'main'; },
+    j => { j.needs = []; },
+  ]) {
+    const changed = structuredClone(workflow); fault(changed.jobs['proof-view']);
+    assert.throws(() => earlyPreflight(changed));
+  }
+});
+
+test('PR source profile preserves nine context names and main keeps ordinary readiness', () => {
+  const workflow = native();
+  assert.deepEqual(workflow.on, { pull_request: { branches: ['main'] } });
+  assert.deepEqual(Object.keys(workflow.jobs).sort(), ['file-size', 'native-source', 'proof-view', 'structure-advisory']);
+  assert.deepEqual(workflow.jobs['native-source'].strategy, { 'fail-fast': false, matrix: { node: [22, 24] } });
+  const view = workflow.jobs['proof-view'];
+  assert.equal(view.name, '${{ matrix.name }}');
+  assert.equal(view.strategy['fail-fast'], false);
+  assert.deepEqual(view.strategy.matrix.include, [
+    { view: 'test', node: '22', name: 'test' }, { view: 'docs', node: '22', name: 'docs' },
+    { view: 'docs-links', node: '22', name: 'docs-links' },
+    { view: 'installed-cohort', node: '22', name: 'installed-cohort (22)' },
+    { view: 'installed-cohort', node: '24', name: 'installed-cohort (24)' },
+  ]);
+  const read = name => parsedWorkflow(readFileSync(new URL('../../../.github/workflows/' + name, import.meta.url), 'utf8'));
+  const ordinary = read('ci.yml'), cohort = read('cohort.yml');
+  for (const main of [ordinary, cohort]) assert.deepEqual(main.on, { push: { branches: ['main'] } });
+  for (const key of ['file-size', 'structure-advisory']) assert.deepEqual(workflow.jobs[key], cohort.jobs[key]);
+  const runs = job => job.steps.flatMap(step => step.run ? [step.run] : []);
+  assert.deepEqual(runs(ordinary.jobs.test), ['npm ci', 'npm run typecheck', 'npm run build', 'npm test',
+    'npm run test:coverage', 'npx publint', 'npx @arethetypeswrong/cli --pack --profile esm-only']);
+  assert.ok(runs(cohort.jobs['installed-cohort']).includes('npm run test:cohort:pins'));
+  assert.deepEqual(cohort.jobs['installed-cohort'].strategy.matrix.node, [22, 24]);
 });
 
 test('preflight order, bindings and sibling-effect faults refuse', () => {
@@ -154,7 +205,7 @@ test('missing checkout, duplicate keys and unsupported alias or merge semantics 
   ]) assert.throws(() => check(source));
 });
 
-test('the explicit producer-fetch token stays scoped to the native entry', () => {
+test('tokens stay scoped to the fixed producer or same-run proof fetch entries', () => {
   const workflow = native();
   assert.equal(workflow.env?.GH_TOKEN, undefined);
   const tokenSteps = [];
@@ -162,7 +213,7 @@ test('the explicit producer-fetch token stays scoped to the native entry', () =>
     assert.equal(job.env?.GH_TOKEN, undefined);
     for (const step of job.steps ?? []) if (Object.hasOwn(step.env ?? {}, 'GH_TOKEN')) tokenSteps.push(step);
   }
-  assert.equal(tokenSteps.length, 1);
-  assert.equal(tokenSteps[0].run, 'node scripts/cohort/native_input.mjs');
-  assert.equal(tokenSteps[0].env.GH_TOKEN, '${{ github.token }}');
+  assert.deepEqual(tokenSteps.map(step => step.run).sort(), ['node scripts/cohort/native_input.mjs',
+    'node scripts/cohort/native_input.mjs view-${{ matrix.view }}']);
+  for (const step of tokenSteps) assert.equal(step.env.GH_TOKEN, '${{ github.token }}');
 });

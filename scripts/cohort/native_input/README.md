@@ -25,6 +25,7 @@ not a new package export or general-purpose orchestrator.
 | `view_runner.py` | Bind a proof view to the current exact checkout and successful executor contexts. |
 | `proof_transport.py` | Read one exact same-run HCI artifact with the existing workflow token, without retries or executable payloads. |
 | `gates.py` | Require the complete ordered gate census before a passing native verdict. |
+| `command_contract.py` | Check every fixed argv/working-directory statement and share the original badge script. |
 
 Inputs come only from the reviewed `../native-input.json` row and fixed source
 paths. Artifact data does not choose executable code or policy. The workflow
@@ -32,7 +33,7 @@ token is removed before any dependency script/test runs; an authenticated API
 redirect never forwards its Authorization header to the signed asset host.
 Every native checkout explicitly disables credential persistence. The parsed
 workflow regression checks every job and sibling checkout, refuses ambiguous
-YAML, and preserves the one explicit token scope at the producer-fetch entry.
+YAML, and confines tokens to the fixed producer-fetch or same-run proof-fetch entry.
 No `.env`/provider keys, model calls, polling timers or automatic retries exist.
 
 The active v2 input binds C's newly qualified AF original to the fixed published
@@ -76,7 +77,9 @@ results/logs/guards and raw restoration joins. Missing, changed, failed,
 cancelled or unknown evidence refuses; a view does not execute archive content.
 View transport uses the same existing workflow identity for one fixed owning-run
 artifact and removes its token before validation. No public-lock readiness is
-implied. Context changes remain an explicit ownership decision.
+implied. The two installed-cohort PR contexts explicitly certify source compatibility;
+the ordinary positive public-registry profile remains on main and its policy
+is unchanged. No registry-readiness assertion is treated as passed by a refusal.
 
 The native result explicitly leaves ordinary registry readiness and final
 producer whole-CI readiness false. Only the qualified producer's named

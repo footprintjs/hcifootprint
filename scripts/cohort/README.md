@@ -129,7 +129,7 @@ requests/prereleases. A qualified native pin verdict separately admits only the
 exact published engine RC; the record role retains the plain-release law and
 default semver filtering stays enabled. The retained normal locks remain a prior
 published baseline while the AF RC is unpublished; they are never presented as
-candidate install proof. Native CI cannot make the ordinary registry jobs green.
+candidate install proof. Native CI does not establish ordinary registry readiness.
 
 Native readiness permits only the explicitly recorded producer docs/Lens
 bootstrap hold. It is not final producer/registry acceptance. Every HCI gate,
@@ -137,3 +137,22 @@ including HCI docs, remains required. Token access is measured in this workflow;
 403/404, changed input or another failed producer gate refuses without a retry,
 credential fallback or settings change. No Browser proof, benchmark score,
 timeout or paid comparison is supplied by these source checks.
+
+## CI profiles
+
+Pull requests use one same-run source profile. `native-source (22)` and
+`native-source (24)` each execute all 29 required commands against the exact
+qualified original archive. The `test`, `docs`, `docs-links`,
+`installed-cohort (22)` and `installed-cohort (24)` check names are explicit
+source-compatibility proof views. Each verifies the complete matching executor
+artifact, its current run/attempt/source/input, exact command statements and
+restoration evidence. A failed or cancelled executor, missing proof or altered
+payload fails the view. The original shared file-size and structure checks also
+run in that workflow with their unchanged pinned tools.
+
+These PR views certify reviewed source builds, including the unpublished AF RC;
+they do not certify a positive public-registry install. The ordinary `CI` and
+`Runtime cohort` workflows retain their original positive registry/lock commands
+on main-branch pushes. Publication readiness stays blocked while those inputs
+are unavailable. The native run retains the unchanged ordinary pin check's
+expected refusal and separately requires its positive native pin contract.
