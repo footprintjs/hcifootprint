@@ -28,6 +28,12 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
+      - name: Read exact source and target admission before npm setup
+        working-directory: hci-native/source
+        env:
+          HCI_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
+          HCI_SOURCE_BASE: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/cohort/native_input.mjs preflight
       # npm10's fresh peer resolver can crash before strict installation on Node22.
       # Keep the same supported, exact package manager in both native contexts.
       - name: Pin the native package manager
@@ -38,6 +44,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HCI_SOURCE_HEAD: ${{ github.event.pull_request.head.sha }}
           HCI_SOURCE_BASE: ${{ github.event.pull_request.base.sha }}
+          HCI_NODE_MAJOR: ${{ matrix.node }}
         run: node scripts/cohort/native_input.mjs
       - name: Retain actual source, input, graph, command and restoration proof
         if: always()

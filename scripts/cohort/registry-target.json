@@ -1,0 +1,113 @@
+{
+  "protocol": "hcifootprint.registry-target.v1",
+  "status": "PUBLISHED_NEXT_AND_ORIGINAL_PRODUCER_REGISTRY_BYTES_VERIFIED",
+  "qualificationSha256": "a62266a3e3d256d7b817574a62cec5309d1cc4f58dd0b449bd9ba6c546ad53a5",
+  "coreVersions": {
+    "footprintjs": "14.0.0-rc.0",
+    "foottrace": "2.1.0"
+  },
+  "coreArtifacts": {
+    "footprintjs": {
+      "version": "14.0.0-rc.0",
+      "resolved": "https://registry.npmjs.org/footprintjs/-/footprintjs-14.0.0-rc.0.tgz",
+      "integrity": "sha512-oBaE4kZFgLso4DzntWDgTJ03WVdcjMxBmyMa0mqt6XzcIEkBMuOe2P9TKTJSL4L5ZyxjHPutUbPRpYu+APcfDA==",
+      "sourceCommit": "a6a1fdf3cfab2725855f4f565104ada721d19200"
+    },
+    "foottrace": {
+      "version": "2.1.0",
+      "resolved": "https://registry.npmjs.org/foottrace/-/foottrace-2.1.0.tgz",
+      "integrity": "sha512-FaFqEPRvawnfy1AA9mNQ8DqKBlAXNAcM9tLnz7ZDTyYHebQRCawIHI6z4hFl0GOaMokWbIwp8E2jp0naUXNfgQ==",
+      "sourceCommit": "unknown: registry metadata omits gitHead"
+    }
+  },
+  "publishedEngine": {
+    "repository": "footprintjs/footPrint",
+    "source": {
+      "parents": [
+        "54e0b07ec941f48e3238bbd35ec73a6b979039cd",
+        "eed503370dc101b15f6e96e47bd1bfd959b2ac92"
+      ],
+      "sha": "a6a1fdf3cfab2725855f4f565104ada721d19200",
+      "tree": "483b5273bc7c4423f6c1c97dac16fe12e479275f"
+    },
+    "tag": {
+      "ref": "refs/tags/v14.0.0-rc.0",
+      "sha": "a6a1fdf3cfab2725855f4f565104ada721d19200",
+      "type": "commit"
+    },
+    "release": {
+      "draft": false,
+      "html_url": "https://github.com/footprintjs/footPrint/releases/tag/v14.0.0-rc.0",
+      "id": 449380017,
+      "prerelease": true,
+      "published_at": "2026-11-18T00:48:34Z",
+      "tag_name": "v14.0.0-rc.0",
+      "target_commitish": "a6a1fdf3cfab2725855f4f565104ada721d19200"
+    },
+    "run": {
+      "conclusion": "success",
+      "event": "release",
+      "head_sha": "a6a1fdf3cfab2725855f4f565104ada721d19200",
+      "html_url": "https://github.com/footprintjs/footPrint/actions/runs/44210847399",
+      "id": 44210847399,
+      "name": "Publish to npm",
+      "run_attempt": 1,
+      "status": "completed"
+    },
+    "versionStaging": "Reviewed release driver changes only source manifest version13.0.0 to14.0.0-rc.0 after build/tests. Other manifest fields byte-equal; this is not a relabelled downstream source candidate.",
+    "registry": {
+      "package": "footprintjs",
+      "version": "14.0.0-rc.0",
+      "distTags": {
+        "legacy-9": "9.48.4",
+        "next": "14.0.0-rc.0",
+        "latest": "13.0.0"
+      },
+      "peer": "^2.1.0",
+      "subflowCapture": true,
+      "url": "https://registry.npmjs.org/footprintjs/-/footprintjs-14.0.0-rc.0.tgz",
+      "length": 4282582,
+      "sha256": "c9f73ddada14a36c277cbceab6b8b8946710e63493ace1da59e457c36f4e7128",
+      "sri": "sha512-oBaE4kZFgLso4DzntWDgTJ03WVdcjMxBmyMa0mqt6XzcIEkBMuOe2P9TKTJSL4L5ZyxjHPutUbPRpYu+APcfDA==",
+      "sha1": "a8746339a70ec6b7fd54223c1f8c1e3c34255757",
+      "registryIntegrityVerified": true,
+      "attestationVerified": false
+    },
+    "producer": {
+      "artifactId": 14385094373,
+      "bytes": 4269485,
+      "sha256": "57bcc235934ffc9f4a89f8334993db195272acb4871f2718cd12f1e161ffe514",
+      "singleMember": "package.tgz",
+      "metadataSourceRunRepoMatched": true
+    },
+    "archive": {
+      "bytes": 4282582,
+      "sha256": "c9f73ddada14a36c277cbceab6b8b8946710e63493ace1da59e457c36f4e7128",
+      "shasum": "a8746339a70ec6b7fd54223c1f8c1e3c34255757",
+      "integrity": "sha512-oBaE4kZFgLso4DzntWDgTJ03WVdcjMxBmyMa0mqt6XzcIEkBMuOe2P9TKTJSL4L5ZyxjHPutUbPRpYu+APcfDA==",
+      "regularCanonicalMembers": 1289,
+      "unpackedMemberBytes": 15951577,
+      "modes": {
+        "0o644": 1289
+      },
+      "censusCanonicalSha256": "91d1490a85340906def182c2cbba420400a2d4a3458a2cb2655538005f4f8e74",
+      "censusFileSha256": "4bb4bac9ca96220565ea0c6ed6d1652c1b0bd7f5f857c5a95e964ad97e99402d",
+      "censusAlgorithm": "Rows sorted by path; JSON compact ASCII, key order path,size,sha256,mode; file adds one LF",
+      "singleBoundedGzip": true,
+      "memberRoots": {
+        "dist": 1285,
+        "directGit": 4
+      },
+      "sourceMapMembers": 0
+    }
+  },
+  "foottraceRegistry": {
+    "metadataSha256": "ea2a5eced402fb2fa47e09ca756edeb69b67623aa25a855647862e6f9616008d",
+    "package": "foottrace",
+    "version": "2.1.0",
+    "tarball": "https://registry.npmjs.org/foottrace/-/foottrace-2.1.0.tgz",
+    "integrity": "sha512-FaFqEPRvawnfy1AA9mNQ8DqKBlAXNAcM9tLnz7ZDTyYHebQRCawIHI6z4hFl0GOaMokWbIwp8E2jp0naUXNfgQ==",
+    "shasum": "6b41bb9e6dc68089970ba216010cccc95a5c2394",
+    "gitHead": null
+  }
+}

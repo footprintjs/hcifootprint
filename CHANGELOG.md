@@ -2,10 +2,11 @@
 
 ## [Unreleased]
 
-### Migration: next major — FootPrint 13 and Foottrace 2
+### Migration: next major — published FootPrint 14 RC and Foottrace 2.1
 
-- Prepares published `footprintjs ^13.0.0` and `foottrace ^2.0.0` as runtime
-  dependencies. Both maintained demos prepare `agentfootprint ^15.0.0-rc.0`.
+- Prepares published `footprintjs ^14.0.0-rc.0` and `foottrace ^2.1.0` as runtime
+  dependencies. Both maintained demos await the newly qualified AgentFootprint
+  source before their declaration and genuine lock generation can be finalized.
   Removing support for the previous majors requires a major HCI release;
   this declaration preparation leaves the HCI package version unchanged.
 - Update direct dependencies together and use one physical engine/record cohort.
@@ -13,6 +14,10 @@
   installation proof. Source-pinned installation, identity and runtime checks
   are still required before compatibility can be claimed. Regenerate locks
   normally when the admitted releases are available.
+- The private native route binds the exact published engine RC and stable record
+  artifact to their reviewed registry identities. Ordinary stable policy is
+  unchanged. Pending or historical AF input is refused before native setup;
+  earlier cohort results do not establish compatibility with the new target.
 - No HCI public import or action-completion contract changes.
 - Native source CI separately admits the original authored AgentFootprint RC
   archive, generates strict temporary root/workspace and docs locks, checks

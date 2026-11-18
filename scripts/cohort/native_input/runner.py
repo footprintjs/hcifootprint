@@ -11,8 +11,11 @@ from .artifact import inspect_candidate
 from .pack import inspect_hci_pack
 from .installed import ConsumerGuard, join_image
 from .gates import require_gates
-from .config import load_input
+from .config import load_input, read_authored_target
+from .target import load_registry_target, verify_target_bindings
 from .source_guard import DEMOS, SourceGuard, inventory
+from .proof import seal_proof
+from .command_contract import BADGE_SCRIPT
 from .transport import fetch_candidate
 
 
@@ -136,9 +139,7 @@ class NativeRun:
         self.command('build', ['npm', 'run', 'build'], build=True)
         self.command('library-test', ['npm', 'test'])
         self.command('whole-badge', ['node', '--input-type=module', '-e',
-            "import{readFileSync as r}from'node:fs';import{checkTestBadge,countTestFiles}from'./scripts/check-test-badge.mjs';"
-            "const x=checkTestBadge({readme:r('README.md','utf8'),tally:JSON.parse(r('.test-tally.json','utf8')),testFileCount:countTestFiles()});"
-            "if(x.verdict!=='ok')throw Error(JSON.stringify(x));console.log(JSON.stringify(x));"])
+            BADGE_SCRIPT])
         self.guard.write_bytes('whole-library-tally.json', (self.root / '.test-tally.json').read_bytes())
         self.command('coverage', ['npm', 'run', 'test:coverage'])
         self.command('agent-guide', ['npm', 'run', 'docs:agents:check'])
@@ -172,13 +173,11 @@ class NativeRun:
         self.check('all-native-gates-complete')
 
 
-def run_native(root):
+def preflight_native(root):
+    """Read exact metadata/source bindings only; no setup or compatibility claim."""
     root = Path(root).resolve()
     if root.name != 'source':
         raise ValueError('Native execution requires the isolated source checkout')
-    audit = root.parent
-    with (audit / 'native-consumed').open('x') as marker:
-        marker.write('one native execution; never automatically replay\n')
     if subprocess.check_output(['git', 'status', '--porcelain'], cwd=root):
         raise ValueError('Native execution requires clean exact source')
     source_head = os.environ.get('HCI_SOURCE_HEAD', '')
@@ -190,11 +189,23 @@ def run_native(root):
         raise ValueError('Native checkout differs from the event source head')
     source = {'repository': 'footprintjs/hcifootprint', 'head': actual_head, 'base': source_base,
               'tree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], cwd=root, text=True).strip()}
-    for name in ['inputs', 'pack', 'tmp', 'npm-cache']:
-        (audit / name).mkdir()
     if (root / 'node_modules').exists() or (root / 'docs-next/node_modules').exists():
         raise ValueError('Native execution requires fresh install graphs')
     expected = load_input(root / 'scripts/cohort/native-input.json')
+    target, target_digest = load_registry_target(root / 'scripts/cohort/registry-target.json')
+    authored, demos = read_authored_target(root)
+    verify_target_bindings(expected, authored, demos, target, target_digest)
+    return root, source, expected
+
+
+def run_native(root):
+    # Repeat admission here: a prior workflow read is never an execution grant.
+    root, source, expected = preflight_native(root)
+    audit = root.parent
+    with (audit / 'native-consumed').open('x') as marker:
+        marker.write('one native execution; never automatically replay\n')
+    for name in ['inputs', 'pack', 'tmp', 'npm-cache']:
+        (audit / name).mkdir()
     os.environ.update(TMPDIR=str(audit / 'tmp'), NPM_CONFIG_CACHE=str(audit / 'npm-cache'),
                       NPM_CONFIG_FETCH_RETRIES='0', PYTHONDONTWRITEBYTECODE='1',
                       PYTHONPATH=str(root / 'scripts/cohort'))
@@ -220,7 +231,7 @@ def run_native(root):
                 versions[name] = None
                 diagnostic_errors[name] = {'type': type(error).__name__, 'message': str(error)}
                 interrupted = interrupted or not isinstance(error, Exception)
-        result = {'protocol': 'hcifootprint.native-result.v1',
+        result = {'protocol': 'hcifootprint.native-result.v2',
                   'status': ('unknown-interrupted' if interrupted else
                              'passed' if primary is None and cleanup is None and not diagnostic_errors else 'failed'),
                   'primaryError': {'type': type(primary).__name__, 'message': str(primary)} if primary else None,
@@ -228,12 +239,16 @@ def run_native(root):
                   'node': versions['node'], 'npm': versions['npm'], 'diagnosticErrors': diagnostic_errors,
                   'python': sys.version,
                   'source': source,
+                  'tested': {'head': source['head'], 'tree': source['tree']},
+                  'executor': {'job': os.environ.get('GITHUB_JOB'),
+                               'nodeMajor': os.environ.get('HCI_NODE_MAJOR')},
                   'workflowRun': os.environ.get('GITHUB_RUN_ID'),
                   'workflowAttempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
                   'input': expected, 'commands': run.records,
                   'ordinaryRegistryReady': False, 'producerWholeCIReady': False}
         try:
             run.guard.write('native-result.json', result)
+            seal_proof(run.guard)
         except BaseException as evidence_error:
             result['evidenceError'] = {'type': type(evidence_error).__name__, 'message': str(evidence_error)}
             result['status'] = ('unknown-interrupted' if interrupted or not isinstance(evidence_error, Exception)

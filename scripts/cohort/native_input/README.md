@@ -1,7 +1,7 @@
 # Native source cohort component
 
 The owner is the adjacent `../native_input.mjs` facade. It has only the fixed
-native execution and pin-check doors; caller roots, commands, callbacks and
+read-only preflight, native execution and pin-check doors; caller roots, commands, callbacks and
 module selectors are refused. Before the strict install its fixed Python
 bootstrap imports only standard-library code. This is nonpublishing CI tooling,
 not a new package export or general-purpose orchestrator.
@@ -11,13 +11,19 @@ not a new package export or general-purpose orchestrator.
 | `artifact.py` | Validate the bounded original AF ZIP/TGZ/manifest/member data. |
 | `transport.py` | Read the exact qualified producer with the existing workflow token; preserve the named hold and refuse every other failure. |
 | `config.py` | Refuse unknown/provisional input fields before transport or setup. |
+| `target.py` | Bind the published registry target to source/release/producer evidence and authored/AF requests before effects. |
 | `source_guard.py` | Protect authored/proof/input/build/tool bytes and restore raw originals/absences. |
 | `owned_files.py` | Use admitted directory descriptors for recovery and proof I/O; never follow replacement links. |
 | `tool_patch.py` | Derive the entire permitted tool leaf from original bytes and the authored patch. |
 | `installed.py` | Join installed members and retain the independent consumer/compiler/specimen graph. |
 | `pack.py` | Join the actual HCI pack/report/public manifest to every built member. |
 | `pins.mjs` | Check original authored ranges against real temporary requests/locks without changing ordinary policy. |
+| `registry-pins.mjs` | Admit exact qualified registry core metadata; only the published engine role may use its RC. |
 | `runner.py` | Wire the one fixed recipe, preserve original and restoration failures separately, retain actual results. |
+| `proof.py` | Seal every retained raw proof byte and enforce owned-file bounds. |
+| `views.py` | Verify complete sealed current-run evidence before a fixed source-compatibility view. |
+| `view_runner.py` | Bind a proof view to the current exact checkout and successful executor contexts. |
+| `proof_transport.py` | Read one exact same-run HCI artifact with the existing workflow token, without retries or executable payloads. |
 | `gates.py` | Require the complete ordered gate census before a passing native verdict. |
 
 Inputs come only from the reviewed `../native-input.json` row and fixed source
@@ -28,6 +34,20 @@ Every native checkout explicitly disables credential persistence. The parsed
 workflow regression checks every job and sibling checkout, refuses ambiguous
 YAML, and preserves the one explicit token scope at the producer-fetch entry.
 No `.env`/provider keys, model calls, polling timers or automatic retries exist.
+
+The active v2 input binds C's newly qualified AF original to the fixed published
+registry target and its independent source/native review. A closed pending record
+is also recognized as a refusal state; it contains no AF IDs or hashes.
+The workflow runs the fixed metadata preflight before npm setup, without a token
+or setup files. Runtime admission repeats the reads before its consumed marker;
+a prior preflight is not cached authority. Metadata qualification is not provider
+archive-byte admission or compatibility. Pending/historical input and mismatched authored or producer requests refuse
+before consumed state, audit setup, token access or npm. A ready input must bind
+the exact raw registry-target bytes. Its engine RC has reviewed published
+source/tag/release/run/original-registry byte evidence; its stable record keeps
+the ordinary release rule. Default semver satisfaction is never widened with an
+include-prerelease switch. Unknown registry gitHead and unverified attestations
+remain explicit. Earlier cohort proof remains historical, not new-target proof.
 
 The three install owners are root+both demos, separately linked docs, and the
 fresh packed consumer. Physical checks cover hidden/aliased/linked core images,
@@ -48,6 +68,15 @@ guards reject any manifest rewrite, and native pins require the exact core URL/S
 Both hosted Node contexts use npm11.19.1: the Node22-bundled npm10 fresh peer
 resolver crashed before installation (`npm/cli#9787`). Strict peers remain enabled;
 the exact tool version and original npm diagnostic logs are retained with results.
+
+A final native proof seal binds the complete retained proof file set and raw
+hashes. Source-compatibility proof views require the exact current checkout,
+workflow run/attempt, Node executor, admitted input, all 29 commands, per-command
+results/logs/guards and raw restoration joins. Missing, changed, failed,
+cancelled or unknown evidence refuses; a view does not execute archive content.
+View transport uses the same existing workflow identity for one fixed owning-run
+artifact and removes its token before validation. No public-lock readiness is
+implied. Context changes remain an explicit ownership decision.
 
 The native result explicitly leaves ordinary registry readiness and final
 producer whole-CI readiness false. Only the qualified producer's named

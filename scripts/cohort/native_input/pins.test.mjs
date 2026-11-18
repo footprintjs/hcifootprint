@@ -13,24 +13,31 @@ function fixture(t) {
   t.after(() => rmSync(audit, { recursive: true, force: true }));
   const root = join(audit, 'source'); mkdirSync(root);
   const demos = ['demos/live-desk', 'demos/onboarding-wizard'];
-  const pkg = { name: 'hcifootprint', version: '4.1.0', dependencies: { footprintjs: '^13.0.0', foottrace: '^2.0.0' },
+  const targetRaw = readFileSync(new URL('../registry-target.json', import.meta.url));
+  const target = JSON.parse(targetRaw);
+  const pkg = { name: 'hcifootprint', version: '4.1.0', dependencies: Object.fromEntries(
+    Object.entries(target.coreVersions).map(([name, version]) => [name, '^' + version])),
     devDependencies: { vite: '8.3.5' }, workspaces: demos };
   const demo = { dependencies: { hcifootprint: 'file:../..', agentfootprint: '^15.0.0-rc.0' } };
   const docs = { dependencies: { hcifootprint: 'file:..' } };
   const archive = join(audit, 'original.tgz'); writeFileSync(archive, 'original-data-only');
-  const input = { status: 'NATIVE_SOURCE_READY', coreVersions: { footprintjs: '13.0.0', foottrace: '2.0.0' },
+  const input = { status: 'NATIVE_SOURCE_READY', protocol: 'hcifootprint.native-input.v2',
+    registryTargetSha256: createHash('sha256').update(targetRaw).digest('hex'),
+    coreVersions: structuredClone(target.coreVersions),
     archive: { version: '15.0.0-rc.0', integrity: 'sha512-fixture',
     sha256: createHash('sha256').update(readFileSync(archive)).digest('hex') } };
   const spec = `file:${archive}`;
   const projected = structuredClone(demo); projected.dependencies.agentfootprint = spec;
   const lock = { packages: { '': structuredClone(pkg), ...Object.fromEntries(demos.map(d => [d, structuredClone(projected)])),
-    'node_modules/footprintjs': { version: '13.0.0' }, 'node_modules/foottrace': { version: '2.0.0' },
+    'node_modules/footprintjs': { version: input.coreVersions.footprintjs },
+    'node_modules/foottrace': { version: input.coreVersions.foottrace },
     'node_modules/agentfootprint': { version: input.archive.version, resolved: spec, integrity: input.archive.integrity },
     'node_modules/vite': { version: '8.3.5' } } };
   input.coreArtifacts = {};
   for (const name of ['footprintjs', 'foottrace']) {
-    const facts = { resolved: `https://registry.npmjs.org/${name}/-/${name}-${input.coreVersions[name]}.tgz`, integrity: `sha512-${name}-fixture` };
-    Object.assign(lock.packages[`node_modules/${name}`], facts); input.coreArtifacts[name] = facts;
+    const facts = target.coreArtifacts[name];
+    Object.assign(lock.packages[`node_modules/${name}`], { resolved: facts.resolved, integrity: facts.integrity });
+    input.coreArtifacts[name] = structuredClone(facts);
   }
   const docsLock = { packages: { '..': structuredClone(pkg) } };
   const originals = {};
@@ -41,6 +48,8 @@ function fixture(t) {
     originals[name] = { base64: Buffer.from(JSON.stringify(value)).toString('base64'), mode: 0o644 };
     write(name, value);
   }
+  write('scripts/cohort/registry-target.json', target);
+  writeFileSync(join(root, 'scripts/cohort/registry-target.json'), targetRaw);
   for (const d of demos) write(`${d}/package.json`, projected);
   write('package-lock.json', lock); write('docs-next/package-lock.json', docsLock);
   const check = () => checkNativePins(root, originals, archive, input);
@@ -94,8 +103,8 @@ test('extra locked AF or core copy refuses even at the same version', t => {
   }
 });
 
-test('AF source mode does not permit core prereleases or replace the coverage transformer', t => {
-  for (const [name, version] of [['footprintjs', '13.0.0-rc.0'], ['foottrace', '2.0.0-rc.0'], ['vite', '6.4.5']]) {
+test('AF source mode does not permit unqualified core prereleases or replace the coverage transformer', t => {
+  for (const [name, version] of [['footprintjs', '14.0.0-rc.1'], ['foottrace', '2.1.0-rc.0'], ['vite', '6.4.5']]) {
     const f = fixture(t); f.lock.packages[`node_modules/${name}`].version = version;
     f.write('package-lock.json', f.lock); assert.throws(f.check);
   }

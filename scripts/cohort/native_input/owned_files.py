@@ -63,14 +63,20 @@ class OwnedFiles:
         finally:
             os.close(descriptor)
 
-    def read(self, path):
+    def read(self, path, limit=None):
         descriptor = self.parent(path)
         try:
-            leaf = os.open(Path(path).name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=descriptor)
+            leaf = os.open(Path(path).name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor)
             with os.fdopen(leaf, 'rb') as stream:
-                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                meta = os.fstat(stream.fileno())
+                if not stat.S_ISREG(meta.st_mode):
                     raise ValueError('Owned regular file required')
-                return stream.read()
+                if limit is not None and meta.st_size > limit:
+                    raise ValueError('Owned file exceeds its fixed byte bound')
+                raw = stream.read() if limit is None else stream.read(limit + 1)
+                if limit is not None and len(raw) > limit:
+                    raise ValueError('Owned file grew beyond its fixed byte bound')
+                return raw
         finally:
             os.close(descriptor)
 

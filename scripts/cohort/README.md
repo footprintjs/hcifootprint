@@ -109,7 +109,15 @@ is described in [native_input/README.md](native_input/README.md). The separate
 maintained Node versions, and retains actual input, command, physical graph,
 compiler, archive-member and restoration evidence.
 
-The reviewed input row names one original AgentFootprint RC archive and exact
+The fixed registry target binds the published engine RC and stable record version
+to their exact registry/source/release/producer identities. Its qualification
+does not claim cryptographic attestation verification. The active v2 input binds
+the newly qualified original AF archive to that target and its independent review.
+A closed `AWAITING_QUALIFIED_AF` row refuses without invented AF identities. A
+historical ready row cannot carry to a different target. Read-only preflight
+precedes npm setup; runtime admission repeats before token access and consumed state.
+
+A ready v2 input row names one original AgentFootprint RC archive and exact
 published core versions/registry SRIs. It never rebuilds or relabels the
 producer. Only the two demo AF requests temporarily use that original tarball;
 normal npm creates the strict root/workspace and separate docs setup locks.
@@ -117,8 +125,9 @@ Original raw manifests and locks are restored after the run. The fresh packed
 consumer keeps its original specimens and receives no invented AF dependency.
 
 Ordinary `check-pins.mjs` remains unchanged in policy and refuses non-registry
-requests/prereleases. A qualified native pin verdict is separate and reuses its
-plain structural/range assertions. The retained normal locks remain a prior
+requests/prereleases. A qualified native pin verdict separately admits only the
+exact published engine RC; the record role retains the plain-release law and
+default semver filtering stays enabled. The retained normal locks remain a prior
 published baseline while the AF RC is unpublished; they are never presented as
 candidate install proof. Native CI cannot make the ordinary registry jobs green.
 

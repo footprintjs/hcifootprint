@@ -88,8 +88,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "footprintjs": "^13.0.0",
-    "foottrace": "^2.0.0"
+    "footprintjs": "^14.0.0-rc.0",
+    "foottrace": "^2.1.0"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": ">=1.32.0",
