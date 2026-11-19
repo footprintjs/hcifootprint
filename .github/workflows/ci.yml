@@ -33,7 +33,7 @@ jobs:
           cache: npm
 
       - run: npm ci --ignore-scripts --strict-peer-deps
-      # Keep the retired bootstrap's pure fault fixtures offline and required.
+      # Keep the active pack-fidelity fault fixtures offline and required.
       - run: npm run test:cohort
       - run: python3 -m unittest discover -s scripts/cohort/native_input -p '*_test.py'
       - run: npm run typecheck

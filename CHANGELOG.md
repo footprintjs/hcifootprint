@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-### Migration: next major — stable engine 14 and Foottrace 2.1
+## [5.0.0] - 2026-11-19
+
+### Migration: engine 14 host peer and Foottrace 2.1
 
 - Requires `footprintjs ^14.0.0` as a required peer and `foottrace ^2.1.0`
   as the runtime record dependency. Engines 11, 12, 13 and engine prereleases
@@ -13,8 +15,8 @@
   engine beside a caller's chart. Development installs use the same engine
   range; physical identity checks continue to reject hidden or nested copies.
 - This is a breaking dependency contract and requires a major HCI release.
-  The draft retains its current package version; the coordinator numbers and
-  publishes the major through the repository's reviewed release route.
+  Version 5.0.0 marks that contract; publication remains the coordinator's
+  decision through the repository's reviewed release route.
 - Both maintained demos now declare published AgentFootprint 15. Genuine
   root/workspace and linked-docs locks replace the old published baseline;
   no sibling archive or manually constructed lock entry is used.
@@ -24,7 +26,9 @@
   an uncommitted tool version; a missing local tool now fails without a fallback.
 - Required CI checks the package's own committed source and locked graph.
   The former live sibling-run/RC bootstrap is no longer an active merge gate.
-  Its independent guard fixtures remain tested for historical proof readers.
+  The unused candidate harness and its fault fixtures are preserved unchanged
+  on `archive/rc-native-input` instead of being added to the normal release.
+  Only the normal pack-fidelity and CI-wiring import closure remains here.
   External demo/consumer compatibility remains visible as a report and cannot
   turn a sibling publication or live service into this package's merge gate.
 - Corrects migration-note defects: the previous entry still said the AF source

@@ -102,62 +102,19 @@ hand-edited lock entries or source substitutes belong in the consumer.
 Keep the actual outputs when reporting a result. A syntax check or a fixture
 test pass does not establish that the installed runtime or types passed.
 
-## Historical qualified native source input
+## Archived candidate route
 
-The preceding RC-only draft used `native_input.mjs` and the private component
-described in [native_input/README.md](native_input/README.md). Its source freeze
-and receipts remain historical evidence; the current required workflows do not
-call its producer transport or proof views. The independent guard fixtures stay
-tested. The mechanisms below describe that frozen profile, not a claim that its
-AF input is the current stable package or that its publication holds still apply.
+The unpublished-candidate transport, projection, snapshots and private fault
+fixtures are not part of the normal release. They are preserved unchanged on
+[`archive/rc-native-input`](https://github.com/footprintjs/hcifootprint/tree/archive/rc-native-input).
+The [complete original rationale and protocol](https://github.com/footprintjs/hcifootprint/blob/e07b5e7fbb0be9ac41b02d90d9a446eb26d08824/scripts/cohort/native_input/README.md)
+and the former profile's proof stay available there; no archived verdict is
+current package acceptance.
 
-The fixed registry target binds the published engine RC and stable record version
-to their exact registry/source/release/producer identities. Its qualification
-does not claim cryptographic attestation verification. The active v2 input binds
-the newly qualified original AF archive to that target and its independent review.
-A closed `AWAITING_QUALIFIED_AF` row refuses without invented AF identities. A
-historical ready row cannot carry to a different target. Read-only preflight
-precedes npm setup; runtime admission repeats before token access and consumed state.
-
-A ready v2 input row names one original AgentFootprint RC archive and exact
-published core versions/registry SRIs. It never rebuilds or relabels the
-producer. Only the two demo AF requests temporarily use that original tarball;
-normal npm creates the strict root/workspace and separate docs setup locks.
-Original raw manifests and locks are restored after the run. The fresh packed
-consumer keeps its original specimens and receives no invented AF dependency.
-
-Ordinary `check-pins.mjs` remains unchanged in policy and refuses non-registry
-requests/prereleases. A qualified native pin verdict separately admits only the
-exact published engine RC; the record role retains the plain-release law and
-default semver filtering stays enabled. The retained normal locks remain a prior
-published baseline while the AF RC is unpublished; they are never presented as
-candidate install proof. Native CI does not establish ordinary registry readiness.
-
-Native readiness permits only the explicitly recorded producer docs/Lens
-bootstrap hold. It is not final producer/registry acceptance. Every HCI gate,
-including HCI docs, remains required. Token access is measured in this workflow;
-403/404, changed input or another failed producer gate refuses without a retry,
-credential fallback or settings change. No Browser proof, benchmark score,
-timeout or paid comparison is supplied by these source checks.
-
-## Historical RC CI profiles
-
-Pull requests use one same-run source profile. `native-source (22)` and
-`native-source (24)` each execute all 29 required commands against the exact
-qualified original archive. The `test`, `docs`, `docs-links`,
-`installed-cohort (22)` and `installed-cohort (24)` check names are explicit
-source-compatibility proof views. Each verifies the complete matching executor
-artifact, its current run/attempt/source/input, exact command statements and
-restoration evidence. A failed or cancelled executor, missing proof or altered
-payload fails the view. The original shared file-size and structure checks also
-run in that workflow with their unchanged pinned tools.
-
-These PR views certify reviewed source builds, including the unpublished AF RC;
-they do not certify a positive public-registry install. The ordinary `CI` and
-`Runtime cohort` workflows retain their original positive registry/lock commands
-on main-branch pushes. Publication readiness stays blocked while those inputs
-are unavailable. The native run retains the unchanged ordinary pin check's
-expected refusal and separately requires its positive native pin contract.
+Only [pack fidelity and CI wiring](native_input/README.md) are used from that
+component now. Their own effect-free behavior tests remain with their code;
+tests of retired helpers stay with the archive, so a normal green gate does
+not suggest that the retired candidate route is active.
 
 ## Current stable CI
 

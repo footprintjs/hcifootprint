@@ -1,6 +1,6 @@
 {
   "name": "hcifootprint",
-  "version": "4.1.0",
+  "version": "5.0.0",
   "description": "TypeScript action and journey graphs for agent-accessible web apps, with live availability and recorded interaction outcomes.",
   "homepage": "https://footprintjs.github.io/hcifootprint/",
   "repository": {
@@ -67,7 +67,7 @@
     "docs:toolchain:prepare": "patch-package --error-on-fail",
     "docs:toolchain:check": "npm run docs:toolchain:prepare && node --test scripts/typedoc-glob-compat.test.mjs",
     "test:cohort:pins": "node scripts/cohort/check-pins.mjs",
-    "test:cohort": "node --test scripts/cohort/*.test.mjs scripts/cohort/native_input/*.test.mjs",
+    "test:cohort": "node --test scripts/cohort/*.test.mjs scripts/cohort/native_input/workflow.test.mjs",
     "test:package": "publint && attw --pack --profile esm-only"
   },
   "keywords": [
