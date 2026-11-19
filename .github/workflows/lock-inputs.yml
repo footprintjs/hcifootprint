@@ -22,8 +22,8 @@ env:
 jobs:
   lock-inputs:
     name: lock-inputs (report)
-    # Hosted npm supplies genuine lock bytes; it never certifies compatibility.
-    # Required source checks remain red until those reviewed bytes are committed.
+    # Hosted npm proposes a full tool refresh by regenerating both locks.
+    # This report is not migration lock generation or compatibility acceptance.
     continue-on-error: true
     runs-on: ubuntu-latest
     steps:

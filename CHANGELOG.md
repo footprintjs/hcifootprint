@@ -15,11 +15,13 @@
   engine beside a caller's chart. Development installs use the same engine
   range; physical identity checks continue to reject hidden or nested copies.
 - This is a breaking dependency contract and requires a major HCI release.
-  Version 5.0.0 marks that contract; publication remains the coordinator's
-  decision through the repository's reviewed release route.
-- Both maintained demos now declare published AgentFootprint 15. Genuine
-  root/workspace and linked-docs locks replace the old published baseline;
-  no sibling archive or manually constructed lock entry is used.
+  Version 5.0.0 marks that contract.
+- Both maintained demos now declare published AgentFootprint 15. The locks
+  update the engine, the record package and the demos' AgentFootprint, and
+  add the two package tools with their required dependencies. Existing
+  development-tool versions stay locked; the linked-docs lock changes only
+  its HCI metadata. No sibling archive or manually constructed lock entry
+  is used.
   The testing baseline is Foottrace 2.2.0; the accepted range remains `^2.1.0`.
 - Package correctness tools are now explicit development dependencies, invoked
   through their local binaries. The previous `npx` gates could silently fetch

@@ -127,7 +127,9 @@ physical census still rejects extra hidden, aliased and nested engine copies.
 Required checks install only the committed graph and exercise this package's
 own source, coverage, types, docs content and local package tools. Demo and
 independent fresh-install compatibility observations remain visible reports.
-The lock-inputs preparation workflow uses npm itself to generate proposed
-lock bytes in hosted CI; its artifact is committed before final source checks.
+The lock-inputs workflow regenerates both locks as a full tool-refresh
+proposal in hosted CI; it does not generate a migration's minimal lock update.
+Migration locks retain the existing graph and update only the named packages
+and their required dependencies; final source checks use the committed bytes.
 No invented lock entries, sibling archives, live sibling CI lookup or unpinned
 package-tool fallback supplies required acceptance.
