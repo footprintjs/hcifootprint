@@ -4,7 +4,7 @@ title: ActionGuardContract
 
 # Type Alias: ActionGuardContract
 
-> **ActionGuardContract** = `object` & (\{ `when`: [`WhereFilter`](/api/index/type-aliases/WhereFilter); \} \| \{ `enabledWhen`: [`WhereFilter`](/api/index/type-aliases/WhereFilter); \} \| \{ `blockedBecause`: `NonNullable`\<`object`\[`"blockedBecause"`\]\>; \})
+> **ActionGuardContract** = `object` & \{ `when`: [`WhereFilter`](/api/index/type-aliases/WhereFilter); \} \| \{ `enabledWhen`: [`WhereFilter`](/api/index/type-aliases/WhereFilter); \} \| \{ `blockedBecause`: `NonNullable`\<`object`\[`"blockedBecause"`\]\>; \}
 
 Defined in: [src/action/types.ts:97](https://github.com/footprintjs/hcifootprint/blob/main/src/action/types.ts#L97)
 

@@ -11,20 +11,6 @@ Defined in: [src/action/types.ts:311](https://github.com/footprintjs/hcifootprin
 A callable carrying an action-definition identity. The marker is type-only;
 runtime recognition uses a non-enumerable `Symbol.for` property.
 
-## Type Parameters
-
-### F
-
-`F` *extends* (...`args`) => `any` = (...`args`) => `any`
-
-### Id
-
-`Id` *extends* `string` = `string`
-
-### Mode
-
-`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode) = [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)
-
 ## Type Declaration
 
 ### \[DEFINED\_ACTION\_TYPE\]
@@ -38,3 +24,17 @@ runtime recognition uses a non-enumerable `Symbol.for` property.
 #### \[DEFINED\_ACTION\_TYPE\].invocation
 
 > `readonly` **invocation**: `Mode`
+
+## Type Parameters
+
+### F
+
+`F` *extends* (...`args`) => `any` = (...`args`) => `any`
+
+### Id
+
+`Id` *extends* `string` = `string`
+
+### Mode
+
+`Mode` *extends* [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode) = [`ActionInvocationMode`](/api/index/type-aliases/ActionInvocationMode)

@@ -80,7 +80,7 @@ readers without touching a host or changing binding identity.
 
 ### options
 
-[`UseActionBindingOptions`](/api/react/type-aliases/UseActionBindingOptions)\<`Props`, `Mode` *extends* `"scalar"` ? `Parameters`\<`F`\>\[`0`\] : `undefined`, `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>, `Awaited`\<`HostResult`\>\> & (`Mode` *extends* `"scalar"` ? `unknown` : `object`)
+[`UseActionBindingOptions`](/api/react/type-aliases/UseActionBindingOptions)\<`Props`, `Mode` *extends* `"scalar"` ? `Parameters`\<`F`\>\[`0`\] : `undefined`, `Interactive`, `Id`, `Awaited`\<`ReturnType`\<`F`\>\>, `Awaited`\<`HostResult`\>\> & `Mode` *extends* `"scalar"` ? `unknown` : `object`
 
 ## Returns
 
