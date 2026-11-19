@@ -11,6 +11,8 @@ permissions:
 
 env:
   NPM_CONFIG_FETCH_RETRIES: '0'
+  PYTHONDONTWRITEBYTECODE: '1'
+  PYTHONPATH: scripts/cohort
 
 jobs:
   file-size:
@@ -31,6 +33,57 @@ jobs:
         node: [22, 24]
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # Required checks consume only this commit's normal root/workspace lock.
+      - run: npm ci --ignore-scripts --strict-peer-deps
+      # After the install: check-pins reads ranges with the `semver` devDependency.
+      - run: npm run test:cohort:pins
+      - run: npm run test:cohort
+      - run: npm run build
+      - run: node scripts/cohort/identity.mjs --workspaces .
+      - run: npm run test:package
+      - name: The actual packed manifest and members match this source and build
+        run: |
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" --json > "$RUNNER_TEMP/hci-own-packed.json"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from native_input.pack import inspect_hci_pack
+          root = Path.cwd()
+          temporary = Path(os.environ['RUNNER_TEMP'])
+          reports = json.loads((temporary / 'hci-own-packed.json').read_text())
+          if type(reports) is not list or len(reports) != 1:
+              raise ValueError('Expected the one actual HCI pack report')
+          reported = reports[0]
+          archive = temporary / reported['filename']
+          authored = json.loads((root / 'package.json').read_text())
+          facts = inspect_hci_pack(root, archive, reported, authored)
+          print(json.dumps({key: facts[key] for key in ['kind', 'archive', 'package', 'entryCount', 'distFiles']}, sort_keys=True))
+          PY
+      - run: git diff --exit-code
+
+  compatibility-report:
+    name: published compatibility report (${{ matrix.node }})
+    # The demos and fresh consumer keep all their assertions. A new external
+    # package selection is a report, never a condition for this commit's gates.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}

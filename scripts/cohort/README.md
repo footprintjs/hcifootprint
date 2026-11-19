@@ -22,7 +22,7 @@ scripts.
 
 | check | reads the range from | reads the version from |
 |---|---|---|
-| `check-pins.mjs` | root `package.json · dependencies` (footprintjs, foottrace); each demo's `package.json · dependencies.agentfootprint` | root `package-lock.json` |
+| `check-pins.mjs` | root `package.json · dependencies` or required `peerDependencies` (footprintjs, foottrace); each demo's `package.json · dependencies.agentfootprint` | root `package-lock.json` |
 | `identity.mjs --workspaces ROOT` | — | ROOT's `package-lock.json`, `packages['node_modules/<name>'].version` (footprintjs, foottrace, agentfootprint) |
 | `identity.mjs` (consumer) | — | the consumer's own `package.json · dependencies`, which `prepare-consumer.mjs` wrote |
 | `prepare-consumer.mjs` | — | root `package-lock.json` (`lockedVersion`, as for react and typescript) |
@@ -89,9 +89,10 @@ Run the lightweight checker tests (after `npm ci`) with:
 node --test scripts/cohort/*.test.mjs
 ```
 
-CI owns the heavy proof, on Node22 and Node24. After its normal root install and
-build, it runs the pin/workspace checks and both demos' existing verification
-scripts. It packs HCI with `npm pack --ignore-scripts` after the explicit build.
+CI owns the heavy proof, on Node22 and Node24. Its required checks use the
+committed lock graph for the library, pins, physical identity and package quality.
+Both demos' existing verification scripts run as visible compatibility reports,
+so a sibling's publication or service cannot gate this package. It packs HCI with `npm pack --ignore-scripts` after the explicit build.
 The observed Node22/npm combination still runs HCI's build-only `prepare` hook
 during packing; the flag does not prove that every lifecycle hook was skipped.
 It creates the fresh consumer, runs normal `npm install --ignore-scripts --strict-peer-deps
@@ -100,3 +101,35 @@ hand-edited lock entries or source substitutes belong in the consumer.
 
 Keep the actual outputs when reporting a result. A syntax check or a fixture
 test pass does not establish that the installed runtime or types passed.
+
+## Archived candidate route
+
+The unpublished-candidate transport, projection, snapshots and private fault
+fixtures are not part of the normal release. They are preserved unchanged on
+[`archive/rc-native-input`](https://github.com/footprintjs/hcifootprint/tree/archive/rc-native-input).
+The [complete original rationale and protocol](https://github.com/footprintjs/hcifootprint/blob/e07b5e7fbb0be9ac41b02d90d9a446eb26d08824/scripts/cohort/native_input/README.md)
+and the former profile's proof stay available there; no archived verdict is
+current package acceptance.
+
+Only [pack fidelity and CI wiring](native_input/README.md) are used from that
+component now. Their own effect-free behavior tests remain with their code;
+tests of retired helpers stay with the archive, so a normal green gate does
+not suggest that the retired candidate route is active.
+
+## Current stable CI
+
+The package now declares its engine as a required host peer, with the same
+range in development, and owns its record dependency. `check-pins.mjs` reads
+that declaration's actual npm section and verifies both committed lock roles;
+it rejects optional peers and ambiguous dependency/peer declarations. The
+physical census still rejects extra hidden, aliased and nested engine copies.
+
+Required checks install only the committed graph and exercise this package's
+own source, coverage, types, docs content and local package tools. Demo and
+independent fresh-install compatibility observations remain visible reports.
+The lock-inputs workflow regenerates both locks as a full tool-refresh
+proposal in hosted CI; it does not generate a migration's minimal lock update.
+Migration locks retain the existing graph and update only the named packages
+and their required dependencies; final source checks use the committed bytes.
+No invented lock entries, sibling archives, live sibling CI lookup or unpinned
+package-tool fallback supplies required acceptance.

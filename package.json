@@ -1,6 +1,6 @@
 {
   "name": "hcifootprint",
-  "version": "4.1.0",
+  "version": "5.0.0",
   "description": "TypeScript action and journey graphs for agent-accessible web apps, with live availability and recorded interaction outcomes.",
   "homepage": "https://footprintjs.github.io/hcifootprint/",
   "repository": {
@@ -67,7 +67,8 @@
     "docs:toolchain:prepare": "patch-package --error-on-fail",
     "docs:toolchain:check": "npm run docs:toolchain:prepare && node --test scripts/typedoc-glob-compat.test.mjs",
     "test:cohort:pins": "node scripts/cohort/check-pins.mjs",
-    "test:cohort": "node --test scripts/cohort/*.test.mjs"
+    "test:cohort": "node --test scripts/cohort/*.test.mjs scripts/cohort/native_input/workflow.test.mjs",
+    "test:package": "publint && attw --pack --profile esm-only"
   },
   "keywords": [
     "typescript",
@@ -88,12 +89,12 @@
     "node": ">=22"
   },
   "dependencies": {
-    "footprintjs": "^11.0.0 || ^12.0.0",
-    "foottrace": "^1.11.1"
+    "foottrace": "^2.1.0"
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": ">=1.32.0",
-    "react": "*"
+    "react": "*",
+    "footprintjs": "^14.0.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
@@ -124,7 +125,11 @@
     "unist-util-visit": "^5.0.0",
     "vite": "8.3.5",
     "vitest": "^4.1.12",
-    "zod": "^4.6.6"
+    "yaml": "2.9.0",
+    "zod": "^4.6.6",
+    "footprintjs": "^14.0.0",
+    "publint": "0.3.25",
+    "@arethetypeswrong/cli": "0.18.5"
   },
   "typesVersions": {
     "*": {

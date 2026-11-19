@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import semver from 'semver';
+import { declaredRange, linkedMetadata, lockedInRange, oneHoistedEntry, readJson, runtimeDeclaration } from './pin-assertions.mjs';
 
 // WHY NOTHING HERE NAMES A VERSION. `package.json` is the one place a range is declared and the root
 // lock is the one place an installed version is chosen. This gate only checks that they agree: each
@@ -16,7 +16,7 @@ import semver from 'semver';
 // passes; move the lock to the newer major with npm and it still passes, with no edit to this file.
 // (This file states no version even in a comment: cohort-literals.test.mjs refuses one.)
 
-/** The packages HCI declares in `dependencies` and the root lock must hold exactly once. */
+/** Runtime dependencies or required peers the root lock must hold exactly once. */
 export const RUNTIME_PACKAGES = Object.freeze(['footprintjs', 'foottrace']);
 const LOCKS = [
   ['package-lock.json', '', true],
@@ -24,45 +24,12 @@ const LOCKS = [
 ];
 const DEMOS = ['demos/live-desk', 'demos/onboarding-wizard'];
 
-/** Read a JSON file, or fail with one sentence naming the file (no parser stack). */
-function readJson(root, path) {
-  let text;
-  try {
-    text = readFileSync(resolve(root, path), 'utf8');
-  } catch (error) {
-    throw new Error(`${path}: cannot be read (${error.code ?? error.message})`);
-  }
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`${path}: is not valid JSON (${error.message})`);
-  }
-}
-
-/** A real range: a string npm can read, and not one that accepts every version (`*`, `x`, empty). */
-function declaredRange(dependencies, name, label) {
-  const range = dependencies?.[name];
-  const valid = typeof range === 'string' ? semver.validRange(range) : null;
-  assert.ok(valid !== null && valid !== '*',
-    `${label}: ${name} must declare a semver range, found ${JSON.stringify(range)}`);
-  return range;
-}
-
-/** One locked version: a plain release (no prerelease) inside the declared range. */
-function lockedInRange(path, name, version, range) {
-  assert.ok(typeof version === 'string' && semver.valid(version) !== null && semver.prerelease(version) === null,
-    `${path}: locked ${name}@${version} is not a plain release version`);
-  assert.ok(semver.satisfies(version, range),
-    `${path}: locked ${name}@${version} is outside the declared range ${range}`);
-  return version;
-}
-
 /** Metadata gate only. Installed identity and behavior have separate checks. */
 export function checkPins(root) {
   const read = (path) => readJson(root, path);
   const pkg = read('package.json');
   const ranges = Object.fromEntries(RUNTIME_PACKAGES.map((name) =>
-    [name, declaredRange(pkg.dependencies, name, 'package.json')]));
+    [name, runtimeDeclaration(pkg, name, 'package.json').range]));
   assert.match(pkg.devDependencies?.vite ?? '', /^8\./,
     'The root coverage toolchain must explicitly declare its Vite8 transformer');
   assert.deepEqual(pkg.workspaces, DEMOS, 'Maintained demos must use the root install/lock authority');
@@ -77,13 +44,7 @@ export function checkPins(root) {
   const locked = {};
   for (const [path, linkedRoot, ownsRuntime] of LOCKS) {
     const lock = read(path);
-    assert.ok(lock && typeof lock.packages === 'object' && lock.packages !== null,
-      `${path}: has no "packages" object (expected an npm lockfileVersion 2 or 3 lock)`);
-    const metadata = lock.packages[linkedRoot];
-    for (const [name, range] of Object.entries(ranges)) {
-      assert.equal(metadata?.dependencies?.[name], range, `${path}:${linkedRoot}: ${name} must declare ${range}`);
-    }
-    assert.equal(metadata.version, pkg.version, `${path}: linked HCI version is stale`);
+    linkedMetadata(lock, path, linkedRoot, pkg, ranges);
     if (!ownsRuntime) continue;
     assert.match(lock.packages['node_modules/vite']?.version ?? '', /^8\./,
       `${path}: the root coverage transformer was replaced by demo tooling`);
@@ -94,12 +55,7 @@ export function checkPins(root) {
     locked.agentfootprint = lockedInRange(path, 'agentfootprint',
       lock.packages['node_modules/agentfootprint']?.version, agentRange);
     for (const [name, range] of Object.entries(ranges)) {
-      const entries = Object.entries(lock.packages).filter(([key, value]) =>
-        key.endsWith(`/node_modules/${name}`) || key === `node_modules/${name}` || value?.name === name);
-      assert.equal(entries.length, 1, `${path}: expected one locked ${name}, found ${entries.length}`);
-      // identity.mjs and prepare-consumer.mjs read the version at this key, so the one entry must be it.
-      assert.equal(entries[0][0], `node_modules/${name}`, `${path}: the one locked ${name} must be hoisted at node_modules/${name}`);
-      locked[name] = lockedInRange(path, name, entries[0][1].version, range);
+      locked[name] = lockedInRange(path, name, oneHoistedEntry(lock, path, name).version, range);
     }
   }
   return { kind: 'declaration-and-lock-check', runtimeCompatibility: 'not-tested', locks: LOCKS.length,

@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-11-19
+
+### Migration: engine 14 host peer and Foottrace 2.1
+
+- Requires `footprintjs ^14.0.0` as a required peer and `foottrace ^2.1.0`
+  as the runtime record dependency. Engines 11, 12, 13 and engine prereleases
+  are no longer accepted. Install the host engine explicitly and regenerate
+  the application's lock normally; do not override or hide a second engine.
+- The engine is owned by the host application. HCI uses its public schema,
+  filter and tool contracts, so a private dependency could create a second
+  engine beside a caller's chart. Development installs use the same engine
+  range; physical identity checks continue to reject hidden or nested copies.
+- This is a breaking dependency contract and requires a major HCI release.
+  Version 5.0.0 marks that contract.
+- Both maintained demos now declare published AgentFootprint 15. The locks
+  update the engine, the record package and the demos' AgentFootprint, and
+  add the two package tools with their required dependencies. Existing
+  development-tool versions stay locked; the linked-docs lock changes only
+  its HCI metadata. No sibling archive or manually constructed lock entry
+  is used.
+  The testing baseline is Foottrace 2.2.0; the accepted range remains `^2.1.0`.
+- Package correctness tools are now explicit development dependencies, invoked
+  through their local binaries. The previous `npx` gates could silently fetch
+  an uncommitted tool version; a missing local tool now fails without a fallback.
+- Required CI checks the package's own committed source and locked graph.
+  The former live sibling-run/RC bootstrap is no longer an active merge gate.
+  The unused candidate harness and its fault fixtures are preserved unchanged
+  on `archive/rc-native-input` instead of being added to the normal release.
+  Only the normal pack-fidelity and CI-wiring import closure remains here.
+  External demo/consumer compatibility remains visible as a report and cannot
+  turn a sibling publication or live service into this package's merge gate.
+- Corrects migration-note defects: the previous entry still said the AF source
+  was awaited after qualification and kept ordinary locks stale; the traverse
+  guide and front-page instructions still named older supported engine ranges.
+  No HCI public import or action-completion contract changes, and no product
+  tests are removed.
+
 ## [4.1.0] - 2026-11-12
 
 ### Added
