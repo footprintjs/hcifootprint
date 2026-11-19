@@ -18,6 +18,7 @@
 - Both maintained demos now declare published AgentFootprint 15. Genuine
   root/workspace and linked-docs locks replace the old published baseline;
   no sibling archive or manually constructed lock entry is used.
+  The testing baseline is Foottrace 2.2.0; the accepted range remains `^2.1.0`.
 - Package correctness tools are now explicit development dependencies, invoked
   through their local binaries. The previous `npx` gates could silently fetch
   an uncommitted tool version; a missing local tool now fails without a fallback.

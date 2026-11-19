@@ -30,6 +30,24 @@ const SOURCE = [INSTALL, 'npm run test:cohort',
   "python3 -m unittest discover -s scripts/cohort/native_input -p '*_test.py'",
   'npm run typecheck', 'npm run build', 'npm test', WHOLE_BADGE, 'npm run test:coverage',
   'npm run test:package', 'git diff --exit-code'];
+const OWN_PACK = `npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" --json > "$RUNNER_TEMP/hci-own-packed.json"
+python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+from native_input.pack import inspect_hci_pack
+root = Path.cwd()
+temporary = Path(os.environ['RUNNER_TEMP'])
+reports = json.loads((temporary / 'hci-own-packed.json').read_text())
+if type(reports) is not list or len(reports) != 1:
+    raise ValueError('Expected the one actual HCI pack report')
+reported = reports[0]
+archive = temporary / reported['filename']
+authored = json.loads((root / 'package.json').read_text())
+facts = inspect_hci_pack(root, archive, reported, authored)
+print(json.dumps({key: facts[key] for key in ['kind', 'archive', 'package', 'entryCount', 'distFiles']}, sort_keys=True))
+PY
+`;
 
 function noPersistedCheckoutCredentials(workflow) {
   assert.ok(workflow?.jobs && typeof workflow.jobs === 'object', 'Jobs required');
@@ -68,6 +86,18 @@ function aggregate(job) {
   assert.equal(job.steps.length, 1);
   assert.deepEqual(job.steps[0], { name: 'Require both own source matrices to pass',
     env: { SOURCE_RESULT: '${{ needs.native-source.result }}' }, run: 'test "$SOURCE_RESULT" = success' });
+}
+
+function packEnvironment(workflow) {
+  assert.equal(workflow.env.PYTHONPATH, 'scripts/cohort');
+  assert.equal(workflow.env.PYTHONDONTWRITEBYTECODE, '1');
+  const job = workflow.jobs['installed-cohort'];
+  for (const owner of [job, ...job.steps]) {
+    for (const key of ['PYTHONPATH', 'PYTHONDONTWRITEBYTECODE'])
+      assert.equal(owner.env?.[key], undefined, 'An override cannot substitute the source-owned inspector');
+  }
+  for (const step of job.steps)
+    assert.equal(step['working-directory'], undefined, 'Own pack and source manifest share the exact checkout');
 }
 
 function proposedLocks(job) {
@@ -161,10 +191,27 @@ test('nine existing context names retain real own gates on PR and main, with ext
   assert.deepEqual(ci.jobs.docs.steps.filter(step => step['working-directory']).map(step => step['working-directory']),
     ['docs-next', 'docs-next', 'docs-next']);
   committedJob(ci.jobs['docs-links'], 22, [INSTALL, 'node scripts/check-doc-links.mjs --strict']);
-  committedJob(cohort.jobs['installed-cohort'], '${{ matrix.node }}', [INSTALL,
+  const installed = cohort.jobs['installed-cohort'];
+  const installedRuns = [INSTALL,
     'npm run test:cohort:pins', 'npm run test:cohort', 'npm run build',
     'node scripts/cohort/identity.mjs --workspaces .', 'npm run test:package',
-    'npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" --json', 'git diff --exit-code']);
+    OWN_PACK, 'git diff --exit-code'];
+  committedJob(installed, '${{ matrix.node }}', installedRuns);
+  packEnvironment(cohort);
+  for (const fault of [w => { w.jobs['installed-cohort'].env = { PYTHONPATH: '/tmp/foreign' }; },
+    w => { w.jobs['installed-cohort'].env = { PYTHONDONTWRITEBYTECODE: '0' }; },
+    w => { w.jobs['installed-cohort'].steps.find(s => s.run === OWN_PACK).env = { PYTHONPATH: '/tmp/foreign' }; },
+    w => { w.jobs['installed-cohort'].steps.find(s => s.run === OWN_PACK).env = { PYTHONDONTWRITEBYTECODE: '0' }; },
+    w => { w.jobs['installed-cohort'].steps.find(s => s.run === OWN_PACK)['working-directory'] = '/tmp/foreign'; }]) {
+    const changed = structuredClone(cohort); fault(changed); assert.throws(() => packEnvironment(changed));
+  }
+  for (const replacement of [OWN_PACK.replace('facts = inspect_hci_pack(root, archive, reported, authored)', 'facts = {}'),
+    OWN_PACK.replace("authored = json.loads((root / 'package.json').read_text())", 'authored = reported'),
+    OWN_PACK.replace('len(reports) != 1', 'len(reports) < 1')]) {
+    const changed = structuredClone(installed);
+    changed.steps.find(step => step.run === OWN_PACK).run = replacement;
+    assert.throws(() => committedJob(changed, '${{ matrix.node }}', installedRuns));
+  }
   const packageJSON = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'));
   assert.equal(packageJSON.scripts['test:package'], 'publint && attw --pack --profile esm-only');
   assert.equal(typeof packageJSON.devDependencies.publint, 'string');
