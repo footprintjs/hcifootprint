@@ -434,11 +434,11 @@ another model turn. See [parallel semantics and the background-read example](htt
 
 The session's record is provided by `foottrace`. If you name its rows, import
 `CommitBundle` from `foottrace` instead of `hcifootprint`; trace readers such as
-`causalChain` and `sliceForKey` come from `foottrace` too. Add `foottrace ^1.11.1`
+`causalChain` and `sliceForKey` come from `foottrace` too. Add `foottrace ^2.1.0`
 to your application's dependencies when importing these names. This type export removal
 is a breaking change from 2.x; session methods and record bytes are unchanged.
-HCI 4 supports `footprintjs ^11.0.0 || ^12.0.0` (footprintjs 12 from HCI 4.1.0) with `foottrace ^1.11.1`.
-See the [migration note](CHANGELOG.md#400---2026-11-05) before updating an existing application.
+The next-major draft requires the host's `footprintjs ^14.0.0` as a required peer and uses `foottrace ^2.1.0`. Install the engine in the application so HCI and a caller's chart share one physical engine. This draft has not been released; published HCI 4.1.0 still supports `footprintjs ^11.0.0 || ^12.0.0` with `foottrace ^1.11.1`.
+See the [next-major migration note](CHANGELOG.md#unreleased) before updating an existing application.
 
 ---
 

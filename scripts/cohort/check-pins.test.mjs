@@ -78,6 +78,32 @@ test('reports metadata scope explicitly for a coherent workspace declaration', (
     locked: { footprintjs: FP, foottrace: FT, agentfootprint: AF } });
 });
 
+test('a required engine peer is checked in both committed lock authorities', (t) => {
+  const { root, pkg, lock, docs, write } = fixture(t);
+  for (const value of [pkg, lock.packages[''], docs.packages['..']]) {
+    value.peerDependencies = { footprintjs: value.dependencies.footprintjs };
+    delete value.dependencies.footprintjs;
+  }
+  write('package.json', pkg); write('package-lock.json', lock); write('docs-next/package-lock.json', docs);
+  assert.equal(checkPins(root).declared.footprintjs, FP_RANGE);
+  docs.packages['..'].peerDependencies.footprintjs = FP_OLD_RANGE;
+  write('docs-next/package-lock.json', docs);
+  assert.throws(() => checkPins(root), /footprintjs must declare/);
+});
+
+test('an optional or ambiguous engine declaration cannot stand for a required peer', (t) => {
+  for (const ambiguous of [false, true]) {
+    const { root, pkg, write } = fixture(t);
+    pkg.peerDependencies = { footprintjs: FP_RANGE };
+    if (!ambiguous) {
+      delete pkg.dependencies.footprintjs;
+      pkg.peerDependenciesMeta = { footprintjs: { optional: true } };
+    }
+    write('package.json', pkg);
+    assert.throws(() => checkPins(root), /required peer|exactly one runtime declaration/);
+  }
+});
+
 test('a lock on another version inside the declared range passes with no script change', (t) => {
   const { root, lockAt } = fixture(t);
   lockAt('footprintjs', FP_OTHER_IN_RANGE);

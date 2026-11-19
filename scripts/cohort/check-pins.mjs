@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { declaredRange, linkedMetadata, lockedInRange, oneHoistedEntry, readJson } from './pin-assertions.mjs';
+import { declaredRange, linkedMetadata, lockedInRange, oneHoistedEntry, readJson, runtimeDeclaration } from './pin-assertions.mjs';
 
 // WHY NOTHING HERE NAMES A VERSION. `package.json` is the one place a range is declared and the root
 // lock is the one place an installed version is chosen. This gate only checks that they agree: each
@@ -16,7 +16,7 @@ import { declaredRange, linkedMetadata, lockedInRange, oneHoistedEntry, readJson
 // passes; move the lock to the newer major with npm and it still passes, with no edit to this file.
 // (This file states no version even in a comment: cohort-literals.test.mjs refuses one.)
 
-/** The packages HCI declares in `dependencies` and the root lock must hold exactly once. */
+/** Runtime dependencies or required peers the root lock must hold exactly once. */
 export const RUNTIME_PACKAGES = Object.freeze(['footprintjs', 'foottrace']);
 const LOCKS = [
   ['package-lock.json', '', true],
@@ -29,7 +29,7 @@ export function checkPins(root) {
   const read = (path) => readJson(root, path);
   const pkg = read('package.json');
   const ranges = Object.fromEntries(RUNTIME_PACKAGES.map((name) =>
-    [name, declaredRange(pkg.dependencies, name, 'package.json')]));
+    [name, runtimeDeclaration(pkg, name, 'package.json').range]));
   assert.match(pkg.devDependencies?.vite ?? '', /^8\./,
     'The root coverage toolchain must explicitly declare its Vite8 transformer');
   assert.deepEqual(pkg.workspaces, DEMOS, 'Maintained demos must use the root install/lock authority');

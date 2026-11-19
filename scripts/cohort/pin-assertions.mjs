@@ -19,6 +19,18 @@ export function declaredRange(dependencies, name, label) {
   return range;
 }
 
+/** A runtime package is either owned here or supplied by the host as a required peer. */
+export function runtimeDeclaration(pkg, name, label) {
+  const sections = ['dependencies', 'peerDependencies'].filter((section) =>
+    Object.hasOwn(pkg[section] ?? {}, name));
+  assert.ok(sections.length <= 1, `${label}: ${name} must have exactly one runtime declaration`);
+  const section = sections[0] ?? 'dependencies';
+  const range = declaredRange(pkg[section], name, label);
+  if (section === 'peerDependencies') assert.notEqual(pkg.peerDependenciesMeta?.[name]?.optional, true,
+    `${label}: ${name} must be a required peer`);
+  return { section, range };
+}
+
 export function lockedInRange(path, name, version, range) {
   assert.ok(typeof version === 'string' && semver.valid(version) !== null && semver.prerelease(version) === null,
     `${path}: locked ${name}@${version} is not a plain release version`);
@@ -31,7 +43,8 @@ export function linkedMetadata(lock, path, linkedRoot, pkg, ranges) {
     `${path}: has no "packages" object (expected an npm lockfileVersion 2 or 3 lock)`);
   const metadata = lock.packages[linkedRoot];
   for (const [name, range] of Object.entries(ranges)) {
-    assert.equal(metadata?.dependencies?.[name], range, `${path}:${linkedRoot}: ${name} must declare ${range}`);
+    const { section } = runtimeDeclaration(pkg, name, 'package.json');
+    assert.equal(metadata?.[section]?.[name], range, `${path}:${linkedRoot}: ${name} must declare ${range}`);
   }
   assert.equal(metadata.version, pkg.version, `${path}: linked HCI version is stale`);
 }

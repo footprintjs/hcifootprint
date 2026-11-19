@@ -3,6 +3,8 @@ name: Runtime cohort
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -29,6 +31,39 @@ jobs:
         node: [22, 24]
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      # Required checks consume only this commit's normal root/workspace lock.
+      - run: npm ci --ignore-scripts --strict-peer-deps
+      # After the install: check-pins reads ranges with the `semver` devDependency.
+      - run: npm run test:cohort:pins
+      - run: npm run test:cohort
+      - run: npm run build
+      - run: node scripts/cohort/identity.mjs --workspaces .
+      - run: npm run test:package
+      - run: npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" --json
+      - run: git diff --exit-code
+
+  compatibility-report:
+    name: published compatibility report (${{ matrix.node }})
+    # The demos and fresh consumer keep all their assertions. A new external
+    # package selection is a report, never a condition for this commit's gates.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}

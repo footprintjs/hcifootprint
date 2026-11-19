@@ -39,7 +39,7 @@ frame.commit(() => ({ stage: stageName, stageId: stageName, runtimeStageId }));
 
 Each dial leaves a mark in the log — `'delta'` commits a grown array as an `append` of its tail, `'reads-prefix'` puts `readKeys` on every row — and `test/trace.test.ts` reads both marks back, so a frame that slips back to foottrace's defaults fails there. A `redactedKeys` write carries the whole-value scrub, so the log holds foottrace's `'REDACTED'` and the heap the value; the redaction test in the same file reads both.
 
-`Session.commitLog()` returns `CommitBundle[]`. Import that type directly from `foottrace`; hcifootprint no longer re-exports it. The runtime API and record bytes are unchanged. The supported footprintjs range is `^9.47.0 || ^10.0.0`.
+`Session.commitLog()` returns `CommitBundle[]`. Import that type directly from `foottrace`; hcifootprint no longer re-exports it. The runtime API and record bytes are unchanged. The supported engine is the host-supplied `footprintjs ^14.0.0` required peer; record writing and reading use `foottrace ^2.1.0`.
 
 ## settlement.ts + handler-result.ts — "was it actually done?"
 

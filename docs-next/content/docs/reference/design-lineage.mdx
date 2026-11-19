@@ -63,3 +63,12 @@ gates. The reasoning behind [Graph sources](doc:graph-sources),
 [Actuation](doc:actuation) and [Live bindings](doc:live-bindings), including the tab-semantics
 decision and the tree-shake geometry with the measured probe numbers.
 [Read D23](https://github.com/footprintjs/hcifootprint/blob/main/docs/design/d23-graph-sources.md).
+
+## Next-major stable engine ownership
+
+The historical migrations above describe their original release lines. The
+next-major draft uses the host-supplied `footprintjs ^14.0.0` required peer and
+`foottrace ^2.1.0`; engines 11, 12, 13 and engine prereleases are excluded.
+Install the engine explicitly in the application and regenerate its lock;
+HCI must resolve the same physical engine as the caller's chart. This changes
+dependency ownership, not the action-completion or public-import contracts.

@@ -3,31 +3,49 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
 
 env:
   NPM_CONFIG_FETCH_RETRIES: '0'
+  PYTHONDONTWRITEBYTECODE: '1'
+  PYTHONPATH: scripts/cohort
 
 jobs:
-  test:
+  native-source:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts --strict-peer-deps
+      # Keep the retired bootstrap's pure fault fixtures offline and required.
+      - run: npm run test:cohort
+      - run: python3 -m unittest discover -s scripts/cohort/native_input -p '*_test.py'
       - run: npm run typecheck
       # Build BEFORE test — the package is ESM-only with subpath exports
       # (./mcp, ./testing, ./testing/lint) resolved from dist/; publint and
       # attw below also need a built dist/ to inspect.
       - run: npm run build
       - run: npm test
+      # The ordinary posttest badge can tolerate an absent or partial tally.
+      # Preserve the former native whole-run assertion: only verdict "ok" passes.
+      - name: Require the complete library tally and README count
+        run: node --input-type=module -e "import{readFileSync as r}from'node:fs';import{checkTestBadge,countTestFiles}from'./scripts/check-test-badge.mjs';const x=checkTestBadge({readme:r('README.md','utf8'),tally:JSON.parse(r('.test-tally.json','utf8')),testFileCount:countTestFiles()});if(x.verdict!=='ok')throw Error(JSON.stringify(x));console.log(JSON.stringify(x));"
       # Coverage is enforced at 100% on all four metrics (vitest.config.ts
       # thresholds). It runs HERE and not only on a contributor's machine for
       # the same reason the test-count badge has a gate: a number nobody checks
@@ -35,12 +53,25 @@ jobs:
       # that a green pipeline silently stops enforcing.
       - run: npm run test:coverage
       # Packaging-correctness gate: the published artifact resolves cleanly.
-      - run: npx publint
       # esm-only profile: this package ships no CJS build (type: module,
       # exports have no "require" condition) — the node10/CJS-consumer
       # checks in attw's default "strict" profile don't apply here and
       # would flag the ESM-only design as an error.
-      - run: npx @arethetypeswrong/cli --pack --profile esm-only
+      # Both package checkers come from this commit’s locked development graph.
+      - run: npm run test:package
+      - run: git diff --exit-code
+
+  # GitHub owns dependency state: failed, cancelled, skipped and unknown results
+  # must fail this familiar context, without consulting an API or artifact clock.
+  test:
+    needs: native-source
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both own source matrices to pass
+        env:
+          SOURCE_RESULT: ${{ needs.native-source.result }}
+        run: test "$SOURCE_RESULT" = success
 
   # Docs build gate — builds the nested Fumadocs app (docs-next/). Two anti-drift
   # layers ride this job:
@@ -54,6 +85,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@v6
         with:
@@ -64,7 +98,7 @@ jobs:
       # but the explicit build below is the load-bearing step (twoslash and the
       # file:.. dep resolve the library's types from dist/) — never silently
       # rely on an install hook for it.
-      - run: npm ci
+      - run: npm ci --ignore-scripts --strict-peer-deps
       - run: npm run build
 
       - name: Agent guide package metadata is current
@@ -75,7 +109,9 @@ jobs:
 
       - name: Install docs-next deps
         working-directory: docs-next
-        run: npm ci
+        run: npm ci --strict-peer-deps
+      - name: Self-docs resolve the root's one physical engine and record package
+        run: node scripts/cohort/identity.mjs --docs .
 
       # Docs-truth gate — does the hand-written documentation describe what the
       # package actually SHIPS? Reads package.json `exports`, resolves each of
@@ -96,6 +132,9 @@ jobs:
       - name: Build docs-next (twoslash-gates every code block)
         working-directory: docs-next
         run: npm run build
+      - name: Self-docs still resolve the same physical cohort after the build
+        run: node scripts/cohort/identity.mjs --docs .
+      - run: git diff --exit-code
 
   # Doc-links gate — every internal cross-reference in docs-next must resolve.
   # Hand-written guides link by stable id (doc:<id>, resolved at build by
@@ -108,6 +147,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@v6
         with:
@@ -116,5 +158,5 @@ jobs:
 
       # --ignore-scripts: the checker needs only github-slugger from the root
       # devDependencies — skip the prepare build.
-      - run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts --strict-peer-deps
       - run: node scripts/check-doc-links.mjs --strict

@@ -2,30 +2,35 @@
 
 ## [Unreleased]
 
-### Migration: next major — published FootPrint 14 RC and Foottrace 2.1
+### Migration: next major — stable engine 14 and Foottrace 2.1
 
-- Prepares published `footprintjs ^14.0.0-rc.0` and `foottrace ^2.1.0` as runtime
-  dependencies. Both maintained demos await the newly qualified AgentFootprint
-  source before their declaration and genuine lock generation can be finalized.
-  Removing support for the previous majors requires a major HCI release;
-  this declaration preparation leaves the HCI package version unchanged.
-- Update direct dependencies together and use one physical engine/record cohort.
-  The existing lockfiles retain the prior published cohort; they are not RC
-  installation proof. Source-pinned installation, identity and runtime checks
-  are still required before compatibility can be claimed. Regenerate locks
-  normally when the admitted releases are available.
-- The private native route binds the exact published engine RC and stable record
-  artifact to their reviewed registry identities. Ordinary stable policy is
-  unchanged. Pending or historical AF input is refused before native setup;
-  earlier cohort results do not establish compatibility with the new target.
-- No HCI public import or action-completion contract changes.
-- Native source CI separately admits the original authored AgentFootprint RC
-  archive, generates strict temporary root/workspace and docs locks, checks
-  actual installed identities and runs every library, demo, docs and packed
-  consumer gate. It restores authored inputs and retains original proof.
-  This does not claim RC publication, ordinary registry readiness or final
-  producer CI acceptance; only the named producer docs/Lens cycle remains
-  held during the independently qualified native bootstrap phase.
+- Requires `footprintjs ^14.0.0` as a required peer and `foottrace ^2.1.0`
+  as the runtime record dependency. Engines 11, 12, 13 and engine prereleases
+  are no longer accepted. Install the host engine explicitly and regenerate
+  the application's lock normally; do not override or hide a second engine.
+- The engine is owned by the host application. HCI uses its public schema,
+  filter and tool contracts, so a private dependency could create a second
+  engine beside a caller's chart. Development installs use the same engine
+  range; physical identity checks continue to reject hidden or nested copies.
+- This is a breaking dependency contract and requires a major HCI release.
+  The draft retains its current package version; the coordinator numbers and
+  publishes the major through the repository's reviewed release route.
+- Both maintained demos now declare published AgentFootprint 15. Genuine
+  root/workspace and linked-docs locks replace the old published baseline;
+  no sibling archive or manually constructed lock entry is used.
+- Package correctness tools are now explicit development dependencies, invoked
+  through their local binaries. The previous `npx` gates could silently fetch
+  an uncommitted tool version; a missing local tool now fails without a fallback.
+- Required CI checks the package's own committed source and locked graph.
+  The former live sibling-run/RC bootstrap is no longer an active merge gate.
+  Its independent guard fixtures remain tested for historical proof readers.
+  External demo/consumer compatibility remains visible as a report and cannot
+  turn a sibling publication or live service into this package's merge gate.
+- Corrects migration-note defects: the previous entry still said the AF source
+  was awaited after qualification and kept ordinary locks stale; the traverse
+  guide and front-page instructions still named older supported engine ranges.
+  No HCI public import or action-completion contract changes, and no product
+  tests are removed.
 
 ## [4.1.0] - 2026-11-12
 

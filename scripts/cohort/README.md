@@ -22,7 +22,7 @@ scripts.
 
 | check | reads the range from | reads the version from |
 |---|---|---|
-| `check-pins.mjs` | root `package.json · dependencies` (footprintjs, foottrace); each demo's `package.json · dependencies.agentfootprint` | root `package-lock.json` |
+| `check-pins.mjs` | root `package.json · dependencies` or required `peerDependencies` (footprintjs, foottrace); each demo's `package.json · dependencies.agentfootprint` | root `package-lock.json` |
 | `identity.mjs --workspaces ROOT` | — | ROOT's `package-lock.json`, `packages['node_modules/<name>'].version` (footprintjs, foottrace, agentfootprint) |
 | `identity.mjs` (consumer) | — | the consumer's own `package.json · dependencies`, which `prepare-consumer.mjs` wrote |
 | `prepare-consumer.mjs` | — | root `package-lock.json` (`lockedVersion`, as for react and typescript) |
@@ -89,9 +89,10 @@ Run the lightweight checker tests (after `npm ci`) with:
 node --test scripts/cohort/*.test.mjs
 ```
 
-CI owns the heavy proof, on Node22 and Node24. After its normal root install and
-build, it runs the pin/workspace checks and both demos' existing verification
-scripts. It packs HCI with `npm pack --ignore-scripts` after the explicit build.
+CI owns the heavy proof, on Node22 and Node24. Its required checks use the
+committed lock graph for the library, pins, physical identity and package quality.
+Both demos' existing verification scripts run as visible compatibility reports,
+so a sibling's publication or service cannot gate this package. It packs HCI with `npm pack --ignore-scripts` after the explicit build.
 The observed Node22/npm combination still runs HCI's build-only `prepare` hook
 during packing; the flag does not prove that every lifecycle hook was skipped.
 It creates the fresh consumer, runs normal `npm install --ignore-scripts --strict-peer-deps
@@ -101,13 +102,14 @@ hand-edited lock entries or source substitutes belong in the consumer.
 Keep the actual outputs when reporting a result. A syntax check or a fixture
 test pass does not establish that the installed runtime or types passed.
 
-## Qualified native source input
+## Historical qualified native source input
 
-`native_input.mjs` is the sole fixed native CI facade. Its private component
-is described in [native_input/README.md](native_input/README.md). The separate
-`Native source cohort` workflow runs on the exact PR source head, on both
-maintained Node versions, and retains actual input, command, physical graph,
-compiler, archive-member and restoration evidence.
+The preceding RC-only draft used `native_input.mjs` and the private component
+described in [native_input/README.md](native_input/README.md). Its source freeze
+and receipts remain historical evidence; the current required workflows do not
+call its producer transport or proof views. The independent guard fixtures stay
+tested. The mechanisms below describe that frozen profile, not a claim that its
+AF input is the current stable package or that its publication holds still apply.
 
 The fixed registry target binds the published engine RC and stable record version
 to their exact registry/source/release/producer identities. Its qualification
@@ -138,7 +140,7 @@ including HCI docs, remains required. Token access is measured in this workflow;
 credential fallback or settings change. No Browser proof, benchmark score,
 timeout or paid comparison is supplied by these source checks.
 
-## CI profiles
+## Historical RC CI profiles
 
 Pull requests use one same-run source profile. `native-source (22)` and
 `native-source (24)` each execute all 29 required commands against the exact
@@ -156,3 +158,19 @@ they do not certify a positive public-registry install. The ordinary `CI` and
 on main-branch pushes. Publication readiness stays blocked while those inputs
 are unavailable. The native run retains the unchanged ordinary pin check's
 expected refusal and separately requires its positive native pin contract.
+
+## Current stable CI
+
+The package now declares its engine as a required host peer, with the same
+range in development, and owns its record dependency. `check-pins.mjs` reads
+that declaration's actual npm section and verifies both committed lock roles;
+it rejects optional peers and ambiguous dependency/peer declarations. The
+physical census still rejects extra hidden, aliased and nested engine copies.
+
+Required checks install only the committed graph and exercise this package's
+own source, coverage, types, docs content and local package tools. Demo and
+independent fresh-install compatibility observations remain visible reports.
+The lock-inputs preparation workflow uses npm itself to generate proposed
+lock bytes in hosted CI; its artifact is committed before final source checks.
+No invented lock entries, sibling archives, live sibling CI lookup or unpinned
+package-tool fallback supplies required acceptance.
